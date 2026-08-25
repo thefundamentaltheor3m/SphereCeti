@@ -299,7 +299,7 @@ retain only useful mathematical provenance, not branch-war history.
 
 ## 10. Status of this scaffold
 
-The files in this initial scaffold were generated as a roadmap proposal and checked for internal
-file/link consistency and manifest syntax.  The package has since been compiled: on the pinned
-toolchain, `lake exe cache get` followed by `lake build` elaborates every target signature, locally
-and in CI, with the intentional `sorry` warnings in the target files as the only warnings.
+`scripts/check_roadmap.py` checks the scaffold for pin coherence, file/link consistency, and
+target-shape contracts.  On the pinned toolchain, `lake exe cache get` followed by `lake build`
+elaborates every target signature, locally and in CI, with the intentional `sorry` warnings in the
+target files as the only warnings.

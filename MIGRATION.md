@@ -234,8 +234,8 @@ Prove conversion from the existing representative construction.
 ### PR D3 — retire duplicate representative counts
 
 Choose one public name, preferably `numOrbits`.  Prove it agrees with the old `numReps` and
-`numReps'`, migrate consumers, deprecate aliases, then remove the duplicate implementation in a
-later cleanup.
+`numReps'`, migrate consumers, deprecate aliases, then remove the duplicate implementation in
+PR O3.
 
 ### PR D4 — basis-free density formula
 

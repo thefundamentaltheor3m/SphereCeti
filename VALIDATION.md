@@ -1,10 +1,8 @@
 # Validation status
 
-The roadmap was originally drafted in an environment without `lean`, `lake`, or `elan`, so the
-authoring environment could not run the pinned Lean elaborator.  The target files have since been
-elaborated: on the pinned toolchain, `lake exe cache get` followed by `lake build` completes
-successfully, with the only warnings being the intentional `sorry` markers in the target-signature
-files.
+On the pinned toolchain, `lake exe cache get` followed by `lake build` elaborates every target
+signature, locally and in CI; the only warnings are the intentional `sorry` markers in the
+target-signature files.
 
 What has been checked in this repository:
 
@@ -26,5 +24,5 @@ lake build
 
 The GitHub workflow runs the static contract check and then the same `lake build`, restoring
 Mathlib from its cache and Tau Ceti from its public Lake artifact service, and is green on this
-dependency pin.  Any future elaboration fixes should preserve the mathematical target boundaries
-rather than weaken them merely to satisfy the parser or typechecker.
+dependency pin.  Elaboration fixes must preserve the mathematical target boundaries rather than
+weaken them merely to satisfy the parser or typechecker.
