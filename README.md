@@ -1,13 +1,698 @@
 # SphereCeti
 
-## GitHub configuration
+A TauCeti-style roadmap for a unified Lean development of sphere packing in dimensions 8 and 24,
+starting from the existing `Sphere-Packing-Lean` definitions and culminating in optimality and
+uniqueness among periodic packings for the E8 and Leech configurations.
 
-To set up your new GitHub repository, follow these steps:
+This repository is a **roadmap and compile-oriented target-signature package**, not a competing production
+formalization.  The intended production home remains
+[`thefundamentaltheor3m/Sphere-Packing-Lean`](https://github.com/thefundamentaltheor3m/Sphere-Packing-Lean),
+with generic mathematics upstreamed to Mathlib or TauCeti as appropriate.
 
-* Under your repository name, click **Settings**.
-* In the **Actions** section of the sidebar, click "General".
-* Check the box **Allow GitHub Actions to create and approve pull requests**.
-* Click the **Pages** section of the settings sidebar.
-* In the **Source** dropdown menu, select "GitHub Actions".
+`README.md` is definitive.  [`SphereCeti/Suggested.lean`](SphereCeti/Suggested.lean) records
+suggested declaration shapes and theorem endpoints, but it is deliberately nonexhaustive and may be
+adjusted when implementation reveals a better Mathlib-shaped API.
 
-After following the steps above, you can remove this section from the README file.
+## The two deliberate differences from TauCetiRoadmap
+
+SphereCeti follows TauCetiRoadmap's mathematical and API discipline, with two explicit changes.
+
+1. **SphereCeti imports a fixed TauCeti snapshot.**  TauCeti is not merely an external source or an
+   informal upstream target: it is a Lake dependency pinned to a full commit.  This makes the
+   `Suggested.lean` imports and `#check` contracts reproducible.
+2. **Upstream candidates live in one file.**  There is no parallel directory tree of
+   proposed Mathlib or TauCeti roadmaps.  [`UPSTREAM.md`](UPSTREAM.md) is an issue-ready queue of
+   declarations and larger topics whose intended destination is Mathlib or an appropriate
+   TauCeti roadmap.  It records destinations only: upstream acceptance is never a prerequisite
+   for any SphereCeti target.
+
+## Exact initial pins
+
+| Component | Pin |
+|---|---|
+| Lean toolchain line | `leanprover/lean4:v4.34.0-rc1` |
+| TauCeti | `8671bee98125933c56b9b00a08ded873b77dd23b` |
+| Exact Mathlib commit resolved by that TauCeti snapshot | `618f225e1ff4a6b2790a944e01b806b7c68bdc56` |
+| Sphere-Packing semantic baseline | `bad3de916074748eb88b7d1ee6dbf9494361ad17` |
+
+Here “the 4.34.0-rc1 Mathlib pin” means the **Lean/Mathlib release line** selected by the toolchain,
+while source reproducibility is supplied by the exact Mathlib commit in `lake-manifest.json`.  We do
+not add an independent floating Mathlib requirement beside TauCeti: SphereCeti must use the same
+resolved Mathlib graph as its pinned TauCeti dependency.
+
+The TauCeti pin itself is a general repository snapshot, not a contour-specific commit.  For
+historical provenance, the pole-free meromorphic Cauchy--Goursat theorem was introduced in TauCeti
+at commit `66e7c687b9793320e895988f6762ba0da1c99b81` and is consumed here through the later pinned
+snapshot.
+
+The current Sphere-Packing baseline still uses Lean/Mathlib `v4.32.0`.  Therefore the standalone
+roadmap package does **not** initially import Sphere-Packing as a Lake dependency.  Instead,
+[`SphereCeti/Pinned.lean`](SphereCeti/Pinned.lean) models the public structures and semantic
+normalizations at that exact production commit.  Layer 0 is a coordinated production toolchain
+upgrade; after it lands, the compatibility model must be deleted and replaced by direct imports.
+It is not permitted to become a second implementation.
+
+The committed `lake-manifest.json` records the entire resolved dependency graph from the TauCeti
+snapshot, not merely the user-facing TauCeti SHA.
+
+## Summit statements
+
+The density endpoints are:
+
+```lean
+theorem spherePackingConstant_eight :
+    SpherePackingConstant 8 = ENNReal.ofReal (Real.pi ^ 4 / 384)
+
+theorem spherePackingConstant_twentyFour :
+    SpherePackingConstant 24 =
+      ENNReal.ofReal (Real.pi ^ 12 / 12.factorial)
+```
+
+The dimension-specific optimality statements are:
+
+```lean
+theorem E8.isOptimal :
+    SpherePackingConstant 8 = E8.packing.density
+
+theorem Leech.isOptimal :
+    SpherePackingConstant 24 = Leech.packing.density
+```
+
+The uniqueness endpoints are deliberately restricted to periodic packings:
+
+```lean
+theorem E8.uniqueOptimalPeriodic (P : PeriodicSpherePacking 8)
+    (hopt : P.density = SpherePackingConstant 8) :
+    P.toSpherePacking.IsSimilar E8.packing.toSpherePacking
+
+theorem Leech.uniqueOptimalPeriodic (P : PeriodicSpherePacking 24)
+    (hopt : P.density = SpherePackingConstant 24) :
+    P.toSpherePacking.IsSimilar Leech.packing.toSpherePacking
+```
+
+This is the correct scope.  With upper density defined by a limsup, deleting or changing finitely
+many spheres does not change density, so uniqueness among **all** packings is false without a much
+stronger equivalence relation.  Viazovska's paper states that the E8 packing is the unique periodic
+packing of maximal density, and the 24-dimensional paper proves the analogous result for Leech.
+The 2023 quantitative stability paper restates both exact periodic uniqueness theorems before
+proving near-equality results.
+
+The roadmap also supplies lattice-packing uniqueness as a corollary.  Quantitative stability,
+universal optimality, and interpolation formulas are related but larger projects; they are listed
+in `UPSTREAM.md` as candidate TauCeti roadmaps rather than silently folded into this one.
+
+## Where the uniqueness work belongs
+
+The equality case naturally splits across repositories.
+
+| Result | Natural home | Reason |
+|---|---|---|
+| Equality in the periodic Cohn--Elkies sum forces all pairwise differences onto the magic-function zero shells | Sphere-Packing/SphereCeti | It depends on packing density, finite periodic patterns, and the specific certificate |
+| The translated center set generates a full even integral lattice, and optimal density forces the packing to equal one coset of it | Sphere-Packing/SphereCeti | This is the geometric rigidity step from a packing to a lattice |
+| Every positive-definite even unimodular rank-eight integral lattice is isometric to E8 | TauCeti IntegralLattices extension | Pure integral-lattice classification, independent of sphere packing |
+| Every rootless positive-definite even unimodular rank-24 integral lattice is isometric to Leech | TauCeti IntegralLattices/Niemeier extension | Pure lattice classification; may be proved narrowly or via Niemeier theory |
+| Universal optimality, Fourier interpolation, and quantitative stability | Separate TauCeti roadmaps | They require energy, interpolation, and quantitative metric infrastructure beyond packing density |
+
+The most economical exact-uniqueness route is the one isolated by Cohn--Elkies, Section 8.  It
+does **not** require a full abstract classification of equality cases for arbitrary linear-programming
+bounds.  In dimensions 8 and 24, strict direct-side signs put every nonzero center difference at a
+squared norm occurring in the candidate even unimodular lattice.  After translating one center to
+zero, polarization makes the subgroup generated by all centers an even integral full-rank lattice
+`L`.
+
+The decisive step is a **covolume/index squeeze**, not the unsupported assertion that evenness alone
+makes `L` a valid superpacking at the Leech separation.  The original period lattice lies in `L`,
+and its finite center pattern injects into the quotient by the period lattice.  On the other hand,
+the Gram determinant of a full integral lattice is a nonzero integer, so `covolume L ≥ 1`.  At the
+canonical E8 and Leech normalizations the optimal periodic packing has one center per unit volume.
+The quotient count and covolume inequalities therefore become equalities: `covolume L = 1`, every
+coset of the period lattice in `L` is occupied, and the periodic center set is exactly one translate
+of `L`.  Only then does the original packing separation imply minimum squared norm `2` in dimension
+8 or `4` in dimension 24.  The remaining statement is precisely the algebraic E8 or rootless-Leech
+classification above.
+
+Fourier structure factors remain part of the general equality API and are useful checks, but
+Cohn--Elkies explicitly note that the uniqueness deduction needs only the exact direct-side root
+set, not restrictions on the roots of the Fourier transform.
+
+## Governing principles
+
+1. **Preserve the existing packing semantics.**  The current `SpherePacking`,
+   `PeriodicSpherePacking`, `balls`, `finiteDensity`, `density`, and packing constants are the
+   starting definitions.
+2. **Build one common 8+24 library, not two copied proofs.**  Common structure includes lattices,
+   Poisson summation, Cohn--Elkies certificates, theta series, radial Schwartz Fourier eigenspaces,
+   equality conditions, and periodic rigidity.
+3. **Do not force unlike dimension-specific modular formulas into a typeclass.**  Explicit data
+   records passed to common constructors are acceptable; a global `MagicDimension` instance is
+   not.
+4. **Use TauCeti's integral-lattice layer rather than creating duplicate algebraic predicates.**
+   SphereCeti owns the bridge to Mathlib's real topological `ZLattice` representation.
+5. **Pin every hidden normalization.**  Fourier sign, Haar measure, theta exponent, q parameter,
+   separation versus sphere radius, covolume, and modular slash conventions are permanent API
+   decisions.
+6. **Separate inequality from equality.**  An optimal density theorem needs weak sign conditions;
+   periodic uniqueness additionally needs exact zero sets and a termwise equality analysis of the
+   Poisson bound.
+7. **Keep geometric density in `ℝ≥0∞`.**  Add coercion lemmas for finite expressions rather than
+   replacing the measure-theoretic definition by a real-valued surrogate.
+8. **Every production PR starts from current `main`.**  The historical `gauss2` branch and PR #420
+   are proof quarries, not branch bases or architectural specifications.
+9. **Automation attributes are part of the public API.**  `@[simp]`, `@[grind]`, and `@[fun_prop]`
+   additions require small contract examples.
+10. **Generic local work is shaped for upstream from the beginning.**  The issue-ready destination
+    is recorded in `UPSTREAM.md`, even when waiting would block SphereCeti and a local proof is
+    temporarily necessary.
+
+## Existing material to preserve and consume
+
+### From Sphere-Packing-Lean `main`
+
+The following mathematics is valuable and should be migrated, not rewritten gratuitously.
+
+- The basic packing structures and limsup density definitions.
+- Positive scaling and scale-invariance of density.
+- The periodic packing action, orbit representatives, covolume density calculation, and periodic
+  approximation theorem.
+- The coordinate and matrix descriptions of E8, its integral/even structure, minimum norm,
+  Euclidean lattice instances, basis, packing, and density.
+- `Function.IsRadial` and `RadialSchwartzMap`, including the restricted Fourier transform,
+  involution, and self/skew-adjoint decomposition.
+- The Jacobi theta, Eisenstein, discriminant, q-expansion, Serre derivative, and imaginary-axis
+  developments.
+- The explicit E8 auxiliary functions `a`, `b`, and `g`, contour transformations, decay estimates,
+  special values, and sign proofs.
+
+Targeted cleanup is still warranted:
+
+- separate test imports from the public root aggregator;
+- consolidate `numReps`/`numReps'` into one orbit-count API;
+- remove global heterogeneous `NNReal`/`ENNReal` arithmetic instances;
+- remove `@[simp]` from the large basis-free periodic density expansion;
+- replace duplicate Fourier involution arguments in `a/Eigenfunction` and `b/Eigenfunction` by the
+  radial Schwartz API;
+- retire the temporary Cohn--Elkies prerequisites file after the real Poisson API lands;
+- extract generic q-series and analytic lemmas currently buried in E8-specific files.
+
+### From the `gauss2` branch
+
+Mine, with exact source attribution:
+
+- the completed E8 summit theorem;
+- the final normalization of the magic function;
+- real-valuedness and Fourier-eigenfunction assembly;
+- exact sign and zero deductions;
+- the Möbius-inversion wedge contour argument;
+- the more developed Fourier permutation proof for the integral pieces;
+- any refactors that have already survived the full proof.
+
+Do not wholesale merge or rebase the branch.  Port one coherent theorem or API at a time onto the
+upgraded current `main`.
+
+### From PR #420
+
+Mine and split:
+
+- general lattice summability for Schwartz functions;
+- dual-lattice infrastructure;
+- Poisson summation;
+- basis-independent covolume statements;
+- general periodic Cohn--Elkies counting;
+- useful cleanup replacing obstructive wrappers by local notation or direct Mathlib terms.
+
+### From the pinned TauCeti snapshot
+
+SphereCeti should directly consume the following coherent APIs.
+
+#### Integral lattices
+
+- `TauCeti.IntegralLattice` and Gram-matrix constructors;
+- integral norm and form;
+- evenness and basis/Gram criteria;
+- dual carriers and discriminant groups;
+- unimodularity and determinant criteria;
+- isometries and signature/positive-definiteness;
+- standard-coordinate Gram-lattice formulas.
+
+TauCeti's integral lattice lives in a finite-dimensional rational ambient vector space.  The
+existing Sphere-Packing lattice lives as a discrete full-rank `ℤ`-submodule of a real Euclidean
+space.  SphereCeti therefore introduces an explicit `IntegralPresentation` consisting of a
+`ℤ`-basis and integer Gram matrix.  It produces a TauCeti integral lattice while recording the
+comparison with the real lattice.  This bridge is central; defining another unrelated notion of
+“integral real lattice” would create a permanent schism.
+
+#### Complex and modular analysis
+
+- `TauCeti.Contour.circleIntegral_eq_zero_of_meromorphicOrderAt_nonneg` for closed circles;
+- the generic `UpperHalfPlane.resToImagAxis` API and its modular `S`-transformation;
+- q-coefficient vanishing versus cusp-function Big-O estimates;
+- the generic function and logarithmic-derivative `S`-transformation;
+- finite-index Sturm bounds when a congruence-level identity genuinely requires them;
+- the small Fourier-continuity adapter.
+
+These do not replace Sphere-Packing's open rectangular contour deformation or the specialized
+convex-wedge Möbius argument.  Closed circles, unbounded rectangles, and finite path homotopies solve
+different problems.
+
+## Permanent mathematical conventions
+
+The fuller ledger is in [`CONVENTIONS.md`](CONVENTIONS.md).  The central choices are:
+
+### Ambient Euclidean space
+
+```lean
+abbrev V (d : ℕ) := EuclideanSpace ℝ (Fin d)
+```
+
+### Separation and radius
+
+A `SpherePacking` stores center separation `r`; its balls have radius `r / 2`.
+
+- E8 is normalized to separation `√2`, hence ball radius `√2 / 2`.
+- Leech is normalized to separation `2`, hence unit balls.
+
+Uniqueness at the scale-free packing constant is stated using positive similarity.  Fixed-radius
+intermediate theorems use congruence.
+
+### Fourier transform
+
+Use Mathlib's real inner-product Fourier transform with kernel
+
+\[
+  e^{-2\pi i\langle x,\xi\rangle}.
+\]
+
+Every Gaussian, Poisson, dual-lattice, and theta transformation theorem must be tested against this
+normalization.
+
+### Theta series
+
+```text
+Theta_Λ(τ) = Σ_{x∈Λ} exp(π i τ ‖x‖²).
+```
+
+For even lattices, the modular q parameter is
+
+```text
+q = exp(2π i τ),
+```
+
+and coefficient `n` counts vectors with squared norm `2n`.
+
+Thus:
+
+- E8 root count is coefficient `1`, equal to `240`;
+- Leech has coefficient `1 = 0` and coefficient `2 = 196560`.
+
+### Congruence and similarity
+
+`IsCongruent` uses a general metric-space isometry equivalence, hence permits translation and
+orthogonal motion, and requires equal separation.  `IsSimilar` permits one positive scaling before
+congruence.
+
+### Attributes
+
+Good `@[simp]` declarations are canonical projections and evaluations:
+
+- scaling centers/separation/density;
+- `ofZLattice` centers, lattice, and separation;
+- shell membership;
+- norm-squared profile evaluation;
+- coercions of radial Schwartz Fourier transforms.
+
+Large semantic transformations are explicit, not simp rules:
+
+- Poisson summation;
+- the Cohn--Elkies bound;
+- periodic density expansion;
+- theta `S`-transformation;
+- theta classification identities;
+- contour deformations.
+
+Good `@[grind]` rules are directional structural facts:
+
+- distinct centers imply separation;
+- period-lattice action closure;
+- orbit representative uniqueness;
+- minimum-norm elimination;
+- codeword parity and coordinate congruences.
+
+`@[fun_prop]` remains appropriate for imaginary-axis realness/positivity, differentiability, and
+algebraic closure properties already developed in TauCeti.
+
+# Roadmap layers
+
+## Layer 0 — synchronized toolchain migration and direct imports
+
+**Goal:** move production `Sphere-Packing-Lean/main` from Lean/Mathlib `v4.32.0` to the exact
+4.34/TauCeti dependency graph of SphereCeti, with no mathematical redesign in the same PR.
+
+Deliverables:
+
+1. bump `lean-toolchain` to `v4.34.0-rc1`;
+2. pin TauCeti to `8671bee98125933c56b9b00a08ded873b77dd23b`;
+3. resolve Mathlib to `618f225e1ff4a6b2790a944e01b806b7c68bdc56`;
+4. repair source incompatibilities without opportunistic refactors;
+5. add exact `#check` and Fourier-normalization contracts;
+6. add Sphere-Packing as a direct SphereCeti dependency;
+7. delete `SphereCeti.Pinned` and rewrite `Suggested.lean` imports against production declarations.
+
+This is the only layer in which the compatibility model is tolerated.
+
+## Layer 1 — packing API preservation and import hygiene
+
+**Goal:** stabilize the public geometric boundary before adding new mathematics.
+
+Deliverables:
+
+- keep the current structures and density definitions;
+- split production and test aggregators;
+- add directional separation and lattice-action lemmas;
+- mark safe scale projections and scale density as `@[simp]`;
+- add `density_le_constant` lemmas;
+- define congruence and similarity;
+- preserve public names with compatibility aliases during migrations.
+
+Acceptance tests:
+
+- existing E8 packing and density proofs still compile;
+- `simp` normalizes constructor projections without expanding density formulas;
+- `grind` closes basic separation/action residue but does not invoke analysis.
+
+## Layer 2 — one real/algebraic lattice bridge
+
+**Goal:** make TauCeti's rational integral-lattice library and Mathlib's Euclidean `ZLattice`
+representation two views of the same concrete lattice data.
+
+Deliverables:
+
+- `EuclideanLattice.IntegralPresentation`;
+- construction of the TauCeti `ofGramMatrix` lattice;
+- Gram compatibility with the real inner product;
+- dual-carrier/real-dual membership comparison;
+- discriminant/covolume comparison;
+- finite norm shells and minimum-norm predicates;
+- transport of evenness, unimodularity, rootlessness, and isometry across presentations.
+
+Do not introduce a second global `IsIntegral` predicate on real lattices.  Integrality is witnessed
+by the presentation and discharged through TauCeti.
+
+## Layer 3 — periodic orbit and density API
+
+**Goal:** replace implementation-dependent representative choices by one canonical finite-pattern
+interface.
+
+Deliverables:
+
+- `PeriodicSpherePacking.ofZLattice`;
+- one `FundamentalPattern` structure;
+- pattern-cardinality independence;
+- one `numOrbits` API;
+- basis-free density formula
+
+\[
+  \operatorname{density}(P)
+  = \#S\,\operatorname{vol}(B(0,r/2))/\operatorname{covol}(\Lambda);
+\]
+
+- periodic approximation and
+  `PeriodicSpherePackingConstant d = SpherePackingConstant d`.
+
+The large density formula must not be a simp lemma.
+
+## Layer 4 — Poisson summation and Cohn--Elkies
+
+**Goal:** isolate the linear-programming theorem from the dimension-specific magic functions.
+
+Deliverables:
+
+- Schwartz summability on lattice translates;
+- Poisson summation in the exact Fourier/Haar convention;
+- `CohnElkies.Certificate d r`, with no radiality requirement;
+- certificate bound and scaling API;
+- `Certificate.ofRadial` as a construction adapter;
+- unrestricted sphere-packing bound;
+- lattice sharpness relation;
+- general periodic structure factor;
+- termwise equality characterization for a finite periodic pattern.
+
+The periodic equality theorem is essential for uniqueness.  The Fourier-side condition is not simply
+“`f̂` vanishes on every nonzero dual vector”: for a multi-coset periodic configuration, a nonzero
+structure factor may also vanish.  This distinction must be represented explicitly.
+
+## Layer 5 — theta series
+
+**Goal:** add a genuine lattice theta API, distinct from the existing Jacobi theta functions.
+
+Deliverables:
+
+- analytic theta definition and normal convergence;
+- shell regrouping and q-expansion;
+- Poisson/dual `S`-transformation;
+- even-unimodular level-one modular form;
+- rank-eight classification
+
+\[
+  \Theta_\Lambda = E_4;
+\]
+
+- rank-24 classification
+
+\[
+  \Theta_\Lambda
+  = E_4^3 + (N_2(\Lambda)-720)\Delta;
+\]
+
+- rootless specialization
+
+\[
+  \Theta_\Lambda=E_4^3-720\Delta.
+\]
+
+The theta theory is not merely decorative.  It checks all lattice normalizations, gives shell
+cardinalities, and supplies the modular classification used in the E8/Leech infrastructure.
+
+## Layer 6 — E8 and Leech lattice packages
+
+### E8
+
+Retain the existing coordinate and basis descriptions, then package:
+
+- an `IntegralPresentation`;
+- positive-definiteness, evenness, and unimodularity;
+- minimum squared norm `2`;
+- theta identity;
+- root count `240`;
+- canonical lattice packing and density.
+
+The direct minimum-norm proof remains independent of the theta identity.
+
+### Leech
+
+Provide two descriptions and prove them equal:
+
+1. a standard extended-Golay coordinate/glue construction, used for parity, congruences, and
+   rootlessness;
+2. an explicit basis/Gram presentation, used for full rank, determinant, covolume, and computation.
+
+Required endpoints:
+
+- even, unimodular, positive-definite;
+- minimum squared norm `4`;
+- theta identity;
+- shell cardinality `196560`;
+- unit-ball packing density `π^12 / 12!`.
+
+The naive unshifted Construction-A lattice of the extended binary Golay code must not be called the
+Leech lattice.
+
+## Layer 7 — common radial/modular-kernel machinery
+
+**Goal:** extract the genuinely common analytic pattern without hiding dimension-specific formulas.
+
+Common API:
+
+- squared-norm radial profile constructor;
+- restricted radial Schwartz Fourier transform;
+- `+1` and `-1` eigenspace operations;
+- Gaussian/Laplace kernel integrability;
+- differentiation under the integral;
+- modular inversion of the kernel;
+- finite contour deformation;
+- open rectangular deformation when a contour is sent to infinity;
+- q-expansion Big-O estimates for cusp decay.
+
+`ModularKernelDatum d` is explicit data, not a typeclass.  It should contain only hypotheses reused
+by the generic constructor; it must not become a record containing every theorem from both magic
+function proofs.
+
+Use the appropriate contour tool:
+
+- TauCeti's meromorphic Goursat theorem for a closed circle with no poles;
+- production `OpenRectangular` for unbounded rectangles;
+- the finite wedge/Poincare machinery for the Möbius inversion contour.
+
+## Layer 8 — E8 and Leech magic functions
+
+For each dimension, prove:
+
+- the radial Schwartz object;
+- real-valuedness of the function and Fourier transform;
+- Fourier eigenfunction identity;
+- normalization at zero;
+- direct-side nonpositivity beyond the threshold;
+- Fourier-side nonnegativity;
+- exact zero set, including absence of extraneous zeros;
+- strict sign away from the shell zeros;
+- the bundled Cohn--Elkies certificate;
+- equality of its bound with the candidate lattice density.
+
+The exact zero set is a first-class endpoint.  Density optimality only needs weak inequalities, but
+periodic uniqueness needs to infer that every nonzero pairwise difference lies on an E8 or Leech
+shell.
+
+So that the stability roadmaps recorded in `UPSTREAM.md` can reuse the hard analytic work,
+preserve multiplicity and quantitative lower-bound information rather than proving only
+`f x = 0` statements and discarding the stronger estimates.
+
+## Layer 9 — equality and rigidity
+
+**Goal:** formalize the equality case of the linear-programming argument, not just the numerical
+bound.
+
+### Common equality engine
+
+Given an optimal periodic packing and a fundamental pattern:
+
+1. the periodic Cohn--Elkies inequality is an equality;
+2. every direct-side summand with strict negative sign must vanish;
+3. every nonzero periodic difference lies in the exact shell zero set;
+4. Fourier-side terms satisfy the `f̂`/structure-factor alternative;
+5. after translating one center to zero, polarization turns the even squared-distance spectrum
+   into integral inner products;
+6. the period lattice is contained in the generated subgroup, so the latter is a full even integral
+   Euclidean lattice and the finite center pattern injects into its finite quotient over the period
+   lattice;
+7. the integral Gram determinant gives `covolume ≥ 1`, while the canonical center density and the
+   quotient count give `covolume ≤ 1`; hence the generated lattice is unimodular, every quotient
+   coset is occupied, and the original center set is exactly one lattice coset;
+8. the original separation now supplies minimum squared norm `2` for E8 or `4` for Leech.
+
+This is the formal counterpart of Cohn--Elkies, Lemma 8.2 and the argument immediately following
+it.  The covolume/discriminant bridge and quotient-cardinality argument should be exposed through
+reusable intermediate theorems, not hidden in two enormous summit proofs.
+
+### E8 rigidity
+
+The E8 shell spectrum gives a positive-definite even unimodular rank-eight lattice.  Use the
+classification theorem that such a lattice is isometric to E8, then transport the center coset to
+obtain periodic congruence.
+
+The classification theorem is generic integral-lattice mathematics; its intended home is a
+TauCeti IntegralLattices roadmap extension, recorded in `UPSTREAM.md`.  It is a required
+dependency of this roadmap: implement it locally, with exactly the upstream-shaped statement,
+whenever coordination or timing requires it.  Upstream acceptance is never a prerequisite.
+
+### Leech rigidity
+
+The Leech shell spectrum gives a rootless positive-definite even unimodular rank-24 lattice.  Use the
+uniqueness characterization of Leech and transport the center coset.
+
+A full Niemeier classification is one route but should not be imported merely as a black box if a
+narrower rootless uniqueness proof is substantially easier to formalize.  The intended generic
+home is TauCeti, and the issue is recorded in `UPSTREAM.md`; the rootless uniqueness theorem is a
+required dependency of this roadmap regardless, and may be proved locally with exactly the
+upstream-shaped statement.
+
+## Layer 10 — summit assembly
+
+Assemble:
+
+- periodic equals unrestricted packing constant;
+- E8 lower bound from its packing;
+- E8 upper bound from its certificate;
+- Leech lower bound from its packing;
+- Leech upper bound from its certificate;
+- numerical constant formulas;
+- E8 unique optimal periodic packing;
+- Leech unique optimal periodic packing;
+- lattice uniqueness corollaries.
+
+The summit files should be short: ideally imports, two inequalities, `le_antisymm`, and the equality
+case theorem.  Analytic or lattice classification work buried in the summit file signals a missing
+API layer.
+
+# Uniqueness, universal optimality, and stability
+
+The roadmap includes **exact periodic uniqueness** because it is a direct equality-case continuation
+of the same Cohn--Elkies certificates used for density optimality.
+
+It does not attempt to absorb the following larger theories:
+
+- universal optimality for completely monotone functions of squared distance;
+- the E8/Leech radial Fourier interpolation formulas;
+- quantitative lattice stability;
+- local-frame stability for almost-optimal periodic packings;
+- energy minimization for general point configurations.
+
+Those topics need additional general objects: point configurations independent of a chosen sphere
+radius, energy per point, admissible potentials, completely monotone functions, interpolation bases,
+Hausdorff/local-frame metrics, and quantitative estimates.  They deserve separate TauCeti roadmaps.
+SphereCeti should preserve exact zero multiplicities and estimates so that those roadmaps can reuse
+the hard analytic work.
+
+# PR discipline
+
+The detailed main-first sequence is in [`MIGRATION.md`](MIGRATION.md).  Every production PR should:
+
+- begin from current `main` unless stacked on one named immediate predecessor;
+- change one mathematical boundary;
+- preserve or reduce `sorry` count;
+- record source provenance when mining `gauss2` or PR #420;
+- include small API/automation contract examples;
+- avoid broad directory moves in the same PR as a hard proof;
+- provide compatibility aliases before deleting public names;
+- distinguish “copied proof material” from “new target API”.
+
+# Repository files
+
+| File | Role |
+|---|---|
+| `README.md` | Definitive mathematical roadmap |
+| `SphereCeti/Suggested.lean` | Proposed target signatures and contract checks |
+| `SphereCeti/Pinned.lean` | Temporary model of the older Sphere-Packing public API |
+| `CONVENTIONS.md` | Permanent normalization and attribute decisions |
+| `MIGRATION.md` | Main-first targeted PR sequence |
+| `PROVENANCE.md` | Source and dependency ledger |
+| `UPSTREAM.md` | Issue-ready Mathlib/TauCeti upstream queue |
+| `VALIDATION.md` | What was statically checked and what CI must still elaborate |
+| `scripts/check_roadmap.py` | Deterministic pin, link, and target-shape contract check |
+| `.github/workflows/ci.yml` | Static contract check followed by Lean elaboration |
+| `lakefile.toml` | Exact TauCeti dependency |
+| `lake-manifest.json` | Full resolved pin set |
+| `lean-toolchain` | Lean `v4.34.0-rc1` |
+
+# References
+
+Core papers:
+
+- H. Cohn and N. Elkies, *New upper bounds on sphere packings I*, Annals of Mathematics 157
+  (2003), 689--714.
+- M. Viazovska, *The sphere packing problem in dimension 8*, Annals of Mathematics 185 (2017),
+  991--1015.
+- H. Cohn, A. Kumar, S. Miller, D. Radchenko, and M. Viazovska,
+  *The sphere packing problem in dimension 24*, Annals of Mathematics 185 (2017), 1017--1033.
+- H. Cohn and A. Kumar, *Optimality and uniqueness of the Leech lattice among lattices*, Annals of
+  Mathematics 170 (2009), 1003--1050.
+- H. Cohn, A. Kumar, S. Miller, D. Radchenko, and M. Viazovska,
+  *Universal optimality of the E8 and Leech lattices and interpolation formulas*, Annals of
+  Mathematics 196 (2022), 983--1082.
+- K. J. Böröczky, D. Radchenko, and J. P. G. Ramos,
+  *A quantitative stability result for the sphere packing problem in dimensions 8 and 24*, 2023.
+
+Formal sources and sibling projects:
+
+- `thefundamentaltheor3m/Sphere-Packing-Lean` at the pinned production baseline;
+- `TauCetiProject/TauCeti` at the exact dependency pin;
+- `TauCetiProject/TauCetiRoadmap`, especially the IntegralLattices and ContourIntegration roadmaps;
+- Mathlib's `ZLattice`, Schwartz/Fourier, Gaussian, modular-form, q-expansion, and measure APIs.
