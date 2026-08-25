@@ -1,1 +1,7 @@
-/.lake
+/.lake/
+/lake-packages/
+*.olean
+*.ilean
+*.c
+*.o
+.DS_Store
