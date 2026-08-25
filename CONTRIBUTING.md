@@ -11,7 +11,7 @@ SphereCeti is a human-steered roadmap and target-signature package for the produ
 - `CONVENTIONS.md` fixes normalizations and attribute policy.
 - `MIGRATION.md` fixes production PR sequencing.
 - `PROVENANCE.md` records sources and exact pins.
-- `UPSTREAM.md` is the issue-ready queue for generic destinations.
+- `UPSTREAM.md` is the issue-ready ledger of generic destinations.
 - `VALIDATION.md` records the current static and Lean-elaboration status.
 
 A change to `Suggested.lean` does not silently change the roadmap; update the relevant prose and

@@ -1,11 +1,11 @@
 # Potential Mathlib and TauCeti destinations
 
-This file is an issue-ready queue.  It deliberately does **not** create a parallel directory tree of
-upstream roadmaps.  Each item records a prospective destination, a stable mathematical boundary,
-and SphereCeti's local fallback.  Turning an item into an issue does not commit Mathlib or TauCeti to
-accepting it.
+This file is an issue-ready ledger.  It deliberately does **not** create a parallel directory tree
+of upstream roadmaps.  Each item records a prospective destination, a stable mathematical boundary,
+and SphereCeti's local fallback; the items carry no ordering.  Turning an item into an issue does
+not commit Mathlib or TauCeti to accepting it.
 
-The queue follows two rules:
+The ledger follows two rules:
 
 1. SphereCeti never waits for upstream work.  When a generic theorem is needed, implement it locally
    in an upstream-shaped form and keep the proof usable.
@@ -14,7 +14,7 @@ The queue follows two rules:
 ## Issue title suggestion
 
 ```text
-[SphereCeti upstream queue] Generic lattice, Fourier, contour, and rigidity APIs
+[SphereCeti upstream ledger] Generic lattice, Fourier, contour, and rigidity APIs
 ```
 
 ## A. Focused Mathlib candidates

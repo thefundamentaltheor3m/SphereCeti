@@ -21,7 +21,7 @@ SphereCeti follows TauCetiRoadmap's mathematical and API discipline, with two ex
    informal upstream target: it is a Lake dependency pinned to a full commit.  This makes the
    `Suggested.lean` imports and `#check` contracts reproducible.
 2. **Upstream candidates live in one file.**  There is no parallel directory tree of
-   proposed Mathlib or TauCeti roadmaps.  [`UPSTREAM.md`](UPSTREAM.md) is an issue-ready queue of
+   proposed Mathlib or TauCeti roadmaps.  [`UPSTREAM.md`](UPSTREAM.md) is an issue-ready ledger of
    declarations and larger topics whose intended destination is Mathlib or an appropriate
    TauCeti roadmap.  It records destinations only: upstream acceptance is never a prerequisite
    for any SphereCeti target.
@@ -664,7 +664,7 @@ The detailed main-first sequence is in [`MIGRATION.md`](MIGRATION.md).  Every pr
 | `CONVENTIONS.md` | Permanent normalization and attribute decisions |
 | `MIGRATION.md` | Main-first targeted PR sequence |
 | `PROVENANCE.md` | Source and dependency ledger |
-| `UPSTREAM.md` | Issue-ready Mathlib/TauCeti upstream queue |
+| `UPSTREAM.md` | Issue-ready Mathlib/TauCeti upstream ledger |
 | `VALIDATION.md` | What was statically checked and what CI must still elaborate |
 | `scripts/check_roadmap.py` | Deterministic pin, link, and target-shape contract check |
 | `.github/workflows/ci.yml` | Static contract check followed by Lean elaboration |
