@@ -43,6 +43,7 @@ public section
 open BigOperators MeasureTheory Metric Set Filter Module
 open Complex UpperHalfPlane MatrixGroups
 open scoped ENNReal FourierTransform Real Topology ModularForm CongruenceSubgroup
+open scoped Pointwise SchwartzMap InnerProductSpace Manifold
 
 namespace SphereCeti.Suggested
 
@@ -157,7 +158,7 @@ namespace EuclideanLattice
 
 /-- The Euclidean dual lattice for the Mathlib Fourier convention. -/
 def dual {d : ℕ} (Λ : Submodule ℤ (V d)) : Submodule ℤ (V d) :=
-  (innerₗ ℝ).dualSubmodule Λ
+  LinearMap.BilinForm.dualSubmodule (innerₗ (V d)) Λ
 
 /-- A finite shell at a prescribed squared norm. -/
 def normSqShell {d : ℕ} (Λ : Submodule ℤ (V d)) (a : ℝ) : Set Λ :=
@@ -205,7 +206,7 @@ structure IntegralPresentation {d : ℕ} (Λ : Submodule ℤ (V d)) where
   gram : Matrix (Fin d) (Fin d) ℤ
   gram_isSymm : gram.IsSymm
   gram_spec : ∀ i j,
-    ((gram i j : ℤ) : ℝ) = ⟪(basis i : Λ) : V d, (basis j : Λ) : V d⟫_ℝ
+    ((gram i j : ℤ) : ℝ) = ⟪((basis i : Λ) : V d), ((basis j : Λ) : V d)⟫_ℝ
 
 /-- The TauCeti rational integral lattice associated to an integral presentation. -/
 noncomputable def IntegralPresentation.toIntegralLattice {d : ℕ}
@@ -240,7 +241,7 @@ theorem generatedSubmodule_evenIntegral_full {d : ℕ}
 def IntegralPresentation.DualCompatible {d : ℕ}
     {Λ : Submodule ℤ (V d)} (P : IntegralPresentation Λ) : Prop :=
   ∀ x : V d, x ∈ dual Λ ↔
-    ∀ i : Fin d, ∃ z : ℤ, ⟪x, (P.basis i : Λ) : V d⟫_ℝ = z
+    ∀ i : Fin d, ∃ z : ℤ, ⟪x, ((P.basis i : Λ) : V d)⟫_ℝ = z
 
 /-- The real dual-lattice membership condition is the Gram-coordinate condition used by
 TauCeti's algebraic dual carrier. -/
@@ -504,11 +505,11 @@ noncomputable def latticeThetaModularForm {k : ℕ}
     (Λ : Submodule ℤ (V (8 * k))) [DiscreteTopology Λ] [IsZLattice ℝ Λ]
     (P : EuclideanLattice.IntegralPresentation Λ)
     (heven : P.IsEven) (hunimodular : P.IsUnimodular) :
-    ModularForm Γ(1) (4 * k) := by
+    ModularForm 𝒮ℒ (4 * k) := by
   sorry
 
 /-- The normalized weight-four Eisenstein series used in the E8 identity. -/
-noncomputable def E4 : ModularForm Γ(1) 4 := ModularForm.E (k := 4) (by norm_num)
+noncomputable def E4 : ModularForm 𝒮ℒ 4 := ModularForm.E₄
 
 /-- Root count, i.e. the squared-norm-two shell cardinality. -/
 def rootCard {d : ℕ} (Λ : Submodule ℤ (V d)) [DiscreteTopology Λ] : ℕ :=
@@ -667,7 +668,7 @@ noncomputable def packing : PeriodicSpherePacking 24 := by
 
 /-- Density of unit balls centered at the Leech lattice. -/
 theorem packing_density :
-    packing.density = ENNReal.ofReal (Real.pi ^ 12 / 12.factorial) := by
+    packing.density = ENNReal.ofReal (Real.pi ^ 12 / Nat.factorial 12) := by
   sorry
 
 end Leech
@@ -698,7 +699,8 @@ structure ModularKernelDatum (d : ℕ) where
   profile_eq_integral : ∀ r, profile r = ∫ t in Set.Ici (1 : ℝ), kernel (Complex.I * t) *
     Complex.exp (-Real.pi * r * t)
   kernel_S_transform : ∀ z : UpperHalfPlane,
-    kernel (ModularGroup.S • z) = (z : ℂ) ^ halfDimension * kernel z
+    kernel ((ModularGroup.S • z : UpperHalfPlane) : ℂ) =
+      (z : ℂ) ^ halfDimension * kernel (z : ℂ)
   profile_schwartz : ∃ f : 𝓢(ℝ, ℂ), ∀ r, f r = profile r
 
 /-- Generic constructor from modular kernel data. -/
@@ -984,7 +986,7 @@ There is deliberately no uniqueness statement over all packings, since finite de
 upper density. -/
 theorem uniqueOptimalPeriodic (P : PeriodicSpherePacking 8)
     (hopt : P.density = SpherePackingConstant 8) :
-    P.toSpherePacking.IsSimilar packing.toSpherePacking := by
+    SpherePacking.IsSimilar P.toSpherePacking packing.toSpherePacking := by
   sorry
 
 /-- Lattice-packing uniqueness as a corollary. -/
@@ -993,7 +995,7 @@ theorem uniqueOptimalLattice
     (r : ℝ) (hr : 0 < r)
     (hsep : ∀ x : Λ, x ≠ 0 → r ≤ ‖(x : V 8)‖)
     (hopt : (PeriodicSpherePacking.ofZLattice Λ r hr hsep).density = SpherePackingConstant 8) :
-    (PeriodicSpherePacking.ofZLattice Λ r hr hsep).toSpherePacking.IsSimilar
+    SpherePacking.IsSimilar (PeriodicSpherePacking.ofZLattice Λ r hr hsep).toSpherePacking
       packing.toSpherePacking := by
   sorry
 
@@ -1004,7 +1006,7 @@ namespace Leech
 /-- The Leech lattice is the unique optimal periodic packing up to similarity. -/
 theorem uniqueOptimalPeriodic (P : PeriodicSpherePacking 24)
     (hopt : P.density = SpherePackingConstant 24) :
-    P.toSpherePacking.IsSimilar packing.toSpherePacking := by
+    SpherePacking.IsSimilar P.toSpherePacking packing.toSpherePacking := by
   sorry
 
 /-- Lattice-packing uniqueness as a corollary. -/
@@ -1013,7 +1015,7 @@ theorem uniqueOptimalLattice
     (r : ℝ) (hr : 0 < r)
     (hsep : ∀ x : Λ, x ≠ 0 → r ≤ ‖(x : V 24)‖)
     (hopt : (PeriodicSpherePacking.ofZLattice Λ r hr hsep).density = SpherePackingConstant 24) :
-    (PeriodicSpherePacking.ofZLattice Λ r hr hsep).toSpherePacking.IsSimilar
+    SpherePacking.IsSimilar (PeriodicSpherePacking.ofZLattice Λ r hr hsep).toSpherePacking
       packing.toSpherePacking := by
   sorry
 
@@ -1026,7 +1028,7 @@ theorem spherePackingConstant_eight :
   rw [E8.isOptimal, E8.packing_density]
 
 theorem spherePackingConstant_twentyFour :
-    SpherePackingConstant 24 = ENNReal.ofReal (Real.pi ^ 12 / 12.factorial) := by
+    SpherePackingConstant 24 = ENNReal.ofReal (Real.pi ^ 12 / Nat.factorial 12) := by
   rw [Leech.isOptimal, Leech.packing_density]
 
 end

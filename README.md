@@ -65,7 +65,7 @@ theorem spherePackingConstant_eight :
 
 theorem spherePackingConstant_twentyFour :
     SpherePackingConstant 24 =
-      ENNReal.ofReal (Real.pi ^ 12 / 12.factorial)
+      ENNReal.ofReal (Real.pi ^ 12 / Nat.factorial 12)
 ```
 
 The dimension-specific optimality statements are:

@@ -49,8 +49,11 @@ for key, value in EXPECTED.items():
             f"README does not record {key} pin {value}")
     require(value in provenance, f"PROVENANCE.md does not record {key} pin {value}")
 
-# Local Markdown links should resolve. Ignore external URLs and anchors.
+# Local Markdown links should resolve. Ignore external URLs and anchors, and skip the Lake
+# build directory, whose dependency checkouts carry their own documentation.
 for md in ROOT.rglob("*.md"):
+    if ".lake" in md.parts:
+        continue
     text = md.read_text()
     for target in re.findall(r"\[[^\]]+\]\(([^)]+)\)", text):
         clean = target.split("#", 1)[0]

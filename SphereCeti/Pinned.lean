@@ -28,7 +28,7 @@ may depend on a definitional accident of this compatibility model.
 public section
 
 open BigOperators MeasureTheory Metric
-open scoped ENNReal FourierTransform
+open scoped ENNReal FourierTransform Pointwise SchwartzMap
 open Set Filter Module
 
 namespace SphereCeti.Pinned
@@ -65,7 +65,7 @@ theorem SpherePacking.centers_dist' (P : SpherePacking d) (x y : V d)
     P.separation ≤ dist x y := by
   have hsub : (⟨x, hx⟩ : P.centers) ≠ ⟨y, hy⟩ := Subtype.coe_ne_coe.mp hxy
   have h := P.centers_dist hsub
-  simpa only using h
+  simpa only [Subtype.dist_eq] using h
 
 instance PeriodicSpherePacking.instLatticeDiscrete (P : PeriodicSpherePacking d) :
     DiscreteTopology P.lattice := P.lattice_discrete
@@ -153,14 +153,16 @@ def RadialSchwartzMap (𝕜 E F : Type*) [NormedField 𝕜]
   zero_mem' := by simp [Function.IsRadial]
   add_mem' := by
     intro f g hf hg x y hxy
-    simp only [Set.mem_setOf_eq, add_apply]
+    simp only [add_apply]
     rw [hf hxy, hg hxy]
   smul_mem' := by
     intro c f hf x y hxy
-    simp only [Set.mem_setOf_eq, smul_apply]
+    simp only [smul_apply]
     rw [hf hxy]
 
 namespace RadialSchwartzMap
+
+section
 
 variable {𝕜 E F : Type*} [NormedField 𝕜]
     [NormedAddCommGroup E] [NormedSpace ℝ E]
@@ -174,11 +176,16 @@ instance instFunLike : FunLike (RadialSchwartzMap 𝕜 E F) E F where
 @[simp, norm_cast]
 theorem coe_coe (f : RadialSchwartzMap 𝕜 E F) : ⇑(f : 𝓢(E, F)) = f := rfl
 
-/-- The production theorem that Fourier is an involution on radial Schwartz maps. -/
-theorem fourier_apply_apply [RCLike 𝕜]
-    [InnerProductSpace ℝ E] [FiniteDimensional ℝ E]
+end
+
+/-- The production theorem that Fourier is an involution on radial Schwartz maps.  The real scalar
+structures on `E` and `F` are the ones derived from the inner product and complex structures, so
+that the Schwartz-space Fourier transform instance applies. -/
+theorem fourier_apply_apply {𝕜 E F : Type*} [RCLike 𝕜]
+    [NormedAddCommGroup E] [InnerProductSpace ℝ E] [FiniteDimensional ℝ E]
     [MeasurableSpace E] [BorelSpace E]
-    [NormedSpace ℂ F] [SMulCommClass ℂ 𝕜 F] [CompleteSpace F]
+    [NormedAddCommGroup F] [NormedSpace ℂ F] [NormedSpace 𝕜 F]
+    [SMulCommClass ℂ 𝕜 F] [SMulCommClass ℝ 𝕜 F] [CompleteSpace F]
     (f : RadialSchwartzMap 𝕜 E F) :
     𝓕 (𝓕 (f : 𝓢(E, F))) = (f : 𝓢(E, F)) := by
   sorry

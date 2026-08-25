@@ -1,8 +1,10 @@
 # Validation status
 
-The roadmap was originally drafted in an environment without `lean`, `lake`, or `elan`, and without
-outbound Git access, so the authoring environment could not run the pinned Lean elaborator or build
-TauCeti.  The full `lake build` of the target-signature files is pending on this branch.
+The roadmap was originally drafted in an environment without `lean`, `lake`, or `elan`, so the
+authoring environment could not run the pinned Lean elaborator.  The target files have since been
+elaborated: on the pinned toolchain, `lake exe cache get` followed by `lake build` completes
+successfully, with the only warnings being the intentional `sorry` markers in the target-signature
+files.
 
 What has been checked in this repository:
 
@@ -14,16 +16,14 @@ What has been checked in this repository:
 - every local Markdown link resolves;
 - the target files contain no theorem whose stated conclusion is merely `True`;
 - all generated files have final newlines;
-- the target-signature files contain 112 intentional `sorry` occurrences.
-
-What remains to be checked locally and by CI:
+- the target-signature files contain 112 intentional `sorry` occurrences;
+- the full Lean elaboration passes locally:
 
 ```bash
 lake exe cache get
 lake build
 ```
 
-The GitHub workflow runs the static contract check followed by `lake build`.  Until that workflow is
-green, the signatures should be described as **compile-oriented**, not as verified to elaborate.
-Any first elaboration fixes should preserve the mathematical target boundaries rather than weaken
-them merely to satisfy the parser or typechecker.
+The GitHub workflow runs the static contract check followed by the same `lake build`.  Any future
+elaboration fixes should preserve the mathematical target boundaries rather than weaken them merely
+to satisfy the parser or typechecker.
