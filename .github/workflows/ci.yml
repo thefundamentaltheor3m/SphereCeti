@@ -26,6 +26,90 @@ jobs:
       - name: Check roadmap contracts
         run: python3 scripts/check_roadmap.py
 
+      # Fetch Tau Ceti's cache map from its public Lake artifact service (the same pattern as
+      # TauCetiRoadmap's CI; the read endpoints are anonymous and documented in TauCeti's
+      # docs/cache-infrastructure.md). Artifacts stay lazy: the build downloads only the Tau Ceti
+      # modules it actually imports. `--max-revs` lets a slightly earlier revision's cache map
+      # serve when the exact pin has not published one; artifacts are content-addressed, so only
+      # still-valid outputs are restored. A cache-service outage degrades to building from source.
+      - name: Fetch Tau Ceti cache map
+        id: tauceti_cache
+        shell: bash
+        run: |
+          set -euo pipefail
+          config="$RUNNER_TEMP/tauceti-lake-cache.toml"
+          cache_dir="$GITHUB_WORKSPACE/.lake/cache"
+          cat > "$config" <<TOML
+          cache.defaultService = "tauceti-public"
+          [[cache.service]]
+          name = "tauceti-public"
+          kind = "s3"
+          artifactEndpoint = "https://cache.taucetiproject.org/artifacts"
+          revisionEndpoint = "https://cache.taucetiproject.org/revisions"
+          TOML
+
+          discard_cache() {
+            [ -e "$cache_dir" ] || return 0
+            stale="$cache_dir.discard.$$"
+            if mv "$cache_dir" "$stale" 2>/dev/null; then
+              rm -rf "$stale" 2>/dev/null || true
+            else
+              rm -rf "$cache_dir" 2>/dev/null || true
+            fi
+          }
+
+          clean=0
+          attempts=3
+          for attempt in $(seq 1 "$attempts"); do
+            discard_cache
+            log="$RUNNER_TEMP/tauceti-cache-get-$attempt.log"
+            rc=0
+            LAKE_CONFIG="$config" LAKE_CACHE_DIR="$cache_dir" \
+                lake cache get --package=TauCeti --service=tauceti-public \
+                  --repo=TauCetiProject/TauCeti --mappings-only --max-revs=20 \
+                  > "$log" 2>&1 || rc=$?
+            cat "$log"
+
+            if [ "$rc" = 0 ]; then
+              clean=1
+              break
+            fi
+            if grep -q 'no outputs found' "$log"; then
+              break
+            fi
+            if [ "$attempt" != "$attempts" ]; then
+              echo "::notice::Tau Ceti cache-map fetch attempt $attempt failed; retrying from an empty cache"
+              sleep 2
+            fi
+          done
+
+          if [ "$clean" = 1 ]; then
+            echo "enabled=1" >> "$GITHUB_OUTPUT"
+            {
+              echo "LAKE_CONFIG=$config"
+              echo "LAKE_CACHE_DIR=$cache_dir"
+            } >> "$GITHUB_ENV"
+          else
+            echo "::warning::Tau Ceti cache map unavailable; building from source"
+            discard_cache
+            echo "enabled=0" >> "$GITHUB_OUTPUT"
+          fi
+
       # The roadmap contains `sorry` intentionally: these are target signatures.
       - name: Build
         run: lake build
+
+      # Keep degradation visible without turning a cache-service outage into a correctness failure.
+      - name: Report Tau Ceti cache use
+        if: ${{ always() && steps.tauceti_cache.outputs.enabled == '1' }}
+        shell: bash
+        run: |
+          count=0
+          if [ -d "$LAKE_CACHE_DIR/artifacts" ]; then
+            count=$(find "$LAKE_CACHE_DIR/artifacts" -type f | wc -l)
+          fi
+          if [ "$count" -eq 0 ]; then
+            echo "::warning::Tau Ceti cache map was found, but the build restored no artifacts"
+          else
+            echo "::notice::The build restored $count Tau Ceti artifact archive(s)"
+          fi
