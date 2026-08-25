@@ -667,7 +667,8 @@ After A1:
   the magic function.
 - M2 can proceed once Leech/Golay and the required classification infrastructure exist; it does not
   wait for the magic function.
-- N waits for F4 plus the dimension-specific exact zero results and M1/M2.
+- N1--N3 wait for F4 plus the dimension-specific exact zero results, and do not wait for M1/M2;
+  N4 additionally waits for M1, N5 for M2, and N6 follows from N4/N5.
 
 ## 19. PR description template
 

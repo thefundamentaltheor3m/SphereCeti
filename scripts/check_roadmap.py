@@ -94,12 +94,16 @@ require(not (ROOT / "TauCetiRoadmap").exists(),
         "do not create a parallel TauCeti roadmap directory")
 
 # This is intentionally a roadmap: sorries are expected, but count them visibly and keep the
-# validation ledger synchronized.
-sorry_count = sum(p.read_text().count("sorry") for p in (ROOT / "SphereCeti").glob("*.lean"))
+# validation ledger synchronized. Count standalone `sorry` commands (a line consisting of the
+# keyword), not textual substrings, so documentation mentions of the word do not inflate the
+# ledger.
+sorry_command = re.compile(r"^\s*sorry\s*$", re.MULTILINE)
+sorry_count = sum(len(sorry_command.findall(p.read_text()))
+                  for p in (ROOT / "SphereCeti").glob("*.lean"))
 validation = (ROOT / "VALIDATION.md").read_text()
-require(f"{sorry_count} intentional `sorry` occurrences" in validation,
+require(f"{sorry_count} intentional `sorry` commands" in validation,
         "VALIDATION.md has a stale intentional-sorry count")
-print(f"roadmap static checks: {sorry_count} intentional sorry occurrences")
+print(f"roadmap static checks: {sorry_count} intentional sorry commands")
 
 if errors:
     for error in errors:

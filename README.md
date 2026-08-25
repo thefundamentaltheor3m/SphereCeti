@@ -665,7 +665,7 @@ The detailed main-first sequence is in [`MIGRATION.md`](MIGRATION.md).  Every pr
 | `MIGRATION.md` | Main-first targeted PR sequence |
 | `PROVENANCE.md` | Source and dependency ledger |
 | `UPSTREAM.md` | Issue-ready Mathlib/TauCeti upstream ledger |
-| `VALIDATION.md` | What was statically checked and what CI must still elaborate |
+| `VALIDATION.md` | Static contract and Lean-elaboration validation record |
 | `scripts/check_roadmap.py` | Deterministic pin, link, and target-shape contract check |
 | `.github/workflows/ci.yml` | Static contract check followed by Lean elaboration |
 | `lakefile.toml` | Exact TauCeti dependency |

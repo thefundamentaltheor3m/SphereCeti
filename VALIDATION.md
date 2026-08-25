@@ -16,7 +16,7 @@ What has been checked in this repository:
 - every local Markdown link resolves;
 - the target files contain no theorem whose stated conclusion is merely `True`, and end with final
   newlines;
-- the target-signature files contain 112 intentional `sorry` occurrences;
+- the target-signature files contain 111 intentional `sorry` commands;
 - the full Lean elaboration passes, locally and in CI:
 
 ```bash

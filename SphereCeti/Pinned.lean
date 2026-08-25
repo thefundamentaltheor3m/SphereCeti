@@ -103,30 +103,28 @@ noncomputable def PeriodicSpherePacking.scale (P : PeriodicSpherePacking d) {c :
     PeriodicSpherePacking d := by
   sorry
 
+/-- Production defines `scale` with `centers := c • S.centers` definitionally; the model pins that
+field behavior as an equation because `scale` above is a stub. -/
 @[simp]
 theorem SpherePacking.scale_centers (P : SpherePacking d) {c : ℝ} (hc : 0 < c) :
     (P.scale hc).centers = c • P.centers := by
   sorry
 
+/-- Production defines `scale` with `separation := c * S.separation` definitionally; the model pins
+that field behavior as an equation because `scale` above is a stub. -/
 @[simp]
 theorem SpherePacking.scale_separation (P : SpherePacking d) {c : ℝ} (hc : 0 < c) :
     (P.scale hc).separation = c * P.separation := by
   sorry
 
-@[simp]
-theorem PeriodicSpherePacking.scale_toSpherePacking (P : PeriodicSpherePacking d)
+/-- Mirrors the production lemma, including its implicit packing argument. -/
+theorem PeriodicSpherePacking.scale_toSpherePacking {P : PeriodicSpherePacking d}
     {c : ℝ} (hc : 0 < c) :
     (P.scale hc).toSpherePacking = P.toSpherePacking.scale hc := by
   sorry
 
-@[simp]
-theorem SpherePacking.scale_density (P : SpherePacking d) {c : ℝ} (hc : 0 < c) :
-    (P.scale hc).density = P.density := by
-  sorry
-
-@[simp]
-theorem PeriodicSpherePacking.scale_density (P : PeriodicSpherePacking d)
-    {c : ℝ} (hc : 0 < c) :
+/-- Mirrors the production lemma, including its dimension hypothesis. -/
+theorem SpherePacking.scale_density (hd : 0 < d) (P : SpherePacking d) {c : ℝ} (hc : 0 < c) :
     (P.scale hc).density = P.density := by
   sorry
 

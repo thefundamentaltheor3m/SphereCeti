@@ -150,6 +150,13 @@ theorem constant_le_general (d : ℕ) :
     PeriodicSpherePackingConstant d ≤ SpherePackingConstant d := by
   sorry
 
+/-- Proposed periodic counterpart of the production `SpherePacking.scale_density`.  Production has
+no periodic version, so this is new target API rather than a pinned statement. -/
+@[simp]
+theorem scale_density {d : ℕ} (hd : 0 < d) (P : PeriodicSpherePacking d) {c : ℝ} (hc : 0 < c) :
+    (P.scale hc).density = P.density := by
+  sorry
+
 end PeriodicSpherePacking
 
 /-! ## Layer 2: real Euclidean lattices and TauCeti integral presentations -/
@@ -688,7 +695,14 @@ theorem ofNormSq_apply {d : ℕ} (f : 𝓢(ℝ, ℂ)) (x : V d) :
   sorry
 
 /-- Explicit data shared by a modular-kernel-to-Fourier-eigenfunction construction.  This is a
-parameter, not a typeclass: dimension-specific modular forms and normalizations remain visible. -/
+parameter, not a typeclass: dimension-specific modular forms and normalizations remain visible.
+
+The Laplace-integral identity is required only for nonnegative arguments, where the exponential
+decays; for negative `r` it would demand integrability of a growing exponential that the intended
+E8 and Leech kernels do not provide.  Integrability is an explicit field so that Lean's junk value
+for a non-integrable set integral cannot vacuously satisfy `profile_eq_integral`.  The Schwartz
+function on all of `ℝ` is an extension whose restriction agrees with `profile` on nonnegative
+inputs; only those inputs occur as squared norms. -/
 structure ModularKernelDatum (d : ℕ) where
   halfDimension : ℕ
   dimension_eq : d = 2 * halfDimension
@@ -696,12 +710,14 @@ structure ModularKernelDatum (d : ℕ) where
   eigenvalue_sq : eigenvalue ^ 2 = 1
   profile : ℝ → ℂ
   kernel : ℂ → ℂ
-  profile_eq_integral : ∀ r, profile r = ∫ t in Set.Ici (1 : ℝ), kernel (Complex.I * t) *
-    Complex.exp (-Real.pi * r * t)
+  kernel_integrable : ∀ r : ℝ, 0 ≤ r → IntegrableOn
+    (fun t : ℝ => kernel (Complex.I * t) * Complex.exp (-Real.pi * r * t)) (Set.Ici 1)
+  profile_eq_integral : ∀ r : ℝ, 0 ≤ r → profile r = ∫ t in Set.Ici (1 : ℝ),
+    kernel (Complex.I * t) * Complex.exp (-Real.pi * r * t)
   kernel_S_transform : ∀ z : UpperHalfPlane,
     kernel ((ModularGroup.S • z : UpperHalfPlane) : ℂ) =
       (z : ℂ) ^ halfDimension * kernel (z : ℂ)
-  profile_schwartz : ∃ f : 𝓢(ℝ, ℂ), ∀ r, f r = profile r
+  profile_schwartz : ∃ f : 𝓢(ℝ, ℂ), ∀ r, 0 ≤ r → f r = profile r
 
 /-- Generic constructor from modular kernel data. -/
 noncomputable def eigenfunctionOfKernel {d : ℕ} (D : ModularKernelDatum d) :
