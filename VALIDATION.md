@@ -14,16 +14,17 @@ What has been checked in this repository:
 - the committed Lake manifest contains the exact TauCeti revision and the Mathlib revision resolved
   by that TauCeti snapshot;
 - every local Markdown link resolves;
-- the target files contain no theorem whose stated conclusion is merely `True`;
-- all generated files have final newlines;
+- the target files contain no theorem whose stated conclusion is merely `True`, and end with final
+  newlines;
 - the target-signature files contain 112 intentional `sorry` occurrences;
-- the full Lean elaboration passes locally:
+- the full Lean elaboration passes, locally and in CI:
 
 ```bash
 lake exe cache get
 lake build
 ```
 
-The GitHub workflow runs the static contract check followed by the same `lake build`.  Any future
-elaboration fixes should preserve the mathematical target boundaries rather than weaken them merely
-to satisfy the parser or typechecker.
+The GitHub workflow runs the static contract check and then the same `lake build`, restoring
+Mathlib from its cache and Tau Ceti from its public Lake artifact service, and is green on this
+dependency pin.  Any future elaboration fixes should preserve the mathematical target boundaries
+rather than weaken them merely to satisfy the parser or typechecker.
