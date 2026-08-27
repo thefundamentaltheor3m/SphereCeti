@@ -224,24 +224,25 @@ Refactor `E8Packing` through it while preserving the existing public name and th
 
 Introduce one `FundamentalPattern` data type for a periodic packing:
 
-- finite representatives in a fundamental domain;
+- finite representatives of type `P.centers` in a fundamental domain;
 - coverage;
 - uniqueness modulo the period lattice;
 - pairwise distinct orbits.
 
+Its membership type makes separate ambient membership and action-soundness fields unnecessary.
 Prove conversion from the existing representative construction.
 
 ### PR D3 — retire duplicate representative counts
 
-Choose one public name, preferably `numOrbits`.  Prove it agrees with the old `numReps` and
-`numReps'`, migrate consumers, deprecate aliases, then remove the duplicate implementation in
-PR O3.
+Expose `Orbit` as an abbreviation for the existing `Quotient P.addAction.orbitRel` and define
+`numOrbits` as its `Fintype.card`.  Prove `FundamentalPattern.card_eq_numOrbits`, migrate consumers,
+deprecate `numReps` and `numReps'`, then remove the duplicate representative code in PR O3.
 
 ### PR D4 — basis-free density formula
 
 State the density formula in terms of:
 
-- finite pattern cardinality;
+- the canonical `P.numOrbits`;
 - ball volume;
 - lattice covolume.
 

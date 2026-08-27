@@ -349,26 +349,43 @@ theorem ofZLattice_density {d : ℕ} (hd : 0 < d)
 
 /-- Finite representatives for the center orbits modulo the period lattice. -/
 structure FundamentalPattern {d : ℕ} (P : PeriodicSpherePacking d) where
-  reps : Finset (V d)
-  reps_mem : ∀ s ∈ reps, s ∈ P.centers
-  covers : ∀ x ∈ P.centers, ∃ z : P.lattice, ∃ s ∈ reps, x = (z : V d) + s
-  sound : ∀ z : P.lattice, ∀ s ∈ reps, (z : V d) + s ∈ P.centers
+  reps : Finset P.centers
+  covers : ∀ x : P.centers, ∃ z : P.lattice, ∃ s ∈ reps,
+    (x : V d) = (z : V d) + (s : V d)
   unique_mod_lattice : ∀ s ∈ reps, ∀ t ∈ reps,
-    s - t ∈ P.lattice → s = t
+    (s : V d) - (t : V d) ∈ P.lattice → s = t
+
+/-- The production orbit relation, presented explicitly during the compatibility phase.  Layer 0
+identifies this setoid with `P.addAction.orbitRel` rather than retaining a second relation. -/
+@[expose] def orbitSetoid {d : ℕ} (P : PeriodicSpherePacking d) : Setoid P.centers where
+  r x y := (x : V d) - (y : V d) ∈ P.lattice
+  iseqv := by
+    sorry
+
+/-- Canonical quotient of centers by the period-lattice action. -/
+abbrev Orbit {d : ℕ} (P : PeriodicSpherePacking d) := Quotient (orbitSetoid P)
+
+/-- The canonical orbit quotient is finite. -/
+noncomputable instance orbitFinite {d : ℕ} (P : PeriodicSpherePacking d) :
+    Finite P.Orbit := by
+  sorry
+
+noncomputable instance orbitFintype {d : ℕ} (P : PeriodicSpherePacking d) :
+    Fintype P.Orbit := Fintype.ofFinite P.Orbit
 
 /-- The canonical number of center orbits. -/
-def numOrbits {d : ℕ} {P : PeriodicSpherePacking d} (D : FundamentalPattern P) : ℕ :=
-  D.reps.card
+noncomputable def numOrbits {d : ℕ} (P : PeriodicSpherePacking d) : ℕ :=
+  Fintype.card P.Orbit
 
-/-- Any two fundamental patterns have the same cardinality. -/
-theorem FundamentalPattern.card_eq {d : ℕ} {P : PeriodicSpherePacking d}
-    (D E : FundamentalPattern P) : D.reps.card = E.reps.card := by
+/-- Every chosen fundamental pattern has the canonical orbit cardinality. -/
+theorem FundamentalPattern.card_eq_numOrbits {d : ℕ} {P : PeriodicSpherePacking d}
+    (D : FundamentalPattern P) : D.reps.card = P.numOrbits := by
   sorry
 
 /-- Basis-free periodic density formula with a finite orbit count. -/
 theorem density_eq_numOrbits_mul_ballVolume_div_covolume {d : ℕ} (hd : 0 < d)
-    (P : PeriodicSpherePacking d) (D : FundamentalPattern P) :
-    P.density = D.reps.card * volume (ball (0 : V d) (P.separation / 2)) /
+    (P : PeriodicSpherePacking d) :
+    P.density = P.numOrbits * volume (ball (0 : V d) (P.separation / 2)) /
       ENNReal.ofReal (ZLattice.covolume P.lattice) := by
   sorry
 
@@ -970,9 +987,8 @@ theorem periodLattice_le_generatedIntegralLattice {d : ℕ}
 lattice inside the generated lattice.  This is the finite quotient injection in Cohn--Elkies,
 Section 8. -/
 theorem numOrbits_le_relIndex_generated {d : ℕ}
-    (P : PeriodicSpherePacking d) (D : P.FundamentalPattern)
-    (x₀ : V d) (hx₀ : x₀ ∈ P.centers) :
-    D.reps.card ≤ P.lattice.toAddSubgroup.relIndex
+    (P : PeriodicSpherePacking d) (x₀ : V d) (hx₀ : x₀ ∈ P.centers) :
+    P.numOrbits ≤ P.lattice.toAddSubgroup.relIndex
       (generatedIntegralLattice P x₀).toAddSubgroup := by
   sorry
 
@@ -988,48 +1004,45 @@ theorem one_le_covolume_of_integralPresentation {d : ℕ}
 
 /-- At the candidate normalization, one center per unit volume is the numerical identity
 `covolume(period lattice) = number of center orbits`. -/
-def HasUnitCenterDensity {d : ℕ} (P : PeriodicSpherePacking d)
-    (D : P.FundamentalPattern) : Prop :=
-  ZLattice.covolume P.lattice = D.reps.card
+def HasUnitCenterDensity {d : ℕ} (P : PeriodicSpherePacking d) : Prop :=
+  ZLattice.covolume P.lattice = P.numOrbits
 
 /-- Optimal E8 density at separation `√2` is equivalent to one center per unit volume. -/
 theorem e8_hasUnitCenterDensity_of_optimal
-    (P : PeriodicSpherePacking 8) (D : P.FundamentalPattern)
+    (P : PeriodicSpherePacking 8)
     (hsep : P.separation = Real.sqrt 2)
     (hopt : P.density = E8.packing.density) :
-    HasUnitCenterDensity P D := by
+    HasUnitCenterDensity P := by
   sorry
 
 /-- Optimal Leech density at separation `2` is equivalent to one center per unit volume. -/
 theorem leech_hasUnitCenterDensity_of_optimal
-    (P : PeriodicSpherePacking 24) (D : P.FundamentalPattern)
+    (P : PeriodicSpherePacking 24)
     (hsep : P.separation = 2)
     (hopt : P.density = Leech.packing.density) :
-    HasUnitCenterDensity P D := by
+    HasUnitCenterDensity P := by
   sorry
 
 /-- Cohn--Elkies' covolume/index squeeze.  An optimal unit-center-density pattern contained in a
 full integral generated lattice has generated covolume one, and the quotient index is exactly the
 number of pattern representatives. -/
 theorem generated_covolume_eq_one_and_index_eq_numOrbits {d : ℕ}
-    (P : PeriodicSpherePacking d) (D : P.FundamentalPattern)
-    (x₀ : V d) (hx₀ : x₀ ∈ P.centers)
+    (P : PeriodicSpherePacking d) (x₀ : V d) (hx₀ : x₀ ∈ P.centers)
     (_ : DiscreteTopology (generatedIntegralLattice P x₀))
     (_ : IsZLattice ℝ (generatedIntegralLattice P x₀))
     (G : EuclideanLattice.IntegralPresentation (generatedIntegralLattice P x₀))
-    (hpos : G.IsPosDef) (hunit : HasUnitCenterDensity P D) :
+    (hpos : G.IsPosDef) (hunit : HasUnitCenterDensity P) :
     ZLattice.covolume (generatedIntegralLattice P x₀) = 1 ∧
       P.lattice.toAddSubgroup.relIndex
-        (generatedIntegralLattice P x₀).toAddSubgroup = D.reps.card := by
+        (generatedIntegralLattice P x₀).toAddSubgroup = P.numOrbits := by
   sorry
 
 /-- Equality of quotient cardinalities says every generated-lattice coset is represented by a
 center.  Consequently the translated periodic center set is the entire generated lattice. -/
 theorem translated_centers_eq_generatedIntegralLattice {d : ℕ}
-    (P : PeriodicSpherePacking d) (D : P.FundamentalPattern)
-    (x₀ : V d) (hx₀ : x₀ ∈ P.centers)
+    (P : PeriodicSpherePacking d) (x₀ : V d) (hx₀ : x₀ ∈ P.centers)
     (hindex : P.lattice.toAddSubgroup.relIndex
-      (generatedIntegralLattice P x₀).toAddSubgroup = D.reps.card) :
+      (generatedIntegralLattice P x₀).toAddSubgroup = P.numOrbits) :
     (fun x => x - x₀) '' P.centers =
       (generatedIntegralLattice P x₀ : Set (V d)) := by
   sorry

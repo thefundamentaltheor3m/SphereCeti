@@ -405,14 +405,15 @@ interface.
 Deliverables:
 
 - `PeriodicSpherePacking.ofZLattice`;
-- one `FundamentalPattern` structure;
-- pattern-cardinality independence;
-- one `numOrbits` API;
+- one `FundamentalPattern` structure whose representatives have type `P.centers`;
+- the existing finite quotient `Quotient P.addAction.orbitRel`, exposed as `P.Orbit`;
+- `P.numOrbits = Fintype.card P.Orbit` and `D.reps.card = P.numOrbits`;
 - basis-free density formula
 
 \[
   \operatorname{density}(P)
-  = \#S\,\operatorname{vol}(B(0,r/2))/\operatorname{covol}(\Lambda);
+  = \operatorname{numOrbits}(P)\,
+    \operatorname{vol}(B(0,r/2))/\operatorname{covol}(\Lambda);
 \]
 
 - periodic approximation and
