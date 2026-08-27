@@ -1,18 +1,14 @@
 name = "SphereCeti"
-version = "0.1.0"
-keywords = ["math"]
 defaultTargets = ["SphereCeti"]
 
-[leanOptions]
-pp.unicode.fun = true # pretty-prints `fun a ↦ b`
-relaxedAutoImplicit = false
-weak.linter.mathlibStandardSet = true
-maxSynthPendingDepth = 3
-
+# SphereCeti is a roadmap/prototype library. The TauCeti dependency is deliberately
+# pinned to a full commit, rather than tracking `main`, because Suggested.lean is an
+# API contract against that snapshot.
 [[require]]
-name = "mathlib"
-scope = "leanprover-community"
-rev = "v4.34.0-rc2"
+name = "TauCeti"
+git = "https://github.com/TauCetiProject/TauCeti"
+rev = "8671bee98125933c56b9b00a08ded873b77dd23b"
 
 [[lean_lib]]
 name = "SphereCeti"
+globs = ["SphereCeti.*"]
