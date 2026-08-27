@@ -216,27 +216,26 @@ namespace EuclideanLattice
 def dual {d : ℕ} (Λ : Submodule ℤ (V d)) : Submodule ℤ (V d) :=
   LinearMap.BilinForm.dualSubmodule (innerₗ (V d)) Λ
 
-/-- A finite shell at a prescribed squared norm. -/
-def normSqShell {d : ℕ} (Λ : Submodule ℤ (V d)) (a : ℝ) : Set Λ :=
-  {x | ‖(x : V d)‖ ^ 2 = a}
+/-- The finite shell at a prescribed squared norm.  Discreteness is required at construction time,
+so cardinalities cannot silently use `Set.ncard`'s infinite-set fallback. -/
+noncomputable def normSqShell {d : ℕ} (Λ : Submodule ℤ (V d))
+    [DiscreteTopology Λ] (a : ℝ) : Finset Λ := by
+  sorry
 
 @[simp]
-theorem mem_normSqShell {d : ℕ} {Λ : Submodule ℤ (V d)} {a : ℝ} {x : Λ} :
-    x ∈ normSqShell Λ a ↔ ‖(x : V d)‖ ^ 2 = a := Iff.rfl
-
-/-- Discreteness makes every bounded shell finite. -/
-theorem normSqShell_finite {d : ℕ} (Λ : Submodule ℤ (V d)) [DiscreteTopology Λ] (a : ℝ) :
-    (normSqShell Λ a).Finite := by
+theorem mem_normSqShell {d : ℕ} {Λ : Submodule ℤ (V d)} [DiscreteTopology Λ]
+    {a : ℝ} {x : Λ} :
+    x ∈ normSqShell Λ a ↔ ‖(x : V d)‖ ^ 2 = a := by
   sorry
 
 /-- Coefficient indexed by a literal integer squared norm. -/
 def thetaNormCoeff {d : ℕ} (Λ : Submodule ℤ (V d)) [DiscreteTopology Λ] (n : ℕ) : ℕ :=
-  (normSqShell Λ n).ncard
+  (normSqShell Λ n).card
 
 /-- Coefficient indexed by half the squared norm; for an even lattice, coefficient `n` counts
 vectors of squared norm `2n`. -/
 def thetaEvenCoeff {d : ℕ} (Λ : Submodule ℤ (V d)) [DiscreteTopology Λ] (n : ℕ) : ℕ :=
-  (normSqShell Λ (2 * n)).ncard
+  (normSqShell Λ (2 * n)).card
 
 /-- A lower bound on every nonzero squared norm. -/
 def MinNormSqAtLeast {d : ℕ} (Λ : Submodule ℤ (V d)) (a : ℝ) : Prop :=
@@ -358,6 +357,13 @@ theorem IntegralPresentation.isUnimodular_iff_covolume_eq_one {d : ℕ}
     {Λ : Submodule ℤ (V d)} [DiscreteTopology Λ] [IsZLattice ℝ Λ]
     (P : IntegralPresentation Λ) :
     P.IsUnimodular ↔ ZLattice.covolume Λ = 1 := by
+  sorry
+
+/-- A unimodular presentation identifies the real dual lattice with the original carrier. -/
+theorem IntegralPresentation.dual_eq_self_of_isUnimodular {d : ℕ}
+    {Λ : Submodule ℤ (V d)} [DiscreteTopology Λ] [IsZLattice ℝ Λ]
+    (P : IntegralPresentation Λ) (h : P.IsUnimodular) :
+    EuclideanLattice.dual Λ = Λ := by
   sorry
 
 /-- Rootlessness in the even-lattice normalization means absence of squared norm `2`. -/
@@ -848,10 +854,6 @@ def latticeTheta {d : ℕ} (Λ : Submodule ℤ (V d)) [DiscreteTopology Λ]
   ∑' x : Λ,
     Complex.exp (Real.pi * Complex.I * (τ : ℂ) * (‖(x : V d)‖ ^ 2 : ℂ))
 
-@[simp]
-theorem latticeTheta_zero_term {d : ℕ} (Λ : Submodule ℤ (V d)) [DiscreteTopology Λ] :
-    Complex.exp (Real.pi * Complex.I * (0 : ℂ)) = 1 := by simp
-
 /-- Normal convergence and holomorphy on the upper half-plane. -/
 theorem latticeTheta_mDifferentiable {d : ℕ}
     (Λ : Submodule ℤ (V d)) [DiscreteTopology Λ] [IsZLattice ℝ Λ] :
@@ -869,6 +871,14 @@ theorem latticeTheta_qExpansion_of_even {d : ℕ}
         Complex.exp (2 * Real.pi * Complex.I * (n : ℂ) * (τ : ℂ)) := by
   sorry
 
+/-- Even squared norms give invariance under the modular translation `T`. -/
+theorem latticeTheta_T_transform_of_even {d : ℕ}
+    (Λ : Submodule ℤ (V d)) [DiscreteTopology Λ] [IsZLattice ℝ Λ]
+    (P : EuclideanLattice.IntegralPresentation Λ) (heven : P.IsEven)
+    (τ : UpperHalfPlane) :
+    latticeTheta Λ (ModularGroup.T • τ) = latticeTheta Λ τ := by
+  sorry
+
 /-- Poisson summation gives the dual-lattice S-transformation. -/
 theorem latticeTheta_S_transform {k : ℕ}
     (Λ : Submodule ℤ (V (2 * k))) [DiscreteTopology Λ] [IsZLattice ℝ Λ]
@@ -876,6 +886,15 @@ theorem latticeTheta_S_transform {k : ℕ}
     latticeTheta Λ (ModularGroup.S • τ) =
       (((τ : ℂ) / Complex.I) ^ k / ZLattice.covolume Λ) *
         latticeTheta (EuclideanLattice.dual Λ) τ := by
+  sorry
+
+/-- Unimodularity specializes the dual/covolume formula to the level-one `S` law. -/
+theorem latticeTheta_S_transform_of_unimodular {k : ℕ}
+    (Λ : Submodule ℤ (V (8 * k))) [DiscreteTopology Λ] [IsZLattice ℝ Λ]
+    (P : EuclideanLattice.IntegralPresentation Λ) (hunimodular : P.IsUnimodular)
+    (τ : UpperHalfPlane) :
+    latticeTheta Λ (ModularGroup.S • τ) =
+      ((τ : ℂ) / Complex.I) ^ (4 * k) * latticeTheta Λ τ := by
   sorry
 
 /-- For an even unimodular lattice in dimensions divisible by eight, theta is a level-one modular
@@ -887,8 +906,47 @@ noncomputable def latticeThetaModularForm {k : ℕ}
     ModularForm 𝒮ℒ (4 * k) := by
   sorry
 
+@[simp]
+theorem coe_latticeThetaModularForm {k : ℕ}
+    (Λ : Submodule ℤ (V (8 * k))) [DiscreteTopology Λ] [IsZLattice ℝ Λ]
+    (P : EuclideanLattice.IntegralPresentation Λ)
+    (heven : P.IsEven) (hunimodular : P.IsUnimodular) :
+    ⇑(latticeThetaModularForm Λ P heven hunimodular) = latticeTheta Λ := by
+  sorry
+
+/-- The theta modular form has constant coefficient one. -/
+theorem latticeThetaModularForm_qExpansion_coeff_zero {k : ℕ}
+    (Λ : Submodule ℤ (V (8 * k))) [DiscreteTopology Λ] [IsZLattice ℝ Λ]
+    (P : EuclideanLattice.IntegralPresentation Λ)
+    (heven : P.IsEven) (hunimodular : P.IsUnimodular) :
+    (UpperHalfPlane.qExpansion 1
+      (latticeThetaModularForm Λ P heven hunimodular)).coeff 0 = 1 := by
+  sorry
+
+/-- The first nonconstant coefficient counts the squared-norm-two shell. -/
+theorem latticeThetaModularForm_qExpansion_coeff_one {k : ℕ}
+    (Λ : Submodule ℤ (V (8 * k))) [DiscreteTopology Λ] [IsZLattice ℝ Λ]
+    (P : EuclideanLattice.IntegralPresentation Λ)
+    (heven : P.IsEven) (hunimodular : P.IsUnimodular) :
+    (UpperHalfPlane.qExpansion 1
+      (latticeThetaModularForm Λ P heven hunimodular)).coeff 1 =
+        EuclideanLattice.thetaEvenCoeff Λ 1 := by
+  sorry
+
 /-- The normalized weight-four Eisenstein series used in the E8 identity. -/
 noncomputable def E4 : ModularForm 𝒮ℒ 4 := ModularForm.E₄
+
+/-- Weight-four level-one modular forms are scalar multiples of `E4`. -/
+theorem weight_four_eq_constant_mul_E4 (F : ModularForm 𝒮ℒ 4) :
+    ∃ a : ℂ, ∀ τ : UpperHalfPlane, F τ = a * E4 τ := by
+  sorry
+
+/-- Weight-twelve level-one modular forms are linear combinations of `E4^3` and `Delta`. -/
+theorem weight_twelve_eq_a_mul_E4_cubed_add_b_mul_Delta
+    (F : ModularForm 𝒮ℒ 12) :
+    ∃ a b : ℂ, ∀ τ : UpperHalfPlane,
+      F τ = a * (E4 τ) ^ 3 + b * ModularForm.discriminant τ := by
+  sorry
 
 /-- Root count, i.e. the squared-norm-two shell cardinality. -/
 def rootCard {d : ℕ} (Λ : Submodule ℤ (V d)) [DiscreteTopology Λ] : ℕ :=

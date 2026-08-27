@@ -386,16 +386,20 @@ convergence and holomorphy.
 ### PR G2 — shells and q-expansion
 
 For even integral presentations, regroup by squared norm `2n` and identify coefficients with finite
-shell cardinalities.
+shell cardinalities.  Construct shells as `Finset`s after supplying discreteness; do not use the
+zero-on-infinite-sets behavior of `Set.ncard`.
 
 ### PR G3 — theta S-transformation
 
-Derive it from Gaussian Poisson summation.  State both general dual/covolume and even-unimodular
-rank-8/rank-24 specializations.
+Derive it from Gaussian Poisson summation.  State the even-lattice `T` law, the general
+dual/covolume `S` law, and the even-unimodular level-one specialization.  The modular-form adapter
+must coerce back to `latticeTheta`, and its constant and first coefficients must be exposed.
 
 ### PR G4 — level-one classification
 
-Using Mathlib/TauCeti modular-form dimension results, prove:
+First prove that every weight-four level-one form is a scalar multiple of `E4` and every
+weight-twelve level-one form is a linear combination of `E4^3` and `Delta`.  Use those
+Mathlib/TauCeti dimension results to prove:
 
 ```text
 rank 8 even unimodular: Θ = E₄

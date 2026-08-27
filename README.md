@@ -468,9 +468,11 @@ zero density, whereas every certificate bound is positive.
 Deliverables:
 
 - analytic theta definition and normal convergence;
-- shell regrouping and q-expansion;
-- Poisson/dual `S`-transformation;
-- even-unimodular level-one modular form;
+- finite-shell regrouping and q-expansion without `Set.ncard` fallback semantics;
+- even-lattice `T`, Poisson/dual `S`, and unimodular `S` transformations;
+- even-unimodular level-one modular form with a coercion theorem identifying its function with
+  `latticeTheta` and explicit constant/first q-coefficients;
+- weight-four and weight-twelve level-one linear classification theorems;
 - rank-eight classification
 
 \[
