@@ -422,10 +422,12 @@ Prove:
 Add `RadialSchwartzMap.ofNormSq`, evaluation/coercion lemmas, and transport under Fourier eigenspace
 operations.
 
-### PR J2 — generic modular kernels
+### PR J2 — sign-aware modular kernels
 
-Introduce an explicit `ModularKernelDatum`, with only the shared hypotheses required to turn a
-Laplace/Gaussian integral into a radial Fourier eigenfunction.
+Expose the exact signed transformation hypotheses used by each concrete `+1` and `-1` component.
+After both instances exist, extract their proven common hypotheses into a shared constructor.  Its
+finite Fourier sign occurs in the transformation law and determines the resulting eigenvalue; it
+has no unconstrained complex eigenvalue parameter.
 
 ### PR J3 — integration and differentiation adapters
 

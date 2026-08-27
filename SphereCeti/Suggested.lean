@@ -680,7 +680,7 @@ theorem packing_density :
 
 end Leech
 
-/-! ## Layer 7: common radial and modular-kernel machinery -/
+/-! ## Layer 7: common radial machinery and Fourier signs -/
 
 namespace MagicFunction
 
@@ -694,41 +694,34 @@ theorem ofNormSq_apply {d : ℕ} (f : 𝓢(ℝ, ℂ)) (x : V d) :
     ofNormSq f x = f (‖x‖ ^ 2) := by
   sorry
 
-/-- Explicit data shared by a modular-kernel-to-Fourier-eigenfunction construction.  This is a
-parameter, not a typeclass: dimension-specific modular forms and normalizations remain visible.
+/-- The only Fourier eigenvalues used by the E8 and Leech component constructions. -/
+inductive FourierSign
+  | plus
+  | minus
 
-The Laplace-integral identity is required only for nonnegative arguments, where the exponential
-decays; for negative `r` it would demand integrability of a growing exponential that the intended
-E8 and Leech kernels do not provide.  Integrability is an explicit field so that Lean's junk value
-for a non-integrable set integral cannot vacuously satisfy `profile_eq_integral`.  The Schwartz
-function on all of `ℝ` is an extension whose restriction agrees with `profile` on nonnegative
-inputs; only those inputs occur as squared norms. -/
-structure ModularKernelDatum (d : ℕ) where
-  halfDimension : ℕ
-  dimension_eq : d = 2 * halfDimension
-  eigenvalue : ℂ
-  eigenvalue_sq : eigenvalue ^ 2 = 1
-  profile : ℝ → ℂ
-  kernel : ℂ → ℂ
-  kernel_integrable : ∀ r : ℝ, 0 ≤ r → IntegrableOn
-    (fun t : ℝ => kernel (Complex.I * t) * Complex.exp (-Real.pi * r * t)) (Set.Ici 1)
-  profile_eq_integral : ∀ r : ℝ, 0 ≤ r → profile r = ∫ t in Set.Ici (1 : ℝ),
-    kernel (Complex.I * t) * Complex.exp (-Real.pi * r * t)
-  kernel_S_transform : ∀ z : UpperHalfPlane,
-    kernel ((ModularGroup.S • z : UpperHalfPlane) : ℂ) =
-      (z : ℂ) ^ halfDimension * kernel (z : ℂ)
-  profile_schwartz : ∃ f : 𝓢(ℝ, ℂ), ∀ r, 0 ≤ r → f r = profile r
+namespace FourierSign
 
-/-- Generic constructor from modular kernel data. -/
-noncomputable def eigenfunctionOfKernel {d : ℕ} (D : ModularKernelDatum d) :
-    RadialSchwartzMap ℂ (V d) ℂ := by
-  sorry
+/-- Complex scalar represented by a Fourier sign. -/
+@[expose] def scalar : FourierSign → ℂ
+  | .plus => 1
+  | .minus => -1
 
-/-- The modular contour calculation yields the desired Fourier eigenvalue. -/
-theorem fourier_eigenfunctionOfKernel {d : ℕ} (D : ModularKernelDatum d) :
-    𝓕 (eigenfunctionOfKernel D : 𝓢(V d, ℂ)) =
-      D.eigenvalue • (eigenfunctionOfKernel D : 𝓢(V d, ℂ)) := by
-  sorry
+@[simp]
+theorem scalar_plus : scalar .plus = 1 := rfl
+
+@[simp]
+theorem scalar_minus : scalar .minus = -1 := rfl
+
+@[simp]
+theorem scalar_sq (sign : FourierSign) : sign.scalar ^ 2 = 1 := by
+  cases sign <;> simp [scalar]
+
+end FourierSign
+
+/- A generic modular-kernel constructor is deliberately not a target yet.  The concrete E8 and
+Leech component proofs first expose their exact signed transformation laws; only their proven
+common hypotheses are then extracted into shared declarations.  This prevents an unconstrained
+eigenvalue field from making a zero-function implementation satisfy an intended construction. -/
 
 /-- TauCeti's meromorphic circle Goursat theorem is used directly for closed-circle residue-free
 steps. -/

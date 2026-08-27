@@ -506,7 +506,7 @@ Required endpoints:
 The naive unshifted Construction-A lattice of the extended binary Golay code must not be called the
 Leech lattice.
 
-## Layer 7 — common radial/modular-kernel machinery
+## Layer 7 — common radial machinery and signed Fourier components
 
 **Goal:** extract the genuinely common analytic pattern without hiding dimension-specific formulas.
 
@@ -522,9 +522,10 @@ Common API:
 - open rectangular deformation when a contour is sent to infinity;
 - q-expansion Big-O estimates for cusp decay.
 
-`ModularKernelDatum d` is explicit data, not a typeclass.  It should contain only hypotheses reused
-by the generic constructor; it must not become a record containing every theorem from both magic
-function proofs.
+The concrete `+1` and `-1` component proofs expose their exact signed kernel transformation laws
+before a common constructor is extracted.  The extracted declaration contains only hypotheses
+proved in both constructions, and its finite Fourier sign occurs in the transformation law that
+determines the eigenvalue.  No free complex `eigenvalue` field is part of this interface.
 
 Use the appropriate contour tool:
 
