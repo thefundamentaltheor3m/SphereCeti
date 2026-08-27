@@ -1054,18 +1054,136 @@ theorem rootless_even_unimodular_rank_twentyFour_unique
     Nonempty (TauCeti.IntegralLattice.Isometry L integralLattice) := by
   sorry
 
-/-- The extended binary Golay code.  Coding-theory infrastructure is local until TauCeti gains a
-code-lattice roadmap. -/
-noncomputable def extendedBinaryGolay : Submodule (ZMod 2) (Fin 24 → ZMod 2) := by
+/-- Hamming weight of a binary word. -/
+def binaryHammingWeight (x : Fin 24 → ZMod 2) : ℕ :=
+  (Finset.univ.filter fun i => x i ≠ 0).card
+
+/-- Exact generator matrix for the extended binary Golay code.  Its first 23 columns are the first
+12 shifts of `1 + X + X^5 + X^6 + X^7 + X^9 + X^11`; column 23 is the parity extension. -/
+def golayGeneratorMatrix : Matrix (Fin 12) (Fin 24) (ZMod 2) := fun i j =>
+  if j.val = 23 then 1
+  else if j.val ∈ ({0, 1, 5, 6, 7, 9, 11} : Finset ℕ).image (i.val + ·) then 1
+  else 0
+
+/-- The extended binary Golay code is the row span of the pinned generator matrix. -/
+noncomputable def extendedBinaryGolay : Submodule (ZMod 2) (Fin 24 → ZMod 2) :=
+  Submodule.span (ZMod 2) (Set.range fun i => golayGeneratorMatrix i)
+
+/-- Orthogonal code for the standard binary dot product. -/
+noncomputable def binaryDualCode
+    (C : Submodule (ZMod 2) (Fin 24 → ZMod 2)) :
+    Submodule (ZMod 2) (Fin 24 → ZMod 2) := by
   sorry
+
+@[simp]
+theorem mem_binaryDualCode (C : Submodule (ZMod 2) (Fin 24 → ZMod 2))
+    (x : Fin 24 → ZMod 2) :
+    x ∈ binaryDualCode C ↔ ∀ c ∈ C, ∑ i, x i * c i = 0 := by
+  sorry
+
+/-- Weight enumerator of a finite binary code. -/
+noncomputable def binaryWeightEnumerator
+    (C : Submodule (ZMod 2) (Fin 24 → ZMod 2)) : Polynomial ℤ := by
+  classical
+  exact ∑ c : (Fin 24 → ZMod 2),
+    if c ∈ C then Polynomial.X ^ binaryHammingWeight c else 0
+
+theorem extendedBinaryGolay_finrank :
+    Module.finrank (ZMod 2) extendedBinaryGolay = 12 := by
+  sorry
+
+theorem extendedBinaryGolay_card : Nat.card extendedBinaryGolay = 2 ^ 12 := by
+  sorry
+
+theorem extendedBinaryGolay_selfDual :
+    binaryDualCode extendedBinaryGolay = extendedBinaryGolay := by
+  sorry
+
+theorem extendedBinaryGolay_doublyEven (c : extendedBinaryGolay) :
+    4 ∣ binaryHammingWeight (c : Fin 24 → ZMod 2) := by
+  sorry
+
+theorem extendedBinaryGolay_minWeight (c : extendedBinaryGolay) (hc : c ≠ 0) :
+    8 ≤ binaryHammingWeight (c : Fin 24 → ZMod 2) := by
+  sorry
+
+theorem extendedBinaryGolay_exists_weight_eight :
+    ∃ c : extendedBinaryGolay, binaryHammingWeight (c : Fin 24 → ZMod 2) = 8 := by
+  sorry
+
+theorem extendedBinaryGolay_weightEnumerator :
+    binaryWeightEnumerator extendedBinaryGolay =
+      1 + 759 * Polynomial.X ^ 8 + 2576 * Polynomial.X ^ 12 +
+        759 * Polynomial.X ^ 16 + Polynomial.X ^ 24 := by
+  sorry
+
+def allOneWord : Fin 24 → ZMod 2 := fun _ => 1
+
+theorem allOneWord_mem_extendedBinaryGolay : allOneWord ∈ extendedBinaryGolay := by
+  sorry
+
+theorem extendedBinaryGolay_weight_even (c : extendedBinaryGolay) :
+    Even (binaryHammingWeight (c : Fin 24 → ZMod 2)) := by
+  sorry
+
+/-- Binary word selecting coordinates in one residue class modulo four. -/
+def residueWord (a : Fin 24 → ℤ) (r : ZMod 4) : Fin 24 → ZMod 2 := fun i =>
+  if (a i : ZMod 4) = r then 1 else 0
+
+/-- Integral coordinate condition whose `1 / sqrt 8` scaling is the Leech lattice. -/
+def IsLeechIntegralCoordinate (a : Fin 24 → ℤ) : Prop :=
+  (∀ i, ((∑ j, a j : ℤ) : ZMod 8) = 4 * (a i : ZMod 8)) ∧
+    ∀ r : ZMod 4, residueWord a r ∈ extendedBinaryGolay
 
 /-- Public coordinate/glue construction of the Leech lattice.  It is not the naive unshifted
 Construction-A lattice. -/
 noncomputable def lattice : Submodule ℤ (V 24) := by
   sorry
 
-/-- The same lattice presented as the span of an explicit 24-by-24 basis matrix. -/
-noncomputable def gramLattice : Submodule ℤ (V 24) := by
+/-- Exact scaled-coordinate membership theorem for the Leech lattice. -/
+theorem mem_lattice_iff_scaled_golay_coordinates (x : V 24) :
+    x ∈ lattice ↔ ∃ a : Fin 24 → ℤ, IsLeechIntegralCoordinate a ∧
+      x = WithLp.toLp 2 fun i => (a i : ℝ) / Real.sqrt 8 := by
+  sorry
+
+/-- Published row-basis matrix; the actual basis vectors are these rows divided by `sqrt 8`. -/
+def basisCoordinateMatrix : Matrix (Fin 24) (Fin 24) ℤ := ![
+  ![8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  ![4, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  ![4, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  ![4, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  ![4, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  ![4, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  ![4, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  ![2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  ![4, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  ![4, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  ![4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  ![2, 2, 2, 2, 0, 0, 0, 0, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  ![4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  ![2, 2, 0, 0, 2, 2, 0, 0, 2, 2, 0, 0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  ![2, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  ![2, 0, 0, 2, 2, 0, 0, 2, 2, 0, 0, 2, 2, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0],
+  ![4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0],
+  ![2, 0, 2, 0, 2, 0, 0, 2, 2, 2, 0, 0, 0, 0, 0, 0, 2, 2, 0, 0, 0, 0, 0, 0],
+  ![2, 0, 0, 2, 2, 2, 0, 0, 2, 0, 2, 0, 0, 0, 0, 0, 2, 0, 2, 0, 0, 0, 0, 0],
+  ![2, 2, 0, 0, 2, 0, 2, 0, 2, 0, 0, 2, 0, 0, 0, 0, 2, 0, 0, 2, 0, 0, 0, 0],
+  ![0, 2, 2, 2, 2, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0],
+  ![0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 0, 0, 2, 2, 0, 0, 2, 2, 0, 0, 2, 2, 0, 0],
+  ![0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2, 0],
+  ![-3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+]
+
+/-- The 24 explicit real basis vectors. -/
+noncomputable def basisVector (i : Fin 24) : V 24 :=
+  WithLp.toLp 2 fun j => (basisCoordinateMatrix i j : ℝ) / Real.sqrt 8
+
+theorem basisVector_mem (i : Fin 24) : basisVector i ∈ lattice := by
+  sorry
+
+/-- The explicit rows span exactly the coordinate/glue lattice. -/
+theorem span_basisVectors_eq_lattice :
+    Submodule.span ℤ (Set.range basisVector) = lattice := by
   sorry
 
 noncomputable instance lattice_discrete : DiscreteTopology lattice := by
@@ -1081,10 +1199,6 @@ noncomputable def integralPresentation : EuclideanLattice.IntegralPresentation l
 /-- Identification with the canonical algebraic Leech reference object. -/
 noncomputable def integralLatticeIsometry :
     TauCeti.IntegralLattice.Isometry integralPresentation.toIntegralLattice integralLattice := by
-  sorry
-
-/-- The public Golay/glue description and the explicit basis description define the same lattice. -/
-theorem coordinate_eq_gram_presentation : lattice = gramLattice := by
   sorry
 
 @[simp]
@@ -1115,6 +1229,18 @@ theorem theta_eq_E4_cubed_sub_720_Delta :
 
 /-- Canonical lattice packing with separation two. -/
 noncomputable def packing : PeriodicSpherePacking 24 := by
+  sorry
+
+@[simp]
+theorem packing_centers : packing.centers = lattice := by
+  sorry
+
+@[simp]
+theorem packing_lattice : packing.lattice = lattice := by
+  sorry
+
+@[simp]
+theorem packing_separation : packing.separation = 2 := by
   sorry
 
 /-- Density of unit balls centered at the Leech lattice. -/

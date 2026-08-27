@@ -243,6 +243,10 @@ stability require a separate roadmap and additional metric/quantitative infrastr
 - J. H. Conway and N. J. A. Sloane, *Sphere Packings, Lattices and Groups*, 3rd ed.
 - E. Bannai and N. J. A. Sloane, *Uniqueness of certain spherical codes* and related rigidity
   literature as needed by the chosen equality-case proof.
+
+The Leech construction targets pin the Conway--Sloane normalization: the extended Golay generator
+polynomial, the modulo-eight/residue-code coordinate description scaled by `1 / sqrt 8`, and the
+24-row integer basis matrix in that same scaling.
 - V. V. Nikulin, *Integral symmetric bilinear forms and some of their applications*.
 - W. Ebeling, *Lattices and Codes*.
 

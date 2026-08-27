@@ -512,11 +512,11 @@ The direct minimum-norm proof remains independent of the theta identity.
 
 ### Leech
 
-Provide two descriptions and prove them equal:
-
-1. a standard extended-Golay coordinate/glue construction, used for parity, congruences, and
-   rootlessness;
-2. an explicit basis/Gram presentation, used for full rank, determinant, covolume, and computation.
+Pin the extended Golay code by its exact polynomial generator matrix and prove its dimension,
+cardinality, self-duality, doubly-evenness, minimum weight, all-one word, and full weight enumerator.
+Define Leech by the exact modulo-eight/residue-code coordinate conditions with `1 / sqrt 8`
+scaling.  The 24 published integer basis rows divided by `sqrt 8` must lie in and span exactly that
+single coordinate lattice; no second opaque lattice submodule is introduced.
 
 Required endpoints:
 

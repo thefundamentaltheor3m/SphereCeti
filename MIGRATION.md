@@ -448,17 +448,23 @@ This material is a leading candidate for a TauCeti coding-theory roadmap; use up
 
 ### PR I2 — extended Golay code
 
-Construct and verify the extended binary Golay code and its required weight distribution.
+Construct it as the row span of the parity extension of the first 12 shifts of
+`1 + X + X^5 + X^6 + X^7 + X^9 + X^11`.  Verify dimension `12`, cardinality `2^12`, self-duality,
+doubly-evenness, minimum weight `8`, the all-one word, and weight enumerator
+`1 + 759 X^8 + 2576 X^12 + 759 X^16 + X^24`.
 
 ### PR I3 — Leech coordinate/glue construction
 
-Define the actual Leech lattice, not naive unshifted Construction A.  Prove closure, integrality,
-evenness, rootlessness, and the minimum-norm lower bound from the coordinate description.
+Define the actual Leech lattice as the `1 / sqrt 8` scaling of integral vectors whose coordinate
+sum and residue-class words satisfy the pinned modulo-eight/Golay conditions.  Prove the exact
+membership theorem, closure, integrality, evenness, rootlessness, and the minimum-norm lower bound
+from that coordinate description.  This is not naive unshifted Construction A.
 
 ### PR I4 — Leech Gram presentation
 
-Give an explicit basis/Gram matrix.  Prove equality with the coordinate/glue lattice and produce an
-integral presentation.
+Use the pinned 24-row integer matrix divided by `sqrt 8`.  Prove that every row lies in the
+coordinate lattice and that their integer span is exactly that lattice, then construct the integral
+presentation directly from those rows.  Do not introduce a second opaque lattice submodule.
 
 ### PR I5 — unimodularity, theta, and packing
 
