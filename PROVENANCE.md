@@ -40,10 +40,10 @@ repository  https://github.com/thefundamentaltheor3m/Sphere-Packing-Lean
 commit      bad3de916074748eb88b7d1ee6dbf9494361ad17
 ```
 
-This is the August 5, 2026 `main` commit adding the radial Schwartz submodule.  The baseline still
-uses Lean and Mathlib `v4.32.0`, so the initial SphereCeti package models its public statement
-boundary in `SphereCeti/Pinned.lean`.  The model is deleted after the synchronized production
-upgrade and is never a source of independent mathematical truth.
+This baseline contains the radial Schwartz submodule and uses Lean and Mathlib `v4.32.0`.
+`SphereCeti/Pinned.lean` models its public statement boundary until PR A2 replaces the model with
+direct imports from the synchronized production dependency.  The model is never a source of
+independent mathematical truth.
 
 ## 2. Pinned TauCeti modules consumed directly
 
@@ -89,14 +89,13 @@ TauCeti/Analysis/Complex/UpperHalfPlane/ResToImagAxis.lean
 TauCeti/Analysis/Fourier/Continuous.lean
 ```
 
-The pole-free meromorphic circle theorem was introduced in the TauCeti contour-integration work at:
+Origin commit for the pole-free meromorphic circle theorem:
 
 ```text
 66e7c687b9793320e895988f6762ba0da1c99b81
 ```
 
-and later moved by a tree-wide file-placement refactor.  SphereCeti imports it through the pinned
-snapshot `8671bee...` while retaining the origin commit for semantic provenance.
+Pinned import path: `TauCeti/Analysis/Contour/Cauchy/Goursat.lean` at snapshot `8671bee...`.
 
 ### Modular forms and q-expansions
 
@@ -144,7 +143,7 @@ In particular:
 The root `SpherePacking.lean` currently also imports tactic test modules.  That fact is not a
 semantic convention and should be repaired.
 
-## 4. Historical `gauss2` branch
+## 4. Source branch: `gauss2`
 
 The `gauss2` branch is a proof quarry.  Mine only named coherent results, with source commit and
 path recorded in the destination file or PR description.
@@ -166,8 +165,7 @@ Do not:
 
 ## 5. PR #420
 
-PR #420 targets historical work and contains several separable contributions.  Treat it as source
-material for:
+PR #420 is a source quarry containing several separable contributions:
 
 1. Schwartz summability on lattices;
 2. real dual-lattice adapters;
@@ -176,7 +174,7 @@ material for:
 5. general periodic Cohn--Elkies counting;
 6. cleanup of wrappers that obstruct Mathlib simplification.
 
-Each item is ported in a focused PR onto upgraded current `main`.  A claim that PR #420 is “merged
+Each item is ported in a focused PR onto production `main` after A1.  A claim that PR #420 is “merged
 by replacement” must list the replacement declarations; broad textual similarity is not enough.
 
 ## 6. Mathematical source papers and theorem scopes
@@ -301,9 +299,9 @@ License/header action:
 For large ports, add a temporary mapping table to the PR description.  The permanent code should
 retain only useful mathematical provenance, not branch-war history.
 
-## 10. Status of this scaffold
+## 10. Roadmap-package validation
 
-`scripts/check_roadmap.py` checks the scaffold for pin coherence, file/link consistency, and
+`scripts/check_roadmap.py` checks the package for pin coherence, file/link consistency, and
 target-shape contracts.  On the pinned toolchain, `lake exe cache get` followed by `lake build`
 elaborates every target signature, locally and in CI, with the intentional `sorry` warnings in the
 target files as the only warnings.

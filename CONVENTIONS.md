@@ -9,7 +9,7 @@ which the roadmap is to be implemented.
 
 ## 1. Dependency and pinning policy
 
-The initial package uses:
+The roadmap package uses:
 
 ```text
 Lean       leanprover/lean4:v4.34.0-rc1
@@ -32,9 +32,9 @@ Every dependency update is atomic:
 
 Never use `main`, a tag that can move, or an unrecorded local checkout as the effective TauCeti pin.
 
-The current `Sphere-Packing-Lean` semantic baseline is
-`bad3de916074748eb88b7d1ee6dbf9494361ad17`.  `SphereCeti/Pinned.lean` is a temporary statement-level
-model necessitated by the baseline's Lean/Mathlib 4.32 pin.  It must be deleted after the synchronized
+The pinned `Sphere-Packing-Lean` semantic baseline is
+`bad3de916074748eb88b7d1ee6dbf9494361ad17`.  Its Lean/Mathlib 4.32 pin requires the temporary
+statement-level model in `SphereCeti/Pinned.lean`.  PR A2 deletes that model after the synchronized
 4.34 migration; no production theorem may depend on two competing packing implementations.
 
 ## 2. Ambient Euclidean spaces
@@ -472,7 +472,7 @@ Use typeclasses for canonical ambient structure:
 
 - topology and measure structures;
 - `DiscreteTopology Λ` and `IsZLattice ℝ Λ`;
-- nondegeneracy when TauCeti already treats it as a mixin.
+- nondegeneracy when TauCeti treats it as a mixin.
 
 Do not use typeclasses for data with multiple reasonable choices:
 

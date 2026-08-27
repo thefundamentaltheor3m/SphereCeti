@@ -54,7 +54,7 @@ Every PR must preserve the following unless its title explicitly changes one of 
 
 **Repository:** `thefundamentaltheor3m/SphereCeti`
 
-Add the files in this scaffold:
+Create the roadmap package with:
 
 - exact Lean/TauCeti/Mathlib pins;
 - `README.md`;
@@ -68,7 +68,7 @@ Acceptance:
 - manifest parses;
 - every markdown link resolves;
 - no placeholder theorem is disguised as `True`;
-- the build succeeds once run in an environment with the pinned toolchain and dependency access.
+- `lake build` passes on the pinned toolchain.
 
 ### PR A1 — production toolchain migration only
 
@@ -94,8 +94,8 @@ Scope:
 Acceptance:
 
 - full production build green;
-- current E8 declarations still exist;
-- current main theorem has unchanged statement;
+- E8 public declarations remain available;
+- the summit theorem retains its statement;
 - Fourier Gaussian normalization contract passes;
 - no dependency has an unpinned branch revision.
 

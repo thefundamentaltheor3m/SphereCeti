@@ -26,7 +26,7 @@ SphereCeti follows TauCetiRoadmap's mathematical and API discipline, with two ex
    TauCeti roadmap.  It records destinations only: upstream acceptance is never a prerequisite
    for any SphereCeti target.
 
-## Exact initial pins
+## Exact dependency snapshot
 
 | Component | Pin |
 |---|---|
@@ -40,17 +40,15 @@ while source reproducibility is supplied by the exact Mathlib commit in `lake-ma
 not add an independent floating Mathlib requirement beside TauCeti: SphereCeti must use the same
 resolved Mathlib graph as its pinned TauCeti dependency.
 
-The TauCeti pin itself is a general repository snapshot, not a contour-specific commit.  For
-historical provenance, the pole-free meromorphic Cauchy--Goursat theorem was introduced in TauCeti
-at commit `66e7c687b9793320e895988f6762ba0da1c99b81` and is consumed here through the later pinned
-snapshot.
+The TauCeti dependency is the complete repository snapshot at the SHA above, not a
+contour-specific release.
 
-The current Sphere-Packing baseline still uses Lean/Mathlib `v4.32.0`.  Therefore the standalone
-roadmap package does **not** initially import Sphere-Packing as a Lake dependency.  Instead,
-[`SphereCeti/Pinned.lean`](SphereCeti/Pinned.lean) models the public structures and semantic
-normalizations at that exact production commit.  Layer 0 is a coordinated production toolchain
-upgrade; after it lands, the compatibility model must be deleted and replaced by direct imports.
-It is not permitted to become a second implementation.
+The pinned Sphere-Packing baseline uses Lean/Mathlib `v4.32.0`, which is incompatible with this
+package's dependency graph.  [`SphereCeti/Pinned.lean`](SphereCeti/Pinned.lean) therefore models the
+public structures and semantic normalizations at that exact production commit.  Layer 0 upgrades
+production to the shared dependency line; PR A2 then deletes the compatibility model and replaces
+it with direct imports.  The compatibility model is not permitted to become a second
+implementation.
 
 The committed `lake-manifest.json` records the entire resolved dependency graph from the TauCeti
 snapshot, not merely the user-facing TauCeti SHA.
@@ -137,7 +135,7 @@ set, not restrictions on the roots of the Fourier transform.
 
 ## Governing principles
 
-1. **Preserve the existing packing semantics.**  The current `SpherePacking`,
+1. **Preserve the existing packing semantics.**  The pinned `SpherePacking`,
    `PeriodicSpherePacking`, `balls`, `finiteDensity`, `density`, and packing constants are the
    starting definitions.
 2. **Build one common 8+24 library, not two copied proofs.**  Common structure includes lattices,
@@ -367,7 +365,7 @@ This is the only layer in which the compatibility model is tolerated.
 
 Deliverables:
 
-- keep the current structures and density definitions;
+- preserve the pinned structures and density definitions;
 - split production and test aggregators;
 - add directional separation and lattice-action lemmas;
 - mark safe scale projections and scale density as `@[simp]`;
@@ -377,7 +375,7 @@ Deliverables:
 
 Acceptance tests:
 
-- existing E8 packing and density proofs still compile;
+- the E8 packing and density proofs compile;
 - `simp` normalizes constructor projections without expanding density formulas;
 - `grind` closes basic separation/action residue but does not invoke analysis.
 
