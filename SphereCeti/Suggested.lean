@@ -215,6 +215,30 @@ structure IntegralPresentation {d : ℕ} (Λ : Submodule ℤ (V d)) where
   gram_spec : ∀ i j,
     ((gram i j : ℤ) : ℝ) = ⟪((basis i : Λ) : V d), ((basis j : Λ) : V d)⟫_ℝ
 
+/-- Constructor that derives Gram symmetry from the real inner-product specification. -/
+noncomputable def IntegralPresentation.ofBasis {d : ℕ} {Λ : Submodule ℤ (V d)}
+    (basis : Basis (Fin d) ℤ Λ) (gram : Matrix (Fin d) (Fin d) ℤ)
+    (gram_spec : ∀ i j,
+      ((gram i j : ℤ) : ℝ) = ⟪((basis i : Λ) : V d), ((basis j : Λ) : V d)⟫_ℝ) :
+    IntegralPresentation Λ := by
+  sorry
+
+@[simp]
+theorem IntegralPresentation.ofBasis_basis {d : ℕ} {Λ : Submodule ℤ (V d)}
+    (basis : Basis (Fin d) ℤ Λ) (gram : Matrix (Fin d) (Fin d) ℤ)
+    (gram_spec : ∀ i j,
+      ((gram i j : ℤ) : ℝ) = ⟪((basis i : Λ) : V d), ((basis j : Λ) : V d)⟫_ℝ) :
+    (IntegralPresentation.ofBasis basis gram gram_spec).basis = basis := by
+  sorry
+
+@[simp]
+theorem IntegralPresentation.ofBasis_gram {d : ℕ} {Λ : Submodule ℤ (V d)}
+    (basis : Basis (Fin d) ℤ Λ) (gram : Matrix (Fin d) (Fin d) ℤ)
+    (gram_spec : ∀ i j,
+      ((gram i j : ℤ) : ℝ) = ⟪((basis i : Λ) : V d), ((basis j : Λ) : V d)⟫_ℝ) :
+    (IntegralPresentation.ofBasis basis gram gram_spec).gram = gram := by
+  sorry
+
 /-- The TauCeti rational integral lattice associated to an integral presentation. -/
 noncomputable def IntegralPresentation.toIntegralLattice {d : ℕ}
     {Λ : Submodule ℤ (V d)} (P : IntegralPresentation Λ) :
@@ -230,6 +254,12 @@ abbrev IntegralPresentation.IsUnimodular {d : ℕ} {Λ : Submodule ℤ (V d)}
 abbrev IntegralPresentation.IsPosDef {d : ℕ} {Λ : Submodule ℤ (V d)}
     (P : IntegralPresentation Λ) : Prop := P.toIntegralLattice.IsPosDef
 
+/-- A presentation of a full Euclidean lattice is automatically positive definite. -/
+theorem IntegralPresentation.isPosDef {d : ℕ} {Λ : Submodule ℤ (V d)}
+    [DiscreteTopology Λ] [IsZLattice ℝ Λ] (P : IntegralPresentation Λ) :
+    P.IsPosDef := by
+  sorry
+
 /-- Cohn--Elkies Lemma 8.2 in generic API form.  A full-dimensional set containing zero whose
 pairwise squared distances are even integers generates a discrete full-rank even integral lattice.
 The conclusion is expressed through the real/TauCeti presentation bridge used throughout this
@@ -241,20 +271,29 @@ theorem generatedSubmodule_evenIntegral_full {d : ℕ}
     ∃ (_ : DiscreteTopology (generatedSubmodule S))
       (_ : IsZLattice ℝ (generatedSubmodule S))
       (G : IntegralPresentation (generatedSubmodule S)),
-      G.IsEven ∧ G.IsPosDef := by
+      G.IsEven := by
   sorry
 
-/-- Coordinate characterization shared by the real dual lattice and TauCeti's dual carrier. -/
-def IntegralPresentation.DualCompatible {d : ℕ}
-    {Λ : Submodule ℤ (V d)} (P : IntegralPresentation Λ) : Prop :=
-  ∀ x : V d, x ∈ dual Λ ↔
-    ∀ i : Fin d, ∃ z : ℤ, ⟪x, ((P.basis i : Λ) : V d)⟫_ℝ = z
+/-- The real carrier and TauCeti's Gram-coordinate carrier are integrally equivalent. -/
+noncomputable def IntegralPresentation.carrierEquiv {d : ℕ}
+    {Λ : Submodule ℤ (V d)} (P : IntegralPresentation Λ) :
+    Λ ≃ₗ[ℤ] P.toIntegralLattice.carrier := by
+  sorry
 
-/-- The real dual-lattice membership condition is the Gram-coordinate condition used by
-TauCeti's algebraic dual carrier. -/
-theorem IntegralPresentation.dual_compatibility {d : ℕ}
+/-- The real dual and TauCeti's rational dual carrier have the same integral coordinates. -/
+noncomputable def IntegralPresentation.dualCarrierEquiv {d : ℕ}
     {Λ : Submodule ℤ (V d)} [DiscreteTopology Λ] [IsZLattice ℝ Λ]
-    (P : IntegralPresentation Λ) : P.DualCompatible := by
+    (P : IntegralPresentation Λ) :
+    EuclideanLattice.dual Λ ≃ₗ[ℤ] P.toIntegralLattice.dualCarrier := by
+  sorry
+
+/-- Explicit membership comparison through the rational dual-carrier coordinates. -/
+theorem IntegralPresentation.mem_dual_iff_exists_dualCarrier_coordinates {d : ℕ}
+    {Λ : Submodule ℤ (V d)} [DiscreteTopology Λ] [IsZLattice ℝ Λ]
+    (P : IntegralPresentation Λ) (x : V d) :
+    x ∈ EuclideanLattice.dual Λ ↔
+      ∃ q : P.toIntegralLattice.dualCarrier,
+        x = ∑ i : Fin d, ((q : Fin d → ℚ) i : ℝ) • ((P.basis i : Λ) : V d) := by
   sorry
 
 /-- The determinant/covolume bridge used to move between TauCeti's Gram discriminant and Mathlib's
@@ -265,39 +304,63 @@ theorem IntegralPresentation.covolume_sq_eq_discriminant {d : ℕ}
     ZLattice.covolume Λ ^ 2 = P.toIntegralLattice.discriminant := by
   sorry
 
-/-- Canonical algebraic E8 reference object.  Its concrete construction belongs with the
-TauCeti-facing integral-lattice development, rather than in the packing equality proof. -/
-noncomputable def algebraicE8 : TauCeti.IntegralLattice (Fin 8 → ℚ) := by
-  sorry
-
-/-- Canonical algebraic Leech reference object. -/
-noncomputable def algebraicLeech : TauCeti.IntegralLattice (Fin 24 → ℚ) := by
-  sorry
-
-/-- Classification target: the positive-definite even unimodular rank-eight lattice is unique.
-This theorem is implemented locally until a TauCeti integral-lattice roadmap supplies it. -/
-theorem even_unimodular_rank_eight_unique
-    {W : Type u} [AddCommGroup W] [Module ℚ W]
-    (L : TauCeti.IntegralLattice W) [L.IsNondegenerate]
-    (hrank : Module.finrank ℚ W = 8)
-    (hpos : L.IsPosDef) (heven : L.IsEven) (hunimodular : L.IsUnimodular) :
-    Nonempty (TauCeti.IntegralLattice.Isometry L algebraicE8) := by
+/-- Unimodularity agrees exactly with real covolume one. -/
+theorem IntegralPresentation.isUnimodular_iff_covolume_eq_one {d : ℕ}
+    {Λ : Submodule ℤ (V d)} [DiscreteTopology Λ] [IsZLattice ℝ Λ]
+    (P : IntegralPresentation Λ) :
+    P.IsUnimodular ↔ ZLattice.covolume Λ = 1 := by
   sorry
 
 /-- Rootlessness in the even-lattice normalization means absence of squared norm `2`. -/
 def IsRootless {W : Type*} [AddCommGroup W] [Module ℚ W]
     (L : TauCeti.IntegralLattice W) : Prop := L.vectorsOfNorm 2 = ∅
 
-/-- Classification target: a positive-definite rootless even unimodular rank-24 lattice is Leech.
-Its intended home is a TauCeti Niemeier/Leech roadmap (see `UPSTREAM.md`); it is a required
-SphereCeti dependency either way. -/
-theorem rootless_even_unimodular_rank_twentyFour_unique
-    {W : Type u} [AddCommGroup W] [Module ℚ W]
-    (L : TauCeti.IntegralLattice W) [L.IsNondegenerate]
-    (hrank : Module.finrank ℚ W = 24)
-    (hpos : L.IsPosDef) (heven : L.IsEven) (hunimodular : L.IsUnimodular)
-    (hrootless : IsRootless L) :
-    Nonempty (TauCeti.IntegralLattice.Isometry L algebraicLeech) := by
+/-- Presentation coordinates preserve each exact squared-norm shell. -/
+noncomputable def IntegralPresentation.normSqShellEquiv {d : ℕ}
+    {Λ : Submodule ℤ (V d)} [DiscreteTopology Λ] [IsZLattice ℝ Λ]
+    (P : IntegralPresentation Λ) (n : ℕ) :
+    ↑(normSqShell Λ n) ≃ ↑(P.toIntegralLattice.vectorsOfNorm n) := by
+  sorry
+
+/-- The algebraic root condition is exactly emptiness of the real norm-two shell. -/
+theorem IntegralPresentation.isRootless_iff_normSqShell_two_empty {d : ℕ}
+    {Λ : Submodule ℤ (V d)} [DiscreteTopology Λ] [IsZLattice ℝ Λ]
+    (P : IntegralPresentation Λ) :
+    IsRootless P.toIntegralLattice ↔ normSqShell Λ 2 = ∅ := by
+  sorry
+
+/-- Extend an algebraic classification isometry to the ambient real Euclidean space. -/
+noncomputable def IntegralPresentation.realIsometryOfIsometry {d : ℕ}
+    {Λ Μ : Submodule ℤ (V d)} (P : IntegralPresentation Λ)
+    (Q : IntegralPresentation Μ)
+    (e : TauCeti.IntegralLattice.Isometry P.toIntegralLattice Q.toIntegralLattice) :
+    V d ≃ₗᵢ[ℝ] V d := by
+  sorry
+
+@[simp]
+theorem IntegralPresentation.realIsometry_maps_carrier {d : ℕ}
+    {Λ Μ : Submodule ℤ (V d)} (P : IntegralPresentation Λ)
+    (Q : IntegralPresentation Μ)
+    (e : TauCeti.IntegralLattice.Isometry P.toIntegralLattice Q.toIntegralLattice) :
+    realIsometryOfIsometry P Q e '' (Λ : Set (V d)) = (Μ : Set (V d)) := by
+  sorry
+
+/-- Add translations to the real linear extension supplied by a classification isometry. -/
+noncomputable def IntegralPresentation.affineIsometryOfIsometry {d : ℕ}
+    {Λ Μ : Submodule ℤ (V d)} (P : IntegralPresentation Λ)
+    (Q : IntegralPresentation Μ)
+    (e : TauCeti.IntegralLattice.Isometry P.toIntegralLattice Q.toIntegralLattice)
+    (v w : V d) : V d ≃ᵃⁱ[ℝ] V d := by
+  sorry
+
+@[simp]
+theorem IntegralPresentation.affineIsometry_maps_coset {d : ℕ}
+    {Λ Μ : Submodule ℤ (V d)} (P : IntegralPresentation Λ)
+    (Q : IntegralPresentation Μ)
+    (e : TauCeti.IntegralLattice.Isometry P.toIntegralLattice Q.toIntegralLattice)
+    (v w : V d) :
+    affineIsometryOfIsometry P Q e v w '' (v +ᵥ (Λ : Set (V d))) =
+      w +ᵥ (Μ : Set (V d)) := by
   sorry
 
 end EuclideanLattice
@@ -746,8 +809,19 @@ namespace E8
 
 abbrev lattice : Submodule ℤ (V 8) := SphereCeti.Pinned.E8Lattice
 abbrev packing : PeriodicSpherePacking 8 := SphereCeti.Pinned.E8Packing
-abbrev integralLattice : TauCeti.IntegralLattice (Fin 8 → ℚ) :=
-  EuclideanLattice.algebraicE8
+
+/-- Canonical algebraic E8 reference object, reusing TauCeti's existing E8 lattice model. -/
+noncomputable def integralLattice : TauCeti.IntegralLattice (Fin 8 → ℚ) := by
+  sorry
+
+/-- Classification target: every positive-definite even unimodular rank-eight lattice is E8.
+Positive-definiteness supplies nondegeneracy internally. -/
+theorem even_unimodular_rank_eight_unique
+    {W : Type u} [AddCommGroup W] [Module ℚ W]
+    (L : TauCeti.IntegralLattice W) (hrank : Module.finrank ℚ W = 8)
+    (hpos : L.IsPosDef) (heven : L.IsEven) (hunimodular : L.IsUnimodular) :
+    Nonempty (TauCeti.IntegralLattice.Isometry L integralLattice) := by
+  sorry
 
 /-- The explicit production basis and integer Gram matrix packaged for TauCeti. -/
 noncomputable def integralPresentation : EuclideanLattice.IntegralPresentation lattice := by
@@ -765,10 +839,6 @@ theorem integralPresentation_even : integralPresentation.IsEven := by
 
 @[simp]
 theorem integralPresentation_unimodular : integralPresentation.IsUnimodular := by
-  sorry
-
-@[simp]
-theorem integralPresentation_posDef : integralPresentation.IsPosDef := by
   sorry
 
 /-- Minimum squared norm two, proved independently of theta-series classification. -/
@@ -792,8 +862,19 @@ end E8
 
 namespace Leech
 
-abbrev integralLattice : TauCeti.IntegralLattice (Fin 24 → ℚ) :=
-  EuclideanLattice.algebraicLeech
+/-- Canonical algebraic Leech reference object. -/
+noncomputable def integralLattice : TauCeti.IntegralLattice (Fin 24 → ℚ) := by
+  sorry
+
+/-- Classification target: every positive-definite rootless even unimodular rank-24 lattice is
+Leech.  Positive-definiteness supplies nondegeneracy internally. -/
+theorem rootless_even_unimodular_rank_twentyFour_unique
+    {W : Type u} [AddCommGroup W] [Module ℚ W]
+    (L : TauCeti.IntegralLattice W) (hrank : Module.finrank ℚ W = 24)
+    (hpos : L.IsPosDef) (heven : L.IsEven) (hunimodular : L.IsUnimodular)
+    (hrootless : EuclideanLattice.IsRootless L) :
+    Nonempty (TauCeti.IntegralLattice.Isometry L integralLattice) := by
+  sorry
 
 /-- The extended binary Golay code.  Coding-theory infrastructure is local until TauCeti gains a
 code-lattice roadmap. -/
@@ -834,10 +915,6 @@ theorem integralPresentation_even : integralPresentation.IsEven := by
 
 @[simp]
 theorem integralPresentation_unimodular : integralPresentation.IsUnimodular := by
-  sorry
-
-@[simp]
-theorem integralPresentation_posDef : integralPresentation.IsPosDef := by
   sorry
 
 /-- Minimum squared norm four; in particular the lattice is rootless. -/
@@ -1145,7 +1222,7 @@ theorem generatedIntegralLattice_evenIntegral_full {d : ℕ}
       (_ : IsZLattice ℝ (generatedIntegralLattice P x₀))
       (G : EuclideanLattice.IntegralPresentation
         (generatedIntegralLattice P x₀)),
-      G.IsEven ∧ G.IsPosDef := by
+      G.IsEven := by
   sorry
 
 /-- The original period lattice is contained in the subgroup generated by a translated periodic
@@ -1210,8 +1287,7 @@ absolute value of a nonzero integer Gram determinant.  This lemma packages the r
 needed by the uniqueness proof. -/
 theorem one_le_covolume_of_integralPresentation {d : ℕ}
     (Λ : Submodule ℤ (V d)) [DiscreteTopology Λ] [IsZLattice ℝ Λ]
-    (G : EuclideanLattice.IntegralPresentation Λ)
-    (hpos : G.IsPosDef) :
+    (G : EuclideanLattice.IntegralPresentation Λ) :
     1 ≤ ZLattice.covolume Λ := by
   sorry
 
@@ -1244,7 +1320,7 @@ theorem generated_covolume_eq_one_and_index_eq_numOrbits {d : ℕ}
     (_ : DiscreteTopology (generatedIntegralLattice P x₀))
     (_ : IsZLattice ℝ (generatedIntegralLattice P x₀))
     (G : EuclideanLattice.IntegralPresentation (generatedIntegralLattice P x₀))
-    (hpos : G.IsPosDef) (hunit : HasUnitCenterDensity P) :
+    (hunit : HasUnitCenterDensity P) :
     ZLattice.covolume (generatedIntegralLattice P x₀) = 1 ∧
       P.lattice.toAddSubgroup.relIndex
         (generatedIntegralLattice P x₀).toAddSubgroup = P.numOrbits := by
@@ -1279,7 +1355,7 @@ theorem e8_reduction_to_evenUnimodular
     (hopt : P.density = E8.packing.density) :
     ∃ (Λ : Submodule ℤ (V 8)) (_ : DiscreteTopology Λ) (_ : IsZLattice ℝ Λ)
       (G : EuclideanLattice.IntegralPresentation Λ) (v : V 8),
-      G.IsEven ∧ G.IsUnimodular ∧ G.IsPosDef ∧ P.centers = v +ᵥ (Λ : Set (V 8)) := by
+      G.IsEven ∧ G.IsUnimodular ∧ P.centers = v +ᵥ (Λ : Set (V 8)) := by
   sorry
 
 /-- The Leech equality conditions produce a rootless positive-definite even unimodular rank-24
@@ -1290,8 +1366,8 @@ theorem leech_reduction_to_rootless_evenUnimodular
     (hopt : P.density = Leech.packing.density) :
     ∃ (Λ : Submodule ℤ (V 24)) (_ : DiscreteTopology Λ) (_ : IsZLattice ℝ Λ)
       (G : EuclideanLattice.IntegralPresentation Λ) (v : V 24),
-      G.IsEven ∧ G.IsUnimodular ∧ G.IsPosDef ∧
-      EuclideanLattice.MinNormSqAtLeast Λ 4 ∧ P.centers = v +ᵥ (Λ : Set (V 24)) := by
+      G.IsEven ∧ G.IsUnimodular ∧ EuclideanLattice.MinNormSqAtLeast Λ 4 ∧
+        P.centers = v +ᵥ (Λ : Set (V 24)) := by
   sorry
 
 end Rigidity

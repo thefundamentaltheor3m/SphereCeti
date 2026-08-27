@@ -389,13 +389,19 @@ Deliverables:
 - `EuclideanLattice.IntegralPresentation`;
 - construction of the TauCeti `ofGramMatrix` lattice;
 - Gram compatibility with the real inner product;
-- dual-carrier/real-dual membership comparison;
-- discriminant/covolume comparison;
+- integral equivalences between the real carrier/dual and TauCeti's carrier/dual carrier;
+- an explicit real-dual membership theorem in TauCeti dual-carrier coordinates;
+- discriminant/covolume and unimodular/covolume-one comparisons;
 - finite norm shells and minimum-norm predicates;
-- transport of evenness, unimodularity, rootlessness, and isometry across presentations.
+- shell equivalences and transport of evenness, unimodularity, and rootlessness;
+- extension of a TauCeti classification isometry to a real linear isometry, then to an affine
+  isometry carrying one lattice coset to another.
 
 Do not introduce a second global `IsIntegral` predicate on real lattices.  Integrality is witnessed
 by the presentation and discharged through TauCeti.
+Positive-definiteness is derived from the full Euclidean presentation rather than carried as a
+separate hypothesis.  The E8 and Leech reference objects and classifications remain in their
+dimension-specific layers.
 
 ## Layer 3 — periodic orbit and density API
 

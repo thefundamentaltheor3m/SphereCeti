@@ -186,6 +186,9 @@ Acceptance:
   bases;
 - basis change produces an integral-lattice isometry.
 
+Provide an `ofBasis` constructor that derives Gram symmetry from the real inner-product equation;
+callers do not prove a separate `gram_isSymm` field.
+
 ### PR C3 — dual compatibility
 
 Compare:
@@ -193,7 +196,9 @@ Compare:
 - Mathlib's real inner-product dual lattice;
 - TauCeti's rational dual carrier.
 
-Prove membership equivalence under an integral presentation and transport unimodularity.
+Construct integral equivalences between the real carrier/dual and TauCeti's carrier/dual carrier.
+Prove real-dual membership equivalence through the rational dual-carrier coordinates and transport
+unimodularity, rootlessness, and exact norm shells.
 
 ### PR C4 — discriminant/covolume compatibility
 
@@ -202,7 +207,12 @@ Prove:
 - Gram determinant equals TauCeti determinant/discriminant;
 - real covolume squared equals the nonnegative Gram determinant;
 - positive-definite unimodular presentations have covolume one;
-- isometry invariance.
+- isometry invariance;
+- every TauCeti classification isometry extends to a real linear isometry mapping carriers, and
+  then to an affine isometry mapping lattice cosets.
+
+Derive positive-definiteness from a full Euclidean presentation.  The determinant lower bound and
+classification statements do not carry redundant positivity or nondegeneracy hypotheses.
 
 Avoid global coercion instances between rational and real lattice types.
 
