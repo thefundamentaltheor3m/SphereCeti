@@ -110,7 +110,7 @@ The equality case naturally splits across repositories.
 | Equality in the periodic Cohn--Elkies sum forces all pairwise differences onto the magic-function zero shells | Sphere-Packing/SphereCeti | It depends on packing density, finite periodic patterns, and the specific certificate |
 | The translated center set generates a full even integral lattice, and optimal density forces the packing to equal one coset of it | Sphere-Packing/SphereCeti | This is the geometric rigidity step from a packing to a lattice |
 | Every positive-definite even unimodular rank-eight integral lattice is isometric to E8 | TauCeti IntegralLattices extension | Pure integral-lattice classification, independent of sphere packing |
-| Every rootless positive-definite even unimodular rank-24 integral lattice is isometric to Leech | TauCeti IntegralLattices/Niemeier extension | Pure lattice classification; may be proved narrowly or via Niemeier theory |
+| Every rootless positive-definite even unimodular rank-24 integral lattice is isometric to Leech | TauCeti IntegralLattices/Niemeier extension | Niemeier classification, with Leech isolated as the unique empty-root case |
 | Universal optimality, Fourier interpolation, and quantitative stability | Separate TauCeti roadmaps | They require energy, interpolation, and quantitative metric infrastructure beyond packing density |
 
 The most economical exact-uniqueness route is the one isolated by Cohn--Elkies, Section 8.  It
@@ -627,11 +627,11 @@ whenever coordination or timing requires it.  Upstream acceptance is never a pre
 The Leech shell spectrum gives a rootless positive-definite even unimodular rank-24 lattice.  Use the
 uniqueness characterization of Leech and transport the center coset.
 
-A full Niemeier classification is one route but should not be imported merely as a black box if a
-narrower rootless uniqueness proof is substantially easier to formalize.  The intended generic
-home is TauCeti, and the issue is recorded in `UPSTREAM.md`; the rootless uniqueness theorem is a
-required dependency of this roadmap regardless, and may be proved locally with exactly the
-upstream-shaped statement.
+The rank-24 route is the Niemeier classification.  Its target interface enumerates all 24 cases,
+constructs the canonical lattice attached to each root-system/glue-code case, produces the
+classification isometry, and proves that the root set is empty exactly for the Leech case.  The
+generic development belongs in TauCeti and is recorded in `UPSTREAM.md`; it remains a required
+dependency and is proved locally with the same statement shape when coordination requires it.
 
 ## Layer 10 — summit assembly
 

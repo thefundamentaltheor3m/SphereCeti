@@ -234,7 +234,9 @@ SphereCeti.
 - [ ] **Required reusable API:**
   - canonical E8 Gram/integral lattice built from TauCeti root data;
   - roots/vectors of norm `2`;
-  - extraction of a root basis or another constructive classification route;
+  - finite crystallographic root system, spanning, and ADE decomposition;
+  - rank `8` plus `240` roots identifies type E8;
+  - the E8 root sublattice has index one;
   - isometry from equality of Gram data;
   - invariance of evenness, unimodularity, and rank.
 - [ ] **Why TauCeti:** the statement mentions no real packing, density, or Fourier analysis.
@@ -248,11 +250,11 @@ SphereCeti.
 - [ ] **Destination:** IntegralLattices extension or a dedicated Niemeier-lattices roadmap.
 - [ ] **Target statement:** every positive-definite even unimodular integral lattice of rank `24`
   with no norm-`2` vectors is isometric to the Leech lattice.
-- [ ] **Possible implementation route 1:** narrow rootless classification via Golay/glue.
-- [ ] **Possible implementation route 2:** Niemeier classification, with Leech the unique rootless
-  case.
-- [ ] **SphereCeti preference:** choose the narrower route unless the broader Niemeier development
-  already has independent momentum.
+- [ ] **Implementation route:** Niemeier classification with the exact 24-case root-system list,
+  canonical lattices constructed from their glue codes, and an integral-lattice classification
+  isometry.
+- [ ] **Required isolation theorem:** the norm-`2` root set is empty if and only if the classified
+  Niemeier type is Leech.
 - [ ] **SphereCeti fallback:** local theorem in an upstream-shaped namespace, never an axiom.
 
 ### B3. Canonical E8 integral lattice from root-system data

@@ -613,8 +613,10 @@ Every positive-definite even unimodular integral lattice of rank 8 is isometric 
 A productive proof route is constructive rather than mass-formula based:
 
 - theta identity supplies 240 roots;
-- choose a root and analyze its orthogonal complement/glue, or extract a simple-root basis;
-- identify the resulting Cartan/Gram matrix with E8;
+- prove the norm-two roots are a finite crystallographic root system and span rank eight;
+- decompose the root system into irreducible ADE components;
+- use total rank `8` and root count `240` to identify the unique component as `E8`;
+- prove the E8 root sublattice has index one in the unimodular lattice;
 - construct the integral-lattice isometry.
 
 The theorem should not mention sphere packings.
@@ -627,10 +629,13 @@ Target:
 Every positive-definite even unimodular rootless rank-24 lattice is isometric to Leech.
 ```
 
-Choose one explicit route and state its infrastructure honestly:
-
-- a narrow rootless uniqueness theorem from Golay/glue structure; or
-- enough Niemeier theory to classify rank-24 even unimodular lattices and isolate the rootless one.
+Use Niemeier classification.  Define the exact 24-case type: Leech and the 23 root systems
+`A1^24`, `A2^12`, `A3^8`, `A4^6`, `A5^4 D4`, `A6^4`, `A7^2 D5^2`, `A8^3`, `A9^2 D6`,
+`A11 D7 E6`, `A12^2`, `A15 D9`, `A17 E7`, `A24`, `D4^6`, `D6^4`, `D8^3`, `D10 E7^2`,
+`D12^2`, `D16 E8`, `D24`, `E6^4`, and `E8^3`.  The classification development constructs each
+canonical lattice from its root system and glue code and produces an integral-lattice isometry.
+Expose the exact characteristic theorem that the norm-two root set is empty if and only if the
+classified case is Leech, then derive the rootless uniqueness target.
 
 Do not postulate the theorem as an opaque axiom in production.
 
