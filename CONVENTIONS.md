@@ -70,7 +70,7 @@ Canonical normalizations:
 | Leech | `2` | `1` |
 
 The scale-free packing constant ranges over all positive separations.  Intermediate equality and
-rigidity statements should first fix the canonical separation and prove congruence; the final
+rigidity statements first fix the canonical separation and prove congruence; the final
 scale-free theorem uses similarity.
 
 ## 4. Density
@@ -92,7 +92,7 @@ ENNReal.ofReal (Real.pi ^ 4 / 384)
 ENNReal.ofReal (Real.pi ^ 12 / 12.factorial)
 ```
 
-No theorem should infer global equality of center sets from equality of upper density: finite
+No theorem may infer global equality of center sets from equality of upper density: finite
 modifications preserve the limsup.  Exact uniqueness is therefore stated for periodic packings (or
 for lattices), not arbitrary packings.
 
@@ -259,7 +259,7 @@ def RadialSchwartzMap.ofNormSq (φ : 𝓢(ℝ, ℂ)) :
 with an evaluation theorem.  Do not redefine radiality as factorization through squared norm.
 
 The restricted Fourier transform on `RadialSchwartzMap` is the canonical involution and owns the
-`+1` and `-1` eigenspaces.  Dimension-specific `a` and `b` proofs should not reprove generic Fourier
+`+1` and `-1` eigenspaces.  Dimension-specific `a` and `b` proofs do not reprove generic Fourier
 inversion.
 
 ## 12. Poisson summation
@@ -274,8 +274,8 @@ The target normalization is:
 The unshifted formula is the `u = 0` specialization.  Periodic multi-coset Cohn--Elkies arguments
 need the shifted formula or an equivalent finite structure-factor formula.
 
-Poisson summation is never a simp rule.  It should be a named theorem with explicit lattice,
-measure, and Fourier conventions visible in its type or imports.
+Poisson summation is never a simp rule.  Name it explicitly, with lattice, measure, and Fourier
+conventions visible in its type or imports.
 
 ## 13. Cohn--Elkies certificates
 
@@ -396,7 +396,7 @@ positive-definite + even + unimodular + rank 8  ⇒ isometric to E8
 positive-definite + even + unimodular + rank 24 + rootless ⇒ isometric to Leech
 ```
 
-These belong ultimately in TauCeti's integral-lattice ecosystem (the second either via Niemeier
+Their intended home is TauCeti's integral-lattice ecosystem (the second either via Niemeier
 classification or a narrower rootless theorem).
 
 ### Lattice packing uniqueness
@@ -453,7 +453,7 @@ Use directional rules for:
 - orbit representative uniqueness;
 - minimum-norm consequences;
 - code parity/congruence consequences;
-- equality-case elimination after the relevant analytic equality is already in context.
+- equality-case elimination after establishing the relevant analytic equality.
 
 Do not register analytic convergence, modular transformations, Fourier integral identities, or
 nontrivial inequalities as global grind rules.

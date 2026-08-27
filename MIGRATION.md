@@ -86,7 +86,7 @@ Scope:
 
 - toolchain and Lake files;
 - syntax/API repairs forced by the bump;
-- exact imports of the TauCeti modules already known to be needed;
+- exact imports of the required TauCeti modules;
 - no mathematical refactor;
 - no directory move;
 - no new abstraction beyond compatibility shims required for the build.
@@ -155,7 +155,7 @@ Add a small contract module checking:
 - Fourier convention;
 - no test module in the production import graph.
 
-This is intentionally separate from B2 so later refactors have a stable tripwire.
+This is intentionally separate from B2 to give downstream refactors a stable tripwire.
 
 ## 5. Phase C — the real/rational lattice bridge
 
@@ -544,7 +544,7 @@ equals `π^4/384`.
 
 ### PR K6 — E8 optimality summit
 
-The summit should be a short lower-bound/upper-bound `le_antisymm` proof.
+The summit is a short lower-bound/upper-bound `le_antisymm` proof.
 
 ## 14. Phase L — Leech magic function
 
@@ -677,7 +677,7 @@ superpacking.  Instead formalize the exact Section-8 argument:
   `covolume period = numOrbits`;
 - the inequalities squeeze the relative index to `numOrbits` and the generated covolume to one.
 
-This PR should expose the quotient injection, determinant lower bound, and numerical squeeze as
+This PR must expose the quotient injection, determinant lower bound, and numerical squeeze as
 separate reusable lemmas.
 The cardinal inequality must carry the generated-lattice discreteness/full-rank hypotheses: without
 them the relative quotient can be infinite and Mathlib's `relIndex` is zero.
@@ -760,7 +760,7 @@ After A1:
 
 ## 19. PR description template
 
-Every nontrivial PR should state:
+Every nontrivial PR must state:
 
 ```text
 Mathematical boundary:

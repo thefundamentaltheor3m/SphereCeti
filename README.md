@@ -166,7 +166,7 @@ set, not restrictions on the roots of the Fourier transform.
 
 ### From Sphere-Packing-Lean `main`
 
-The following mathematics is valuable and should be migrated, not rewritten gratuitously.
+Migrate the following mathematics without gratuitous rewrites.
 
 - The basic packing structures and limsup density definitions.
 - Positive scaling and scale-invariance of density.
@@ -218,7 +218,7 @@ Mine and split:
 
 ### From the pinned TauCeti snapshot
 
-SphereCeti should directly consume the following coherent APIs.
+SphereCeti must directly consume the following coherent APIs.
 
 #### Integral lattices
 
@@ -335,8 +335,8 @@ Good `@[grind]` rules are directional structural facts:
 - minimum-norm elimination;
 - codeword parity and coordinate congruences.
 
-`@[fun_prop]` remains appropriate for imaginary-axis realness/positivity, differentiability, and
-algebraic closure properties already developed in TauCeti.
+`@[fun_prop]` remains appropriate for TauCeti's imaginary-axis realness/positivity,
+differentiability, and algebraic closure properties.
 
 # Roadmap layers
 
@@ -606,7 +606,7 @@ Given an optimal periodic packing and a fundamental pattern:
 8. the original separation now supplies minimum squared norm `2` for E8 or `4` for Leech.
 
 This is the formal counterpart of Cohn--Elkies, Lemma 8.2 and the argument immediately following
-it.  The covolume/discriminant bridge and quotient-cardinality argument should be exposed through
+it.  Expose the covolume/discriminant bridge and quotient-cardinality argument through
 reusable intermediate theorems, not hidden in two enormous summit proofs.
 The quotient cardinal inequality is stated only after discreteness and full rank of the generated
 lattice have made the relative quotient finite; Mathlib's `relIndex` is zero at infinite index.
@@ -647,9 +647,8 @@ Assemble:
 - Leech unique optimal periodic packing;
 - lattice uniqueness corollaries.
 
-The summit files should be short: ideally imports, two inequalities, `le_antisymm`, and the equality
-case theorem.  Analytic or lattice classification work buried in the summit file signals a missing
-API layer.
+The summit files contain only imports, two inequalities, `le_antisymm`, and the equality-case
+theorem.  Analytic or lattice classification work in a summit file signals a missing API layer.
 
 # Uniqueness, universal optimality, and stability
 
@@ -667,12 +666,11 @@ It does not attempt to absorb the following larger theories:
 Those topics need additional general objects: point configurations independent of a chosen sphere
 radius, energy per point, admissible potentials, completely monotone functions, interpolation bases,
 Hausdorff/local-frame metrics, and quantitative estimates.  They deserve separate TauCeti roadmaps.
-SphereCeti should preserve exact zero multiplicities and estimates so that those roadmaps can reuse
-the hard analytic work.
+SphereCeti must preserve exact zero multiplicities and estimates for reuse by those roadmaps.
 
 # PR discipline
 
-The detailed main-first sequence is in [`MIGRATION.md`](MIGRATION.md).  Every production PR should:
+The detailed main-first sequence is in [`MIGRATION.md`](MIGRATION.md).  Every production PR must:
 
 - begin from current `main` unless stacked on one named immediate predecessor;
 - change one mathematical boundary;

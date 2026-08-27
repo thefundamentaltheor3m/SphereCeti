@@ -33,9 +33,9 @@ order may change when implementation reveals a better Mathlib-shaped API.  It co
 because it specifies work to be done.
 
 Unlike an ordinary TauCetiRoadmap target file, this package directly imports the exact TauCeti
-snapshot named in `lakefile.toml`.  The temporary `SphereCeti.Pinned` namespace models the public
-Sphere-Packing-Lean definitions at the older production snapshot.  Layer 0 deletes that compatibility
-boundary after the production repository has been upgraded to this toolchain.
+snapshot named in `lakefile.toml`.  The bootstrap `SphereCeti.Pinned` namespace models the public
+Sphere-Packing-Lean definitions at the pinned production snapshot.  PR A2 deletes that namespace
+after PR A1 establishes exact production imports on this toolchain.
 -/
 
 public section
@@ -199,8 +199,7 @@ theorem constant_le_general (d : ℕ) :
     PeriodicSpherePackingConstant d ≤ SpherePackingConstant d := by
   sorry
 
-/-- Proposed periodic counterpart of the production `SpherePacking.scale_density`.  Production has
-no periodic version, so this is new target API rather than a pinned statement. -/
+/-- Positive scaling preserves the density of a periodic sphere packing. -/
 @[simp]
 theorem scale_density {d : ℕ} (P : PeriodicSpherePacking d) {c : ℝ} (hc : 0 < c) :
     (P.scale hc).density = P.density := by
@@ -473,8 +472,8 @@ structure FundamentalPattern {d : ℕ} (P : PeriodicSpherePacking d) where
   unique_mod_lattice : ∀ s ∈ reps, ∀ t ∈ reps,
     (s : V d) - (t : V d) ∈ P.lattice → s = t
 
-/-- The production orbit relation, presented explicitly during the compatibility phase.  Layer 0
-identifies this setoid with `P.addAction.orbitRel` rather than retaining a second relation. -/
+/-- The pinned production orbit relation.  PR A2 identifies this setoid with
+`P.addAction.orbitRel` and removes the duplicate relation. -/
 @[expose] def orbitSetoid {d : ℕ} (P : PeriodicSpherePacking d) : Setoid P.centers where
   r x y := (x : V d) - (y : V d) ∈ P.lattice
   iseqv := by
@@ -1150,7 +1149,7 @@ theorem packing_lattice : packing.lattice = lattice := by
 theorem packing_separation : packing.separation = Real.sqrt 2 := by
   sorry
 
-/-- Existing density theorem, retained under the unified namespace. -/
+/-- The E8 packing has density `π ^ 4 / 384`. -/
 theorem packing_density :
     packing.density = ENNReal.ofReal (Real.pi ^ 4 / 384) := by
   exact SphereCeti.Pinned.E8Packing_density
@@ -1451,7 +1450,8 @@ def HasExactZeroOrder (f : ℝ → ℂ) (a : ℝ) (m : ℕ) : Prop :=
   ∃ g : ℝ → ℂ, ContinuousAt g a ∧ g a ≠ 0 ∧
     ∀ᶠ x in 𝓝 a, f x = (x - a) ^ m * g x
 
-/-- Exact local order retains a quantitative lower bound for later stability arguments. -/
+/-- Exact local order gives the quantitative lower bound required by the stability roadmap in
+`UPSTREAM.md`. -/
 theorem HasExactZeroOrder.quantitativeLowerBound {f : ℝ → ℂ} {a : ℝ} {m : ℕ}
     (h : HasExactZeroOrder f a m) :
     ∃ c : ℝ, 0 < c ∧ ∀ᶠ x in 𝓝 a, c * |x - a| ^ m ≤ ‖f x‖ := by

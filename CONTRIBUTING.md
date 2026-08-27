@@ -19,7 +19,7 @@ convention entry in the same PR.
 
 ## Roadmap changes
 
-A roadmap PR should identify:
+A roadmap PR must identify:
 
 1. the mathematical ambiguity or gap being resolved;
 2. the exact layer affected;
@@ -92,4 +92,4 @@ lake build
 Run the static contract check before asking Lean to elaborate the targets.  The committed
 `lake-manifest.json` pins the full dependency graph; do not run `lake update` outside a pin-update
 PR, and if it is ever run it must leave the committed manifest unchanged.  `sorry` warnings are
-expected in the roadmap targets; syntax, imports, and types must still elaborate.
+expected in the roadmap targets; syntax, imports, and types must elaborate.

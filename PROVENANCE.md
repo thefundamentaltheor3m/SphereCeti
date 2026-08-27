@@ -137,11 +137,11 @@ In particular:
 - the packing structures and limsup density are the pinned starting definitions;
 - the E8 coordinate/basis equivalence, minimum norm, packing, and density are retained;
 - `Function.IsRadial` and `RadialSchwartzMap` are the common Fourier boundary;
-- the existing modular-form and magic-function proof content is a production asset, even where its
-  present file placement or API should be improved.
+- the existing modular-form and magic-function proof content is a production asset; named file and
+  API changes belong in the migration sequence.
 
-The root `SpherePacking.lean` currently also imports tactic test modules.  That fact is not a
-semantic convention and should be repaired.
+In the pinned production snapshot, the root `SpherePacking.lean` imports tactic test modules.
+PR B1 removes those imports; they are not a semantic convention.
 
 ## 4. Source branch: `gauss2`
 
@@ -214,7 +214,7 @@ argument, and the 24-dimensional paper supplies its Leech analogue.
 
 The rank-eight theorem also uses the classical characterization of E8 as the unique
 positive-definite even unimodular lattice of rank eight.  The intended formal statement is generic
-integral-lattice mathematics and should ultimately live in TauCeti.
+integral-lattice mathematics whose intended home is TauCeti.
 
 ### Universal optimality and interpolation
 
@@ -281,7 +281,7 @@ The relevant code repositories are Apache-2.0 licensed.  Adapted source files re
 - the Apache-2.0 header;
 - a module docstring provenance paragraph naming repository, path, and source commit.
 
-A theorem independently reproved after reading a paper still cites the mathematical source.  A
+A theorem independently reproved after reading a paper cites the mathematical source.  A
 proof substantially ported from code also cites the code source.
 
 Do not copy code from an unclear-license source merely because the mathematical theorem is standard.
@@ -303,7 +303,7 @@ New dependencies:
 License/header action:
 ```
 
-For large ports, add a temporary mapping table to the PR description.  The permanent code should
+For large ports, add a temporary mapping table to the PR description.  The permanent code must
 retain only useful mathematical provenance, not branch-war history.
 
 ## 10. Roadmap-package validation
