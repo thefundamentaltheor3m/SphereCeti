@@ -135,7 +135,13 @@ Add:
 - `density_le_PeriodicSpherePackingConstant`;
 - safe `[simp]` constructor projections;
 - `[simp]` on positive scale density and scale-to-packing projections;
-- `IsCongruent` and `IsSimilar` with reflexive/symmetric/transitive API.
+- basepointed finite density and a proof that upper density is basepoint-independent;
+- transport by real affine isometries, with characteristic center and separation equations;
+- `IsCongruent` and `IsSimilar` with reflexive/symmetric/transitive API;
+- positive density implies that the center set is nonempty.
+
+The periodic `scale_density` target has no dimension-positivity hypothesis.  Translation invariance
+must pass through basepoint independence rather than a finite-density rewrite at the origin.
 
 Do not expand the full density formula under `simp`.
 

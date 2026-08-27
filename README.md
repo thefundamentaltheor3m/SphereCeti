@@ -306,9 +306,11 @@ Thus:
 
 ### Congruence and similarity
 
-`IsCongruent` uses a general metric-space isometry equivalence, hence permits translation and
-orthogonal motion, and requires equal separation.  `IsSimilar` permits one positive scaling before
-congruence.
+`SpherePacking.map` transports centers by a real affine isometry and preserves separation.
+Basepoint-independent density, proved by comparing translated balls, supplies the nontrivial
+translation step in density invariance.  `IsCongruent` is equality after such a transport;
+`IsSimilar` permits one positive scaling before congruence.  Both relations have
+reflexive/symmetric/transitive APIs, and positive density supplies the center used by rigidity.
 
 ### Attributes
 

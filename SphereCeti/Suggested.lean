@@ -99,13 +99,43 @@ theorem density_le_constant {d : ℕ} (P : SpherePacking d) :
     P.density ≤ SpherePackingConstant d := by
   sorry
 
-/-- A normalized packing has the prescribed center separation. -/
-def NormalizedAt {d : ℕ} (P : SpherePacking d) (r : ℝ) : Prop := P.separation = r
+/-- Density observed in a ball centered at an arbitrary basepoint. -/
+noncomputable def finiteDensityAt {d : ℕ} (P : SpherePacking d) (a : V d) (R : ℝ) : ℝ≥0∞ :=
+  volume (P.balls ∩ ball a R) / volume (ball a R)
 
-/-- Congruence includes translation: an arbitrary metric-space isometry equivalence carries one
-center set to the other, and the separation normalizations agree. -/
+/-- Upper asymptotic density computed from balls centered at `a`. -/
+noncomputable def densityAt {d : ℕ} (P : SpherePacking d) (a : V d) : ℝ≥0∞ :=
+  limsup (P.finiteDensityAt a) atTop
+
+/-- Changing the fixed basepoint does not change upper asymptotic density. -/
+theorem densityAt_eq_density {d : ℕ} (P : SpherePacking d) (a : V d) :
+    P.densityAt a = P.density := by
+  sorry
+
+/-- Transport a packing by a real affine isometry. -/
+noncomputable def map {d : ℕ} (e : V d ≃ᵃⁱ[ℝ] V d) (P : SpherePacking d) :
+    SpherePacking d := by
+  sorry
+
+@[simp]
+theorem map_centers {d : ℕ} (e : V d ≃ᵃⁱ[ℝ] V d) (P : SpherePacking d) :
+    (P.map e).centers = e '' P.centers := by
+  sorry
+
+@[simp]
+theorem map_separation {d : ℕ} (e : V d ≃ᵃⁱ[ℝ] V d) (P : SpherePacking d) :
+    (P.map e).separation = P.separation := by
+  sorry
+
+/-- Affine isometries preserve density; translations use `densityAt_eq_density`. -/
+@[simp]
+theorem map_density {d : ℕ} (e : V d ≃ᵃⁱ[ℝ] V d) (P : SpherePacking d) :
+    (P.map e).density = P.density := by
+  sorry
+
+/-- Congruence is equality after transport by a real affine isometry. -/
 def IsCongruent {d : ℕ} (P Q : SpherePacking d) : Prop :=
-  P.separation = Q.separation ∧ ∃ e : V d ≃ᵢ V d, e '' P.centers = Q.centers
+  ∃ e : V d ≃ᵃⁱ[ℝ] V d, P.map e = Q
 
 /-- Similarity permits one positive scaling before congruence.  This is the scale-free uniqueness
 notion appropriate to `SpherePackingConstant`. -/
@@ -126,6 +156,20 @@ theorem IsCongruent.trans {d : ℕ} {P Q R : SpherePacking d}
     (hPQ : P.IsCongruent Q) (hQR : Q.IsCongruent R) : P.IsCongruent R := by
   sorry
 
+@[refl]
+theorem isSimilar_refl {d : ℕ} (P : SpherePacking d) : P.IsSimilar P := by
+  sorry
+
+@[symm]
+theorem IsSimilar.symm {d : ℕ} {P Q : SpherePacking d} (h : P.IsSimilar Q) :
+    Q.IsSimilar P := by
+  sorry
+
+@[trans]
+theorem IsSimilar.trans {d : ℕ} {P Q R : SpherePacking d}
+    (hPQ : P.IsSimilar Q) (hQR : Q.IsSimilar R) : P.IsSimilar R := by
+  sorry
+
 @[simp]
 theorem congruent_density {d : ℕ} {P Q : SpherePacking d} (h : P.IsCongruent Q) :
     P.density = Q.density := by
@@ -134,6 +178,11 @@ theorem congruent_density {d : ℕ} {P Q : SpherePacking d} (h : P.IsCongruent Q
 @[simp]
 theorem similar_density {d : ℕ} {P Q : SpherePacking d} (h : P.IsSimilar Q) :
     P.density = Q.density := by
+  sorry
+
+/-- Positive density supplies a center for the rigidity argument. -/
+theorem density_pos_imp_centers_nonempty {d : ℕ} {P : SpherePacking d}
+    (h : 0 < P.density) : P.centers.Nonempty := by
   sorry
 
 end SpherePacking
@@ -153,7 +202,7 @@ theorem constant_le_general (d : ℕ) :
 /-- Proposed periodic counterpart of the production `SpherePacking.scale_density`.  Production has
 no periodic version, so this is new target API rather than a pinned statement. -/
 @[simp]
-theorem scale_density {d : ℕ} (hd : 0 < d) (P : PeriodicSpherePacking d) {c : ℝ} (hc : 0 < c) :
+theorem scale_density {d : ℕ} (P : PeriodicSpherePacking d) {c : ℝ} (hc : 0 < c) :
     (P.scale hc).density = P.density := by
   sorry
 
