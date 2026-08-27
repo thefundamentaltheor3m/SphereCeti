@@ -495,6 +495,10 @@ noncomputable instance orbitFintype {d : ℕ} (P : PeriodicSpherePacking d) :
 noncomputable def numOrbits {d : ℕ} (P : PeriodicSpherePacking d) : ℕ :=
   Fintype.card P.Orbit
 
+/-- Canonical number of center orbits per unit covolume. -/
+@[expose] noncomputable def centerIntensity {d : ℕ} (P : PeriodicSpherePacking d) : ℝ :=
+  (P.numOrbits : ℝ) / ZLattice.covolume P.lattice
+
 /-- Every chosen fundamental pattern has the canonical orbit cardinality. -/
 theorem FundamentalPattern.card_eq_numOrbits {d : ℕ} {P : PeriodicSpherePacking d}
     (D : FundamentalPattern P) : D.reps.card = P.numOrbits := by
@@ -1894,10 +1898,16 @@ theorem one_le_covolume_of_integralPresentation {d : ℕ}
     1 ≤ ZLattice.covolume Λ := by
   sorry
 
-/-- At the candidate normalization, one center per unit volume is the numerical identity
-`covolume(period lattice) = number of center orbits`. -/
+/-- The candidate normalization has one canonical center orbit per unit covolume. -/
 def HasUnitCenterDensity {d : ℕ} (P : PeriodicSpherePacking d) : Prop :=
-  ZLattice.covolume P.lattice = P.numOrbits
+  P.centerIntensity = 1
+
+/-- Positivity of lattice covolume converts unit intensity to the cross-multiplied identity used
+by the quotient/index squeeze. -/
+theorem hasUnitCenterDensity_iff_covolume_eq_numOrbits {d : ℕ}
+    (P : PeriodicSpherePacking d) :
+    HasUnitCenterDensity P ↔ ZLattice.covolume P.lattice = P.numOrbits := by
+  sorry
 
 /-- Optimal E8 density at separation `√2` is equivalent to one center per unit volume. -/
 theorem e8_hasUnitCenterDensity_of_optimal

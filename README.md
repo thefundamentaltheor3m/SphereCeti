@@ -416,6 +416,8 @@ Deliverables:
 - one `FundamentalPattern` structure whose representatives have type `P.centers`;
 - the existing finite quotient `Quotient P.addAction.orbitRel`, exposed as `P.Orbit`;
 - `P.numOrbits = Fintype.card P.Orbit` and `D.reps.card = P.numOrbits`;
+- the canonical center intensity
+  `P.centerIntensity = P.numOrbits / ZLattice.covolume P.lattice`;
 - basis-free density formula
 
 \[

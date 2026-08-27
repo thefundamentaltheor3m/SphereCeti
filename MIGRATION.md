@@ -252,7 +252,8 @@ Prove conversion from the existing representative construction.
 
 Expose `Orbit` as an abbreviation for the existing `Quotient P.addAction.orbitRel` and define
 `numOrbits` as its `Fintype.card`.  Prove `FundamentalPattern.card_eq_numOrbits`, migrate consumers,
-deprecate `numReps` and `numReps'`, then remove the duplicate representative code in PR O3.
+define `centerIntensity` as `numOrbits / covolume`, deprecate `numReps` and `numReps'`, then remove
+the duplicate representative code in PR O3.
 
 ### PR D4 — basis-free density formula
 
