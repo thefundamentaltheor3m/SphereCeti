@@ -588,13 +588,14 @@ and the absence of additional zeros in the sign ranges.
 Assemble the final auxiliary function as
 `-((π * I) / 113218560) • magicPlus - (I / (262080 * π)) • magicMinus`, derive its distinct
 Fourier transform, prove the weak sign hypotheses for optimality and strict sign hypotheses for
-equality rigidity, bundle the resulting `CohnElkies.Certificate 24 2`, and identify its numerical
-bound with `π^12 / 12!`.
+equality rigidity, and bundle the resulting `CohnElkies.Certificate 24 2` with its characteristic
+equation.
 
-### PR L8 — Leech optimality summit
+### PR L8 — candidate comparison and Leech optimality summit
 
-Assemble the Leech lower and upper bounds in a short `le_antisymm` theorem.  No contour,
-q-expansion, or sign calculation belongs in the summit file.
+Prove lattice sharpness, identify the certificate bound with `π^12 / 12!` through the candidate
+density, and assemble the Leech lower and upper bounds in a short `le_antisymm` theorem.  No
+contour, q-expansion, or sign calculation belongs in the summit file.
 
 ## 15. Phase M — algebraic uniqueness in TauCeti-facing form
 
@@ -740,7 +741,8 @@ After A1:
 - I1/I2 can run in parallel with E/F/G and the E8 magic-function port.
 - J1--J3 can run in parallel with G and Leech lattice construction.
 - K can start after J foundations and F1; K5 waits for F2/F3.
-- L can start after J foundations and I5.
+- L1--L7 can start after J foundations and F1, in parallel with the Golay/Leech lattice package;
+  L8 waits for I5 and the generic lattice/periodic bound.
 - M1 can proceed once TauCeti lattice bridges and E8 root data are available; it does not wait for
   the magic function.
 - M2 can proceed once Leech/Golay and the required classification infrastructure exist; it does not

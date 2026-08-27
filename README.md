@@ -570,9 +570,11 @@ For each dimension, prove:
 - direct-side nonpositivity beyond the threshold;
 - Fourier-side nonnegativity;
 - separate exact direct- and Fourier-side zero sets, including absence of extraneous zeros;
+- exact local zero orders through nonvanishing cofactors, which imply reusable quantitative lower
+  bounds near every shell;
 - separate strict direct- and Fourier-side signs away from the shell zeros;
-- the bundled Cohn--Elkies certificate;
-- equality of its bound with the candidate lattice density.
+- the bundled Cohn--Elkies certificate with `certificate.f = magic`;
+- candidate-lattice sharpness and equality of the bound with the candidate lattice density.
 
 The exact zero set is a first-class endpoint.  Density optimality only needs weak inequalities, but
 periodic uniqueness needs to infer that every nonzero pairwise difference lies on an E8 or Leech

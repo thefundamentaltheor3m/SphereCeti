@@ -679,6 +679,18 @@ noncomputable def Certificate.ofRadial {d : ℕ} {r : ℝ}
   fourier_nonneg := hfourierNonneg
   fourier_zero_pos := hfourierZeroPos
 
+@[simp]
+theorem Certificate.ofRadial_f {d : ℕ} {r : ℝ}
+    (hr : 0 < r) (f : RadialSchwartzMap ℂ (V d) ℂ)
+    (hreal : ∀ x, (f x).im = 0)
+    (hrealFourier : ∀ x, (𝓕 (f : 𝓢(V d, ℂ)) x).im = 0)
+    (hnonpos : ∀ x, r ≤ ‖x‖ → (f x).re ≤ 0)
+    (hfourierNonneg : ∀ x, 0 ≤ (𝓕 (f : 𝓢(V d, ℂ)) x).re)
+    (hfourierZeroPos : 0 < (𝓕 (f : 𝓢(V d, ℂ)) 0).re) :
+    (Certificate.ofRadial hr f hreal hrealFourier hnonpos hfourierNonneg
+      hfourierZeroPos).f = (f : 𝓢(V d, ℂ)) := by
+  simp [Certificate.ofRadial]
+
 /-- Fourier inversion and nonnegativity make the direct value at zero strictly positive. -/
 theorem Certificate.f_zero_pos {d : ℕ} {r : ℝ} (C : Certificate d r) :
     0 < (C.f 0).re := by
@@ -1122,6 +1134,18 @@ theorem rootCard : Theta.rootCard lattice = 240 := by
 theorem theta_eq_E4 : Theta.latticeTheta lattice = fun τ => Theta.E4 τ := by
   sorry
 
+@[simp]
+theorem packing_centers : packing.centers = lattice := by
+  sorry
+
+@[simp]
+theorem packing_lattice : packing.lattice = lattice := by
+  sorry
+
+@[simp]
+theorem packing_separation : packing.separation = Real.sqrt 2 := by
+  sorry
+
 /-- Existing density theorem, retained under the unified namespace. -/
 theorem packing_density :
     packing.density = ENNReal.ofReal (Real.pi ^ 4 / 384) := by
@@ -1418,6 +1442,17 @@ theorem ofNormSq_apply {d : ℕ} (f : 𝓢(ℝ, ℂ)) (x : V d) :
     ofNormSq f x = f (‖x‖ ^ 2) := by
   sorry
 
+/-- Exact local zero order, expressed by a nonvanishing continuous cofactor. -/
+def HasExactZeroOrder (f : ℝ → ℂ) (a : ℝ) (m : ℕ) : Prop :=
+  ∃ g : ℝ → ℂ, ContinuousAt g a ∧ g a ≠ 0 ∧
+    ∀ᶠ x in 𝓝 a, f x = (x - a) ^ m * g x
+
+/-- Exact local order retains a quantitative lower bound for later stability arguments. -/
+theorem HasExactZeroOrder.quantitativeLowerBound {f : ℝ → ℂ} {a : ℝ} {m : ℕ}
+    (h : HasExactZeroOrder f a m) :
+    ∃ c : ℝ, 0 < c ∧ ∀ᶠ x in 𝓝 a, c * |x - a| ^ m ≤ ‖f x‖ := by
+  sorry
+
 /-- The only Fourier eigenvalues used by the E8 and Leech component constructions. -/
 inductive FourierSign
   | plus
@@ -1463,11 +1498,25 @@ namespace E8
 
 /- The final Cohn--Elkies auxiliary function is not a Fourier eigenfunction.  It is the
 dimension-specific linear combination below of a `+1` and a `-1` eigenfunction. -/
-noncomputable def magicPlus : RadialSchwartzMap ℂ (V 8) ℂ := by
+noncomputable def magicPlusProfile : 𝓢(ℝ, ℂ) := by
   sorry
 
-noncomputable def magicMinus : RadialSchwartzMap ℂ (V 8) ℂ := by
+noncomputable def magicMinusProfile : 𝓢(ℝ, ℂ) := by
   sorry
+
+noncomputable def magicPlus : RadialSchwartzMap ℂ (V 8) ℂ :=
+  MagicFunction.ofNormSq magicPlusProfile
+
+noncomputable def magicMinus : RadialSchwartzMap ℂ (V 8) ℂ :=
+  MagicFunction.ofNormSq magicMinusProfile
+
+@[simp]
+theorem magicPlus_apply (x : V 8) : magicPlus x = magicPlusProfile (‖x‖ ^ 2) :=
+  MagicFunction.ofNormSq_apply _ _
+
+@[simp]
+theorem magicMinus_apply (x : V 8) : magicMinus x = magicMinusProfile (‖x‖ ^ 2) :=
+  MagicFunction.ofNormSq_apply _ _
 
 theorem fourier_magicPlus :
     𝓕 (magicPlus : 𝓢(V 8, ℂ)) = (magicPlus : 𝓢(V 8, ℂ)) := by
@@ -1477,15 +1526,33 @@ theorem fourier_magicMinus :
     𝓕 (magicMinus : 𝓢(V 8, ℂ)) = -(magicMinus : 𝓢(V 8, ℂ)) := by
   sorry
 
+/-- Viazovska's E8 norm-squared profile with the production normalization. -/
+noncomputable def magicProfile : 𝓢(ℝ, ℂ) :=
+  (((Real.pi : ℂ) * Complex.I) / 8640) • magicPlusProfile -
+    (Complex.I / (240 * (Real.pi : ℂ))) • magicMinusProfile
+
 /-- Viazovska's E8 auxiliary function with the production normalization. -/
 noncomputable def magic : RadialSchwartzMap ℂ (V 8) ℂ :=
-  (((Real.pi : ℂ) * Complex.I) / 8640) • magicPlus -
-    (Complex.I / (240 * (Real.pi : ℂ))) • magicMinus
+  MagicFunction.ofNormSq magicProfile
+
+@[simp]
+theorem magic_apply (x : V 8) : magic x = magicProfile (‖x‖ ^ 2) :=
+  MagicFunction.ofNormSq_apply _ _
+
+/-- Norm-squared profile of the distinct Fourier transform. -/
+noncomputable def fourierMagicProfile : 𝓢(ℝ, ℂ) :=
+  (((Real.pi : ℂ) * Complex.I) / 8640) • magicPlusProfile +
+    (Complex.I / (240 * (Real.pi : ℂ))) • magicMinusProfile
 
 /-- Fourier transform of the final auxiliary function, with the minus component sign reversed. -/
 theorem fourier_magic : 𝓕 (magic : 𝓢(V 8, ℂ)) =
     (((Real.pi : ℂ) * Complex.I) / 8640) • (magicPlus : 𝓢(V 8, ℂ)) +
       (Complex.I / (240 * (Real.pi : ℂ))) • (magicMinus : 𝓢(V 8, ℂ)) := by
+  sorry
+
+@[simp]
+theorem fourier_magic_apply_profile (x : V 8) :
+    𝓕 (magic : 𝓢(V 8, ℂ)) x = fourierMagicProfile (‖x‖ ^ 2) := by
   sorry
 
 /-- Exact direct-side zeros outside the origin.  Absence of extraneous zeros is the input needed for
@@ -1522,15 +1589,38 @@ theorem fourier_magic_re_pos_of_not_shell {x : V 8}
     0 < (𝓕 (magic : 𝓢(V 8, ℂ)) x).re := by
   sorry
 
+/-- The threshold shell is a simple direct-side zero. -/
+theorem magicProfile_exactZeroOrder_at_firstShell :
+    MagicFunction.HasExactZeroOrder magicProfile 2 1 := by
+  sorry
+
+/-- Every later direct-side shell is a double zero. -/
+theorem magicProfile_exactZeroOrder_at_laterShell (n : ℕ) (hn : 2 ≤ n) :
+    MagicFunction.HasExactZeroOrder magicProfile (2 * n) 2 := by
+  sorry
+
+/-- Every nonzero E8 shell is a double Fourier-side zero. -/
+theorem fourierMagicProfile_exactZeroOrder (n : ℕ) (hn : 1 ≤ n) :
+    MagicFunction.HasExactZeroOrder fourierMagicProfile (2 * n) 2 := by
+  sorry
+
 /-- Normalized Cohn--Elkies certificate. -/
 noncomputable def certificate : CohnElkies.Certificate 8 (Real.sqrt 2) := by
+  sorry
+
+@[simp]
+theorem certificate_f : certificate.f = (magic : 𝓢(V 8, ℂ)) := by
   sorry
 
 @[simp]
 theorem certificate_normalized : certificate.IsNormalized := by
   sorry
 
-/-- The certificate bound equals the E8 density. -/
+/-- The exact shell zeros make the certificate sharp on the E8 lattice. -/
+theorem certificate_isSharpForLattice : certificate.IsSharpForLattice lattice := by
+  sorry
+
+/-- The certificate bound equals the E8 density through lattice sharpness. -/
 theorem certificate_bound_eq_density : certificate.bound = packing.density := by
   sorry
 
@@ -1544,11 +1634,25 @@ namespace Leech
 
 /- The final Leech auxiliary function is the exact linear combination of the two Fourier
 eigencomponents constructed in Sections 2 and 3 of Cohn--Kumar--Miller--Radchenko--Viazovska. -/
-noncomputable def magicPlus : RadialSchwartzMap ℂ (V 24) ℂ := by
+noncomputable def magicPlusProfile : 𝓢(ℝ, ℂ) := by
   sorry
 
-noncomputable def magicMinus : RadialSchwartzMap ℂ (V 24) ℂ := by
+noncomputable def magicMinusProfile : 𝓢(ℝ, ℂ) := by
   sorry
+
+noncomputable def magicPlus : RadialSchwartzMap ℂ (V 24) ℂ :=
+  MagicFunction.ofNormSq magicPlusProfile
+
+noncomputable def magicMinus : RadialSchwartzMap ℂ (V 24) ℂ :=
+  MagicFunction.ofNormSq magicMinusProfile
+
+@[simp]
+theorem magicPlus_apply (x : V 24) : magicPlus x = magicPlusProfile (‖x‖ ^ 2) :=
+  MagicFunction.ofNormSq_apply _ _
+
+@[simp]
+theorem magicMinus_apply (x : V 24) : magicMinus x = magicMinusProfile (‖x‖ ^ 2) :=
+  MagicFunction.ofNormSq_apply _ _
 
 theorem fourier_magicPlus :
     𝓕 (magicPlus : 𝓢(V 24, ℂ)) = (magicPlus : 𝓢(V 24, ℂ)) := by
@@ -1558,15 +1662,33 @@ theorem fourier_magicMinus :
     𝓕 (magicMinus : 𝓢(V 24, ℂ)) = -(magicMinus : 𝓢(V 24, ℂ)) := by
   sorry
 
+/-- The dimension-24 norm-squared profile with the coefficients from the published proof. -/
+noncomputable def magicProfile : 𝓢(ℝ, ℂ) :=
+  (-((Real.pi : ℂ) * Complex.I) / 113218560) • magicPlusProfile -
+    (Complex.I / (262080 * (Real.pi : ℂ))) • magicMinusProfile
+
 /-- The dimension-24 auxiliary function, with the coefficients from the published proof. -/
 noncomputable def magic : RadialSchwartzMap ℂ (V 24) ℂ :=
-  (-((Real.pi : ℂ) * Complex.I) / 113218560) • magicPlus -
-    (Complex.I / (262080 * (Real.pi : ℂ))) • magicMinus
+  MagicFunction.ofNormSq magicProfile
+
+@[simp]
+theorem magic_apply (x : V 24) : magic x = magicProfile (‖x‖ ^ 2) :=
+  MagicFunction.ofNormSq_apply _ _
+
+/-- Norm-squared profile of the distinct Fourier transform. -/
+noncomputable def fourierMagicProfile : 𝓢(ℝ, ℂ) :=
+  (-((Real.pi : ℂ) * Complex.I) / 113218560) • magicPlusProfile +
+    (Complex.I / (262080 * (Real.pi : ℂ))) • magicMinusProfile
 
 /-- Fourier transform of the final auxiliary function, with the minus component sign reversed. -/
 theorem fourier_magic : 𝓕 (magic : 𝓢(V 24, ℂ)) =
     (-((Real.pi : ℂ) * Complex.I) / 113218560) • (magicPlus : 𝓢(V 24, ℂ)) +
       (Complex.I / (262080 * (Real.pi : ℂ))) • (magicMinus : 𝓢(V 24, ℂ)) := by
+  sorry
+
+@[simp]
+theorem fourier_magic_apply_profile (x : V 24) :
+    𝓕 (magic : 𝓢(V 24, ℂ)) x = fourierMagicProfile (‖x‖ ^ 2) := by
   sorry
 
 /-- Exact zero set outside the origin: squared norms `2n` for `n ≥ 2`. -/
@@ -1602,14 +1724,37 @@ theorem fourier_magic_re_pos_of_not_shell {x : V 24}
     0 < (𝓕 (magic : 𝓢(V 24, ℂ)) x).re := by
   sorry
 
+/-- The threshold shell is a simple direct-side zero. -/
+theorem magicProfile_exactZeroOrder_at_firstShell :
+    MagicFunction.HasExactZeroOrder magicProfile 4 1 := by
+  sorry
+
+/-- Every later direct-side shell is a double zero. -/
+theorem magicProfile_exactZeroOrder_at_laterShell (n : ℕ) (hn : 3 ≤ n) :
+    MagicFunction.HasExactZeroOrder magicProfile (2 * n) 2 := by
+  sorry
+
+/-- Every nonzero Leech shell is a double Fourier-side zero. -/
+theorem fourierMagicProfile_exactZeroOrder (n : ℕ) (hn : 2 ≤ n) :
+    MagicFunction.HasExactZeroOrder fourierMagicProfile (2 * n) 2 := by
+  sorry
+
 noncomputable def certificate : CohnElkies.Certificate 24 2 := by
+  sorry
+
+@[simp]
+theorem certificate_f : certificate.f = (magic : 𝓢(V 24, ℂ)) := by
   sorry
 
 @[simp]
 theorem certificate_normalized : certificate.IsNormalized := by
   sorry
 
-/-- The certificate bound equals the Leech density. -/
+/-- The exact shell zeros make the certificate sharp on the Leech lattice. -/
+theorem certificate_isSharpForLattice : certificate.IsSharpForLattice lattice := by
+  sorry
+
+/-- The certificate bound equals the Leech density through lattice sharpness. -/
 theorem certificate_bound_eq_density : certificate.bound = packing.density := by
   sorry
 
@@ -1635,7 +1780,7 @@ def HasLeechDistanceSpectrum (P : SpherePacking 24) : Prop :=
 
 /-- Equality in the E8 Cohn--Elkies bound forces the full distance spectrum. -/
 theorem e8_distanceSpectrum_of_optimalPeriodic
-    (P : PeriodicSpherePacking 8) (D : P.FundamentalPattern)
+    (P : PeriodicSpherePacking 8)
     (hsep : P.separation = Real.sqrt 2)
     (hopt : P.density = E8.packing.density) :
     HasE8DistanceSpectrum P.toSpherePacking := by
@@ -1643,7 +1788,7 @@ theorem e8_distanceSpectrum_of_optimalPeriodic
 
 /-- Equality in the Leech bound forces its full distance spectrum. -/
 theorem leech_distanceSpectrum_of_optimalPeriodic
-    (P : PeriodicSpherePacking 24) (D : P.FundamentalPattern)
+    (P : PeriodicSpherePacking 24)
     (hsep : P.separation = 2)
     (hopt : P.density = Leech.packing.density) :
     HasLeechDistanceSpectrum P.toSpherePacking := by
@@ -1808,7 +1953,7 @@ theorem generated_minNorm_of_centers_eq {d : ℕ}
 /-- The E8 equality conditions produce a positive-definite even unimodular rank-eight integral
 presentation of the generated lattice and show that all centers form one lattice coset. -/
 theorem e8_reduction_to_evenUnimodular
-    (P : PeriodicSpherePacking 8) (D : P.FundamentalPattern)
+    (P : PeriodicSpherePacking 8)
     (hsep : P.separation = Real.sqrt 2)
     (hopt : P.density = E8.packing.density) :
     ∃ (Λ : Submodule ℤ (V 8)) (_ : DiscreteTopology Λ) (_ : IsZLattice ℝ Λ)
@@ -1819,7 +1964,7 @@ theorem e8_reduction_to_evenUnimodular
 /-- The Leech equality conditions produce a rootless positive-definite even unimodular rank-24
 lattice and one lattice coset. -/
 theorem leech_reduction_to_rootless_evenUnimodular
-    (P : PeriodicSpherePacking 24) (D : P.FundamentalPattern)
+    (P : PeriodicSpherePacking 24)
     (hsep : P.separation = 2)
     (hopt : P.density = Leech.packing.density) :
     ∃ (Λ : Submodule ℤ (V 24)) (_ : DiscreteTopology Λ) (_ : IsZLattice ℝ Λ)
