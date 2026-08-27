@@ -586,8 +586,8 @@ Given an optimal periodic packing and a fundamental pattern:
 5. after translating one center to zero, polarization turns the even squared-distance spectrum
    into integral inner products;
 6. the period lattice is contained in the generated subgroup, so the latter is a full even integral
-   Euclidean lattice and the finite center pattern injects into its finite quotient over the period
-   lattice;
+   Euclidean lattice; the canonical center-orbit quotient then embeds into the finite relative
+   quotient of the generated lattice by the period lattice;
 7. the integral Gram determinant gives `covolume ≥ 1`, while the canonical center density and the
    quotient count give `covolume ≤ 1`; hence the generated lattice is unimodular, every quotient
    coset is occupied, and the original center set is exactly one lattice coset;
@@ -596,6 +596,8 @@ Given an optimal periodic packing and a fundamental pattern:
 This is the formal counterpart of Cohn--Elkies, Lemma 8.2 and the argument immediately following
 it.  The covolume/discriminant bridge and quotient-cardinality argument should be exposed through
 reusable intermediate theorems, not hidden in two enormous summit proofs.
+The quotient cardinal inequality is stated only after discreteness and full rank of the generated
+lattice have made the relative quotient finite; Mathlib's `relIndex` is zero at infinite index.
 
 ### E8 rigidity
 

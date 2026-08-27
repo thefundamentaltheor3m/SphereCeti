@@ -616,9 +616,11 @@ Do **not** argue that evenness by itself makes the generated lattice a valid Lee
 superpacking.  Instead formalize the exact Section-8 argument:
 
 - the original period lattice maps into the generated lattice;
-- distinct representatives of the periodic center pattern give distinct cosets in the generated
+- define an explicit embedding from the canonical center-orbit quotient into the generated
   lattice modulo the period lattice;
-- therefore `numOrbits ≤ relIndex period generated`;
+- establish discreteness and full rank of the generated lattice, hence finiteness of the relative
+  quotient;
+- only then derive `numOrbits ≤ relIndex period generated` from the embedding;
 - Mathlib's covolume/index theorem rewrites that relative index as a covolume ratio;
 - the generated lattice has a full integral Gram matrix with nonzero integer determinant, so the
   determinant/covolume bridge gives `1 ≤ covolume generated`;
@@ -628,6 +630,8 @@ superpacking.  Instead formalize the exact Section-8 argument:
 
 This PR should expose the quotient injection, determinant lower bound, and numerical squeeze as
 separate reusable lemmas.
+The cardinal inequality must carry the generated-lattice discreteness/full-rank hypotheses: without
+them the relative quotient can be infinite and Mathlib's `relIndex` is zero.
 
 ### PR N3 — every generated-lattice coset is occupied
 

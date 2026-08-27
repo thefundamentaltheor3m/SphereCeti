@@ -1130,7 +1130,7 @@ def generatedIntegralLattice {d : ℕ} (P : PeriodicSpherePacking d)
 
 /-- The translated periodic center set is contained in its generated subgroup. -/
 theorem translated_centers_subset_generatedIntegralLattice {d : ℕ}
-    (P : PeriodicSpherePacking d) (x₀ : V d) (hx₀ : x₀ ∈ P.centers) :
+    (P : PeriodicSpherePacking d) (x₀ : V d) :
     (fun x => x - x₀) '' P.centers ⊆ generatedIntegralLattice P x₀ := by
   sorry
 
@@ -1155,14 +1155,55 @@ theorem periodLattice_le_generatedIntegralLattice {d : ℕ}
     P.lattice ≤ generatedIntegralLattice P x₀ := by
   sorry
 
-/-- Distinct representatives in the periodic pattern determine distinct cosets of the period
-lattice inside the generated lattice.  This is the finite quotient injection in Cohn--Elkies,
-Section 8. -/
-theorem numOrbits_le_relIndex_generated {d : ℕ}
+/-- Quotient of a larger additive lattice by the relative subgroup cut out by a smaller one. -/
+abbrev RelativeQuotient {d : ℕ} (Λ Γ : Submodule ℤ (V d)) :=
+  Γ.toAddSubgroup ⧸ Λ.toAddSubgroup.addSubgroupOf Γ.toAddSubgroup
+
+/-- Relative quotients of full Euclidean lattices are finite. -/
+noncomputable instance relativeQuotientFinite {d : ℕ}
+    (Λ Γ : Submodule ℤ (V d))
+    [DiscreteTopology Λ] [IsZLattice ℝ Λ]
+    [DiscreteTopology Γ] [IsZLattice ℝ Γ] : Finite (RelativeQuotient Λ Γ) := by
+  sorry
+
+/-- A center orbit maps to the coset of its translate in the generated lattice. -/
+noncomputable def orbitEmbeddingGeneratedQuotient {d : ℕ}
     (P : PeriodicSpherePacking d) (x₀ : V d) (hx₀ : x₀ ∈ P.centers) :
+    P.Orbit ↪ RelativeQuotient P.lattice (generatedIntegralLattice P x₀) := by
+  sorry
+
+/-- Characteristic equation for the orbit-to-relative-quotient embedding. -/
+theorem orbitEmbeddingGeneratedQuotient_mk {d : ℕ}
+    (P : PeriodicSpherePacking d) (x₀ : V d) (hx₀ : x₀ ∈ P.centers)
+    (s : P.centers) :
+    ∃ g : generatedIntegralLattice P x₀,
+      (g : V d) = (s : V d) - x₀ ∧
+      orbitEmbeddingGeneratedQuotient P x₀ hx₀ (Quotient.mk _ s) =
+        QuotientAddGroup.mk'
+          (P.lattice.toAddSubgroup.addSubgroupOf
+            (generatedIntegralLattice P x₀).toAddSubgroup) g := by
+  sorry
+
+/-- Distinct center orbits inject into the now-finite relative quotient. -/
+theorem numOrbits_le_relIndex_generated {d : ℕ}
+    (P : PeriodicSpherePacking d) (x₀ : V d) (hx₀ : x₀ ∈ P.centers)
+    [DiscreteTopology (generatedIntegralLattice P x₀)]
+    [IsZLattice ℝ (generatedIntegralLattice P x₀)] :
     P.numOrbits ≤ P.lattice.toAddSubgroup.relIndex
       (generatedIntegralLattice P x₀).toAddSubgroup := by
   sorry
+
+/-- The covolume/index step is exactly Mathlib's correctly oriented theorem. -/
+theorem covolume_div_covolume_eq_relIndex_generated {d : ℕ}
+    (P : PeriodicSpherePacking d) (x₀ : V d)
+    [DiscreteTopology (generatedIntegralLattice P x₀)]
+    [IsZLattice ℝ (generatedIntegralLattice P x₀)]
+    (hle : P.lattice ≤ generatedIntegralLattice P x₀) :
+    ZLattice.covolume P.lattice /
+        ZLattice.covolume (generatedIntegralLattice P x₀) =
+      P.lattice.toAddSubgroup.relIndex
+        (generatedIntegralLattice P x₀).toAddSubgroup :=
+  ZLattice.covolume_div_covolume_eq_relIndex' _ _ hle
 
 /-- A full integral Euclidean lattice has covolume at least one: the square of its covolume is the
 absolute value of a nonzero integer Gram determinant.  This lemma packages the real/TauCeti bridge
