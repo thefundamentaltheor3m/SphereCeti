@@ -275,16 +275,24 @@ Add generic theorems for:
 ### PR E2 — real dual-lattice API
 
 Add only the missing real-topological dual facts required by Poisson.  Reuse Mathlib's bilinear-form
-dual submodule where possible, and keep the comparison to TauCeti in the bridge layer.
+dual submodule where possible, and keep the comparison to TauCeti in the bridge layer.  Provide
+automatic `DiscreteTopology` and `IsZLattice` instances for the dual, together with `dual_dual` and
+`covolume_dual`.
 
 ### PR E3 — unshifted Poisson summation
 
-Prove the exact formula and normalization.  Test on a Gaussian and on the self-dual covolume-one
-case.
+Prove the exact inverse-covolume formula and normalization.  Test it on the unit Gaussian and on
+the self-dual covolume-one case.
 
 ### PR E4 — shifted Poisson and structure factors
 
-Prove the translated formula and derive the finite-pattern amplitude and structure factor:
+Prove the translated formula
+
+```text
+Σ_{x∈Λ} f(x+a) = covol(Λ)⁻¹ Σ_{y∈Λᵛ} f̂(y) exp(2πi⟪y,a⟫)
+```
+
+and derive the finite-pattern amplitude and structure factor:
 
 ```text
 A_P(y) = Σ_{s∈pattern} exp(2πi⟪y,s⟫),

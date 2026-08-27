@@ -398,6 +398,60 @@ end PeriodicSpherePacking
 
 /-! ## Layer 4: Poisson summation and the Cohn--Elkies certificate -/
 
+namespace EuclideanLattice
+
+/-- The real dual of a full Euclidean lattice is discrete. -/
+noncomputable instance dualDiscrete {d : ℕ} (Λ : Submodule ℤ (V d))
+    [DiscreteTopology Λ] [IsZLattice ℝ Λ] : DiscreteTopology (dual Λ) := by
+  sorry
+
+/-- The real dual of a full Euclidean lattice is again full. -/
+noncomputable instance dualIsZLattice {d : ℕ} (Λ : Submodule ℤ (V d))
+    [DiscreteTopology Λ] [IsZLattice ℝ Λ] : IsZLattice ℝ (dual Λ) := by
+  sorry
+
+/-- Taking the real dual twice recovers the original full lattice. -/
+theorem dual_dual {d : ℕ} (Λ : Submodule ℤ (V d))
+    [DiscreteTopology Λ] [IsZLattice ℝ Λ] : dual (dual Λ) = Λ := by
+  sorry
+
+/-- The dual covolume is the reciprocal covolume. -/
+theorem covolume_dual {d : ℕ} (Λ : Submodule ℤ (V d))
+    [DiscreteTopology Λ] [IsZLattice ℝ Λ] :
+    ZLattice.covolume (dual Λ) = (ZLattice.covolume Λ)⁻¹ := by
+  sorry
+
+end EuclideanLattice
+
+namespace Poisson
+
+/-- Shifted Poisson summation in the repository's Fourier and Haar normalizations. -/
+theorem shifted {d : ℕ} (Λ : Submodule ℤ (V d))
+    [DiscreteTopology Λ] [IsZLattice ℝ Λ] (f : 𝓢(V d, ℂ)) (a : V d) :
+    ∑' x : Λ, f ((x : V d) + a) =
+      ((ZLattice.covolume Λ : ℂ)⁻¹) * ∑' y : EuclideanLattice.dual Λ,
+        𝓕 f (y : V d) *
+          Complex.exp (2 * Real.pi * Complex.I * ⟪(y : V d), a⟫_ℝ) := by
+  sorry
+
+/-- Unshifted Poisson summation. -/
+theorem unshifted {d : ℕ} (Λ : Submodule ℤ (V d))
+    [DiscreteTopology Λ] [IsZLattice ℝ Λ] (f : 𝓢(V d, ℂ)) :
+    ∑' x : Λ, f (x : V d) =
+      ((ZLattice.covolume Λ : ℂ)⁻¹) *
+        ∑' y : EuclideanLattice.dual Λ, 𝓕 f (y : V d) := by
+  sorry
+
+/-- Unit-Gaussian acceptance test for the Fourier and covolume normalization. -/
+theorem gaussian_one {d : ℕ} (Λ : Submodule ℤ (V d))
+    [DiscreteTopology Λ] [IsZLattice ℝ Λ] :
+    ∑' x : Λ, Real.exp (-Real.pi * ‖(x : V d)‖ ^ 2) =
+      (ZLattice.covolume Λ)⁻¹ * ∑' y : EuclideanLattice.dual Λ,
+        Real.exp (-Real.pi * ‖(y : V d)‖ ^ 2) := by
+  sorry
+
+end Poisson
+
 namespace CohnElkies
 
 /-- A general, not necessarily radial, Schwartz certificate. -/
@@ -474,6 +528,16 @@ theorem structureFactor_eq_zero_iff {d : ℕ} {P : PeriodicSpherePacking d}
     structureFactor D y = 0 ↔ structureAmplitude D y = 0 := by
   simp [structureFactor]
 
+/-- Summing shifted Poisson over a finite pattern produces the squared structure amplitude. -/
+theorem poisson_finitePattern {d : ℕ} {P : PeriodicSpherePacking d}
+    (D : P.FundamentalPattern) (f : 𝓢(V d, ℂ)) :
+    ∑' z : P.lattice, ∑ s ∈ D.reps, ∑ t ∈ D.reps,
+        f ((z : V d) + (s : V d) - (t : V d)) =
+      ((ZLattice.covolume P.lattice : ℂ)⁻¹) *
+        ∑' y : EuclideanLattice.dual P.lattice,
+          𝓕 f (y : V d) * (structureFactor D (y : V d) : ℂ) := by
+  sorry
+
 /-- Equality conditions for a general finite periodic pattern.  On the direct side every nonzero
 periodic difference lies in the zero set of `f`; on the Fourier side either `f̂` or the structure
 factor vanishes at each nonzero dual frequency. -/
@@ -538,7 +602,6 @@ theorem latticeTheta_qExpansion_of_even {d : ℕ}
 /-- Poisson summation gives the dual-lattice S-transformation. -/
 theorem latticeTheta_S_transform {k : ℕ}
     (Λ : Submodule ℤ (V (2 * k))) [DiscreteTopology Λ] [IsZLattice ℝ Λ]
-    [DiscreteTopology (EuclideanLattice.dual Λ)]
     (τ : UpperHalfPlane) :
     latticeTheta Λ (ModularGroup.S • τ) =
       (((τ : ℂ) / Complex.I) ^ k / ZLattice.covolume Λ) *

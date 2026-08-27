@@ -428,7 +428,10 @@ The large density formula must not be a simp lemma.
 Deliverables:
 
 - Schwartz summability on lattice translates;
-- Poisson summation in the exact Fourier/Haar convention;
+- shifted and unshifted Poisson summation with the exact positive phase and inverse-covolume
+  factor;
+- automatic discreteness, full-rank, double-dual, and reciprocal-covolume APIs for the real dual;
+- a unit-Gaussian normalization test and the exact finite-pattern squared-amplitude formula;
 - `CohnElkies.Certificate d r`, with no radiality requirement;
 - certificate bound and scaling API;
 - `Certificate.ofRadial` as a construction adapter;
