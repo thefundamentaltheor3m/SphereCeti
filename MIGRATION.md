@@ -46,7 +46,7 @@ Every PR must preserve the following unless its title explicitly changes one of 
 | heterogeneous `NNReal`/`ENNReal` global instances | Remove in a focused PR |
 | full periodic density formula marked `@[simp]` | Remove attribute; retain named theorem |
 | `gauss2` completed theorem | Port theorem-by-theorem after foundations |
-| PR #420 | Split into summability, duality, Poisson, Cohn--Elkies, and cleanup PRs |
+| PR #420 | Split into summability, duality, Poisson, and Cohn--Elkies PRs |
 
 ## 3. Phase A — establish the exact dependency line
 
@@ -612,7 +612,7 @@ Target:
 Every positive-definite even unimodular integral lattice of rank 8 is isometric to E8.
 ```
 
-A productive proof route is constructive rather than mass-formula based:
+Use the following constructive route rather than a mass-formula argument:
 
 - theta identity supplies 240 roots;
 - prove the norm-two roots are a finite crystallographic root system and span rank eight;
@@ -621,7 +621,9 @@ A productive proof route is constructive rather than mass-formula based:
 - prove the E8 root sublattice has index one in the unimodular lattice;
 - construct the integral-lattice isometry.
 
-The theorem should not mention sphere packings.
+The source conventions are Bourbaki, *Lie Groups and Lie Algebras, Chapters 4--6*, Chapter VI,
+§4 and Plates I--IX, together with Conway--Sloane, *Sphere Packings, Lattices and Groups*,
+Chapter 4, §8.1.  The theorem does not mention sphere packings.
 
 ### PR M2 — rootless rank-24 uniqueness
 
@@ -638,6 +640,10 @@ Use Niemeier classification.  Define the exact 24-case type: Leech and the 23 ro
 canonical lattice from its root system and glue code and produces an integral-lattice isometry.
 Expose the exact characteristic theorem that the norm-two root set is empty if and only if the
 classified case is Leech, then derive the rootless uniqueness target.
+
+The classification sources are Niemeier, *Journal of Number Theory* 5 (1973), 142--178, and
+Conway--Sloane, Chapter 16, §1 and Table 16.1 plus §3.  The root-system proof and the rootless
+characterization follow Conway--Sloane, Chapter 18, §§2--5, especially §5.
 
 Do not postulate the theorem as an opaque axiom in production.
 
@@ -721,9 +727,10 @@ Analogous.
 
 ### PR O3 — compatibility removal
 
-Remove deprecated aliases whose migration window has elapsed, dead `ForMathlib` files already
-replaced by TauCeti/Mathlib imports, duplicate representative code, and temporary proof-local
-wrappers.
+Remove the deprecated `numReps` and `numReps'` aliases and the duplicate representative
+construction after D3 migrates their consumers.  Delete `CohnElkies/Prereqs.lean` after E3--E4 and
+F1 supply its replacements.  Remove every other compatibility alias only when an earlier PR names
+both its canonical replacement and every migrated consumer.
 
 ### PR O4 — upstream issue creation
 

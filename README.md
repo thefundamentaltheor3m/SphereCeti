@@ -181,7 +181,7 @@ The following mathematics is valuable and should be migrated, not rewritten grat
 - The explicit E8 auxiliary functions `a`, `b`, and `g`, contour transformations, decay estimates,
   special values, and sign proofs.
 
-Targeted cleanup is still warranted:
+Required cleanup:
 
 - separate test imports from the public root aggregator;
 - consolidate `numReps`/`numReps'` into one orbit-count API;
@@ -190,7 +190,7 @@ Targeted cleanup is still warranted:
 - replace duplicate Fourier involution arguments in `a/Eigenfunction` and `b/Eigenfunction` by the
   radial Schwartz API;
 - retire the temporary Cohn--Elkies prerequisites file after the real Poisson API lands;
-- extract generic q-series and analytic lemmas currently buried in E8-specific files.
+- extract generic q-series and analytic lemmas from the E8-specific files.
 
 ### From the `gauss2` branch
 
@@ -201,11 +201,10 @@ Mine, with exact source attribution:
 - real-valuedness and Fourier-eigenfunction assembly;
 - exact sign and zero deductions;
 - the Möbius-inversion wedge contour argument;
-- the more developed Fourier permutation proof for the integral pieces;
-- any refactors that have already survived the full proof.
+- the more developed Fourier permutation proof for the integral pieces.
 
 Do not wholesale merge or rebase the branch.  Port one coherent theorem or API at a time onto the
-upgraded current `main`.
+upgraded production `main`.
 
 ### From PR #420
 
@@ -215,8 +214,7 @@ Mine and split:
 - dual-lattice infrastructure;
 - Poisson summation;
 - basis-independent covolume statements;
-- general periodic Cohn--Elkies counting;
-- useful cleanup replacing obstructive wrappers by local notation or direct Mathlib terms.
+- general periodic Cohn--Elkies counting.
 
 ### From the pinned TauCeti snapshot
 

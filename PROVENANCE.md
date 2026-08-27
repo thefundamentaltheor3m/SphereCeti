@@ -154,8 +154,7 @@ High-value material includes:
 - the final E8 main theorem assembly;
 - completed Fourier permutations of the `a` integral pieces;
 - the Möbius-inversion/convex-wedge contour development;
-- strengthened Schwartz, sign, and special-value arguments;
-- proof-local refactors that reduce duplicate analytic plumbing.
+- strengthened Schwartz, sign, and special-value arguments.
 
 Do not:
 
@@ -171,8 +170,7 @@ PR #420 is a source quarry containing several separable contributions:
 2. real dual-lattice adapters;
 3. Poisson summation;
 4. basis-independent covolume facts;
-5. general periodic Cohn--Elkies counting;
-6. cleanup of wrappers that obstruct Mathlib simplification.
+5. general periodic Cohn--Elkies counting.
 
 Each item is ported in a focused PR onto production `main` after A1.  A claim that PR #420 is “merged
 by replacement” must list the replacement declarations; broad textual similarity is not enough.
@@ -238,18 +236,27 @@ stability require a separate roadmap and additional metric/quantitative infrastr
 
 ### Lattice and code references
 
-- J. H. Conway and N. J. A. Sloane, *Sphere Packings, Lattices and Groups*, 3rd ed.
-- E. Bannai and N. J. A. Sloane, *Uniqueness of certain spherical codes* and related rigidity
-  literature as needed by the chosen equality-case proof.
+- N. Bourbaki, *Lie Groups and Lie Algebras, Chapters 4--6*, Springer (2002), Chapter VI,
+  §4 and Plates I--IX.  These supply the ADE classification, ranks, root counts, and Bourbaki
+  numbering used by the rank-eight route.
+- H.-V. Niemeier, “Definite quadratische Formen der Dimension 24 und Diskriminante 1,” *Journal of
+  Number Theory* **5** (1973), 142--178,
+  [DOI](https://doi.org/10.1016/0022-314X(73)90068-1).  Its main classification theorem gives the
+  24 positive-definite even unimodular rank-24 lattices.
+- J. H. Conway and N. J. A. Sloane, *Sphere Packings, Lattices and Groups*, 3rd ed., Springer
+  (1999), [DOI](https://doi.org/10.1007/978-1-4757-6568-7).  Chapter 4, §8.1 fixes the E8 model;
+  Chapter 16, §1 and Table 16.1 enumerate the Niemeier lattices and §3 verifies the list; Chapter
+  18, §§2--5 gives the root-system proof and constructions, with §5 characterizing the rootless
+  case as the Leech lattice.
+- V. V. Nikulin, “Integral symmetric bilinear forms and some of their applications,” *Math.
+  USSR-Izv.* **14** (1980).  Section 1.1 fixes discriminant-form conventions; §1.4,
+  Proposition 1.4.1 supplies the even-overlattice/isotropic-subgroup correspondence.
+- W. Ebeling, *Lattices and Codes*, 3rd ed., Springer (2013).  Chapter 1 supplies lattice, dual,
+  discriminant, and glue calculations; Chapter 3 supplies the even unimodular examples.
 
 The Leech construction targets pin the Conway--Sloane normalization: the extended Golay generator
 polynomial, the modulo-eight/residue-code coordinate description scaled by `1 / sqrt 8`, and the
 24-row integer basis matrix in that same scaling.
-- V. V. Nikulin, *Integral symmetric bilinear forms and some of their applications*.
-- W. Ebeling, *Lattices and Codes*.
-
-Exact chapter/theorem citations should be added to the implementation PR that chooses the
-rank-eight or rootless rank-24 classification route.
 
 ## 7. TauCetiRoadmap sources
 
