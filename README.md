@@ -438,13 +438,18 @@ Deliverables:
 - unrestricted sphere-packing bound;
 - lattice sharpness relation;
 - complex periodic structure amplitude and its nonnegative real squared-norm structure factor;
-- termwise equality characterization for a finite periodic pattern.
+- exact nonnegative direct and Fourier defects in `ℝ`;
+- equality implies pattern-independent termwise sharpness;
+- sharpness plus `0 < P.numOrbits` implies equality;
+- positivity of `C.f 0` and `C.bound`.
 
 The periodic equality theorem is essential for uniqueness.  The Fourier-side condition is not simply
 “`f̂` vanishes on every nonzero dual vector”: for a multi-coset periodic configuration, a nonzero
 structure factor may also vanish.  This distinction must be represented explicitly.
 At a dual frequency, the phase is invariant under changing a representative by a period; the
 amplitude therefore descends to the canonical orbit quotient.
+The two equality directions remain separate: an empty packing has vacuous termwise conditions but
+zero density, whereas every certificate bound is positive.
 
 ## Layer 5 — theta series
 

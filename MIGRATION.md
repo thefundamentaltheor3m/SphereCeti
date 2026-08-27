@@ -327,11 +327,24 @@ real Poisson API.
 
 ### PR F4 — equality relation
 
-Define the equality/sharpness data separately from the certificate.  Prove:
+Define the equality/sharpness data separately from the certificate.  Expose exact real-valued
+nonnegative defects satisfying
+
+```text
+m f(0) - (m² / covol(Λ)) f̂(0) = D_Fourier + D_direct
+```
+
+and, for `0 < m`, the normalized gap identity obtained by division by `m f̂(0)`.  Prove:
 
 - equality forces direct-side zero terms;
 - equality forces Fourier-side products `f̂(y) * S_P(y)` to vanish;
 - strict signs upgrade these products to exact shell or structure-factor statements.
+- equality implies canonical pattern-independent sharpness;
+- sharpness and `0 < P.numOrbits` imply equality.
+
+Also derive `Certificate.f_zero_pos` and `Certificate.bound_pos` from Fourier inversion,
+`fourier_nonneg`, and `fourier_zero_pos`.  Do not combine the two equality directions into an
+unqualified `iff`: the empty packing makes termwise sharpness vacuous.
 
 Do not yet prove dimension-specific rigidity.
 

@@ -490,6 +490,16 @@ noncomputable def Certificate.ofRadial {d : ℕ} {r : ℝ}
   fourier_nonneg := hfourierNonneg
   fourier_zero_pos := hfourierZeroPos
 
+/-- Fourier inversion and nonnegativity make the direct value at zero strictly positive. -/
+theorem Certificate.f_zero_pos {d : ℕ} {r : ℝ} (C : Certificate d r) :
+    0 < (C.f 0).re := by
+  sorry
+
+/-- Every certificate supplies a strictly positive density bound. -/
+theorem Certificate.bound_pos {d : ℕ} {r : ℝ} (C : Certificate d r) :
+    0 < C.bound := by
+  sorry
+
 /-- The unrestricted Cohn--Elkies upper bound. -/
 theorem bound {d : ℕ} {r : ℝ} (hd : 0 < d) (C : Certificate d r) :
     SpherePackingConstant d ≤ C.bound := by
@@ -528,6 +538,33 @@ theorem structureFactor_eq_zero_iff {d : ℕ} {P : PeriodicSpherePacking d}
     structureFactor D y = 0 ↔ structureAmplitude D y = 0 := by
   simp [structureFactor]
 
+/-- Phase of a canonical center orbit at a dual frequency. -/
+noncomputable def orbitPhase {d : ℕ} (P : PeriodicSpherePacking d)
+    (y : EuclideanLattice.dual P.lattice) : P.Orbit → ℂ := by
+  sorry
+
+@[simp]
+theorem orbitPhase_mk {d : ℕ} (P : PeriodicSpherePacking d)
+    (y : EuclideanLattice.dual P.lattice) (s : P.centers) :
+    orbitPhase P y (Quotient.mk _ s) =
+      Complex.exp (2 * Real.pi * Complex.I * ⟪(y : V d), (s : V d)⟫_ℝ) := by
+  sorry
+
+/-- Pattern-independent structure factor on the canonical orbit quotient. -/
+@[expose] noncomputable def orbitStructureFactor {d : ℕ} (P : PeriodicSpherePacking d)
+    (y : EuclideanLattice.dual P.lattice) : ℝ :=
+  ‖∑ q : P.Orbit, orbitPhase P y q‖ ^ 2
+
+theorem orbitStructureFactor_nonneg {d : ℕ} (P : PeriodicSpherePacking d)
+    (y : EuclideanLattice.dual P.lattice) : 0 ≤ orbitStructureFactor P y :=
+  sq_nonneg _
+
+/-- A chosen fundamental pattern computes the canonical orbit structure factor. -/
+theorem structureFactor_eq_orbitStructureFactor {d : ℕ} {P : PeriodicSpherePacking d}
+    (D : P.FundamentalPattern) (y : EuclideanLattice.dual P.lattice) :
+    structureFactor D (y : V d) = orbitStructureFactor P y := by
+  sorry
+
 /-- Summing shifted Poisson over a finite pattern produces the squared structure amplitude. -/
 theorem poisson_finitePattern {d : ℕ} {P : PeriodicSpherePacking d}
     (D : P.FundamentalPattern) (f : 𝓢(V d, ℂ)) :
@@ -538,22 +575,72 @@ theorem poisson_finitePattern {d : ℕ} {P : PeriodicSpherePacking d}
           𝓕 f (y : V d) * (structureFactor D (y : V d) : ℂ) := by
   sorry
 
-/-- Equality conditions for a general finite periodic pattern.  On the direct side every nonzero
-periodic difference lies in the zero set of `f`; on the Fourier side either `f̂` or the structure
-factor vanishes at each nonzero dual frequency. -/
+/-- Pattern-independent equality conditions for a periodic packing.  On the direct side every
+nonzero center difference lies in the zero set of `f`; on the Fourier side either `f̂` or the
+canonical orbit structure factor vanishes at each nonzero dual frequency. -/
 def Certificate.IsSharpForPeriodic {d : ℕ} {r : ℝ}
-    (C : Certificate d r) (P : PeriodicSpherePacking d)
-    (D : P.FundamentalPattern) : Prop :=
-  (∀ z : P.lattice, ∀ s ∈ D.reps, ∀ t ∈ D.reps,
-      (z : V d) + s - t ≠ 0 → C.f ((z : V d) + s - t) = 0) ∧
+    (C : Certificate d r) (P : PeriodicSpherePacking d) : Prop :=
+  (∀ x : P.centers, ∀ y : P.centers, x ≠ y →
+      C.f ((x : V d) - (y : V d)) = 0) ∧
   (∀ y : EuclideanLattice.dual P.lattice, y ≠ 0 →
-      𝓕 C.f (y : V d) = 0 ∨ structureFactor D (y : V d) = 0)
+      𝓕 C.f (y : V d) = 0 ∨ orbitStructureFactor P y = 0)
 
-/-- Exact equality in the periodic bound is equivalent to the termwise sharpness conditions. -/
-theorem density_eq_bound_iff_isSharpForPeriodic {d : ℕ} {r : ℝ} (hd : 0 < d)
+/-- Negative of the nontrivial direct-side sum. -/
+noncomputable def directDefect {d : ℕ} {r : ℝ} (C : Certificate d r)
+    (P : PeriodicSpherePacking d) (D : P.FundamentalPattern) : ℝ :=
+  -∑' z : P.lattice, ∑ s ∈ D.reps, ∑ t ∈ D.reps,
+    if (z : V d) + (s : V d) - (t : V d) = 0 then 0
+    else (C.f ((z : V d) + (s : V d) - (t : V d))).re
+
+/-- Nonzero-frequency Fourier contribution. -/
+noncomputable def fourierDefect {d : ℕ} {r : ℝ} (C : Certificate d r)
+    (P : PeriodicSpherePacking d) (D : P.FundamentalPattern) : ℝ :=
+  (ZLattice.covolume P.lattice)⁻¹ *
+    ∑' y : EuclideanLattice.dual P.lattice,
+      if y = 0 then 0
+      else (𝓕 C.f (y : V d)).re * structureFactor D (y : V d)
+
+theorem directDefect_nonneg {d : ℕ} {r : ℝ} (C : Certificate d r)
+    (P : PeriodicSpherePacking d) (D : P.FundamentalPattern)
+    (hsep : r = P.separation) : 0 ≤ directDefect C P D := by
+  sorry
+
+theorem fourierDefect_nonneg {d : ℕ} {r : ℝ} (C : Certificate d r)
+    (P : PeriodicSpherePacking d) (D : P.FundamentalPattern) :
+    0 ≤ fourierDefect C P D := by
+  sorry
+
+/-- Exact real-valued equality behind the periodic Cohn--Elkies bound. -/
+theorem defect_identity {d : ℕ} {r : ℝ} (C : Certificate d r)
+    (P : PeriodicSpherePacking d) (D : P.FundamentalPattern) :
+    (P.numOrbits : ℝ) * (C.f 0).re -
+        (P.numOrbits : ℝ) ^ 2 / ZLattice.covolume P.lattice *
+          (𝓕 C.f 0).re =
+      fourierDefect C P D + directDefect C P D := by
+  sorry
+
+/-- The center-intensity gap is the sum of the two nonnegative defects. -/
+theorem normalized_gap_eq_defects {d : ℕ} {r : ℝ} (C : Certificate d r)
+    (P : PeriodicSpherePacking d) (D : P.FundamentalPattern)
+    (horbits : 0 < P.numOrbits) :
+    (C.f 0).re / (𝓕 C.f 0).re -
+        (P.numOrbits : ℝ) / ZLattice.covolume P.lattice =
+      (fourierDefect C P D + directDefect C P D) /
+        ((P.numOrbits : ℝ) * (𝓕 C.f 0).re) := by
+  sorry
+
+/-- Equality in the periodic bound forces every termwise sharpness condition. -/
+theorem isSharpForPeriodic_of_density_eq_bound {d : ℕ} {r : ℝ} (hd : 0 < d)
     (C : Certificate d r) (P : PeriodicSpherePacking d)
-    (D : P.FundamentalPattern) (hsep : r = P.separation) :
-    P.density = C.bound ↔ C.IsSharpForPeriodic P D := by
+    (hsep : r = P.separation) (h : P.density = C.bound) :
+    C.IsSharpForPeriodic P := by
+  sorry
+
+/-- Sharpness gives equality once the canonical orbit quotient is nonempty. -/
+theorem density_eq_bound_of_isSharpForPeriodic {d : ℕ} {r : ℝ} (hd : 0 < d)
+    (C : Certificate d r) (P : PeriodicSpherePacking d)
+    (hsep : r = P.separation) (horbits : 0 < P.numOrbits)
+    (hsharp : C.IsSharpForPeriodic P) : P.density = C.bound := by
   sorry
 
 /-- The lattice sharpness relation identifies the bound with the canonical lattice-packing
