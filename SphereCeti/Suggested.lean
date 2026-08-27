@@ -447,10 +447,32 @@ def Certificate.IsSharpForLattice {d : ℕ} {r : ℝ}
   (∀ x : Λ, x ≠ 0 → C.f (x : V d) = 0) ∧
   (∀ y : EuclideanLattice.dual Λ, y ≠ 0 → 𝓕 C.f (y : V d) = 0)
 
-/-- The finite Fourier amplitude of a periodic pattern. -/
-def structureFactor {d : ℕ} {P : PeriodicSpherePacking d}
+/-- The finite complex Fourier amplitude of a periodic pattern. -/
+def structureAmplitude {d : ℕ} {P : PeriodicSpherePacking d}
     (D : P.FundamentalPattern) (y : V d) : ℂ :=
   ∑ s ∈ D.reps, Complex.exp (2 * Real.pi * Complex.I * ⟪y, s⟫_ℝ)
+
+/-- Changing an orbit representative by a period does not change its phase at a dual frequency. -/
+theorem phase_eq_of_sub_mem_lattice {d : ℕ} {P : PeriodicSpherePacking d}
+    (y : EuclideanLattice.dual P.lattice) (s t : P.centers)
+    (hst : (s : V d) - (t : V d) ∈ P.lattice) :
+    Complex.exp (2 * Real.pi * Complex.I * ⟪(y : V d), (s : V d)⟫_ℝ) =
+      Complex.exp (2 * Real.pi * Complex.I * ⟪(y : V d), (t : V d)⟫_ℝ) := by
+  sorry
+
+/-- The nonnegative real structure factor is the squared norm of the amplitude. -/
+@[expose] def structureFactor {d : ℕ} {P : PeriodicSpherePacking d}
+    (D : P.FundamentalPattern) (y : V d) : ℝ :=
+  ‖structureAmplitude D y‖ ^ 2
+
+theorem structureFactor_nonneg {d : ℕ} {P : PeriodicSpherePacking d}
+    (D : P.FundamentalPattern) (y : V d) : 0 ≤ structureFactor D y :=
+  sq_nonneg _
+
+theorem structureFactor_eq_zero_iff {d : ℕ} {P : PeriodicSpherePacking d}
+    (D : P.FundamentalPattern) (y : V d) :
+    structureFactor D y = 0 ↔ structureAmplitude D y = 0 := by
+  simp [structureFactor]
 
 /-- Equality conditions for a general finite periodic pattern.  On the direct side every nonzero
 periodic difference lies in the zero set of `f`; on the Fourier side either `f̂` or the structure

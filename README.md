@@ -434,12 +434,14 @@ Deliverables:
 - `Certificate.ofRadial` as a construction adapter;
 - unrestricted sphere-packing bound;
 - lattice sharpness relation;
-- general periodic structure factor;
+- complex periodic structure amplitude and its nonnegative real squared-norm structure factor;
 - termwise equality characterization for a finite periodic pattern.
 
 The periodic equality theorem is essential for uniqueness.  The Fourier-side condition is not simply
 “`f̂` vanishes on every nonzero dual vector”: for a multi-coset periodic configuration, a nonzero
 structure factor may also vanish.  This distinction must be represented explicitly.
+At a dual frequency, the phase is invariant under changing a representative by a period; the
+amplitude therefore descends to the canonical orbit quotient.
 
 ## Layer 5 — theta series
 

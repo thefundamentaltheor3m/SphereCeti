@@ -284,13 +284,16 @@ case.
 
 ### PR E4 — shifted Poisson and structure factors
 
-Prove the translated formula and derive the finite-pattern structure factor:
+Prove the translated formula and derive the finite-pattern amplitude and structure factor:
 
 ```text
-S_P(y) = |Σ_{s∈pattern} exp(2πi⟪y,s⟫)|².
+A_P(y) = Σ_{s∈pattern} exp(2πi⟪y,s⟫),
+S_P(y) = |A_P(y)|².
 ```
 
-Record nonnegativity and the exact vanishing alternative required by periodic equality cases.
+Prove that the phase at a dual frequency is independent of the representative of `P.Orbit`.
+Record `0 ≤ S_P(y)`, `S_P(y) = 0 ↔ A_P(y) = 0`, and the exact vanishing alternative required
+by periodic equality cases.
 
 ## 8. Phase F — Cohn--Elkies as a reusable theorem
 
