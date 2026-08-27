@@ -424,8 +424,10 @@ Deliverables:
     \operatorname{vol}(B(0,r/2))/\operatorname{covol}(\Lambda);
 \]
 
-- periodic approximation and
-  `PeriodicSpherePackingConstant d = SpherePackingConstant d`.
+- guarded repetition of finite coordinate-box patches, with explicit center/separation equations;
+- exact periodicized density and fixed-width boundary-layer volume decay;
+- `ε`-approximation of every packing density by a periodic packing density;
+- `PeriodicSpherePackingConstant d = SpherePackingConstant d` as the resulting corollary.
 
 The large density formula must not be a simp lemma.
 

@@ -267,13 +267,23 @@ Add explicit, short specializations for one-coset lattice packings.
 
 ### PR D5 — periodic approximation
 
-Isolate and prove:
+Use centered coordinate boxes with a guard band of one center separation.  Define the finite patch,
+its period lattice, and the repeated center set, then expose the characteristic equations for the
+centers and separation of `ofFinitePatternInBox`.  Prove in order:
+
+- the repeated patch satisfies the packing inequality, including across adjacent boxes;
+- its exact density in terms of the patch cardinality and box covolume;
+- a fixed-width coordinate-box boundary layer has volume ratio tending to zero;
+- for every positive `ε`, every packing has a periodic packing `Q` with
+  `P.density ≤ Q.density + ε`.
+
+Deduce:
 
 ```lean
 PeriodicSpherePackingConstant d = SpherePackingConstant d
 ```
 
-as its own theorem/file.  The proof should not depend on E8 or dimension-specific modular forms.
+as its own theorem/file.  The proof does not depend on E8 or dimension-specific modular forms.
 
 ## 7. Phase E — Poisson summation
 

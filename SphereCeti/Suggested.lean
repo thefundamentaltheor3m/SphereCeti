@@ -501,6 +501,77 @@ theorem density_eq_numOrbits_mul_ballVolume_div_covolume {d : ℕ} (hd : 0 < d)
       ENNReal.ofReal (ZLattice.covolume P.lattice) := by
   sorry
 
+/-- The centered coordinate box of radius `R`. -/
+def centeredBox (d : ℕ) (R : ℝ) : Set (V d) :=
+  {x | ∀ i, |x i| ≤ R}
+
+/-- Centers of a packing lying in the centered box.  Separation makes this set finite. -/
+noncomputable def finitePatternInBox {d : ℕ} (P : SpherePacking d) (R : ℝ) :
+    Finset P.centers := by
+  sorry
+
+@[simp]
+theorem mem_finitePatternInBox {d : ℕ} (P : SpherePacking d) (R : ℝ)
+    (x : P.centers) :
+    x ∈ finitePatternInBox P R ↔ (x : V d) ∈ centeredBox d R := by
+  sorry
+
+/-- Periodically repeat the finite box patch, leaving a guard band of one separation between
+neighboring boxes. -/
+noncomputable def periodicizeCenters {d : ℕ} (P : SpherePacking d) (R : ℝ) : Set (V d) :=
+  {x | ∃ z : Fin d → ℤ, ∃ s ∈ finitePatternInBox P R,
+    x = (s : V d) + fun i => (2 * (R + P.separation)) * (z i : ℝ)}
+
+/-- The periodic packing obtained from the guarded finite box patch. -/
+noncomputable def ofFinitePatternInBox {d : ℕ} (P : SpherePacking d)
+    (R : ℝ) (hR : 0 < R) : PeriodicSpherePacking d := by
+  sorry
+
+@[simp]
+theorem ofFinitePatternInBox_centers {d : ℕ} (P : SpherePacking d)
+    (R : ℝ) (hR : 0 < R) :
+    (ofFinitePatternInBox P R hR).centers = periodicizeCenters P R := by
+  sorry
+
+@[simp]
+theorem ofFinitePatternInBox_separation {d : ℕ} (P : SpherePacking d)
+    (R : ℝ) (hR : 0 < R) :
+    (ofFinitePatternInBox P R hR).separation = P.separation := by
+  sorry
+
+/-- The guarded repetition preserves the packing inequality across distinct box translates. -/
+theorem periodicize_isPacking {d : ℕ} (P : SpherePacking d) (R : ℝ) (hR : 0 < R) :
+    Pairwise (P.separation ≤ dist · · :
+      (ofFinitePatternInBox P R hR).centers →
+        (ofFinitePatternInBox P R hR).centers → Prop) := by
+  sorry
+
+/-- Exact density of the guarded periodicization. -/
+theorem density_periodicize {d : ℕ} (hd : 0 < d) (P : SpherePacking d)
+    (R : ℝ) (hR : 0 < R) :
+    (ofFinitePatternInBox P R hR).density =
+      (finitePatternInBox P R).card *
+        volume (ball (0 : V d) (P.separation / 2)) /
+          ENNReal.ofReal ((2 * (R + P.separation)) ^ d) := by
+  sorry
+
+/-- The coordinate-box boundary layer of thickness `t`. -/
+def boxBoundaryLayer (d : ℕ) (R t : ℝ) : Set (V d) :=
+  centeredBox d (R + t) \ centeredBox d (R - t)
+
+/-- A fixed-width boundary layer is negligible compared with the box volume. -/
+theorem boundaryLayer_volume_div_volume_tendsto_zero {d : ℕ} (hd : 0 < d)
+    (t : ℝ) (ht : 0 ≤ t) :
+    Tendsto (fun R : ℝ => volume (boxBoundaryLayer d R t) / volume (centeredBox d R))
+      atTop (𝓝 0) := by
+  sorry
+
+/-- Every packing density is approximated from below by densities of guarded periodicizations. -/
+theorem exists_periodic_density_ge_density_sub {d : ℕ} (hd : 0 < d)
+    (P : SpherePacking d) (ε : ℝ≥0∞) (hε : 0 < ε) :
+    ∃ Q : PeriodicSpherePacking d, P.density ≤ Q.density + ε := by
+  sorry
+
 /-- Periodic approximation: periodic and unrestricted packing constants agree. -/
 theorem constant_eq_general (d : ℕ) :
     PeriodicSpherePackingConstant d = SpherePackingConstant d := by
