@@ -453,12 +453,13 @@ Each PR is mined from a named source range and rebased onto current `main`.
 
 ### PR K1 — E8 `a` Fourier permutation
 
-Port the completed integral/Fourier interchange and contour identities.  Replace duplicate generic
-Fourier involution by `RadialSchwartzMap.fourier_apply_apply`.
+Port the completed integral/Fourier interchange and contour identities for the `+1`
+eigencomponent.  Replace duplicate generic Fourier involution by
+`RadialSchwartzMap.fourier_apply_apply`.
 
 ### PR K2 — E8 `b` Fourier permutation
 
-Do the analogous migration through the common radial API.
+Do the analogous migration for the `-1` eigencomponent through the common radial API.
 
 ### PR K3 — E8 Schwartz and special values
 
@@ -472,7 +473,10 @@ multiplicity and quantitative estimates needed by the stability roadmaps recorde
 
 ### PR K5 — E8 certificate and numerical bound
 
-Bundle the certificate and prove its bound equals `π^4/384`.
+Assemble the final auxiliary function as
+`((π * I) / 8640) • magicPlus - (I / (240 * π)) • magicMinus`, derive its distinct Fourier
+transform from the two component eigenvalue theorems, bundle the certificate, and prove its bound
+equals `π^4/384`.
 
 ### PR K6 — E8 optimality summit
 
@@ -491,13 +495,13 @@ TauCeti APIs.
 
 ### PR L2 — direct-side radial function
 
-Construct the direct-side profile through the common squared-norm radial and modular-kernel layer.
-Keep its normalization and contour decomposition explicit.
+Construct the `+1` Fourier eigencomponent through the common squared-norm radial and
+modular-kernel layer.  Keep its normalization and contour decomposition explicit.
 
 ### PR L3 — Fourier-side radial function
 
-Construct the complementary Fourier eigenfunction and prove the forward contour permutation.
-Reverse permutations must use the radial Fourier involution rather than duplicate Fourier inversion.
+Construct the `-1` Fourier eigencomponent and prove the forward contour permutation.  Reverse
+permutations must use the radial Fourier involution rather than duplicate Fourier inversion.
 
 ### PR L4 — contour and interchange theorems
 
@@ -518,9 +522,11 @@ and the absence of additional zeros in the sign ranges.
 
 ### PR L7 — strict signs and certificate
 
-Prove the weak sign hypotheses for optimality and strict sign hypotheses for equality rigidity;
-bundle the resulting `CohnElkies.Certificate 24 2` and identify its numerical bound with
-`π^12 / 12!`.
+Assemble the final auxiliary function as
+`-((π * I) / 113218560) • magicPlus - (I / (262080 * π)) • magicMinus`, derive its distinct
+Fourier transform, prove the weak sign hypotheses for optimality and strict sign hypotheses for
+equality rigidity, bundle the resulting `CohnElkies.Certificate 24 2`, and identify its numerical
+bound with `π^12 / 12!`.
 
 ### PR L8 — Leech optimality summit
 

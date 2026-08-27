@@ -744,11 +744,31 @@ end MagicFunction
 
 namespace E8
 
-noncomputable def magic : RadialSchwartzMap ℂ (V 8) ℂ := by
+/- The final Cohn--Elkies auxiliary function is not a Fourier eigenfunction.  It is the
+dimension-specific linear combination below of a `+1` and a `-1` eigenfunction. -/
+noncomputable def magicPlus : RadialSchwartzMap ℂ (V 8) ℂ := by
   sorry
 
-/-- Fourier invariance. -/
-theorem fourier_magic : 𝓕 (magic : 𝓢(V 8, ℂ)) = (magic : 𝓢(V 8, ℂ)) := by
+noncomputable def magicMinus : RadialSchwartzMap ℂ (V 8) ℂ := by
+  sorry
+
+theorem fourier_magicPlus :
+    𝓕 (magicPlus : 𝓢(V 8, ℂ)) = (magicPlus : 𝓢(V 8, ℂ)) := by
+  sorry
+
+theorem fourier_magicMinus :
+    𝓕 (magicMinus : 𝓢(V 8, ℂ)) = -(magicMinus : 𝓢(V 8, ℂ)) := by
+  sorry
+
+/-- Viazovska's E8 auxiliary function with the production normalization. -/
+noncomputable def magic : RadialSchwartzMap ℂ (V 8) ℂ :=
+  (((Real.pi : ℂ) * Complex.I) / 8640) • magicPlus -
+    (Complex.I / (240 * (Real.pi : ℂ))) • magicMinus
+
+/-- Fourier transform of the final auxiliary function, with the minus component sign reversed. -/
+theorem fourier_magic : 𝓕 (magic : 𝓢(V 8, ℂ)) =
+    (((Real.pi : ℂ) * Complex.I) / 8640) • (magicPlus : 𝓢(V 8, ℂ)) +
+      (Complex.I / (240 * (Real.pi : ℂ))) • (magicMinus : 𝓢(V 8, ℂ)) := by
   sorry
 
 /-- Exact direct-side zeros outside the origin.  Absence of extraneous zeros is the input needed for
@@ -757,11 +777,32 @@ theorem magic_zero_iff {x : V 8} (hx : x ≠ 0) :
     magic x = 0 ↔ ∃ n : ℕ, 1 ≤ n ∧ ‖x‖ ^ 2 = 2 * n := by
   sorry
 
+/-- The Fourier-side zeros outside the origin are exactly the E8 shell radii. -/
+theorem fourier_magic_zero_iff {x : V 8} (hx : x ≠ 0) :
+    𝓕 (magic : 𝓢(V 8, ℂ)) x = 0 ↔ ∃ n : ℕ, 1 ≤ n ∧ ‖x‖ ^ 2 = 2 * n := by
+  sorry
+
+/-- Direct-side nonpositivity beyond the packing threshold. -/
+theorem magic_re_nonpos_of_sqrtTwo_le_norm {x : V 8} (hx : Real.sqrt 2 ≤ ‖x‖) :
+    (magic x).re ≤ 0 := by
+  sorry
+
 /-- Strict negativity away from the shell zeros. -/
 theorem magic_re_lt_zero_of_sqrtTwo_le_norm_of_not_shell {x : V 8}
     (hx : Real.sqrt 2 ≤ ‖x‖)
     (hnot : ¬∃ n : ℕ, 1 ≤ n ∧ ‖x‖ ^ 2 = 2 * n) :
     (magic x).re < 0 := by
+  sorry
+
+/-- Fourier-side nonnegativity. -/
+theorem fourier_magic_re_nonneg (x : V 8) :
+    0 ≤ (𝓕 (magic : 𝓢(V 8, ℂ)) x).re := by
+  sorry
+
+/-- Fourier-side strict positivity away from the shell zeros. -/
+theorem fourier_magic_re_pos_of_not_shell {x : V 8}
+    (hnot : ¬∃ n : ℕ, 1 ≤ n ∧ ‖x‖ ^ 2 = 2 * n) :
+    0 < (𝓕 (magic : 𝓢(V 8, ℂ)) x).re := by
   sorry
 
 /-- Normalized Cohn--Elkies certificate. -/
@@ -784,11 +825,31 @@ end E8
 
 namespace Leech
 
-noncomputable def magic : RadialSchwartzMap ℂ (V 24) ℂ := by
+/- The final Leech auxiliary function is the exact linear combination of the two Fourier
+eigencomponents constructed in Sections 2 and 3 of Cohn--Kumar--Miller--Radchenko--Viazovska. -/
+noncomputable def magicPlus : RadialSchwartzMap ℂ (V 24) ℂ := by
   sorry
 
-/-- Fourier invariance. -/
-theorem fourier_magic : 𝓕 (magic : 𝓢(V 24, ℂ)) = (magic : 𝓢(V 24, ℂ)) := by
+noncomputable def magicMinus : RadialSchwartzMap ℂ (V 24) ℂ := by
+  sorry
+
+theorem fourier_magicPlus :
+    𝓕 (magicPlus : 𝓢(V 24, ℂ)) = (magicPlus : 𝓢(V 24, ℂ)) := by
+  sorry
+
+theorem fourier_magicMinus :
+    𝓕 (magicMinus : 𝓢(V 24, ℂ)) = -(magicMinus : 𝓢(V 24, ℂ)) := by
+  sorry
+
+/-- The dimension-24 auxiliary function, with the coefficients from the published proof. -/
+noncomputable def magic : RadialSchwartzMap ℂ (V 24) ℂ :=
+  (-((Real.pi : ℂ) * Complex.I) / 113218560) • magicPlus -
+    (Complex.I / (262080 * (Real.pi : ℂ))) • magicMinus
+
+/-- Fourier transform of the final auxiliary function, with the minus component sign reversed. -/
+theorem fourier_magic : 𝓕 (magic : 𝓢(V 24, ℂ)) =
+    (-((Real.pi : ℂ) * Complex.I) / 113218560) • (magicPlus : 𝓢(V 24, ℂ)) +
+      (Complex.I / (262080 * (Real.pi : ℂ))) • (magicMinus : 𝓢(V 24, ℂ)) := by
   sorry
 
 /-- Exact zero set outside the origin: squared norms `2n` for `n ≥ 2`. -/
@@ -796,11 +857,32 @@ theorem magic_zero_iff {x : V 24} (hx : x ≠ 0) :
     magic x = 0 ↔ ∃ n : ℕ, 2 ≤ n ∧ ‖x‖ ^ 2 = 2 * n := by
   sorry
 
+/-- The Fourier-side zeros outside the origin are exactly the Leech shell radii. -/
+theorem fourier_magic_zero_iff {x : V 24} (hx : x ≠ 0) :
+    𝓕 (magic : 𝓢(V 24, ℂ)) x = 0 ↔ ∃ n : ℕ, 2 ≤ n ∧ ‖x‖ ^ 2 = 2 * n := by
+  sorry
+
+/-- Direct-side nonpositivity beyond the packing threshold. -/
+theorem magic_re_nonpos_of_two_le_norm {x : V 24} (hx : 2 ≤ ‖x‖) :
+    (magic x).re ≤ 0 := by
+  sorry
+
 /-- Strict negativity away from shell zeros. -/
 theorem magic_re_lt_zero_of_two_le_norm_of_not_shell {x : V 24}
     (hx : 2 ≤ ‖x‖)
     (hnot : ¬∃ n : ℕ, 2 ≤ n ∧ ‖x‖ ^ 2 = 2 * n) :
     (magic x).re < 0 := by
+  sorry
+
+/-- Fourier-side nonnegativity. -/
+theorem fourier_magic_re_nonneg (x : V 24) :
+    0 ≤ (𝓕 (magic : 𝓢(V 24, ℂ)) x).re := by
+  sorry
+
+/-- Fourier-side strict positivity away from the shell zeros. -/
+theorem fourier_magic_re_pos_of_not_shell {x : V 24}
+    (hnot : ¬∃ n : ℕ, 2 ≤ n ∧ ‖x‖ ^ 2 = 2 * n) :
+    0 < (𝓕 (magic : 𝓢(V 24, ℂ)) x).re := by
   sorry
 
 noncomputable def certificate : CohnElkies.Certificate 24 2 := by

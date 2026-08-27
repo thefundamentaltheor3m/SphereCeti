@@ -536,14 +536,17 @@ Use the appropriate contour tool:
 
 For each dimension, prove:
 
-- the radial Schwartz object;
+- radial Schwartz `+1` and `-1` Fourier eigencomponents;
+- the final auxiliary function as the published dimension-specific linear combination of those
+  components;
 - real-valuedness of the function and Fourier transform;
-- Fourier eigenfunction identity;
+- the two component Fourier eigenfunction identities and the resulting, generally distinct,
+  Fourier transform of the final auxiliary function;
 - normalization at zero;
 - direct-side nonpositivity beyond the threshold;
 - Fourier-side nonnegativity;
-- exact zero set, including absence of extraneous zeros;
-- strict sign away from the shell zeros;
+- separate exact direct- and Fourier-side zero sets, including absence of extraneous zeros;
+- separate strict direct- and Fourier-side signs away from the shell zeros;
 - the bundled Cohn--Elkies certificate;
 - equality of its bound with the candidate lattice density.
 
