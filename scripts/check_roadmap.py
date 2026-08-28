@@ -71,6 +71,10 @@ for lean in (ROOT / "SphereCeti").glob("*.lean"):
 
 # The roadmap must expose the agreed summit and classification boundaries.
 suggested = (ROOT / "SphereCeti" / "Suggested.lean").read_text()
+require("Quotient P.addAction.orbitRel" in suggested,
+        "Orbit must reuse the pinned production additive-action quotient")
+require("def orbitSetoid" not in suggested,
+        "Suggested.lean must not define a duplicate periodic orbit setoid")
 for declaration in (
     "spherePackingConstant_eight",
     "spherePackingConstant_twentyFour",

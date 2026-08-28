@@ -74,6 +74,7 @@ abbrev RadialSchwartzMap := SphereCeti.Pinned.RadialSchwartzMap
 
 #check SphereCeti.Pinned.SpherePacking
 #check SphereCeti.Pinned.PeriodicSpherePacking
+#check SphereCeti.Pinned.PeriodicSpherePacking.addAction
 #check SphereCeti.Pinned.SpherePacking.balls
 #check SphereCeti.Pinned.SpherePacking.finiteDensity
 #check SphereCeti.Pinned.SpherePacking.density
@@ -472,15 +473,8 @@ structure FundamentalPattern {d : ℕ} (P : PeriodicSpherePacking d) where
   unique_mod_lattice : ∀ s ∈ reps, ∀ t ∈ reps,
     (s : V d) - (t : V d) ∈ P.lattice → s = t
 
-/-- The pinned production orbit relation.  PR A2 identifies this setoid with
-`P.addAction.orbitRel` and removes the duplicate relation. -/
-@[expose] def orbitSetoid {d : ℕ} (P : PeriodicSpherePacking d) : Setoid P.centers where
-  r x y := (x : V d) - (y : V d) ∈ P.lattice
-  iseqv := by
-    sorry
-
 /-- Canonical quotient of centers by the period-lattice action. -/
-abbrev Orbit {d : ℕ} (P : PeriodicSpherePacking d) := Quotient (orbitSetoid P)
+abbrev Orbit {d : ℕ} (P : PeriodicSpherePacking d) := Quotient P.addAction.orbitRel
 
 /-- The canonical orbit quotient is finite. -/
 noncomputable instance orbitFinite {d : ℕ} (P : PeriodicSpherePacking d) :

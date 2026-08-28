@@ -7,6 +7,7 @@ Authors: SphereCeti contributors
 module
 
 public import Mathlib
+public import Mathlib.Dynamics.Ergodic.Action.Regular
 public import TauCeti.LinearAlgebra.IntegralLattice.Basic
 public import TauCeti.LinearAlgebra.IntegralLattice.Even
 public import TauCeti.LinearAlgebra.IntegralLattice.Unimodular
@@ -72,6 +73,27 @@ instance PeriodicSpherePacking.instLatticeDiscrete (P : PeriodicSpherePacking d)
 
 instance PeriodicSpherePacking.instIsZLattice (P : PeriodicSpherePacking d) :
     IsZLattice ℝ P.lattice := P.lattice_isZLattice
+
+/-- The additive action of the period lattice on centers, mirrored from production. -/
+noncomputable instance PeriodicSpherePacking.addAction (P : PeriodicSpherePacking d) :
+    AddAction P.lattice P.centers where
+  vadd x y := ⟨↑x + ↑y, P.lattice_action x.property y.property⟩
+  zero_vadd := by
+    intro ⟨v, hv⟩
+    apply Subtype.ext
+    exact zero_add v
+  add_vadd := by
+    intro ⟨u, hu⟩ ⟨v, hv⟩ ⟨p, hp⟩
+    apply Subtype.ext
+    exact add_assoc u v p
+
+alias PeriodicSpherePacking.instAddAction := PeriodicSpherePacking.addAction
+
+@[simp]
+theorem PeriodicSpherePacking.addAction_vadd (P : PeriodicSpherePacking d)
+    {x : P.lattice} {y : P.centers} :
+    x +ᵥ y = ⟨x.val + y.val, P.lattice_action x.property y.property⟩ :=
+  rfl
 
 /-- The open balls of radius half the separation around all centers. -/
 abbrev SpherePacking.balls (P : SpherePacking d) : Set (V d) :=
