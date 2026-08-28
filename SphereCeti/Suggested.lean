@@ -1704,6 +1704,15 @@ theorem fourier_magic_re_pos_of_not_shell {x : V 8}
     0 < (𝓕 (magic : 𝓢(V 8, ℂ)) x).re := by
   sorry
 
+/-- The final direct auxiliary function is real-valued. -/
+theorem magic_im_eq_zero (x : V 8) : (magic x).im = 0 := by
+  sorry
+
+/-- The distinct Fourier transform is also real-valued. -/
+theorem fourier_magic_im_eq_zero (x : V 8) :
+    (𝓕 (magic : 𝓢(V 8, ℂ)) x).im = 0 := by
+  sorry
+
 /-- The threshold shell is a simple direct-side zero. -/
 theorem magicProfile_exactZeroOrder_at_firstShell :
     MagicFunction.HasExactZeroOrder magicProfile 2 1 := by
@@ -1720,12 +1729,18 @@ theorem fourierMagicProfile_exactZeroOrder (n : ℕ) (hn : 1 ≤ n) :
   sorry
 
 /-- Normalized Cohn--Elkies certificate. -/
-noncomputable def certificate : CohnElkies.Certificate 8 (Real.sqrt 2) := by
-  sorry
+@[expose] noncomputable def certificate : CohnElkies.Certificate 8 (Real.sqrt 2) :=
+  CohnElkies.Certificate.ofRadial (Real.sqrt_pos.2 (by norm_num)) magic
+    magic_im_eq_zero fourier_magic_im_eq_zero
+    (fun _ hx => magic_re_nonpos_of_sqrtTwo_le_norm hx) fourier_magic_re_nonneg
+    (fourier_magic_re_pos_of_not_shell (by
+      rintro ⟨n, hn, hnorm⟩
+      norm_num at hnorm
+      omega))
 
 @[simp]
 theorem certificate_f : certificate.f = (magic : 𝓢(V 8, ℂ)) := by
-  sorry
+  simp [certificate]
 
 @[simp]
 theorem certificate_normalized : certificate.IsNormalized := by
@@ -1839,6 +1854,15 @@ theorem fourier_magic_re_pos_of_not_shell {x : V 24}
     0 < (𝓕 (magic : 𝓢(V 24, ℂ)) x).re := by
   sorry
 
+/-- The final direct auxiliary function is real-valued. -/
+theorem magic_im_eq_zero (x : V 24) : (magic x).im = 0 := by
+  sorry
+
+/-- The distinct Fourier transform is also real-valued. -/
+theorem fourier_magic_im_eq_zero (x : V 24) :
+    (𝓕 (magic : 𝓢(V 24, ℂ)) x).im = 0 := by
+  sorry
+
 /-- The threshold shell is a simple direct-side zero. -/
 theorem magicProfile_exactZeroOrder_at_firstShell :
     MagicFunction.HasExactZeroOrder magicProfile 4 1 := by
@@ -1854,12 +1878,18 @@ theorem fourierMagicProfile_exactZeroOrder (n : ℕ) (hn : 2 ≤ n) :
     MagicFunction.HasExactZeroOrder fourierMagicProfile (2 * n) 2 := by
   sorry
 
-noncomputable def certificate : CohnElkies.Certificate 24 2 := by
-  sorry
+@[expose] noncomputable def certificate : CohnElkies.Certificate 24 2 :=
+  CohnElkies.Certificate.ofRadial (by norm_num) magic
+    magic_im_eq_zero fourier_magic_im_eq_zero
+    (fun _ hx => magic_re_nonpos_of_two_le_norm hx) fourier_magic_re_nonneg
+    (fourier_magic_re_pos_of_not_shell (by
+      rintro ⟨n, hn, hnorm⟩
+      norm_num at hnorm
+      omega))
 
 @[simp]
 theorem certificate_f : certificate.f = (magic : 𝓢(V 24, ℂ)) := by
-  sorry
+  simp [certificate]
 
 @[simp]
 theorem certificate_normalized : certificate.IsNormalized := by

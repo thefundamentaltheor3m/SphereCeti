@@ -299,6 +299,12 @@ same convention as the packing definition.
 Equality data are separate from the inequality certificate.  They include exact zero sets and,
 for a periodic finite pattern, the direct and Fourier structure-factor terms that must vanish.
 
+Construction adapters are transparent applications of their declared constructors whenever the
+required data are already available.  In particular, the E8 and Leech certificates are literal
+applications of `Certificate.ofRadial`, so their `f` projection equations follow from that
+constructor.  An opaque bootstrap adapter is accompanied by a characteristic equation in the
+structured target type; do not postulate an unrelated object and a plausible pointwise equation.
+
 ## 14. Theta series and q-expansions
 
 The analytic lattice theta series is

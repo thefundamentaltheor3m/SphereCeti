@@ -90,6 +90,15 @@ for certificate in (
     "basisCoordinateMatrix_det",
 ):
     require(certificate in suggested, f"missing finite-data certificate: {certificate}")
+require(suggested.count("CohnElkies.Certificate.ofRadial") >= 2,
+        "the dimension-specific certificates must be literal ofRadial applications")
+for adapter, equation in (
+    ("latticeThetaModularForm", "coe_latticeThetaModularForm"),
+    ("certificate", "certificate_f"),
+    ("packing", "packing_centers"),
+):
+    require(adapter in suggested and equation in suggested,
+            f"adapter {adapter} is missing characteristic equation {equation}")
 for declaration in (
     "spherePackingConstant_eight",
     "spherePackingConstant_twentyFour",
