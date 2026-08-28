@@ -514,55 +514,101 @@ theorem density_eq_numOrbits_mul_ballVolume_div_covolume {d : ℕ} (hd : 0 < d)
 def centeredBox (d : ℕ) (R : ℝ) : Set (V d) :=
   {x | ∀ i, |x i| ≤ R}
 
-/-- Centers of a packing lying in the centered box.  Separation makes this set finite. -/
-noncomputable def finitePatternInBox {d : ℕ} (P : SpherePacking d) (R : ℝ) :
+/-- Coordinate box of radius `R` centered at `a`. -/
+def centeredBoxAt {d : ℕ} (a : V d) (R : ℝ) : Set (V d) :=
+  a +ᵥ centeredBox d R
+
+/-- Centers of a packing lying in a translated box.  Separation makes this set finite. -/
+noncomputable def finitePatternInBoxAt {d : ℕ} (P : SpherePacking d)
+    (a : V d) (R : ℝ) :
     Finset P.centers := by
   sorry
+
+@[simp]
+theorem mem_finitePatternInBoxAt {d : ℕ} (P : SpherePacking d) (a : V d) (R : ℝ)
+    (x : P.centers) :
+    x ∈ finitePatternInBoxAt P a R ↔ (x : V d) ∈ centeredBoxAt a R := by
+  sorry
+
+/-- The origin-centered specialization retained for production compatibility. -/
+noncomputable def finitePatternInBox {d : ℕ} (P : SpherePacking d) (R : ℝ) :
+    Finset P.centers :=
+  finitePatternInBoxAt P 0 R
 
 @[simp]
 theorem mem_finitePatternInBox {d : ℕ} (P : SpherePacking d) (R : ℝ)
     (x : P.centers) :
     x ∈ finitePatternInBox P R ↔ (x : V d) ∈ centeredBox d R := by
-  sorry
+  simp [finitePatternInBox, centeredBoxAt, mem_finitePatternInBoxAt]
 
-/-- Periodically repeat the finite box patch, leaving a guard band of one separation between
-neighboring boxes. -/
-noncomputable def periodicizeCenters {d : ℕ} (P : SpherePacking d) (R : ℝ) : Set (V d) :=
-  {x | ∃ z : Fin d → ℤ, ∃ s ∈ finitePatternInBox P R,
+/-- Periodically repeat a translated finite box patch, leaving a guard band of one separation
+between neighboring boxes. -/
+noncomputable def periodicizeCentersAt {d : ℕ} (P : SpherePacking d)
+    (a : V d) (R : ℝ) : Set (V d) :=
+  {x | ∃ z : Fin d → ℤ, ∃ s ∈ finitePatternInBoxAt P a R,
     x = (s : V d) + fun i => (2 * (R + P.separation)) * (z i : ℝ)}
 
-/-- The periodic packing obtained from the guarded finite box patch. -/
-noncomputable def ofFinitePatternInBox {d : ℕ} (P : SpherePacking d)
-    (R : ℝ) (hR : 0 < R) : PeriodicSpherePacking d := by
+/-- Origin-centered periodicized centers retained for production compatibility. -/
+noncomputable def periodicizeCenters {d : ℕ} (P : SpherePacking d) (R : ℝ) : Set (V d) :=
+  periodicizeCentersAt P 0 R
+
+/-- The periodic packing obtained from a guarded translated box patch. -/
+noncomputable def ofFinitePatternInBoxAt {d : ℕ} (P : SpherePacking d)
+    (a : V d) (R : ℝ) (hR : 0 < R) : PeriodicSpherePacking d := by
   sorry
+
+@[simp]
+theorem ofFinitePatternInBoxAt_centers {d : ℕ} (P : SpherePacking d)
+    (a : V d) (R : ℝ) (hR : 0 < R) :
+    (ofFinitePatternInBoxAt P a R hR).centers = periodicizeCentersAt P a R := by
+  sorry
+
+@[simp]
+theorem ofFinitePatternInBoxAt_separation {d : ℕ} (P : SpherePacking d)
+    (a : V d) (R : ℝ) (hR : 0 < R) :
+    (ofFinitePatternInBoxAt P a R hR).separation = P.separation := by
+  sorry
+
+/-- Origin-centered periodicization retained as a transparent specialization. -/
+noncomputable def ofFinitePatternInBox {d : ℕ} (P : SpherePacking d)
+    (R : ℝ) (hR : 0 < R) : PeriodicSpherePacking d :=
+  ofFinitePatternInBoxAt P 0 R hR
 
 @[simp]
 theorem ofFinitePatternInBox_centers {d : ℕ} (P : SpherePacking d)
     (R : ℝ) (hR : 0 < R) :
     (ofFinitePatternInBox P R hR).centers = periodicizeCenters P R := by
-  sorry
+  simp [ofFinitePatternInBox, periodicizeCenters]
 
 @[simp]
 theorem ofFinitePatternInBox_separation {d : ℕ} (P : SpherePacking d)
     (R : ℝ) (hR : 0 < R) :
     (ofFinitePatternInBox P R hR).separation = P.separation := by
-  sorry
+  simp [ofFinitePatternInBox]
 
-/-- The guarded repetition preserves the packing inequality across distinct box translates. -/
-theorem periodicize_isPacking {d : ℕ} (P : SpherePacking d) (R : ℝ) (hR : 0 < R) :
+/-- Guarded repetition preserves the packing inequality across distinct box translates. -/
+theorem periodicizeAt_isPacking {d : ℕ} (P : SpherePacking d)
+    (a : V d) (R : ℝ) (hR : 0 < R) :
     Pairwise (P.separation ≤ dist · · :
-      (ofFinitePatternInBox P R hR).centers →
-        (ofFinitePatternInBox P R hR).centers → Prop) := by
+      (ofFinitePatternInBoxAt P a R hR).centers →
+        (ofFinitePatternInBoxAt P a R hR).centers → Prop) := by
   sorry
 
-/-- Exact density of the guarded periodicization. -/
-theorem density_periodicize {d : ℕ} (hd : 0 < d) (P : SpherePacking d)
-    (R : ℝ) (hR : 0 < R) :
-    (ofFinitePatternInBox P R hR).density =
-      (finitePatternInBox P R).card *
+/-- Exact density of a guarded translated periodicization. -/
+theorem density_periodicizeAt {d : ℕ} (hd : 0 < d) (P : SpherePacking d)
+    (a : V d) (R : ℝ) (hR : 0 < R) :
+    (ofFinitePatternInBoxAt P a R hR).density =
+      (finitePatternInBoxAt P a R).card *
         volume (ball (0 : V d) (P.separation / 2)) /
           ENNReal.ofReal ((2 * (R + P.separation)) ^ d) := by
   sorry
+
+/-- Packing-volume density represented by the centers in a translated box before guard loss. -/
+noncomputable def boxPackingDensity {d : ℕ} (P : SpherePacking d)
+    (a : V d) (R : ℝ) : ℝ≥0∞ :=
+  (finitePatternInBoxAt P a R).card *
+    volume (ball (0 : V d) (P.separation / 2)) /
+      ENNReal.ofReal ((2 * R) ^ d)
 
 /-- The coordinate-box boundary layer of thickness `t`. -/
 def boxBoundaryLayer (d : ℕ) (R t : ℝ) : Set (V d) :=
@@ -575,7 +621,26 @@ theorem boundaryLayer_volume_div_volume_tendsto_zero {d : ℕ} (hd : 0 < d)
       atTop (𝓝 0) := by
   sorry
 
-/-- Every packing density is approximated from below by densities of guarded periodicizations. -/
+/-- Fubini/Følner bridge from ball-limsup density to translated coordinate boxes.  The favorable
+translation and the finite-density radius may depend on the scale, and the box half-width can be
+required to exceed any prescribed lower bound. -/
+theorem exists_translatedBox_normalizedCount_ge_finiteDensity_sub {d : ℕ} (hd : 0 < d)
+    (P : SpherePacking d) (ε : ℝ≥0∞) (hε : 0 < ε) (R₀ : ℝ) :
+    ∃ T : ℝ, ∃ a : V d, ∃ R : ℝ,
+      max R₀ 0 < R ∧ R < T ∧
+      P.density ≤ P.finiteDensity T + ε ∧
+      P.finiteDensity T ≤ boxPackingDensity P a R + ε := by
+  sorry
+
+/-- Consequently, arbitrarily large translated boxes approximate the ball-limsup density. -/
+theorem exists_translatedBox_density_ge_density_sub {d : ℕ} (hd : 0 < d)
+    (P : SpherePacking d) (ε : ℝ≥0∞) (hε : 0 < ε) (R₀ : ℝ) :
+    ∃ a : V d, ∃ R : ℝ,
+      max R₀ 0 < R ∧ P.density ≤ boxPackingDensity P a R + ε := by
+  sorry
+
+/-- Every packing density is approximated from below by guarded periodicization of a translated
+box supplied by the averaging theorem. -/
 theorem exists_periodic_density_ge_density_sub {d : ℕ} (hd : 0 < d)
     (P : SpherePacking d) (ε : ℝ≥0∞) (hε : 0 < ε) :
     ∃ Q : PeriodicSpherePacking d, P.density ≤ Q.density + ε := by

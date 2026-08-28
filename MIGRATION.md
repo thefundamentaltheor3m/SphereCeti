@@ -268,10 +268,13 @@ Add explicit, short specializations for one-coset lattice packings.
 
 ### PR D5 — periodic approximation
 
-Use centered coordinate boxes with a guard band of one center separation.  Define the finite patch,
-its period lattice, and the repeated center set, then expose the characteristic equations for the
-centers and separation of `ofFinitePatternInBox`.  Prove in order:
+Use translated coordinate boxes with a guard band of one center separation.  Define the finite
+patch, its period lattice, and the repeated center set, then expose the characteristic equations
+for the centers and separation of `ofFinitePatternInBoxAt`.  Prove in order:
 
+- a Fubini/Følner averaging lemma: from an arbitrarily large ball whose finite density approaches
+  the ball-limsup density, extract an arbitrarily large translated coordinate box whose normalized
+  center count loses only a prescribed error;
 - the repeated patch satisfies the packing inequality, including across adjacent boxes;
 - its exact density in terms of the patch cardinality and box covolume;
 - a fixed-width coordinate-box boundary layer has volume ratio tending to zero;

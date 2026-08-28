@@ -422,7 +422,11 @@ Deliverables:
     \operatorname{vol}(B(0,r/2))/\operatorname{covol}(\Lambda);
 \]
 
-- guarded repetition of finite coordinate-box patches, with explicit center/separation equations;
+- translated coordinate boxes and their finite center patterns;
+- a Fubini/Følner averaging theorem that finds an arbitrarily large translated box whose
+  normalized center count approximates a high finite-density ball;
+- guarded repetition of those translated finite patterns, with explicit center/separation
+  equations;
 - exact periodicized density and fixed-width boundary-layer volume decay;
 - `ε`-approximation of every packing density by a periodic packing density;
 - `PeriodicSpherePackingConstant d = SpherePackingConstant d` as the resulting corollary.

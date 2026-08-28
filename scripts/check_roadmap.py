@@ -78,6 +78,7 @@ for declaration in (
     "even_unimodular_rank_eight_unique",
     "rootless_even_unimodular_rank_twentyFour_unique",
     "generated_covolume_eq_one_and_index_eq_numOrbits",
+    "exists_translatedBox_normalizedCount_ge_finiteDensity_sub",
 ):
     require(declaration in suggested, f"missing roadmap declaration boundary: {declaration}")
 
