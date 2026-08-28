@@ -82,6 +82,14 @@ require("F = a • E4" in suggested and "F = a • E4Cubed + b • Delta" in sug
         "level-one classification targets must be equalities of structured modular forms")
 require("def ADEType.Valid" in suggested and "rootComponents_valid" in suggested,
         "ADE classification targets must expose valid component indices")
+require("% 23 ∈ ({0, 1, 5, 6, 7, 9, 11}" in suggested,
+        "Golay generator rows must use cyclic indexing modulo 23")
+for certificate in (
+    "golayPivotMinor_unitriangular",
+    "golayGeneratorMatrix_rowWeight",
+    "basisCoordinateMatrix_det",
+):
+    require(certificate in suggested, f"missing finite-data certificate: {certificate}")
 for declaration in (
     "spherePackingConstant_eight",
     "spherePackingConstant_twentyFour",

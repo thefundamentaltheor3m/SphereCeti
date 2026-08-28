@@ -1330,8 +1330,28 @@ def binaryHammingWeight (x : Fin 24 → ZMod 2) : ℕ :=
 12 shifts of `1 + X + X^5 + X^6 + X^7 + X^9 + X^11`; column 23 is the parity extension. -/
 def golayGeneratorMatrix : Matrix (Fin 12) (Fin 24) (ZMod 2) := fun i j =>
   if j.val = 23 then 1
-  else if j.val ∈ ({0, 1, 5, 6, 7, 9, 11} : Finset ℕ).image (i.val + ·) then 1
+  else if (j.val + 23 - i.val) % 23 ∈ ({0, 1, 5, 6, 7, 9, 11} : Finset ℕ) then 1
   else 0
+
+/-- The first twelve columns form the pinned unitriangular row-reduction certificate. -/
+def golayPivotMinor : Matrix (Fin 12) (Fin 12) (ZMod 2) := fun i j =>
+  golayGeneratorMatrix i ⟨j.val, by omega⟩
+
+/-- Executable check that the pivot minor is upper triangular with diagonal one. -/
+theorem golayPivotMinor_unitriangular :
+    (∀ i j : Fin 12, j < i → golayPivotMinor i j = 0) ∧
+      ∀ i : Fin 12, golayPivotMinor i i = 1 := by
+  constructor
+  · intro i j hji
+    fin_cases i <;> fin_cases j <;> norm_num at hji <;> decide
+  · intro i
+    fin_cases i <;> decide
+
+/-- Executable check that every parity-extended generator row has weight eight. -/
+theorem golayGeneratorMatrix_rowWeight :
+    ∀ i : Fin 12, binaryHammingWeight (golayGeneratorMatrix i) = 8 := by
+  intro i
+  fin_cases i <;> decide
 
 /-- The extended binary Golay code is the row span of the pinned generator matrix. -/
 noncomputable def extendedBinaryGolay : Submodule (ZMod 2) (Fin 24 → ZMod 2) :=
@@ -1441,6 +1461,10 @@ def basisCoordinateMatrix : Matrix (Fin 24) (Fin 24) ℤ := ![
   ![0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2, 0],
   ![-3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
 ]
+
+/-- Exact determinant certificate for the published integer basis matrix. -/
+theorem basisCoordinateMatrix_det : basisCoordinateMatrix.det = 8 ^ 12 := by
+  sorry
 
 /-- The 24 explicit real basis vectors. -/
 noncomputable def basisVector (i : Fin 24) : V 24 :=

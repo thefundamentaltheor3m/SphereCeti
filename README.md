@@ -518,9 +518,13 @@ The direct minimum-norm proof remains independent of the theta identity.
 
 Pin the extended Golay code by its exact polynomial generator matrix and prove its dimension,
 cardinality, self-duality, doubly-evenness, minimum weight, all-one word, and full weight enumerator.
+Check the matrix transcription in Lean through a unitriangular row-reduction certificate and exact
+generator-row weights.
 Define Leech by the exact modulo-eight/residue-code coordinate conditions with `1 / sqrt 8`
 scaling.  The 24 published integer basis rows divided by `sqrt 8` must lie in and span exactly that
-single coordinate lattice; no second opaque lattice submodule is introduced.
+single coordinate lattice; its integer matrix has determinant `8^12`.  These finite matrix claims
+must use explicit Lean-checked certificates rather than relying on an unverified transcription.  No
+second opaque lattice submodule is introduced.
 
 Required endpoints:
 
