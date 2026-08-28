@@ -70,6 +70,9 @@ for lean in (ROOT / "SphereCeti").glob("*.lean"):
     require(text.endswith("\n"), f"missing final newline in {lean.name}")
 
 # The roadmap must expose the agreed summit and classification boundaries.
+pinned = (ROOT / "SphereCeti" / "Pinned.lean").read_text()
+require("public import Mathlib\n" not in pinned,
+        "Pinned.lean must import the intended Mathlib modules, not the aggregate root")
 suggested = (ROOT / "SphereCeti" / "Suggested.lean").read_text()
 require("Quotient P.addAction.orbitRel" in suggested,
         "Orbit must reuse the pinned production additive-action quotient")

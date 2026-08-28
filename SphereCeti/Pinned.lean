@@ -6,7 +6,8 @@ Authors: SphereCeti contributors
 
 module
 
-public import Mathlib
+public import Mathlib.Algebra.Module.ZLattice.Covolume
+public import Mathlib.Analysis.Distribution.SchwartzSpace.Fourier
 public import Mathlib.Dynamics.Ergodic.Action.Regular
 public import TauCeti.LinearAlgebra.IntegralLattice.Basic
 public import TauCeti.LinearAlgebra.IntegralLattice.Even
