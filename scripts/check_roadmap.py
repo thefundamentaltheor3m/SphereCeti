@@ -78,6 +78,10 @@ require("Quotient P.addAction.orbitRel" in suggested,
         "Orbit must reuse the pinned production additive-action quotient")
 require("def orbitSetoid" not in suggested,
         "Suggested.lean must not define a duplicate periodic orbit setoid")
+require("F = a • E4" in suggested and "F = a • E4Cubed + b • Delta" in suggested,
+        "level-one classification targets must be equalities of structured modular forms")
+require("def ADEType.Valid" in suggested and "rootComponents_valid" in suggested,
+        "ADE classification targets must expose valid component indices")
 for declaration in (
     "spherePackingConstant_eight",
     "spherePackingConstant_twentyFour",

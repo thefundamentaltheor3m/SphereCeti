@@ -474,7 +474,8 @@ Deliverables:
 - even-lattice `T`, Poisson/dual `S`, and unimodular `S` transformations;
 - even-unimodular level-one modular form with a coercion theorem identifying its function with
   `latticeTheta` and explicit constant/first q-coefficients;
-- weight-four and weight-twelve level-one linear classification theorems;
+- weight-four and weight-twelve level-one linear classification theorems stated as equalities in
+  the structured modular-form types;
 - rank-eight classification
 
 \[
@@ -508,6 +509,7 @@ Retain the existing coordinate and basis descriptions, then package:
 - minimum squared norm `2`;
 - theta identity;
 - root count `240`;
+- valid ADE component indices for the root-system classification;
 - canonical lattice packing and density.
 
 The direct minimum-norm proof remains independent of the theta identity.

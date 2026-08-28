@@ -401,8 +401,9 @@ must coerce back to `latticeTheta`, and its constant and first coefficients must
 
 ### PR G4 — level-one classification
 
-First prove that every weight-four level-one form is a scalar multiple of `E4` and every
-weight-twelve level-one form is a linear combination of `E4^3` and `Delta`.  Use those
+First prove, as equalities in the structured modular-form types, that every weight-four level-one
+form is a scalar multiple of `E4` and every weight-twelve level-one form is a linear combination of
+`E4^3` and `Delta`.  Use those
 Mathlib/TauCeti dimension results to prove:
 
 ```text
@@ -619,7 +620,8 @@ Use the following constructive route rather than a mass-formula argument:
 
 - theta identity supplies 240 roots;
 - prove the norm-two roots are a finite crystallographic root system and span rank eight;
-- decompose the root system into irreducible ADE components;
+- decompose the root system into valid irreducible ADE components, with the `A` and `D` index
+  ranges represented explicitly;
 - use total rank `8` and root count `240` to identify the unique component as `E8`;
 - prove the E8 root sublattice has index one in the unimodular lattice;
 - construct the integral-lattice isometry.

@@ -1010,16 +1010,32 @@ theorem latticeThetaModularForm_qExpansion_coeff_one {k : ℕ}
 /-- The normalized weight-four Eisenstein series used in the E8 identity. -/
 noncomputable def E4 : ModularForm 𝒮ℒ 4 := ModularForm.E₄
 
+/-- The cube of `E4`, cast to its canonical weight-twelve structured type. -/
+noncomputable def E4Cubed : ModularForm 𝒮ℒ 12 :=
+  ModularForm.mcast (by norm_num) (E4.pow 3)
+
+@[simp]
+theorem E4Cubed_apply (τ : UpperHalfPlane) : E4Cubed τ = (E4 τ) ^ 3 := by
+  change (E4.pow 3) τ = (E4 τ) ^ 3
+  exact congrFun (ModularForm.coe_pow E4 3) τ
+
+/-- The discriminant viewed in the same structured weight-twelve space as `E4Cubed`. -/
+noncomputable def Delta : ModularForm 𝒮ℒ 12 :=
+  (CuspForm.discriminant : ModularForm 𝒮ℒ 12)
+
+@[simp]
+theorem Delta_apply (τ : UpperHalfPlane) : Delta τ = ModularForm.discriminant τ := by
+  simp [Delta, CuspForm.coe_discriminant]
+
 /-- Weight-four level-one modular forms are scalar multiples of `E4`. -/
 theorem weight_four_eq_constant_mul_E4 (F : ModularForm 𝒮ℒ 4) :
-    ∃ a : ℂ, ∀ τ : UpperHalfPlane, F τ = a * E4 τ := by
+    ∃ a : ℂ, F = a • E4 := by
   sorry
 
 /-- Weight-twelve level-one modular forms are linear combinations of `E4^3` and `Delta`. -/
 theorem weight_twelve_eq_a_mul_E4_cubed_add_b_mul_Delta
     (F : ModularForm 𝒮ℒ 12) :
-    ∃ a b : ℂ, ∀ τ : UpperHalfPlane,
-      F τ = a * (E4 τ) ^ 3 + b * ModularForm.discriminant τ := by
+    ∃ a b : ℂ, F = a • E4Cubed + b • Delta := by
   sorry
 
 /-- Root count, i.e. the squared-norm-two shell cardinality. -/
@@ -1075,6 +1091,12 @@ inductive ADEType
   | e8
   deriving DecidableEq
 
+/-- The index ranges for actual irreducible simply-laced root systems. -/
+def ADEType.Valid : ADEType → Prop
+  | .A n => 1 ≤ n
+  | .D n => 4 ≤ n
+  | .e6 | .e7 | .e8 => True
+
 def ADEType.rank : ADEType → ℕ
   | .A n => n
   | .D n => n
@@ -1108,6 +1130,12 @@ noncomputable def rootSubmodule {W : Type u} [AddCommGroup W] [Module ℚ W]
 /-- ADE components extracted from the finite crystallographic root system. -/
 noncomputable def rootComponents {W : Type u} [AddCommGroup W] [Module ℚ W]
     (L : TauCeti.IntegralLattice W) (hpos : L.IsPosDef) : Multiset ADEType := by
+  sorry
+
+/-- Every component extracted from a crystallographic root system has a valid Dynkin index. -/
+theorem rootComponents_valid {W : Type u} [AddCommGroup W] [Module ℚ W]
+    (L : TauCeti.IntegralLattice W) (hpos : L.IsPosDef) :
+    ∀ t ∈ rootComponents L hpos, t.Valid := by
   sorry
 
 /-- Component ranks add to the rank of the span of the root system. -/
