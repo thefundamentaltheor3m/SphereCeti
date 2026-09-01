@@ -27,6 +27,9 @@ jobs:
           use-mathlib-cache: true
           use-github-cache: false
 
+      - name: Check roadmap contracts
+        run: python3 scripts/check_roadmap.py
+
       # Fetch Tau Ceti's cache map from its public Lake artifact service (the same pattern as
       # TauCetiRoadmap's CI; the read endpoints are anonymous and documented in TauCeti's
       # docs/cache-infrastructure.md). Artifacts stay lazy: the build downloads only the Tau Ceti
@@ -96,6 +99,7 @@ jobs:
             echo "enabled=0" >> "$GITHUB_OUTPUT"
           fi
 
+      # The roadmap contains `sorry` intentionally: these are target signatures.
       - name: Build
         run: lake build
 
