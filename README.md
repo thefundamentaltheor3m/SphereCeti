@@ -410,7 +410,8 @@ Deliverables:
 
 - `PeriodicSpherePacking.ofZLattice`;
 - the existing finite quotient `Quotient P.addAction.orbitRel`, exposed as `P.Orbit`, with the
-  canonical representative `P.orbitRep` chosen through `Quotient.out`; production's
+  chosen representative `P.orbitRep` (through `Quotient.out`), with downstream statements
+  choice-independent at dual frequencies; production's
   basis-relative fundamental-domain representatives realize the same quotient through
   `addActionOrbitRelEquiv'`, and no separate pattern structure exists;
 - `P.numOrbits = Fintype.card P.Orbit`;

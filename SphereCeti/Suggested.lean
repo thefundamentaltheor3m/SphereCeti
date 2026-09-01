@@ -484,7 +484,8 @@ noncomputable def numOrbits {d : ℕ} (P : PeriodicSpherePacking d) : ℕ :=
 @[expose] noncomputable def centerIntensity {d : ℕ} (P : PeriodicSpherePacking d) : ℝ :=
   (P.numOrbits : ℝ) / ZLattice.covolume P.lattice
 
-/-- The canonical orbit representative, chosen through `Quotient.out`.  Phases and structure
+/-- A chosen orbit representative, through `Quotient.out`; the quotient `P.Orbit` is the
+canonical object.  Phases and structure
 factors at dual frequencies are independent of the choice; production's basis-relative
 fundamental-domain representatives realize the same quotient through
 `addActionOrbitRelEquiv'`. -/
@@ -815,7 +816,7 @@ def Certificate.IsSharpForLattice {d : ℕ} {r : ℝ}
   (∀ x : Λ, x ≠ 0 → C.f (x : V d) = 0) ∧
   (∀ y : EuclideanLattice.dual Λ, y ≠ 0 → 𝓕 C.f (y : V d) = 0)
 
-/-- The finite complex Fourier amplitude of the canonical orbit representatives. -/
+/-- The finite complex Fourier amplitude of the chosen orbit representatives. -/
 noncomputable def structureAmplitude {d : ℕ} (P : PeriodicSpherePacking d) (y : V d) : ℂ :=
   ∑ q : P.Orbit, Complex.exp (2 * Real.pi * Complex.I * ⟪y, P.orbitRep q⟫_ℝ)
 
@@ -867,7 +868,7 @@ theorem structureFactor_eq_orbitStructureFactor {d : ℕ} (P : PeriodicSpherePac
     structureFactor P (y : V d) = orbitStructureFactor P y := by
   sorry
 
-/-- Summing shifted Poisson over the canonical representatives produces the squared structure
+/-- Summing shifted Poisson over the chosen representatives produces the squared structure
 amplitude. -/
 theorem poisson_orbitReps {d : ℕ} (P : PeriodicSpherePacking d) (f : 𝓢(V d, ℂ)) :
     ∑' z : P.lattice, ∑ q : P.Orbit, ∑ q' : P.Orbit,
@@ -887,7 +888,7 @@ def Certificate.IsSharpForPeriodic {d : ℕ} {r : ℝ}
   (∀ y : EuclideanLattice.dual P.lattice, y ≠ 0 →
       𝓕 C.f (y : V d) = 0 ∨ orbitStructureFactor P y = 0)
 
-/-- Negative of the nontrivial direct-side sum over the canonical representatives. -/
+/-- Negative of the nontrivial direct-side sum over the chosen representatives. -/
 noncomputable def directDefect {d : ℕ} {r : ℝ} (C : Certificate d r)
     (P : PeriodicSpherePacking d) : ℝ :=
   -∑' z : P.lattice, ∑ q : P.Orbit, ∑ q' : P.Orbit,
