@@ -507,15 +507,42 @@ Consolidate:
 - Schwartz decay from q-expansion Big-O estimates;
 - TauCeti imaginary-axis predicates.
 
-### PR J4 — contour adapters
+### PR J4 — segment integrals, scalar one-forms, and change of variables
 
-Maintain three explicit interfaces:
+Implement the curve-integral transport interface:
+
+- the scalar one-form of a complex function;
+- the interval-integral/segment bridge for Mathlib curve integrals;
+- change of variables along a segment with an honest derivative/chain-rule hypothesis;
+- the closed-one-form adapter and its one-way discharge lemma from differentiability with
+  closure continuity.
+
+### PR J5 — Möbius inversion, wedge geometry, and signed permutations
+
+Implement the finite-branch summit:
+
+- the Möbius inversion, its derivative, and its upper-half-plane action;
+- wedge openness, convexity, and boundary control;
+- the two signed contour-permutation theorems for a single pair of kernels, via Mathlib's
+  curve-integral Poincaré lemma;
+- the generic component Fourier identity, consuming J3's Fubini and Gaussian adapters.
+
+Radial families instantiate the single-pair statements; the wedge homotopies are proof devices,
+not public declarations.
+
+### PR J6 — open rectangular deformation
+
+Implement the unbounded-branch summit: deformation of a horizontal edge into the two vertical
+half-lines above its endpoints, with explicit half-line integrability and the top edge controlled
+by uniform decay or top-edge-integral convergence.  This PR is independent of J4--J5.
+
+Across J4--J6, maintain three explicit contour interfaces:
 
 - TauCeti pole-free meromorphic circle Goursat;
 - open rectangular deformation at infinity;
-- finite convex-region/Poincare path deformation.
+- finite wedge/Poincaré path deformation.
 
-Do not force all three into one generic contour abstraction.
+Do not force the three into one generic contour abstraction.
 
 ## 13. Phase K — port the E8 proof from `gauss2`
 
@@ -563,21 +590,22 @@ Define only the Leech-specific weakly holomorphic/quasimodular inputs and prove 
 q-expansion, transformation, cusp-growth, and imaginary-axis reality contracts through the common
 TauCeti APIs.
 
-### PR L2 — direct-side radial function
+### PR L2 — Leech contour and interchange instantiations
 
-Construct the `+1` Fourier eigencomponent through the common squared-norm radial and
-modular-kernel layer.  Keep its normalization and contour decomposition explicit.
+Instantiate the generic contour layer at the 24-dimensional kernels: the signed Möbius laws, the
+wedge closedness hypotheses, the Fubini/Tonelli interchanges, and the Gaussian Fourier transforms
+consumed by the component constructions below.  Import TauCeti's contour theorems only where
+their statement matches the actual geometry.
 
-### PR L3 — Fourier-side radial function
+### PR L3 — direct-side radial function
 
-Construct the `-1` Fourier eigencomponent and prove the forward contour permutation.  Reverse
-permutations must use the radial Fourier involution rather than duplicate Fourier inversion.
+Construct the `+1` Fourier eigencomponent as a transparent instantiation of the generic
+component Fourier identity.  Keep its normalization and contour decomposition explicit.
 
-### PR L4 — contour and interchange theorems
+### PR L4 — Fourier-side radial function
 
-Prove the finite and open-contour deformations, change-of-variables identities, Fubini/Tonelli
-interchanges, and Gaussian Fourier transforms needed by L2--L3.  Import TauCeti's contour theorems
-only where their statement matches the actual geometry.
+Construct the `-1` Fourier eigencomponent by the same instantiation.  Reverse permutations must
+use the radial Fourier involution rather than duplicate Fourier inversion.
 
 ### PR L5 — Schwartz estimates
 
@@ -754,7 +782,7 @@ After A1:
 - G1/G2 can begin once E3 and C2 exist.
 - H1 can begin immediately after C2; H2 waits for G4.
 - I1/I2 can run in parallel with E/F/G and the E8 magic-function port.
-- J1--J3 can run in parallel with G and Leech lattice construction.
+- J1--J6 can run in parallel with G and Leech lattice construction; J6 is independent of J4--J5.
 - K can start after J foundations and F1; K5 waits for F2/F3.
 - L1--L7 can start after J foundations and F1, in parallel with the Golay/Leech lattice package;
   L8 waits for I5 and the generic lattice/periodic bound.

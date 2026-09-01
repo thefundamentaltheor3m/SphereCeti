@@ -21,6 +21,8 @@ public import TauCeti.NumberTheory.ModularForms.ResToImagAxis
 public import TauCeti.NumberTheory.ModularForms.STransform
 public import TauCeti.NumberTheory.ModularForms.SturmBound
 
+public import Mathlib.MeasureTheory.Integral.CurveIntegral.Basic
+public import Mathlib.MeasureTheory.Integral.CurveIntegral.Poincare
 public import Mathlib.NumberTheory.ModularForms.Discriminant
 public import Mathlib.NumberTheory.ModularForms.EisensteinSeries.QExpansion
 
@@ -1542,7 +1544,7 @@ theorem packing_density :
 
 end Leech
 
-/-! ## Layer 7: common radial machinery and Fourier signs -/
+/-! ## Layer 7: radial profiles, parametric integration, and signed kernels -/
 
 namespace MagicFunction
 
@@ -1597,17 +1599,195 @@ Leech component proofs first expose their exact signed transformation laws; only
 common hypotheses are then extracted into shared declarations.  This prevents an unconstrained
 eigenvalue field from making a zero-function implementation satisfy an intended construction. -/
 
-/-- TauCeti's meromorphic circle Goursat theorem is used directly for closed-circle residue-free
-steps. -/
+end MagicFunction
+
+/-! ## Layer 8: contour deformation and magic-integral transport
+
+All required finite deformations use straight segments and their images under the Möbius
+inversion `z ↦ -1/z`; all required unbounded deformations use axis-aligned rectangles.  The
+declarations are shaped for the production `SpherePacking.Contour` and
+`SpherePacking.Integration` namespaces; Mathlib's `curveIntegral`, `Path.segment`, and
+curve-integral Poincaré lemma are consumed directly. -/
+
+namespace Contour
+
+/-! ### Ownership contracts for the three contour tools -/
+
+/-- Closed circles without poles use TauCeti's meromorphic Goursat theorem directly. -/
 example {A : ℂ → ℂ} {c : ℂ} {R : ℝ}
     (hR : 0 ≤ R) (hA : MeromorphicOn A (closedBall c R))
     (hord : ∀ z ∈ closedBall c R, 0 ≤ meromorphicOrderAt A z) :
     circleIntegral A c R = 0 :=
   TauCeti.Contour.circleIntegral_eq_zero_of_meromorphicOrderAt_nonneg hR hA hord
 
-end MagicFunction
+#check @Complex.integral_boundary_rect_eq_zero_of_differentiable_on_off_countable
+#check @curveIntegral
+#check @ContinuousMap.Homotopy.curveIntegral_add_curveIntegral_eq_of_diffContOnCl
 
-/-! ## Layer 8: dimension-specific magic certificates and strict zero sets -/
+/-! ### Unbounded branch: open rectangles -/
+
+/-- Deformation of a horizontal edge into the two vertical half-lines above its endpoints.  The
+half-line integrability hypotheses are explicit, and the top edge is controlled by convergence of
+the top-edge integrals to zero. -/
+theorem horizontal_add_vertical_eq_vertical_of_tendsto_top
+    {f : ℂ → ℂ} {x₁ x₂ y : ℝ}
+    (hcont : ContinuousOn f {z : ℂ | z.re ∈ Set.uIcc x₁ x₂ ∧ y ≤ z.im})
+    (hdiff : ∀ z ∈ {z : ℂ | z.re ∈ Set.Ioo (min x₁ x₂) (max x₁ x₂) ∧ y < z.im},
+      DifferentiableAt ℂ f z)
+    (hint₁ : IntegrableOn (fun t : ℝ => f (x₁ + t * Complex.I)) (Set.Ioi y))
+    (hint₂ : IntegrableOn (fun t : ℝ => f (x₂ + t * Complex.I)) (Set.Ioi y))
+    (htop : Tendsto (fun m : ℝ => ∫ x in x₁..x₂, f (x + m * Complex.I)) atTop (𝓝 0)) :
+    (∫ x in x₁..x₂, f (x + y * Complex.I))
+        + Complex.I * ∫ t in Set.Ioi y, f (x₂ + t * Complex.I)
+      = Complex.I * ∫ t in Set.Ioi y, f (x₁ + t * Complex.I) := by
+  sorry
+
+/-- The top-edge hypothesis follows from uniform decay of `f` as the imaginary part grows,
+given integrability along one horizontal edge. -/
+theorem tendsto_top_edge_of_uniform_decay
+    {f : ℂ → ℂ} {x₁ x₂ : ℝ}
+    (hdecay : TendstoUniformly (fun m : ℝ => fun x : ℝ => f (x + m * Complex.I)) 0 atTop) :
+    Tendsto (fun m : ℝ => ∫ x in x₁..x₂, f (x + m * Complex.I)) atTop (𝓝 0) := by
+  sorry
+
+/-! ### Finite branch: curve-integral transport -/
+
+/-- The scalar one-form `v ↦ F z * v` of a function `F : ℂ → ℂ`. -/
+@[expose]
+noncomputable def scalarOneForm (F : ℂ → ℂ) : ℂ → ℂ →L[ℂ] ℂ :=
+  fun z => F z • ContinuousLinearMap.id ℂ ℂ
+
+@[simp]
+theorem scalarOneForm_apply (F : ℂ → ℂ) (z v : ℂ) : scalarOneForm F z v = F z * v := rfl
+
+/-- Interval-integral/segment bridge: the curve integral of a scalar one-form along the straight
+segment from `a` to `b` is the interval integral of the parametrized integrand. -/
+theorem curveIntegral_scalarOneForm_segment (F : ℂ → ℂ) (a b : ℂ) :
+    (∫ᶜ z in Path.segment a b, scalarOneForm F z)
+      = ∫ t in (0 : ℝ)..1, F (a + t • (b - a)) * (b - a) := by
+  sorry
+
+/-- The image of the segment from `a` to `b` under a map continuous on it. -/
+noncomputable def mapSegment (f : ℂ → ℂ) (a b : ℂ)
+    (hf : ContinuousOn f (segment ℝ a b)) : Path (f a) (f b) := by
+  sorry
+
+/-- Change of variables along a segment, with an honest chain-rule hypothesis: `f` is continuous
+on the segment, differentiable along its interior with derivative `f'`, and the kernels
+correspond under the substitution. -/
+theorem curveIntegral_segment_change_of_variables
+    {F G f f' : ℂ → ℂ} {a b : ℂ}
+    (hf : ContinuousOn f (segment ℝ a b))
+    (hderiv : ∀ z ∈ segment ℝ a b \ {a, b}, HasDerivAt f (f' z) z)
+    (hlaw : ∀ z ∈ segment ℝ a b \ {a, b}, F z = f' z * G (f z)) :
+    (∫ᶜ z in Path.segment a b, scalarOneForm F z)
+      = ∫ᶜ z in mapSegment f a b hf, scalarOneForm G z := by
+  sorry
+
+/-- Bundled closedness of a one-form on a set: differentiability with continuity up to the
+closure, and symmetry of the within-derivative on tangent vectors.  This is a local adapter for
+the hypotheses of Mathlib's curve-integral Poincaré lemma, which takes them separately. -/
+structure ClosedOneFormOn (ω : ℂ → ℂ →L[ℂ] ℂ) (s : Set ℂ) : Prop where
+  diffContOnCl : DiffContOnCl ℝ ω s
+  symm : ∀ x ∈ s, ∀ u ∈ tangentConeAt ℝ s x, ∀ v ∈ tangentConeAt ℝ s x,
+    fderivWithin ℝ ω s x u v = fderivWithin ℝ ω s x v u
+
+/-- One-way discharge: differentiability with closure continuity of `F` makes its scalar
+one-form closed.  The converse is not a target. -/
+theorem ClosedOneFormOn.of_diffContOnCl {F : ℂ → ℂ} {s : Set ℂ}
+    (hF : DiffContOnCl ℂ F s) : ClosedOneFormOn (scalarOneForm F) s := by
+  sorry
+
+/-! ### Finite branch: the Möbius wedge and the signed permutations -/
+
+/-- The Möbius inversion `z ↦ -1/z`. -/
+@[expose]
+noncomputable def mobiusInv : ℂ → ℂ := fun z => -z⁻¹
+
+@[simp]
+theorem mobiusInv_apply (z : ℂ) : mobiusInv z = -z⁻¹ := rfl
+
+theorem hasDerivAt_mobiusInv {z : ℂ} (hz : z ≠ 0) :
+    HasDerivAt mobiusInv ((z ^ 2)⁻¹) z := by
+  sorry
+
+theorem mobiusInv_im_pos {z : ℂ} (hz : 0 < z.im) : 0 < (mobiusInv z).im := by
+  sorry
+
+/-- The wedge: an open convex subset of the upper half-plane whose closure meets the real axis
+only at `1`. -/
+def wedgeSet : Set ℂ := {z | 0 < z.im ∧ z.re - 1 < z.im ∧ 1 - z.re < z.im}
+
+theorem isOpen_wedgeSet : IsOpen wedgeSet := by
+  sorry
+
+theorem convex_wedgeSet : Convex ℝ wedgeSet := by
+  sorry
+
+theorem closure_wedgeSet_inter_real : closure wedgeSet ∩ {z : ℂ | z.im = 0} = {1} := by
+  sorry
+
+/-- The left legs of the magic contour: `-1 → -1+i → i`. -/
+noncomputable def leftLegs (Ψ : ℂ → ℂ) : ℂ :=
+  (∫ᶜ z in Path.segment (-1) (-1 + Complex.I), scalarOneForm Ψ z)
+    + ∫ᶜ z in Path.segment (-1 + Complex.I) Complex.I, scalarOneForm Ψ z
+
+/-- The right legs of the magic contour: `1 → 1+i → i`. -/
+noncomputable def rightLegs (Ψ : ℂ → ℂ) : ℂ :=
+  (∫ᶜ z in Path.segment 1 (1 + Complex.I), scalarOneForm Ψ z)
+    + ∫ᶜ z in Path.segment (1 + Complex.I) Complex.I, scalarOneForm Ψ z
+
+/-- Signed contour permutation for a single pair of kernels: under the signed Möbius
+transformation law on the upper half-plane, with `Ψ` continuous on the left legs and the
+transported one-form closed on the wedge, the left-leg integrals equal the correspondingly
+signed right-leg integrals.  Radial families instantiate this statement. -/
+theorem perm_leftLegs_eq_smul_rightLegs (sign : MagicFunction.FourierSign)
+    {Ψ Ψ' : ℂ → ℂ}
+    (hcont : ContinuousOn Ψ
+      (segment ℝ (-1) (-1 + Complex.I) ∪ segment ℝ (-1 + Complex.I) Complex.I))
+    (hlaw : ∀ z : ℂ, 0 < z.im → Ψ z = sign.scalar * (z ^ 2)⁻¹ * Ψ' (mobiusInv z))
+    (hclosed : ClosedOneFormOn (scalarOneForm Ψ') wedgeSet) :
+    leftLegs Ψ = sign.scalar * rightLegs Ψ' := by
+  sorry
+
+/-! ### Closing deliverable: the generic component Fourier identity -/
+
+/-- The exponential kernel of a contour component at radial parameter `r`. -/
+noncomputable def expKernel (g : ℂ → ℂ) (r : ℝ) : ℂ → ℂ :=
+  fun z => g z * Complex.exp (Real.pi * Complex.I * (r : ℂ) * z)
+
+/-- Absolute product integrability of the left-leg component integrand: the explicit hypothesis
+required to interchange the Fourier integral with the two segment integrals.  Lean's junk value
+for a non-integrable integral cannot vacuously satisfy the Fourier identity below. -/
+def ComponentIntegrable (k : ℕ) (g : ℂ → ℂ) : Prop :=
+  ∀ p : ℂ × ℂ, p ∈ ({(-1, -1 + Complex.I), (-1 + Complex.I, Complex.I)} : Set (ℂ × ℂ)) →
+    Integrable
+      (fun q : V (2 * k) × ℝ =>
+        ‖g (p.1 + q.2 • (p.2 - p.1))‖ *
+          Real.exp (-Real.pi * ‖q.1‖ ^ 2 * (p.1 + q.2 • (p.2 - p.1)).im))
+      (volume.prod (volume.restrict (Set.Ioc (0 : ℝ) 1)))
+
+/-- Generic component Fourier identity.  In even dimension `2k`, the Fourier transform of the
+radial left-leg component of `g` is computed from three explicit hypotheses: absolute product
+integrability, the `r`-free signed Möbius law relating the Gaussian-transformed kernel to `g'`,
+and closedness of the transported kernels on the wedge.  The E8 and Leech components are
+transparent instantiations; no bundled kernel record stands between them and this theorem. -/
+theorem fourier_leftComponent {k : ℕ} (hk : 0 < k)
+    (sign : MagicFunction.FourierSign) {g g' : ℂ → ℂ}
+    (hint : ComponentIntegrable k g)
+    (hcont : ∀ r : ℝ, 0 ≤ r → ContinuousOn (expKernel g' r)
+      (segment ℝ (-1) (-1 + Complex.I) ∪ segment ℝ (-1 + Complex.I) Complex.I))
+    (hlaw : ∀ z : ℂ, 0 < z.im →
+      (Complex.I / z) ^ k * g z = sign.scalar * (z ^ 2)⁻¹ * g' (mobiusInv z))
+    (hclosed : ∀ r : ℝ, 0 ≤ r →
+      ClosedOneFormOn (scalarOneForm (expKernel g' r)) wedgeSet) :
+    𝓕 (fun x : V (2 * k) => leftLegs (expKernel g (‖x‖ ^ 2)))
+      = fun ξ : V (2 * k) => sign.scalar * rightLegs (expKernel g' (‖ξ‖ ^ 2)) := by
+  sorry
+
+end Contour
+
+/-! ## Layer 9: dimension-specific magic certificates and strict zero sets -/
 
 namespace E8
 
@@ -1909,7 +2089,7 @@ theorem isOptimal : SpherePackingConstant 24 = packing.density := by
 
 end Leech
 
-/-! ## Layer 9: equality, rigidity, and uniqueness among periodic packings -/
+/-! ## Layer 10: equality, rigidity, and uniqueness among periodic packings -/
 
 namespace Rigidity
 
@@ -2168,7 +2348,7 @@ theorem uniqueOptimalLattice
 
 end Leech
 
-/-! ## Layer 10: literal summit theorems -/
+/-! ## Layer 11: literal summit theorems -/
 
 theorem spherePackingConstant_eight :
     SpherePackingConstant 8 = ENNReal.ofReal (Real.pi ^ 4 / 384) := by

@@ -156,6 +156,24 @@ High-value material includes:
 - the Möbius-inversion/convex-wedge contour development;
 - strengthened Schwartz, sign, and special-value arguments.
 
+The Layer 8 contour targets are shaped from the following branch material, with two deliberate
+changes: the transport theorems are stated for a single pair of kernels rather than
+radius-indexed families, and the change-of-variables and open-rectangle statements carry explicit
+derivative and integrability hypotheses rather than relying on total-function junk values.
+
+```text
+SpherePacking/Contour/MobiusInv/WedgeSetContour.lean   -- one-forms, wedge, signed permutations
+SpherePacking/ForMathlib/CauchyGoursat/OpenRectangular.lean  -- open-rectangle deformation
+SpherePacking/Integration/Measure.lean                 -- interval measures for the profiles
+```
+
+The corresponding design documents are the blueprint sections
+`blueprint/src/subsections/contour-integration.tex` and
+`blueprint/src/subsections/integration-infrastructure.tex` introduced by Sphere-Packing-Lean
+PR #435, and Chapters 4--5 of Sidharth Hariharan's M4R thesis
+(`thefundamentaltheor3m/M4R_Thesis`), which record the dependency structure of the eigenfunction
+and double-zero arguments.
+
 Do not:
 
 - use `gauss2` as the base branch for new production work;

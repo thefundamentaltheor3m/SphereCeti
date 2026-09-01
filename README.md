@@ -537,7 +537,7 @@ Required endpoints:
 The naive unshifted Construction-A lattice of the extended binary Golay code must not be called the
 Leech lattice.
 
-## Layer 7 — common radial machinery and signed Fourier components
+## Layer 7 — radial profiles, parametric integration, and signed kernels
 
 **Goal:** extract the genuinely common analytic pattern without hiding dimension-specific formulas.
 
@@ -546,11 +546,11 @@ Common API:
 - squared-norm radial profile constructor;
 - restricted radial Schwartz Fourier transform;
 - `+1` and `-1` eigenspace operations;
-- Gaussian/Laplace kernel integrability;
-- differentiation under the integral;
-- modular inversion of the kernel;
-- finite contour deformation;
-- open rectangular deformation when a contour is sent to infinity;
+- Gaussian/Laplace kernel integrability and the complex-parameter Gaussian Fourier transform;
+- Fubini/Tonelli interchange between the ambient space and a contour parameter;
+- differentiation under parameterized integrals and smoothness of iterated-derivative families;
+- the inversion change of variables between `(0,1]` and `[1,∞)`;
+- exact local zero orders through nonvanishing cofactors;
 - q-expansion Big-O estimates for cusp decay.
 
 The concrete `+1` and `-1` component proofs expose their exact signed kernel transformation laws
@@ -558,13 +558,65 @@ before a common constructor is extracted.  The extracted declaration contains on
 proved in both constructions, and its finite Fourier sign occurs in the transformation law that
 determines the eigenvalue.  No free complex `eigenvalue` field is part of this interface.
 
-Use the appropriate contour tool:
+## Layer 8 — contour deformation and magic-integral transport
 
-- TauCeti's meromorphic Goursat theorem for a closed circle with no poles;
-- production `OpenRectangular` for unbounded rectangles;
-- the finite wedge/Poincare machinery for the Möbius inversion contour.
+**Goal:** provide the deformation identities that transport the magic-function contour integrals,
+stated once over a single pair of kernels.
 
-## Layer 8 — E8 and Leech magic functions
+All required finite deformations use straight segments and their images under the Möbius
+inversion `z ↦ -1/z`; all required unbounded deformations use axis-aligned rectangles.  Each
+contour tool has one owner:
+
+- closed circles without poles use TauCeti's meromorphic Goursat theorem;
+- unbounded vertical deformations use this layer's open-rectangle theorems;
+- finite Möbius deformations use this layer's wedge interface, consuming Mathlib's
+  curve-integral Poincaré lemma.
+
+The layer has two independent summits.
+
+### Unbounded branch: open rectangles
+
+- boundary vanishing on a bounded rectangle, consumed from Mathlib's rectangular
+  Cauchy--Goursat theorem;
+- deformation of a horizontal edge into the two vertical half-lines above its endpoints, with
+  explicit integrability hypotheses on the half-lines and the top edge controlled either by
+  uniform decay or by convergence of the top-edge integrals to zero.
+
+These identities feed the vertical-line rewrites, Laplace representations, and double-zero
+arguments of Layer 9.
+
+### Finite branch: curve-integral transport and the Möbius wedge
+
+- the scalar one-form of a function `F : ℂ → ℂ`, with the bridge between interval integrals over
+  a parametrized segment and Mathlib curve integrals;
+- change of variables along a segment, carrying an honest derivative/chain-rule hypothesis for
+  the substitution;
+- a closed-one-form adapter bundling differentiability-with-closure-continuity and symmetry of
+  the within-derivative, together with the one-way discharge lemma from holomorphy with closure
+  continuity to closedness of the scalar one-form; the converse is not a target;
+- the Möbius inversion, its derivative, and its action on the upper half-plane;
+- the wedge `{z : 0 < Im z, |Re z - 1| < Im z}`: openness, convexity, and the fact that its
+  closure meets the real axis only at `1`;
+- the two signed contour-permutation theorems, stated for a single pair `Ψ, Ψ' : ℂ → ℂ`
+  satisfying the signed Möbius transformation law with `ω_{Ψ'}` closed on the wedge: the
+  integrals over the left legs `[-1, -1+i]` and `[-1+i, i]` equal the correspondingly signed
+  integrals over the right legs `[1, 1+i]` and `[1+i, i]`.
+
+Intermediate wedge homotopies are proof devices, not public targets.  Radial families
+instantiate the single-pair statements; they are not part of the generic interface.
+
+### Closing deliverable: the generic component Fourier identity
+
+For even dimension `2k`, one theorem computes the Fourier transform of a radial left-leg contour
+component `x ↦ ∫ g(z) exp(π i ‖x‖² z) dz` from explicit hypotheses: absolute product
+integrability of the double integral, the `r`-free signed Möbius law
+`(i/z)^k g(z) = ± z⁻² g'(-1/z)` on the upper half-plane, and closedness of the transported
+kernel's one-form on the wedge.  Its conclusion is the correspondingly signed right-leg
+component of `g'`.  The E8 and Leech components of Layer 9 are transparent instantiations of
+this theorem; no bundled kernel record and no opaque constructor stands between them and the
+contour machinery.
+
+## Layer 9 — E8 and Leech magic functions
 
 For each dimension, prove:
 
@@ -592,7 +644,7 @@ So that the stability roadmaps recorded in `UPSTREAM.md` can reuse the hard anal
 preserve multiplicity and quantitative lower-bound information rather than proving only
 `f x = 0` statements and discarding the stronger estimates.
 
-## Layer 9 — equality and rigidity
+## Layer 10 — equality and rigidity
 
 **Goal:** formalize the equality case of the linear-programming argument, not just the numerical
 bound.
@@ -643,7 +695,7 @@ classification isometry, and proves that the root set is empty exactly for the L
 generic development belongs in TauCeti and is recorded in `UPSTREAM.md`; it remains a required
 dependency and is proved locally with the same statement shape when coordination requires it.
 
-## Layer 10 — summit assembly
+## Layer 11 — summit assembly
 
 Assemble:
 

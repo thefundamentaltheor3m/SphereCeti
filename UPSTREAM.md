@@ -206,6 +206,41 @@ inner-product space
 - [ ] **Convention:** `exp(π i τ ‖x‖²)` and q coefficient `n` counts squared norm `2n` for even
   lattices.
 
+### A14. Open-rectangle contour deformation
+
+- [ ] **Destination:** Mathlib complex analysis, beside the bounded rectangular Cauchy--Goursat
+  theorem.
+- [ ] **Current source:** `Sphere-Packing-Lean` `ForMathlib/CauchyGoursat/OpenRectangular.lean`
+  (see `PROVENANCE.md`).
+- [ ] **Candidate declaration:** deformation of a horizontal edge into the two vertical
+  half-lines above its endpoints, with explicit `IntegrableOn` hypotheses on the half-lines and
+  the top edge controlled by convergence of the top-edge integrals to zero.
+- [ ] **Why generic:** it depends only on the bounded rectangle theorem and dominated limits; the
+  statement mentions no packing or modular object.
+- [ ] **SphereCeti use:** vertical-line rewrites, Laplace representations, and double-zero
+  arguments for the magic functions.
+- [ ] **Fallback:** the Layer 8 target in `Suggested.lean`.
+- [ ] **Upstream test:** no project import remains in a minimal reproduction.
+
+### A15. Scalar one-form/segment bridge and segment change of variables
+
+- [ ] **Destination:** Mathlib `MeasureTheory.Integral.CurveIntegral`.
+- [ ] **Current source:** `Sphere-Packing-Lean` `Contour/MobiusInv/WedgeSetContour.lean`
+  (see `PROVENANCE.md`), restated for a single pair of kernels with honest derivative
+  hypotheses.
+- [ ] **Candidate declarations:** the scalar one-form of a function `ℂ → ℂ`; the equality of the
+  curve integral along `Path.segment a b` with the parametrized interval integral; change of
+  variables along a segment under `ContinuousOn` plus interior `HasDerivAt` hypotheses.
+- [ ] **Why generic:** these are basic curve-integral lemmas about Mathlib's own `curveIntegral`
+  and `Path.segment`, independent of any application geometry.
+- [ ] **SphereCeti use:** the Möbius transport of the magic-function contour integrals.
+- [ ] **Fallback:** the Layer 8 targets in `Suggested.lean`.
+- [ ] **Upstream test:** no project import remains in a minimal reproduction.
+
+The bundled closed-one-form adapter, the wedge set, and the two signed contour permutations are
+application geometry and remain in SphereCeti/Sphere-Packing (section E); Mathlib's Poincaré
+lemma takes the differentiability and closure-continuity hypotheses separately.
+
 ## B. TauCeti IntegralLattices roadmap extensions
 
 These are generic algebraic lattice results.  Their sphere-packing consequences remain in
@@ -369,6 +404,7 @@ important:
 - [ ] E8 and Leech magic modular forms;
 - [ ] the exact E8 and Leech auxiliary functions;
 - [ ] dimension-specific contour decompositions and sign inequalities;
+- [ ] the closed-one-form adapter, the wedge set, and the signed Möbius contour permutations;
 - [ ] E8/Leech packing density formulas;
 - [ ] the equality-case path from a periodic packing to a generated lattice;
 - [ ] the final optimality and periodic uniqueness summit statements.
