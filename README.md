@@ -403,15 +403,17 @@ dimension-specific layers.
 
 ## Layer 3 — periodic orbit and density API
 
-**Goal:** replace implementation-dependent representative choices by one canonical finite-pattern
-interface.
+**Goal:** replace implementation-dependent representative choices by the canonical orbit
+quotient of the production action.
 
 Deliverables:
 
 - `PeriodicSpherePacking.ofZLattice`;
-- one `FundamentalPattern` structure whose representatives have type `P.centers`;
-- the existing finite quotient `Quotient P.addAction.orbitRel`, exposed as `P.Orbit`;
-- `P.numOrbits = Fintype.card P.Orbit` and `D.reps.card = P.numOrbits`;
+- the existing finite quotient `Quotient P.addAction.orbitRel`, exposed as `P.Orbit`, with the
+  canonical representative `P.orbitRep` chosen through `Quotient.out`; production's
+  basis-relative fundamental-domain representatives realize the same quotient through
+  `addActionOrbitRelEquiv'`, and no separate pattern structure exists;
+- `P.numOrbits = Fintype.card P.Orbit`;
 - the canonical center intensity
   `P.centerIntensity = P.numOrbits / ZLattice.covolume P.lattice`;
 - basis-free density formula
@@ -463,36 +465,34 @@ amplitude therefore descends to the canonical orbit quotient.
 The two equality directions remain separate: an empty packing has vacuous termwise conditions but
 zero density, whereas every certificate bound is positive.
 
-## Layer 5 — theta series
+## Layer 5 — theta series, consumed from the TauCeti ThetaSeries roadmap
 
-**Goal:** add a genuine lattice theta API, distinct from the existing Jacobi theta functions.
+**Goal:** consume the generic lattice theta theory and keep only SphereCeti's bridges and
+candidate-lattice corollaries.
+
+The TauCeti ThetaSeries roadmap owns generic real-lattice duality, Poisson summation, the theta
+series, its transformation laws, the even-unimodular modular theta form, and the rank-8/rank-24
+classifications.  SphereCeti carries deletion-bound stand-ins shaped exactly like that roadmap's
+targets: they are deleted and replaced by direct TauCeti imports when the roadmap is implemented,
+and they must not grow into a second generic implementation.
 
 Deliverables:
 
-- analytic theta definition and normal convergence;
-- finite-shell regrouping and q-expansion without `Set.ncard` fallback semantics;
-- even-lattice `T`, Poisson/dual `S`, and unimodular `S` transformations;
-- even-unimodular level-one modular form with a coercion theorem identifying its function with
-  `latticeTheta` and explicit constant/first q-coefficients;
-- weight-four and weight-twelve level-one linear classification theorems stated as equalities in
-  the structured modular-form types;
-- rank-eight classification
+- the `ThetaSeries` stand-ins: `dual`, `poissonSummation` with its summability lemmas,
+  `shell`/`repNum`, real-lattice evenness and unimodularity, `thetaSeries`,
+  `thetaSeries_neg_inv`, `thetaForm` with its coercion and q-expansion coefficients, and the
+  rank-8/rank-24/rootless classifications;
+- the presentation bridges: an even (respectively unimodular) integral presentation makes the
+  real lattice even (unimodular) in the roadmap's sense, the dual compatibility
+  `EuclideanLattice.dual = ThetaSeries.dual`, and the shell-coefficient identification
+  `rootCard = repNum 2 = thetaEvenCoeff 1`, with shells as `Finset`s and no `Set.ncard`
+  fallback semantics;
+- the E8/Leech-facing corollaries through the bridges:
 
 \[
-  \Theta_\Lambda = E_4;
-\]
-
-- rank-24 classification
-
-\[
-  \Theta_\Lambda
-  = E_4^3 + (N_2(\Lambda)-720)\Delta;
-\]
-
-- rootless specialization
-
-\[
-  \Theta_\Lambda=E_4^3-720\Delta.
+  \Theta_\Lambda = E_4, \qquad
+  \Theta_\Lambda = E_4^3 + (N_2(\Lambda)-720)\Delta, \qquad
+  \Theta_\Lambda = E_4^3-720\Delta \text{ (rootless)}.
 \]
 
 The theta theory is not merely decorative.  It checks all lattice normalizations, gives shell
@@ -564,10 +564,9 @@ transformation law that determines it.
 stated once over a single pair of kernels.
 
 All required finite deformations use straight segments and their images under the Möbius
-inversion `z ↦ -1/z`; all required unbounded deformations use axis-aligned rectangles.  Each
-contour tool has one owner:
+inversion `z ↦ -1/z`; all required unbounded deformations use axis-aligned rectangles.  No
+circular-arc contour is a target.  Each contour tool has one owner:
 
-- closed circles without poles use TauCeti's meromorphic Goursat theorem;
 - unbounded vertical deformations use this layer's open-rectangle theorems;
 - finite Möbius deformations use this layer's wedge interface, consuming Mathlib's
   curve-integral Poincaré lemma.
@@ -700,11 +699,12 @@ whenever coordination or timing requires it.  Upstream acceptance is never a pre
 The Leech shell spectrum gives a rootless positive-definite even unimodular rank-24 lattice.  Use the
 uniqueness characterization of Leech and transport the center coset.
 
-The rank-24 route is the Niemeier classification.  Its target interface enumerates all 24 cases,
-constructs the canonical lattice attached to each root-system/glue-code case, produces the
-classification isometry, and proves that the root set is empty exactly for the Leech case.  The
-generic development belongs in TauCeti and is recorded in `UPSTREAM.md`; it remains a required
-dependency and is proved locally with the same statement shape when coordination requires it.
+The rank-24 dependency is rootless even-unimodular uniqueness.  Its intended owner is a TauCeti
+Niemeier-completeness extension of the Integral Lattices roadmap: that roadmap defines the
+twenty-four reference lattices but does not prove completeness, so the endpoint remains a
+mandatory dependency here, recorded in `UPSTREAM.md`.  SphereCeti consumes exactly the
+uniqueness statement and does not restate the case enumeration or selection machinery; it is
+proved locally with the same statement shape when coordination or timing requires it.
 
 ## Layer 11 — summit assembly
 
@@ -728,7 +728,9 @@ theorem.  Analytic or lattice classification work in a summit file signals a mis
 The roadmap includes **exact periodic uniqueness** because it is a direct equality-case continuation
 of the same Cohn--Elkies certificates used for density optimality.
 
-It does not attempt to absorb the following larger theories:
+Universal optimality and Fourier interpolation are independent projects and are not dependencies
+of the optimality or periodic-uniqueness summits.  The roadmap does not attempt to absorb the
+following larger theories:
 
 - universal optimality for completely monotone functions of squared distance;
 - the E8/Leech radial Fourier interpolation formulas;

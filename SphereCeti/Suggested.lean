@@ -9,7 +9,6 @@ module
 public import SphereCeti.Pinned
 
 public import TauCeti.Analysis.Complex.UpperHalfPlane.ResToImagAxis
-public import TauCeti.Analysis.Contour.Cauchy.Goursat
 public import TauCeti.Analysis.Fourier.Continuous
 public import TauCeti.LinearAlgebra.IntegralLattice.Even
 public import TauCeti.LinearAlgebra.IntegralLattice.Isometry
@@ -67,7 +66,6 @@ abbrev RadialSchwartzMap := SphereCeti.Pinned.RadialSchwartzMap
 #check TauCeti.IntegralLattice.IsUnimodular
 #check TauCeti.IntegralLattice.Isometry
 #check TauCeti.IntegralLattice.ofGramMatrix
-#check TauCeti.Contour.circleIntegral_eq_zero_of_meromorphicOrderAt_nonneg
 #check UpperHalfPlane.resToImagAxis
 #check UpperHalfPlane.resToImagAxis_slash_S
 #check TauCeti.UpperHalfPlane.cuspFunction_isBigO_pow_of_qExpansion_coeff_eq_zero
@@ -215,7 +213,7 @@ end PeriodicSpherePacking
 namespace EuclideanLattice
 
 /-- The Euclidean dual lattice for the Mathlib Fourier convention. -/
-def dual {d : ℕ} (Λ : Submodule ℤ (V d)) : Submodule ℤ (V d) :=
+@[expose] def dual {d : ℕ} (Λ : Submodule ℤ (V d)) : Submodule ℤ (V d) :=
   LinearMap.BilinForm.dualSubmodule (innerₗ (V d)) Λ
 
 /-- The finite shell at a prescribed squared norm.  Discreteness is required at construction time,
@@ -467,14 +465,6 @@ theorem ofZLattice_density {d : ℕ} (hd : 0 < d)
       volume (ball (0 : V d) (r / 2)) / ENNReal.ofReal (ZLattice.covolume Λ) := by
   sorry
 
-/-- Finite representatives for the center orbits modulo the period lattice. -/
-structure FundamentalPattern {d : ℕ} (P : PeriodicSpherePacking d) where
-  reps : Finset P.centers
-  covers : ∀ x : P.centers, ∃ z : P.lattice, ∃ s ∈ reps,
-    (x : V d) = (z : V d) + (s : V d)
-  unique_mod_lattice : ∀ s ∈ reps, ∀ t ∈ reps,
-    (s : V d) - (t : V d) ∈ P.lattice → s = t
-
 /-- Canonical quotient of centers by the period-lattice action. -/
 abbrev Orbit {d : ℕ} (P : PeriodicSpherePacking d) := Quotient P.addAction.orbitRel
 
@@ -494,9 +484,25 @@ noncomputable def numOrbits {d : ℕ} (P : PeriodicSpherePacking d) : ℕ :=
 @[expose] noncomputable def centerIntensity {d : ℕ} (P : PeriodicSpherePacking d) : ℝ :=
   (P.numOrbits : ℝ) / ZLattice.covolume P.lattice
 
-/-- Every chosen fundamental pattern has the canonical orbit cardinality. -/
-theorem FundamentalPattern.card_eq_numOrbits {d : ℕ} {P : PeriodicSpherePacking d}
-    (D : FundamentalPattern P) : D.reps.card = P.numOrbits := by
+/-- The canonical orbit representative, chosen through `Quotient.out`.  Phases and structure
+factors at dual frequencies are independent of the choice; production's basis-relative
+fundamental-domain representatives realize the same quotient through
+`addActionOrbitRelEquiv'`. -/
+noncomputable def orbitRep {d : ℕ} (P : PeriodicSpherePacking d) (q : P.Orbit) : V d :=
+  ((Quotient.out q : P.centers) : V d)
+
+theorem orbitRep_mem_centers {d : ℕ} (P : PeriodicSpherePacking d) (q : P.Orbit) :
+    P.orbitRep q ∈ P.centers :=
+  (Quotient.out q).2
+
+/-- Every center differs from its orbit's representative by a period. -/
+theorem exists_lattice_vadd_orbitRep {d : ℕ} (P : PeriodicSpherePacking d) (x : P.centers) :
+    ∃ z : P.lattice, (x : V d) = (z : V d) + P.orbitRep (Quotient.mk _ x) := by
+  sorry
+
+/-- Distinct orbits have representatives in distinct lattice cosets. -/
+theorem orbitRep_sub_mem_lattice_iff {d : ℕ} (P : PeriodicSpherePacking d) (q q' : P.Orbit) :
+    P.orbitRep q - P.orbitRep q' ∈ P.lattice ↔ q = q' := by
   sorry
 
 /-- Basis-free periodic density formula with a finite orbit count. -/
@@ -676,26 +682,59 @@ theorem covolume_dual {d : ℕ} (Λ : Submodule ℤ (V d))
 
 end EuclideanLattice
 
+/-! The generic real-lattice dual, Poisson summation, and theta-series theory is owned by the
+TauCeti ThetaSeries roadmap.  The `ThetaSeries` namespace here and in Layer 5 carries
+deletion-bound stand-ins shaped exactly like that roadmap's targets: they are deleted and
+replaced by direct TauCeti imports when the roadmap is implemented, and they must not grow into
+a second generic implementation.  SphereCeti keeps the orbit Poisson identity, the certificate
+theory, the presentation bridges, and the E8/Leech-facing corollaries. -/
+
+namespace ThetaSeries
+
+variable {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E] [FiniteDimensional ℝ E]
+  [MeasurableSpace E] [BorelSpace E]
+
+/-- Stand-in for the roadmap's `dual`: literally Mathlib's `BilinForm.dualSubmodule` for the
+inner product, and definitionally `EuclideanLattice.dual` in the ambient packing space. -/
+@[expose] def dual (L : Submodule ℤ E) : Submodule ℤ E :=
+  LinearMap.BilinForm.dualSubmodule (innerₗ E) L
+
+/-- Stand-in for the roadmap's shifted Poisson summation. -/
+theorem poissonSummation (L : Submodule ℤ E) [DiscreteTopology L] [IsZLattice ℝ L]
+    (f : 𝓢(E, ℂ)) (v : E) :
+    ∑' ℓ : L, f (v + (ℓ : E)) =
+      ((ZLattice.covolume L : ℂ)⁻¹) *
+        ∑' m : dual L, 𝓕 (fun x : E => f x) (m : E) *
+          Complex.exp (2 * Real.pi * Complex.I * ⟪v, (m : E)⟫_ℝ) := by
+  sorry
+
+/-- Stand-in for the roadmap's lattice-side summability. -/
+theorem summable_poisson_left (L : Submodule ℤ E) [DiscreteTopology L] [IsZLattice ℝ L]
+    (f : 𝓢(E, ℂ)) (v : E) :
+    Summable fun ℓ : L => f (v + (ℓ : E)) := by
+  sorry
+
+/-- Stand-in for the roadmap's dual-side summability. -/
+theorem summable_poisson_right (L : Submodule ℤ E) [DiscreteTopology L] [IsZLattice ℝ L]
+    (f : 𝓢(E, ℂ)) (v : E) :
+    Summable fun m : dual L => 𝓕 (fun x : E => f x) (m : E) *
+      Complex.exp (2 * Real.pi * Complex.I * ⟪v, (m : E)⟫_ℝ) := by
+  sorry
+
+end ThetaSeries
+
+namespace EuclideanLattice
+
+/-- The packing-space dual is the roadmap's dual, definitionally. -/
+theorem dual_eq_thetaSeries_dual {d : ℕ} (Λ : Submodule ℤ (V d)) :
+    dual Λ = ThetaSeries.dual Λ := rfl
+
+end EuclideanLattice
+
 namespace Poisson
 
-/-- Shifted Poisson summation in the repository's Fourier and Haar normalizations. -/
-theorem shifted {d : ℕ} (Λ : Submodule ℤ (V d))
-    [DiscreteTopology Λ] [IsZLattice ℝ Λ] (f : 𝓢(V d, ℂ)) (a : V d) :
-    ∑' x : Λ, f ((x : V d) + a) =
-      ((ZLattice.covolume Λ : ℂ)⁻¹) * ∑' y : EuclideanLattice.dual Λ,
-        𝓕 f (y : V d) *
-          Complex.exp (2 * Real.pi * Complex.I * ⟪(y : V d), a⟫_ℝ) := by
-  sorry
-
-/-- Unshifted Poisson summation. -/
-theorem unshifted {d : ℕ} (Λ : Submodule ℤ (V d))
-    [DiscreteTopology Λ] [IsZLattice ℝ Λ] (f : 𝓢(V d, ℂ)) :
-    ∑' x : Λ, f (x : V d) =
-      ((ZLattice.covolume Λ : ℂ)⁻¹) *
-        ∑' y : EuclideanLattice.dual Λ, 𝓕 f (y : V d) := by
-  sorry
-
-/-- Unit-Gaussian acceptance test for the Fourier and covolume normalization. -/
+/-- Unit-Gaussian acceptance test for the Fourier and covolume normalization, consuming the
+`ThetaSeries` stand-in. -/
 theorem gaussian_one {d : ℕ} (Λ : Submodule ℤ (V d))
     [DiscreteTopology Λ] [IsZLattice ℝ Λ] :
     ∑' x : Λ, Real.exp (-Real.pi * ‖(x : V d)‖ ^ 2) =
@@ -776,10 +815,9 @@ def Certificate.IsSharpForLattice {d : ℕ} {r : ℝ}
   (∀ x : Λ, x ≠ 0 → C.f (x : V d) = 0) ∧
   (∀ y : EuclideanLattice.dual Λ, y ≠ 0 → 𝓕 C.f (y : V d) = 0)
 
-/-- The finite complex Fourier amplitude of a periodic pattern. -/
-def structureAmplitude {d : ℕ} {P : PeriodicSpherePacking d}
-    (D : P.FundamentalPattern) (y : V d) : ℂ :=
-  ∑ s ∈ D.reps, Complex.exp (2 * Real.pi * Complex.I * ⟪y, s⟫_ℝ)
+/-- The finite complex Fourier amplitude of the canonical orbit representatives. -/
+noncomputable def structureAmplitude {d : ℕ} (P : PeriodicSpherePacking d) (y : V d) : ℂ :=
+  ∑ q : P.Orbit, Complex.exp (2 * Real.pi * Complex.I * ⟪y, P.orbitRep q⟫_ℝ)
 
 /-- Changing an orbit representative by a period does not change its phase at a dual frequency. -/
 theorem phase_eq_of_sub_mem_lattice {d : ℕ} {P : PeriodicSpherePacking d}
@@ -790,17 +828,16 @@ theorem phase_eq_of_sub_mem_lattice {d : ℕ} {P : PeriodicSpherePacking d}
   sorry
 
 /-- The nonnegative real structure factor is the squared norm of the amplitude. -/
-@[expose] def structureFactor {d : ℕ} {P : PeriodicSpherePacking d}
-    (D : P.FundamentalPattern) (y : V d) : ℝ :=
-  ‖structureAmplitude D y‖ ^ 2
+@[expose] noncomputable def structureFactor {d : ℕ} (P : PeriodicSpherePacking d)
+    (y : V d) : ℝ :=
+  ‖structureAmplitude P y‖ ^ 2
 
-theorem structureFactor_nonneg {d : ℕ} {P : PeriodicSpherePacking d}
-    (D : P.FundamentalPattern) (y : V d) : 0 ≤ structureFactor D y :=
+theorem structureFactor_nonneg {d : ℕ} (P : PeriodicSpherePacking d) (y : V d) :
+    0 ≤ structureFactor P y :=
   sq_nonneg _
 
-theorem structureFactor_eq_zero_iff {d : ℕ} {P : PeriodicSpherePacking d}
-    (D : P.FundamentalPattern) (y : V d) :
-    structureFactor D y = 0 ↔ structureAmplitude D y = 0 := by
+theorem structureFactor_eq_zero_iff {d : ℕ} (P : PeriodicSpherePacking d) (y : V d) :
+    structureFactor P y = 0 ↔ structureAmplitude P y = 0 := by
   simp [structureFactor]
 
 /-- Phase of a canonical center orbit at a dual frequency. -/
@@ -824,20 +861,20 @@ theorem orbitStructureFactor_nonneg {d : ℕ} (P : PeriodicSpherePacking d)
     (y : EuclideanLattice.dual P.lattice) : 0 ≤ orbitStructureFactor P y :=
   sq_nonneg _
 
-/-- A chosen fundamental pattern computes the canonical orbit structure factor. -/
-theorem structureFactor_eq_orbitStructureFactor {d : ℕ} {P : PeriodicSpherePacking d}
-    (D : P.FundamentalPattern) (y : EuclideanLattice.dual P.lattice) :
-    structureFactor D (y : V d) = orbitStructureFactor P y := by
+/-- At a dual frequency, the representative-based structure factor is the canonical one. -/
+theorem structureFactor_eq_orbitStructureFactor {d : ℕ} (P : PeriodicSpherePacking d)
+    (y : EuclideanLattice.dual P.lattice) :
+    structureFactor P (y : V d) = orbitStructureFactor P y := by
   sorry
 
-/-- Summing shifted Poisson over a finite pattern produces the squared structure amplitude. -/
-theorem poisson_finitePattern {d : ℕ} {P : PeriodicSpherePacking d}
-    (D : P.FundamentalPattern) (f : 𝓢(V d, ℂ)) :
-    ∑' z : P.lattice, ∑ s ∈ D.reps, ∑ t ∈ D.reps,
-        f ((z : V d) + (s : V d) - (t : V d)) =
+/-- Summing shifted Poisson over the canonical representatives produces the squared structure
+amplitude. -/
+theorem poisson_orbitReps {d : ℕ} (P : PeriodicSpherePacking d) (f : 𝓢(V d, ℂ)) :
+    ∑' z : P.lattice, ∑ q : P.Orbit, ∑ q' : P.Orbit,
+        f ((z : V d) + P.orbitRep q - P.orbitRep q') =
       ((ZLattice.covolume P.lattice : ℂ)⁻¹) *
         ∑' y : EuclideanLattice.dual P.lattice,
-          𝓕 f (y : V d) * (structureFactor D (y : V d) : ℂ) := by
+          𝓕 f (y : V d) * (structureFactor P (y : V d) : ℂ) := by
   sorry
 
 /-- Pattern-independent equality conditions for a periodic packing.  On the direct side every
@@ -850,47 +887,47 @@ def Certificate.IsSharpForPeriodic {d : ℕ} {r : ℝ}
   (∀ y : EuclideanLattice.dual P.lattice, y ≠ 0 →
       𝓕 C.f (y : V d) = 0 ∨ orbitStructureFactor P y = 0)
 
-/-- Negative of the nontrivial direct-side sum. -/
+/-- Negative of the nontrivial direct-side sum over the canonical representatives. -/
 noncomputable def directDefect {d : ℕ} {r : ℝ} (C : Certificate d r)
-    (P : PeriodicSpherePacking d) (D : P.FundamentalPattern) : ℝ :=
-  -∑' z : P.lattice, ∑ s ∈ D.reps, ∑ t ∈ D.reps,
-    if (z : V d) + (s : V d) - (t : V d) = 0 then 0
-    else (C.f ((z : V d) + (s : V d) - (t : V d))).re
+    (P : PeriodicSpherePacking d) : ℝ :=
+  -∑' z : P.lattice, ∑ q : P.Orbit, ∑ q' : P.Orbit,
+    if (z : V d) + P.orbitRep q - P.orbitRep q' = 0 then 0
+    else (C.f ((z : V d) + P.orbitRep q - P.orbitRep q')).re
 
 /-- Nonzero-frequency Fourier contribution. -/
 noncomputable def fourierDefect {d : ℕ} {r : ℝ} (C : Certificate d r)
-    (P : PeriodicSpherePacking d) (D : P.FundamentalPattern) : ℝ :=
+    (P : PeriodicSpherePacking d) : ℝ :=
   (ZLattice.covolume P.lattice)⁻¹ *
     ∑' y : EuclideanLattice.dual P.lattice,
       if y = 0 then 0
-      else (𝓕 C.f (y : V d)).re * structureFactor D (y : V d)
+      else (𝓕 C.f (y : V d)).re * structureFactor P (y : V d)
 
 theorem directDefect_nonneg {d : ℕ} {r : ℝ} (C : Certificate d r)
-    (P : PeriodicSpherePacking d) (D : P.FundamentalPattern)
-    (hsep : r = P.separation) : 0 ≤ directDefect C P D := by
+    (P : PeriodicSpherePacking d)
+    (hsep : r = P.separation) : 0 ≤ directDefect C P := by
   sorry
 
 theorem fourierDefect_nonneg {d : ℕ} {r : ℝ} (C : Certificate d r)
-    (P : PeriodicSpherePacking d) (D : P.FundamentalPattern) :
-    0 ≤ fourierDefect C P D := by
+    (P : PeriodicSpherePacking d) :
+    0 ≤ fourierDefect C P := by
   sorry
 
 /-- Exact real-valued equality behind the periodic Cohn--Elkies bound. -/
 theorem defect_identity {d : ℕ} {r : ℝ} (C : Certificate d r)
-    (P : PeriodicSpherePacking d) (D : P.FundamentalPattern) :
+    (P : PeriodicSpherePacking d) :
     (P.numOrbits : ℝ) * (C.f 0).re -
         (P.numOrbits : ℝ) ^ 2 / ZLattice.covolume P.lattice *
           (𝓕 C.f 0).re =
-      fourierDefect C P D + directDefect C P D := by
+      fourierDefect C P + directDefect C P := by
   sorry
 
 /-- The center-intensity gap is the sum of the two nonnegative defects. -/
 theorem normalized_gap_eq_defects {d : ℕ} {r : ℝ} (C : Certificate d r)
-    (P : PeriodicSpherePacking d) (D : P.FundamentalPattern)
+    (P : PeriodicSpherePacking d)
     (horbits : 0 < P.numOrbits) :
     (C.f 0).re / (𝓕 C.f 0).re -
         (P.numOrbits : ℝ) / ZLattice.covolume P.lattice =
-      (fourierDefect C P D + directDefect C P D) /
+      (fourierDefect C P + directDefect C P) /
         ((P.numOrbits : ℝ) * (𝓕 C.f 0).re) := by
   sorry
 
@@ -922,129 +959,120 @@ end CohnElkies
 
 /-! ## Layer 5: lattice theta series -/
 
-namespace Theta
+namespace ThetaSeries
 
-/-- The analytic convention is `Σ exp(π i τ ‖x‖²)`. -/
-def latticeTheta {d : ℕ} (Λ : Submodule ℤ (V d)) [DiscreteTopology Λ]
-    (τ : UpperHalfPlane) : ℂ :=
-  ∑' x : Λ,
-    Complex.exp (Real.pi * Complex.I * (τ : ℂ) * (‖(x : V d)‖ ^ 2 : ℂ))
+variable {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E] [FiniteDimensional ℝ E]
 
-/-- Normal convergence and holomorphy on the upper half-plane. -/
-theorem latticeTheta_mDifferentiable {d : ℕ}
-    (Λ : Submodule ℤ (V d)) [DiscreteTopology Λ] [IsZLattice ℝ Λ] :
-    MDifferentiable 𝓘(ℂ) 𝓘(ℂ) (latticeTheta Λ) := by
+/-- Stand-in for the roadmap's shell at a real squared norm. -/
+def shell (L : Submodule ℤ E) (t : ℝ) : Set L := {v : L | ‖(v : E)‖ ^ 2 = t}
+
+/-- Stand-in for the roadmap's representation number. -/
+noncomputable def repNum (L : Submodule ℤ E) (t : ℝ) : ℕ := (shell L t).ncard
+
+/-- Stand-in for the roadmap's evenness of a real lattice. -/
+def IsEven (L : Submodule ℤ E) : Prop := ∀ x ∈ L, ∃ m : ℤ, ‖x‖ ^ 2 = 2 * (m : ℝ)
+
+/-- Stand-in for the roadmap's unimodularity of a real lattice. -/
+def IsUnimodular (L : Submodule ℤ E) : Prop := L = dual L
+
+variable (L : Submodule ℤ E) [DiscreteTopology L] [IsZLattice ℝ L]
+
+/-- Stand-in for the roadmap's theta series; the exponent is `π i ‖v‖² τ`. -/
+noncomputable def thetaSeries (τ : UpperHalfPlane) : ℂ :=
+  ∑' v : L, Complex.exp (Real.pi * Complex.I * (‖(v : E)‖ ^ 2 : ℝ) * (τ : ℂ))
+
+variable [MeasurableSpace E] [BorelSpace E]
+
+/-- Stand-in for the roadmap's theta inversion, Poisson summation at the Gaussian. -/
+theorem thetaSeries_neg_inv (k : ℕ) (hn : Module.finrank ℝ E = 2 * k) (τ : UpperHalfPlane) :
+    thetaSeries L (ModularGroup.S • τ) =
+      ((ZLattice.covolume L : ℂ)⁻¹) * (-Complex.I) ^ k * (τ : ℂ) ^ k *
+        thetaSeries (dual L) τ := by
   sorry
 
-/-- The q-expansion of an even integral presentation.  Here `q = exp(2πiτ)` and coefficient `n`
-counts squared norm `2n`. -/
-theorem latticeTheta_qExpansion_of_even {d : ℕ}
-    (Λ : Submodule ℤ (V d)) [DiscreteTopology Λ] [IsZLattice ℝ Λ]
-    (P : EuclideanLattice.IntegralPresentation Λ) (heven : P.IsEven)
-    (τ : UpperHalfPlane) :
-    latticeTheta Λ τ =
-      ∑' n : ℕ, (EuclideanLattice.thetaEvenCoeff Λ n : ℂ) *
-        Complex.exp (2 * Real.pi * Complex.I * (n : ℂ) * (τ : ℂ)) := by
-  sorry
-
-/-- Even squared norms give invariance under the modular translation `T`. -/
-theorem latticeTheta_T_transform_of_even {d : ℕ}
-    (Λ : Submodule ℤ (V d)) [DiscreteTopology Λ] [IsZLattice ℝ Λ]
-    (P : EuclideanLattice.IntegralPresentation Λ) (heven : P.IsEven)
-    (τ : UpperHalfPlane) :
-    latticeTheta Λ (ModularGroup.T • τ) = latticeTheta Λ τ := by
-  sorry
-
-/-- Poisson summation gives the dual-lattice S-transformation. -/
-theorem latticeTheta_S_transform {k : ℕ}
-    (Λ : Submodule ℤ (V (2 * k))) [DiscreteTopology Λ] [IsZLattice ℝ Λ]
-    (τ : UpperHalfPlane) :
-    latticeTheta Λ (ModularGroup.S • τ) =
-      (((τ : ℂ) / Complex.I) ^ k / ZLattice.covolume Λ) *
-        latticeTheta (EuclideanLattice.dual Λ) τ := by
-  sorry
-
-/-- Unimodularity specializes the dual/covolume formula to the level-one `S` law. -/
-theorem latticeTheta_S_transform_of_unimodular {k : ℕ}
-    (Λ : Submodule ℤ (V (8 * k))) [DiscreteTopology Λ] [IsZLattice ℝ Λ]
-    (P : EuclideanLattice.IntegralPresentation Λ) (hunimodular : P.IsUnimodular)
-    (τ : UpperHalfPlane) :
-    latticeTheta Λ (ModularGroup.S • τ) =
-      ((τ : ℂ) / Complex.I) ^ (4 * k) * latticeTheta Λ τ := by
-  sorry
-
-/-- For an even unimodular lattice in dimensions divisible by eight, theta is a level-one modular
-form of weight half the rank. -/
-noncomputable def latticeThetaModularForm {k : ℕ}
-    (Λ : Submodule ℤ (V (8 * k))) [DiscreteTopology Λ] [IsZLattice ℝ Λ]
-    (P : EuclideanLattice.IntegralPresentation Λ)
-    (heven : P.IsEven) (hunimodular : P.IsUnimodular) :
-    ModularForm 𝒮ℒ (4 * k) := by
+/-- Stand-in for the roadmap's theta modular form of an even unimodular lattice. -/
+noncomputable def thetaForm (k : ℕ) (hn : Module.finrank ℝ E = 2 * k)
+    (he : IsEven L) (hu : IsUnimodular L) : ModularForm 𝒮ℒ (k : ℤ) := by
   sorry
 
 @[simp]
-theorem coe_latticeThetaModularForm {k : ℕ}
-    (Λ : Submodule ℤ (V (8 * k))) [DiscreteTopology Λ] [IsZLattice ℝ Λ]
-    (P : EuclideanLattice.IntegralPresentation Λ)
-    (heven : P.IsEven) (hunimodular : P.IsUnimodular) :
-    ⇑(latticeThetaModularForm Λ P heven hunimodular) = latticeTheta Λ := by
+theorem coe_thetaForm (k : ℕ) (hn : Module.finrank ℝ E = 2 * k)
+    (he : IsEven L) (hu : IsUnimodular L) :
+    ⇑(thetaForm L k hn he hu) = thetaSeries L := by
   sorry
 
-/-- The theta modular form has constant coefficient one. -/
-theorem latticeThetaModularForm_qExpansion_coeff_zero {k : ℕ}
-    (Λ : Submodule ℤ (V (8 * k))) [DiscreteTopology Λ] [IsZLattice ℝ Λ]
-    (P : EuclideanLattice.IntegralPresentation Λ)
-    (heven : P.IsEven) (hunimodular : P.IsUnimodular) :
-    (UpperHalfPlane.qExpansion 1
-      (latticeThetaModularForm Λ P heven hunimodular)).coeff 0 = 1 := by
+/-- Stand-in for the roadmap's q-expansion coefficients of the theta form. -/
+theorem qExpansion_thetaForm_coeff (k : ℕ) (hn : Module.finrank ℝ E = 2 * k)
+    (he : IsEven L) (hu : IsUnimodular L) (m : ℕ) :
+    (UpperHalfPlane.qExpansion 1 (thetaForm L k hn he hu)).coeff m =
+      (repNum L (2 * m) : ℂ) := by
   sorry
 
-/-- The first nonconstant coefficient counts the squared-norm-two shell. -/
-theorem latticeThetaModularForm_qExpansion_coeff_one {k : ℕ}
-    (Λ : Submodule ℤ (V (8 * k))) [DiscreteTopology Λ] [IsZLattice ℝ Λ]
-    (P : EuclideanLattice.IntegralPresentation Λ)
-    (heven : P.IsEven) (hunimodular : P.IsUnimodular) :
-    (UpperHalfPlane.qExpansion 1
-      (latticeThetaModularForm Λ P heven hunimodular)).coeff 1 =
-        EuclideanLattice.thetaEvenCoeff Λ 1 := by
+/-- Stand-in for the roadmap's rank-eight classification. -/
+theorem thetaForm_eq_E₄ (hn : Module.finrank ℝ E = 8)
+    (he : IsEven L) (hu : IsUnimodular L) :
+    thetaForm L 4 (by omega) he hu = ModularForm.E₄ := by
   sorry
+
+/-- Stand-in for the roadmap's rank-eight root count. -/
+theorem repNum_two_rank_eight (hn : Module.finrank ℝ E = 8)
+    (he : IsEven L) (hu : IsUnimodular L) :
+    repNum L 2 = 240 := by
+  sorry
+
+/-- Stand-in for the roadmap's rank-24 classification by the root count. -/
+theorem thetaForm_rank_24 (hn : Module.finrank ℝ E = 24)
+    (he : IsEven L) (hu : IsUnimodular L) :
+    (thetaForm L 12 (by omega) he hu : UpperHalfPlane → ℂ) =
+      fun τ => (ModularForm.E₄ τ) ^ 3 +
+        ((repNum L 2 : ℂ) - 720) * ModularForm.discriminant τ := by
+  sorry
+
+/-- Stand-in for the roadmap's rootless rank-24 Leech identity. -/
+theorem coe_thetaForm_rank_24_rootless (hn : Module.finrank ℝ E = 24)
+    (he : IsEven L) (hu : IsUnimodular L) (hr : repNum L 2 = 0) :
+    (thetaForm L 12 (by omega) he hu : UpperHalfPlane → ℂ) =
+      fun τ => (ModularForm.E₄ τ) ^ 3 - 720 * ModularForm.discriminant τ := by
+  sorry
+
+end ThetaSeries
+
+namespace Theta
+
+/-- The packing-facing theta series is the roadmap stand-in, applied in the ambient space. -/
+noncomputable abbrev latticeTheta {d : ℕ} (Λ : Submodule ℤ (V d))
+    [DiscreteTopology Λ] [IsZLattice ℝ Λ] : UpperHalfPlane → ℂ :=
+  ThetaSeries.thetaSeries Λ
 
 /-- The normalized weight-four Eisenstein series used in the E8 identity. -/
 noncomputable def E4 : ModularForm 𝒮ℒ 4 := ModularForm.E₄
 
-/-- The cube of `E4`, cast to its canonical weight-twelve structured type. -/
-noncomputable def E4Cubed : ModularForm 𝒮ℒ 12 :=
-  ModularForm.mcast (by norm_num) (E4.pow 3)
-
-@[simp]
-theorem E4Cubed_apply (τ : UpperHalfPlane) : E4Cubed τ = (E4 τ) ^ 3 := by
-  change (E4.pow 3) τ = (E4 τ) ^ 3
-  exact congrFun (ModularForm.coe_pow E4 3) τ
-
-/-- The discriminant viewed in the same structured weight-twelve space as `E4Cubed`. -/
-noncomputable def Delta : ModularForm 𝒮ℒ 12 :=
-  (CuspForm.discriminant : ModularForm 𝒮ℒ 12)
-
-@[simp]
-theorem Delta_apply (τ : UpperHalfPlane) : Delta τ = ModularForm.discriminant τ := by
-  simp [Delta, CuspForm.coe_discriminant]
-
-/-- Weight-four level-one modular forms are scalar multiples of `E4`. -/
-theorem weight_four_eq_constant_mul_E4 (F : ModularForm 𝒮ℒ 4) :
-    ∃ a : ℂ, F = a • E4 := by
-  sorry
-
-/-- Weight-twelve level-one modular forms are linear combinations of `E4^3` and `Delta`. -/
-theorem weight_twelve_eq_a_mul_E4_cubed_add_b_mul_Delta
-    (F : ModularForm 𝒮ℒ 12) :
-    ∃ a b : ℂ, F = a • E4Cubed + b • Delta := by
-  sorry
-
 /-- Root count, i.e. the squared-norm-two shell cardinality. -/
-def rootCard {d : ℕ} (Λ : Submodule ℤ (V d)) [DiscreteTopology Λ] : ℕ :=
-  EuclideanLattice.thetaEvenCoeff Λ 1
+noncomputable def rootCard {d : ℕ} (Λ : Submodule ℤ (V d)) : ℕ :=
+  ThetaSeries.repNum Λ 2
 
-/-- Every even unimodular rank-eight theta series is E4. -/
+/-- The root count agrees with the presentation-indexed even coefficient. -/
+theorem rootCard_eq_thetaEvenCoeff {d : ℕ} (Λ : Submodule ℤ (V d)) [DiscreteTopology Λ] :
+    rootCard Λ = EuclideanLattice.thetaEvenCoeff Λ 1 := by
+  sorry
+
+/-- Bridge: an even integral presentation makes the real lattice even in the roadmap's sense. -/
+theorem isEven_real_of_presentation {d : ℕ} {Λ : Submodule ℤ (V d)}
+    [DiscreteTopology Λ] [IsZLattice ℝ Λ]
+    (P : EuclideanLattice.IntegralPresentation Λ) (heven : P.IsEven) :
+    ThetaSeries.IsEven Λ := by
+  sorry
+
+/-- Bridge: a unimodular integral presentation makes the real lattice unimodular in the
+roadmap's sense. -/
+theorem isUnimodular_real_of_presentation {d : ℕ} {Λ : Submodule ℤ (V d)}
+    [DiscreteTopology Λ] [IsZLattice ℝ Λ]
+    (P : EuclideanLattice.IntegralPresentation Λ) (hunimodular : P.IsUnimodular) :
+    ThetaSeries.IsUnimodular Λ := by
+  sorry
+
+/-- SphereCeti corollary of the roadmap's rank-eight classification, through the presentation
+bridge, in the form the E8 package consumes. -/
 theorem theta_eq_E4_of_even_unimodular
     (Λ : Submodule ℤ (V 8)) [DiscreteTopology Λ] [IsZLattice ℝ Λ]
     (P : EuclideanLattice.IntegralPresentation Λ)
@@ -1052,7 +1080,7 @@ theorem theta_eq_E4_of_even_unimodular
     latticeTheta Λ = fun τ => E4 τ := by
   sorry
 
-/-- Every even unimodular rank-24 theta series is determined by its root count. -/
+/-- SphereCeti corollary of the roadmap's rank-24 classification. -/
 theorem theta_rank24_eq_E4_cubed_add_rootCard_sub_720_Delta
     (Λ : Submodule ℤ (V 24)) [DiscreteTopology Λ] [IsZLattice ℝ Λ]
     (P : EuclideanLattice.IntegralPresentation Λ)
@@ -1061,7 +1089,7 @@ theorem theta_rank24_eq_E4_cubed_add_rootCard_sub_720_Delta
       (E4 τ) ^ 3 + ((rootCard Λ : ℤ) - 720) * ModularForm.discriminant τ := by
   sorry
 
-/-- A rootless even unimodular rank-24 lattice has the Leech theta series. -/
+/-- SphereCeti corollary of the roadmap's rootless rank-24 Leech identity. -/
 theorem theta_rank24_rootless_eq_E4_cubed_sub_720_Delta
     (Λ : Submodule ℤ (V 24)) [DiscreteTopology Λ] [IsZLattice ℝ Λ]
     (P : EuclideanLattice.IntegralPresentation Λ)
@@ -1084,110 +1112,11 @@ abbrev packing : PeriodicSpherePacking 8 := SphereCeti.Pinned.E8Packing
 noncomputable def integralLattice : TauCeti.IntegralLattice (Fin 8 → ℚ) := by
   sorry
 
-/-- Irreducible simply-laced root-system types used by the rank-eight classification. -/
-inductive ADEType
-  | A (n : ℕ)
-  | D (n : ℕ)
-  | e6
-  | e7
-  | e8
-  deriving DecidableEq
-
-/-- The index ranges for actual irreducible simply-laced root systems. -/
-def ADEType.Valid : ADEType → Prop
-  | .A n => 1 ≤ n
-  | .D n => 4 ≤ n
-  | .e6 | .e7 | .e8 => True
-
-def ADEType.rank : ADEType → ℕ
-  | .A n => n
-  | .D n => n
-  | .e6 => 6
-  | .e7 => 7
-  | .e8 => 8
-
-def ADEType.rootCount : ADEType → ℕ
-  | .A n => n * (n + 1)
-  | .D n => 2 * n * (n - 1)
-  | .e6 => 72
-  | .e7 => 126
-  | .e8 => 240
-
-/-- Finite norm-two root set of a positive-definite integral lattice. -/
-noncomputable def normTwoRoots {W : Type u} [AddCommGroup W] [Module ℚ W]
-    (L : TauCeti.IntegralLattice W) (hpos : L.IsPosDef) : Finset L := by
-  sorry
-
-@[simp]
-theorem mem_normTwoRoots {W : Type u} [AddCommGroup W] [Module ℚ W]
-    (L : TauCeti.IntegralLattice W) (hpos : L.IsPosDef) (x : L) :
-    x ∈ normTwoRoots L hpos ↔ x ∈ L.vectorsOfNorm 2 := by
-  sorry
-
-/-- Root sublattice generated by the norm-two vectors. -/
-noncomputable def rootSubmodule {W : Type u} [AddCommGroup W] [Module ℚ W]
-    (L : TauCeti.IntegralLattice W) (hpos : L.IsPosDef) : Submodule ℤ L :=
-  Submodule.span ℤ (normTwoRoots L hpos : Set L)
-
-/-- ADE components extracted from the finite crystallographic root system. -/
-noncomputable def rootComponents {W : Type u} [AddCommGroup W] [Module ℚ W]
-    (L : TauCeti.IntegralLattice W) (hpos : L.IsPosDef) : Multiset ADEType := by
-  sorry
-
-/-- Every component extracted from a crystallographic root system has a valid Dynkin index. -/
-theorem rootComponents_valid {W : Type u} [AddCommGroup W] [Module ℚ W]
-    (L : TauCeti.IntegralLattice W) (hpos : L.IsPosDef) :
-    ∀ t ∈ rootComponents L hpos, t.Valid := by
-  sorry
-
-/-- Component ranks add to the rank of the span of the root system. -/
-theorem rootComponents_rank {W : Type u} [AddCommGroup W] [Module ℚ W]
-    (L : TauCeti.IntegralLattice W) (hpos : L.IsPosDef) :
-    ((rootComponents L hpos).map ADEType.rank).sum =
-      Module.finrank ℚ (Submodule.span ℚ
-        ((fun x : L => (x : W)) '' (normTwoRoots L hpos : Set L))) := by
-  sorry
-
-/-- Component root counts add to the cardinality of the norm-two root set. -/
-theorem rootComponents_rootCount {W : Type u} [AddCommGroup W] [Module ℚ W]
-    (L : TauCeti.IntegralLattice W) (hpos : L.IsPosDef) :
-    ((rootComponents L hpos).map ADEType.rootCount).sum =
-      (normTwoRoots L hpos).card := by
-  sorry
-
-/-- In rank eight the roots span the ambient rational space. -/
-theorem normTwoRoots_span_of_even_unimodular_rank_eight
-    {W : Type u} [AddCommGroup W] [Module ℚ W]
-    (L : TauCeti.IntegralLattice W) (hrank : Module.finrank ℚ W = 8)
-    (hpos : L.IsPosDef) (heven : L.IsEven) (hunimodular : L.IsUnimodular) :
-    Submodule.span ℚ ((fun x : L => (x : W)) '' (normTwoRoots L hpos : Set L)) = ⊤ := by
-  sorry
-
-/-- Theta classification supplies the exact root count used by ADE identification. -/
-theorem normTwoRoots_card_eq_240
-    {W : Type u} [AddCommGroup W] [Module ℚ W]
-    (L : TauCeti.IntegralLattice W) (hrank : Module.finrank ℚ W = 8)
-    (hpos : L.IsPosDef) (heven : L.IsEven) (hunimodular : L.IsUnimodular) :
-    (normTwoRoots L hpos).card = 240 := by
-  sorry
-
-/-- Rank eight and 240 roots force one irreducible component of type E8. -/
-theorem rootComponents_eq_e8
-    {W : Type u} [AddCommGroup W] [Module ℚ W]
-    (L : TauCeti.IntegralLattice W) (hrank : Module.finrank ℚ W = 8)
-    (hpos : L.IsPosDef) (heven : L.IsEven) (hunimodular : L.IsUnimodular) :
-    rootComponents L hpos = {.e8} := by
-  sorry
-
-/-- Unimodularity makes the E8 root sublattice have index one. -/
-theorem rootSubmodule_relIndex_eq_one
-    {W : Type u} [AddCommGroup W] [Module ℚ W]
-    (L : TauCeti.IntegralLattice W) (hrank : Module.finrank ℚ W = 8)
-    (hpos : L.IsPosDef) (heven : L.IsEven) (hunimodular : L.IsUnimodular) :
-    (rootSubmodule L hpos).toAddSubgroup.relIndex ⊤ = 1 := by
-  sorry
-
-/-- Classification target: every positive-definite even unimodular rank-eight lattice is E8.
+/-- Required upstream dependency: every positive-definite even unimodular rank-eight lattice is
+E8.  Its intended home is TauCeti's IntegralLattices and Root Systems development, whose ADE
+decomposition and root-count identification prove it; SphereCeti consumes exactly this endpoint
+and does not restate the root-system machinery.  Local implementation with exactly this
+statement is available whenever coordination or timing requires it.
 Positive-definiteness supplies nondegeneracy internally. -/
 theorem even_unimodular_rank_eight_unique
     {W : Type u} [AddCommGroup W] [Module ℚ W]
@@ -1251,71 +1180,13 @@ namespace Leech
 noncomputable def integralLattice : TauCeti.IntegralLattice (Fin 24 → ℚ) := by
   sorry
 
-/-- The 24 Niemeier cases, named by their root systems; `leech` is the unique empty-root case. -/
-inductive NiemeierType
-  | leech
-  | A1_24
-  | A2_12
-  | A3_8
-  | A4_6
-  | A5_4_D4
-  | A6_4
-  | A7_2_D5_2
-  | A8_3
-  | A9_2_D6
-  | A11_D7_E6
-  | A12_2
-  | A15_D9
-  | A17_E7
-  | A24
-  | D4_6
-  | D6_4
-  | D8_3
-  | D10_E7_2
-  | D12_2
-  | D16_E8
-  | D24
-  | E6_4
-  | E8_3
-  deriving DecidableEq
-
-/-- Canonical integral lattice for each Niemeier root-system/glue-code case. -/
-noncomputable def niemeierLattice : NiemeierType →
-    TauCeti.IntegralLattice (Fin 24 → ℚ) := by
-  intro t
-  sorry
-
-@[simp]
-theorem niemeierLattice_leech : niemeierLattice .leech = integralLattice := by
-  sorry
-
-/-- Case selected by the Niemeier root-system and glue-code classification. -/
-noncomputable def niemeierTypeOf
-    {W : Type u} [AddCommGroup W] [Module ℚ W]
-    (L : TauCeti.IntegralLattice W) (hrank : Module.finrank ℚ W = 24)
-    (hpos : L.IsPosDef) (heven : L.IsEven) (hunimodular : L.IsUnimodular) :
-    NiemeierType := by
-  sorry
-
-/-- Niemeier classification in the exact isometry form consumed by SphereCeti. -/
-theorem niemeierClassificationIsometry
-    {W : Type u} [AddCommGroup W] [Module ℚ W]
-    (L : TauCeti.IntegralLattice W) (hrank : Module.finrank ℚ W = 24)
-    (hpos : L.IsPosDef) (heven : L.IsEven) (hunimodular : L.IsUnimodular) :
-    Nonempty (TauCeti.IntegralLattice.Isometry L
-      (niemeierLattice (niemeierTypeOf L hrank hpos heven hunimodular))) := by
-  sorry
-
-/-- The classified lattice has no norm-two vectors exactly in the Leech case. -/
-theorem vectorsOfNorm_two_eq_empty_iff_niemeierType_eq_leech
-    {W : Type u} [AddCommGroup W] [Module ℚ W]
-    (L : TauCeti.IntegralLattice W) (hrank : Module.finrank ℚ W = 24)
-    (hpos : L.IsPosDef) (heven : L.IsEven) (hunimodular : L.IsUnimodular) :
-    L.vectorsOfNorm 2 = ∅ ↔ niemeierTypeOf L hrank hpos heven hunimodular = .leech := by
-  sorry
-
-/-- Classification target: every positive-definite rootless even unimodular rank-24 lattice is
-Leech.  Positive-definiteness supplies nondegeneracy internally. -/
+/-- Required upstream dependency: every positive-definite rootless even unimodular rank-24
+lattice is Leech.  Its intended home is a TauCeti Niemeier-completeness extension of the
+Integral Lattices roadmap: that roadmap defines the twenty-four reference lattices but does not
+prove completeness, so this endpoint remains a mandatory dependency here.  SphereCeti consumes
+exactly this statement and does not restate the Niemeier case list or selection machinery; local
+implementation with exactly this statement is available whenever coordination or timing requires
+it.  Positive-definiteness supplies nondegeneracy internally. -/
 theorem rootless_even_unimodular_rank_twentyFour_unique
     {W : Type u} [AddCommGroup W] [Module ℚ W]
     (L : TauCeti.IntegralLattice W) (hrank : Module.finrank ℚ W = 24)
@@ -1612,14 +1483,7 @@ curve-integral Poincaré lemma are consumed directly. -/
 
 namespace Contour
 
-/-! ### Ownership contracts for the three contour tools -/
-
-/-- Closed circles without poles use TauCeti's meromorphic Goursat theorem directly. -/
-example {A : ℂ → ℂ} {c : ℂ} {R : ℝ}
-    (hR : 0 ≤ R) (hA : MeromorphicOn A (closedBall c R))
-    (hord : ∀ z ∈ closedBall c R, 0 ≤ meromorphicOrderAt A z) :
-    circleIntegral A c R = 0 :=
-  TauCeti.Contour.circleIntegral_eq_zero_of_meromorphicOrderAt_nonneg hR hA hord
+/-! ### Ownership contracts for the two contour tools -/
 
 #check @Complex.integral_boundary_rect_eq_zero_of_differentiable_on_off_countable
 #check @curveIntegral

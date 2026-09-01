@@ -78,10 +78,10 @@ require("Quotient P.addAction.orbitRel" in suggested,
         "Orbit must reuse the pinned production additive-action quotient")
 require("def orbitSetoid" not in suggested,
         "Suggested.lean must not define a duplicate periodic orbit setoid")
-require("F = a • E4" in suggested and "F = a • E4Cubed + b • Delta" in suggested,
-        "level-one classification targets must be equalities of structured modular forms")
-require("def ADEType.Valid" in suggested and "rootComponents_valid" in suggested,
-        "ADE classification targets must expose valid component indices")
+require("thetaForm_eq_E₄" in suggested and "coe_thetaForm_rank_24_rootless" in suggested,
+        "the ThetaSeries stand-ins must carry the rank-8 and rootless rank-24 classifications")
+require("ADEType" not in suggested and "NiemeierType" not in suggested,
+        "ADE and Niemeier machinery is owned upstream; only the classification endpoints remain")
 require("% 23 ∈ ({0, 1, 5, 6, 7, 9, 11}" in suggested,
         "Golay generator rows must use cyclic indexing modulo 23")
 for certificate in (
@@ -93,7 +93,7 @@ for certificate in (
 require(suggested.count("CohnElkies.Certificate.ofRadial") >= 2,
         "the dimension-specific certificates must be literal ofRadial applications")
 for adapter, equation in (
-    ("latticeThetaModularForm", "coe_latticeThetaModularForm"),
+    ("thetaForm", "coe_thetaForm"),
     ("certificate", "certificate_f"),
     ("packing", "packing_centers"),
 ):

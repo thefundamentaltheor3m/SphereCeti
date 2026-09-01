@@ -19,27 +19,7 @@ The ledger follows two rules:
 
 ## A. Focused Mathlib candidates
 
-### A1. Pole-free meromorphic Cauchy--Goursat on a circle
-
-- [ ] **Destination:** Mathlib complex analysis.
-- [ ] **Current source:**
-  `TauCeti.Analysis.Contour.Cauchy.Goursat`.
-- [ ] **Candidate declaration:**
-
-  ```lean
-  theorem circleIntegral_eq_zero_of_meromorphicOrderAt_nonneg
-      (hR : 0 ≤ R) (hA : MeromorphicOn A (Metric.closedBall c R))
-      (hord : ∀ z ∈ Metric.closedBall c R, 0 ≤ meromorphicOrderAt A z) :
-      circleIntegral A c R = 0
-  ```
-
-- [ ] **Why generic:** it depends only on Mathlib's circle-integral and meromorphic-normal-form APIs.
-- [ ] **SphereCeti use:** contour arguments for meromorphic modular kernels without poles inside a
-  closed circle.
-- [ ] **Fallback:** import the exact pinned TauCeti theorem.
-- [ ] **Upstream test:** no TauCeti import remains in a minimal reproduction.
-
-### A2. Continuity of the Fourier transform of an integrable function on a finite-dimensional real
+### A1. Continuity of the Fourier transform of an integrable function on a finite-dimensional real
 inner-product space
 
 - [ ] **Destination:** Mathlib Fourier analysis.
@@ -55,7 +35,7 @@ inner-product space
 - [ ] **SphereCeti use:** pointwise Fourier sign conditions and limits in Cohn--Elkies.
 - [ ] **Fallback:** import TauCeti.
 
-### A3. Generic restriction to the positive imaginary axis
+### A2. Generic restriction to the positive imaginary axis
 
 - [ ] **Destination:** Mathlib upper-half-plane analysis.
 - [ ] **Current source:**
@@ -76,7 +56,7 @@ inner-product space
 - [ ] **SphereCeti use:** sign proofs for E8 and Leech modular kernels.
 - [ ] **Fallback:** import TauCeti and migrate Sphere-Packing's older duplicate API by aliases.
 
-### A4. Slash-by-`S` restriction identity
+### A3. Slash-by-`S` restriction identity
 
 - [ ] **Destination:** Mathlib modular forms, if the maintainers prefer it there; otherwise TauCeti.
 - [ ] **Current source:** `TauCeti.NumberTheory.ModularForms.ResToImagAxis`.
@@ -91,7 +71,7 @@ inner-product space
 - [ ] **SphereCeti use:** the `t ↦ 1/t` symmetry underlying Fourier eigenfunction constructions.
 - [ ] **Fallback:** exact TauCeti import.
 
-### A5. Generic `S`-transformation of a slash-invariant form and its logarithmic derivative
+### A4. Generic `S`-transformation of a slash-invariant form and its logarithmic derivative
 
 - [ ] **Destination:** Mathlib modular forms or complex analysis.
 - [ ] **Current source:** `TauCeti.NumberTheory.ModularForms.STransform`.
@@ -106,7 +86,7 @@ inner-product space
 - [ ] **SphereCeti use:** contour pairing and zero-counting arguments.
 - [ ] **Fallback:** exact TauCeti import.
 
-### A6. q-coefficient vanishing versus cusp-function Big-O
+### A5. q-coefficient vanishing versus cusp-function Big-O
 
 - [ ] **Destination:** Mathlib q-expansion API, or TauCeti if Mathlib considers it too specialized.
 - [ ] **Current source:** `TauCeti.NumberTheory.ModularForms.QExpansion.BigO`.
@@ -123,7 +103,7 @@ inner-product space
 - [ ] **SphereCeti use:** uniform cusp decay and Schwartz estimates from finite q-data.
 - [ ] **Fallback:** import TauCeti.
 
-### A7. `SchwartzMap.mkOfCocompact`
+### A6. `SchwartzMap.mkOfCocompact`
 
 - [ ] **Destination:** Mathlib Schwartz space.
 - [ ] **Current source:**
@@ -134,7 +114,7 @@ inner-product space
 - [ ] **SphereCeti use:** magic-function Schwartz proofs.
 - [ ] **Fallback:** retain a focused `ForMathlib` file with provenance and regression tests.
 
-### A8. Radial Schwartz submodule and Fourier involution
+### A7. Radial Schwartz submodule and Fourier involution
 
 - [ ] **Destination:** Mathlib Schwartz/Fourier analysis.
 - [ ] **Current source:** `SpherePacking.ForMathlib.RadialSchwartz.Basic` and related files.
@@ -156,7 +136,7 @@ inner-product space
 - [ ] **Design note:** intrinsic radiality factors through `‖x‖`; `ofNormSq` is a separate
   constructor, not the definition of radiality.
 
-### A9. Euclidean `ZLattice` norm-shell finiteness
+### A8. Euclidean `ZLattice` norm-shell finiteness
 
 - [ ] **Destination:** Mathlib `Algebra/Module/ZLattice`.
 - [ ] **Candidate declarations:** finiteness of
@@ -170,7 +150,7 @@ inner-product space
 - [ ] **SphereCeti use:** theta coefficients, minimum norms, equality spectra.
 - [ ] **Fallback:** local `SpherePacking/Lattice/Euclidean/Shell.lean`.
 
-### A10. Real inner-product dual lattice adapters
+### A9. Real inner-product dual lattice adapters
 
 - [ ] **Destination:** Mathlib bilinear-form dual lattice / `ZLattice` comparison.
 - [ ] **Candidate boundary:** identify the inner-product dual of a full Euclidean `ℤ`-lattice with
@@ -178,17 +158,7 @@ inner-product space
 - [ ] **SphereCeti use:** Poisson summation and self-duality.
 - [ ] **Fallback:** local bridge, explicitly connected to TauCeti's rational dual carrier.
 
-### A11. Schwartz Poisson summation on a full Euclidean lattice
-
-- [ ] **Destination:** Mathlib Fourier analysis and lattices.
-- [ ] **Source quarry:** Sphere-Packing PR #420.
-- [ ] **Candidate declarations:** unshifted and translated Poisson formulas with explicit covolume
-  and real dual lattice.
-- [ ] **SphereCeti use:** Cohn--Elkies and theta transformation.
-- [ ] **Fallback:** production `SpherePacking/Fourier/Poisson.lean`.
-- [ ] **Acceptance:** Gaussian specialization gives the correct `t^(-d/2)` factor.
-
-### A12. Covolume squared versus Gram determinant
+### A10. Covolume squared versus Gram determinant
 
 - [ ] **Destination:** Mathlib `ZLattice`/Haar measure.
 - [ ] **Candidate boundary:** for a real lattice basis, square of the covolume equals the determinant
@@ -196,17 +166,18 @@ inner-product space
 - [ ] **SphereCeti use:** compare real covolume with TauCeti discriminant/unimodularity.
 - [ ] **Fallback:** SphereCeti real/rational bridge.
 
-### A13. Lattice theta series analytic core
+### A11. Lattice Poisson summation and theta series
 
-- [ ] **Destination:** likely TauCeti first, later Mathlib if the API stabilizes.
-- [ ] **Candidate boundary:** normal convergence, holomorphy, shell regrouping, and Poisson
-  `S`-transformation for a full Euclidean lattice.
-- [ ] **SphereCeti use:** E8/Leech theta classification.
-- [ ] **Fallback:** production lattice theta module.
-- [ ] **Convention:** `exp(π i τ ‖x‖²)` and q coefficient `n` counts squared norm `2n` for even
-  lattices.
+- [ ] **Destination:** the TauCeti ThetaSeries roadmap, which owns generic real-lattice duality,
+  Poisson summation, theta series, transformation laws, the modular theta form, and the
+  rank-8/rank-24 classifications.
+- [ ] **SphereCeti use:** the `ThetaSeries` stand-ins in `Suggested.lean` mirror that roadmap's
+  target shapes; the presentation bridges and E8/Leech corollaries consume them.
+- [ ] **Fallback:** the deletion-bound stand-ins, which must not grow into a second generic
+  implementation.
+- [ ] **Upstream test:** the stand-in namespace is deleted and replaced by direct TauCeti imports.
 
-### A14. Open-rectangle contour deformation
+### A12. Open-rectangle contour deformation
 
 - [ ] **Destination:** Mathlib complex analysis, beside the bounded rectangular Cauchy--Goursat
   theorem.
@@ -222,7 +193,7 @@ inner-product space
 - [ ] **Fallback:** the Layer 8 target in `Suggested.lean`.
 - [ ] **Upstream test:** no project import remains in a minimal reproduction.
 
-### A15. Segment change of variables for curve integrals
+### A13. Segment change of variables for curve integrals
 
 - [ ] **Destination:** Mathlib `MeasureTheory.Integral.CurveIntegral`.
 - [ ] **Current source:** `Sphere-Packing-Lean` `Contour/MobiusInv/WedgeSetContour.lean`
@@ -283,12 +254,14 @@ SphereCeti.
 
 ### B2. Rootless rank-24 even-unimodular uniqueness
 
-- [ ] **Destination:** IntegralLattices extension or a dedicated Niemeier-lattices roadmap.
+- [ ] **Destination:** a dedicated Niemeier-completeness extension of the Integral Lattices
+  roadmap.  That roadmap defines the twenty-four reference lattices but does not prove
+  completeness, so this endpoint remains a mandatory SphereCeti dependency.
 - [ ] **Target statement:** every positive-definite even unimodular integral lattice of rank `24`
   with no norm-`2` vectors is isometric to the Leech lattice.
 - [ ] **Implementation route:** Niemeier classification with the exact 24-case root-system list,
   canonical lattices constructed from their glue codes, and an integral-lattice classification
-  isometry.
+  isometry; the case enumeration and selection machinery live upstream, not in SphereCeti.
 - [ ] **Required isolation theorem:** the norm-`2` root set is empty if and only if the classified
   Niemeier type is Leech.
 - [ ] **SphereCeti fallback:** local theorem in an upstream-shaped namespace, never an axiom.
@@ -308,12 +281,15 @@ SphereCeti.
   presentations, equality between them, evenness, unimodularity, rootlessness, and minimum norm.
 - [ ] **SphereCeti use:** the algebraic object behind the real packing.
 
-### B5. Theta series of integral lattices
+### B5. Integral-presentation bridge to the ThetaSeries roadmap
 
-- [ ] **Destination:** a TauCeti lattice-theta roadmap connected to IntegralLattices and ModularForms.
-- [ ] **Target:** bridge an integral presentation to the analytic Euclidean theta series and expose
-  even-unimodular modularity, shell coefficients, and low-rank classifications.
-- [ ] **SphereCeti use:** avoid a sphere-packing-specific theta namespace.
+- [ ] **Destination:** the TauCeti ThetaSeries roadmap owns the analytic theta series, its
+  modularity, and the low-rank classifications; the IntegralLattices side owns evenness and
+  unimodularity of presentations.
+- [ ] **Target:** the bridge from an integral presentation to the roadmap's real-lattice
+  evenness, unimodularity, and shell coefficients.
+- [ ] **SphereCeti use:** the Layer 5 presentation bridges; avoid a sphere-packing-specific theta
+  namespace.
 
 ## C. TauCeti coding-theory and code-lattice roadmap
 

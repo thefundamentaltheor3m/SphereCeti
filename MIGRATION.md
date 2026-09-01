@@ -378,42 +378,39 @@ unqualified `iff`: the empty packing makes termwise sharpness vacuous.
 
 Do not yet prove dimension-specific rigidity.
 
-## 9. Phase G — theta series
+## 9. Phase G — theta series consumption
 
-This phase can run in parallel with the magic-function port after E3/C4.
+This phase can run in parallel with the magic-function port after E3/C4.  The generic real-lattice
+duality, Poisson summation, theta series, transformation laws, and rank-8/rank-24 classifications
+are owned by the TauCeti ThetaSeries roadmap; SphereCeti consumes them.
 
-### PR G1 — analytic theta
+### PR G1 — ThetaSeries stand-ins
 
-Define the lattice theta series with exponent `π i τ ‖x‖²`.  Prove absolute/local uniform
-convergence and holomorphy.
+Compile the deletion-bound stand-ins shaped exactly like the ThetaSeries roadmap's targets:
+`dual`, `poissonSummation` with its two summability lemmas, `shell`/`repNum`, real-lattice
+`IsEven`/`IsUnimodular`, `thetaSeries`, `thetaSeries_neg_inv`, `thetaForm` with its coercion and
+q-expansion coefficients, `thetaForm_eq_E₄`, `repNum_two_rank_eight`, `thetaForm_rank_24`, and
+`coe_thetaForm_rank_24_rootless`.  The stand-ins are deleted and replaced by direct TauCeti
+imports when that roadmap is implemented; they must not grow into a second generic
+implementation.
 
-### PR G2 — shells and q-expansion
+### PR G2 — presentation bridges
 
-For even integral presentations, regroup by squared norm `2n` and identify coefficients with finite
-shell cardinalities.  Construct shells as `Finset`s after supplying discreteness; do not use the
-zero-on-infinite-sets behavior of `Set.ncard`.
+Bridge integral presentations to the roadmap's real-lattice vocabulary: evenness, unimodularity,
+the dual compatibility `EuclideanLattice.dual = ThetaSeries.dual`, and the root-count/shell
+coefficient identification `rootCard = repNum 2 = thetaEvenCoeff 1`.  Construct shells as
+`Finset`s after supplying discreteness; do not use the zero-on-infinite-sets behavior of
+`Set.ncard`.
 
-### PR G3 — theta S-transformation
+### PR G3 — E8/Leech theta corollaries
 
-Derive it from Gaussian Poisson summation.  State the even-lattice `T` law, the general
-dual/covolume `S` law, and the even-unimodular level-one specialization.  The modular-form adapter
-must coerce back to `latticeTheta`, and its constant and first coefficients must be exposed.
-
-### PR G4 — level-one classification
-
-First prove, as equalities in the structured modular-form types, that every weight-four level-one
-form is a scalar multiple of `E4` and every weight-twelve level-one form is a linear combination of
-`E4^3` and `Delta`.  Use those
-Mathlib/TauCeti dimension results to prove:
+Derive, through the bridges, the three corollaries the candidate packages consume:
 
 ```text
 rank 8 even unimodular: Θ = E₄
 rank 24 even unimodular: Θ = E₄³ + (N₂ - 720) Δ
 rootless rank 24: Θ = E₄³ - 720 Δ
 ```
-
-Do not use a general Sturm bound where the level-one dimension formula gives a shorter structural
-proof.
 
 ## 10. Phase H — E8 as a fully bridged object
 
@@ -537,13 +534,13 @@ Implement the unbounded-branch summit: deformation of a horizontal edge into the
 half-lines above its endpoints, with explicit half-line integrability and the top edge controlled
 by uniform decay or top-edge-integral convergence.  This PR is independent of J4--J5.
 
-Across J4--J6, maintain three explicit contour interfaces:
+Across J4--J6, maintain two explicit contour interfaces:
 
-- TauCeti pole-free meromorphic circle Goursat;
 - open rectangular deformation at infinity;
 - finite wedge/Poincaré path deformation.
 
-Do not force the three into one generic contour abstraction.
+Do not force the two into one generic contour abstraction; no circular-arc contour is a
+target.
 
 ## 13. Phase K — port the E8 proof from `gauss2`
 
@@ -782,7 +779,7 @@ After A1:
 - C1/C2 can proceed in parallel with D1/D2, but C4 is needed before lattice theta classification.
 - E1/E2 can proceed in parallel with D3/D4.
 - G1/G2 can begin once E3 and C2 exist.
-- H1 can begin immediately after C2; H2 waits for G4.
+- H1 can begin immediately after C2; H2 waits for G3.
 - I1/I2 can run in parallel with E/F/G and the E8 magic-function port.
 - J1--J6 can run in parallel with G and Leech lattice construction; J6 is independent of J4--J5.
 - K can start after J foundations and F1; K5 waits for F2/F3.

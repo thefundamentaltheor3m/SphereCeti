@@ -84,18 +84,9 @@ SphereCeti adds the bridge from this rational algebraic presentation to Mathlib'
 Directly consumed:
 
 ```text
-TauCeti/Analysis/Contour/Cauchy/Goursat.lean
 TauCeti/Analysis/Complex/UpperHalfPlane/ResToImagAxis.lean
 TauCeti/Analysis/Fourier/Continuous.lean
 ```
-
-Origin commit for the pole-free meromorphic circle theorem:
-
-```text
-66e7c687b9793320e895988f6762ba0da1c99b81
-```
-
-Pinned import path: `TauCeti/Analysis/Contour/Cauchy/Goursat.lean` at snapshot `8671bee...`.
 
 ### Modular forms and q-expansions
 
@@ -237,15 +228,6 @@ argument, and the 24-dimensional paper supplies its Leech analogue.
 The rank-eight theorem also uses the classical characterization of E8 as the unique
 positive-definite even unimodular lattice of rank eight.  The intended formal statement is generic
 integral-lattice mathematics whose intended home is TauCeti.
-
-### Universal optimality and interpolation
-
-- Henry Cohn, Abhinav Kumar, Stephen D. Miller, Danylo Radchenko, and Maryna Viazovska,
-  *Universal optimality of the E8 and Leech lattices and interpolation formulas*, Annals of
-  Mathematics 196 (2022), 983--1082.
-
-These results motivate preservation of zero multiplicities and quantitative estimates but are not
-quietly included in the sphere-packing summit.
 
 ### Stability
 
