@@ -1594,10 +1594,11 @@ theorem scalar_sq (sign : FourierSign) : sign.scalar ^ 2 = 1 := by
 
 end FourierSign
 
-/- A generic modular-kernel constructor is deliberately not a target yet.  The concrete E8 and
-Leech component proofs first expose their exact signed transformation laws; only their proven
-common hypotheses are then extracted into shared declarations.  This prevents an unconstrained
-eigenvalue field from making a zero-function implementation satisfy an intended construction. -/
+/- The signed transformation laws are consumed directly by the Layer 8 transport theorems.  No
+bundled kernel datum, opaque constructor, or free complex eigenvalue is part of the target
+surface: the finite Fourier sign occurs in the transformation law that determines it, and the
+concrete components connect to the contour machinery through explicit characteristic
+equations. -/
 
 end MagicFunction
 
@@ -1626,13 +1627,14 @@ example {A : ℂ → ℂ} {c : ℂ} {R : ℝ}
 
 /-! ### Unbounded branch: open rectangles -/
 
-/-- Deformation of a horizontal edge into the two vertical half-lines above its endpoints.  The
+/-- Deformation of a horizontal edge into the two vertical half-lines above its endpoints, off a
+countable exceptional set, matching the generality of Mathlib's bounded rectangle theorem.  The
 half-line integrability hypotheses are explicit, and the top edge is controlled by convergence of
 the top-edge integrals to zero. -/
 theorem horizontal_add_vertical_eq_vertical_of_tendsto_top
-    {f : ℂ → ℂ} {x₁ x₂ y : ℝ}
+    {f : ℂ → ℂ} {x₁ x₂ y : ℝ} {s : Set ℂ} (hs : s.Countable)
     (hcont : ContinuousOn f {z : ℂ | z.re ∈ Set.uIcc x₁ x₂ ∧ y ≤ z.im})
-    (hdiff : ∀ z ∈ {z : ℂ | z.re ∈ Set.Ioo (min x₁ x₂) (max x₁ x₂) ∧ y < z.im},
+    (hdiff : ∀ z ∈ {z : ℂ | z.re ∈ Set.Ioo (min x₁ x₂) (max x₁ x₂) ∧ y < z.im} \ s,
       DifferentiableAt ℂ f z)
     (hint₁ : IntegrableOn (fun t : ℝ => f (x₁ + t * Complex.I)) (Set.Ioi y))
     (hint₂ : IntegrableOn (fun t : ℝ => f (x₂ + t * Complex.I)) (Set.Ioi y))
@@ -1642,11 +1644,14 @@ theorem horizontal_add_vertical_eq_vertical_of_tendsto_top
       = Complex.I * ∫ t in Set.Ioi y, f (x₁ + t * Complex.I) := by
   sorry
 
-/-- The top-edge hypothesis follows from uniform decay of `f` as the imaginary part grows,
-given integrability along one horizontal edge. -/
+/-- The top-edge hypothesis follows from uniform decay of `f` on the edge as the imaginary part
+grows.  Interval integrability of each edge is an explicit hypothesis, so a non-integrable
+integral's junk value cannot satisfy the conclusion vacuously. -/
 theorem tendsto_top_edge_of_uniform_decay
     {f : ℂ → ℂ} {x₁ x₂ : ℝ}
-    (hdecay : TendstoUniformly (fun m : ℝ => fun x : ℝ => f (x + m * Complex.I)) 0 atTop) :
+    (hint : ∀ m : ℝ, IntervalIntegrable (fun x : ℝ => f (x + m * Complex.I)) volume x₁ x₂)
+    (hdecay : TendstoUniformlyOn (fun m : ℝ => fun x : ℝ => f (x + m * Complex.I)) 0 atTop
+      (Set.uIcc x₁ x₂)) :
     Tendsto (fun m : ℝ => ∫ x in x₁..x₂, f (x + m * Complex.I)) atTop (𝓝 0) := by
   sorry
 
@@ -1660,28 +1665,20 @@ noncomputable def scalarOneForm (F : ℂ → ℂ) : ℂ → ℂ →L[ℂ] ℂ :=
 @[simp]
 theorem scalarOneForm_apply (F : ℂ → ℂ) (z v : ℂ) : scalarOneForm F z v = F z * v := rfl
 
-/-- Interval-integral/segment bridge: the curve integral of a scalar one-form along the straight
-segment from `a` to `b` is the interval integral of the parametrized integrand. -/
-theorem curveIntegral_scalarOneForm_segment (F : ℂ → ℂ) (a b : ℂ) :
-    (∫ᶜ z in Path.segment a b, scalarOneForm F z)
-      = ∫ t in (0 : ℝ)..1, F (a + t • (b - a)) * (b - a) := by
-  sorry
-
-/-- The image of the segment from `a` to `b` under a map continuous on it. -/
-noncomputable def mapSegment (f : ℂ → ℂ) (a b : ℂ)
-    (hf : ContinuousOn f (segment ℝ a b)) : Path (f a) (f b) := by
-  sorry
+/- The interval-integral/segment bridge is Mathlib's `curveIntegral_segment`, consumed
+directly. -/
+#check @curveIntegral_segment
 
 /-- Change of variables along a segment, with an honest chain-rule hypothesis: `f` is continuous
 on the segment, differentiable along its interior with derivative `f'`, and the kernels
-correspond under the substitution. -/
+correspond under the substitution.  The image path is Mathlib's `Path.map'`. -/
 theorem curveIntegral_segment_change_of_variables
     {F G f f' : ℂ → ℂ} {a b : ℂ}
-    (hf : ContinuousOn f (segment ℝ a b))
-    (hderiv : ∀ z ∈ segment ℝ a b \ {a, b}, HasDerivAt f (f' z) z)
-    (hlaw : ∀ z ∈ segment ℝ a b \ {a, b}, F z = f' z * G (f z)) :
+    (hf : ContinuousOn f (Set.range ⇑(Path.segment a b)))
+    (hderiv : ∀ z ∈ Set.range ⇑(Path.segment a b) \ {a, b}, HasDerivAt f (f' z) z)
+    (hlaw : ∀ z ∈ Set.range ⇑(Path.segment a b) \ {a, b}, F z = f' z * G (f z)) :
     (∫ᶜ z in Path.segment a b, scalarOneForm F z)
-      = ∫ᶜ z in mapSegment f a b hf, scalarOneForm G z := by
+      = ∫ᶜ z in (Path.segment a b).map' hf, scalarOneForm G z := by
   sorry
 
 /-- Bundled closedness of a one-form on a set: differentiability with continuity up to the
@@ -1767,15 +1764,18 @@ def ComponentIntegrable (k : ℕ) (g : ℂ → ℂ) : Prop :=
           Real.exp (-Real.pi * ‖q.1‖ ^ 2 * (p.1 + q.2 • (p.2 - p.1)).im))
       (volume.prod (volume.restrict (Set.Ioc (0 : ℝ) 1)))
 
-/-- Generic component Fourier identity.  In even dimension `2k`, the Fourier transform of the
-radial left-leg component of `g` is computed from three explicit hypotheses: absolute product
-integrability, the `r`-free signed Möbius law relating the Gaussian-transformed kernel to `g'`,
-and closedness of the transported kernels on the wedge.  The E8 and Leech components are
-transparent instantiations; no bundled kernel record stands between them and this theorem. -/
+/-- Generic left/right Fourier identity.  In even dimension `2k`, the Fourier transform of the
+radial left-leg component of `g` is computed from explicit hypotheses: absolute product
+integrability, continuity of the Gaussian-transformed source kernel on the left legs, the
+`r`-free signed Möbius law relating that kernel to `g'`, and closedness of the transported
+kernels on the wedge. -/
 theorem fourier_leftComponent {k : ℕ} (hk : 0 < k)
     (sign : MagicFunction.FourierSign) {g g' : ℂ → ℂ}
     (hint : ComponentIntegrable k g)
-    (hcont : ∀ r : ℝ, 0 ≤ r → ContinuousOn (expKernel g' r)
+    (hcont : ∀ r : ℝ, 0 ≤ r → ContinuousOn
+      (fun z : ℂ =>
+        (Complex.I / z) ^ k * g z *
+          Complex.exp (Real.pi * Complex.I * (r : ℂ) * mobiusInv z))
       (segment ℝ (-1) (-1 + Complex.I) ∪ segment ℝ (-1 + Complex.I) Complex.I))
     (hlaw : ∀ z : ℂ, 0 < z.im →
       (Complex.I / z) ^ k * g z = sign.scalar * (z ^ 2)⁻¹ * g' (mobiusInv z))
@@ -1783,6 +1783,64 @@ theorem fourier_leftComponent {k : ℕ} (hk : 0 < k)
       ClosedOneFormOn (scalarOneForm (expKernel g' r)) wedgeSet) :
     𝓕 (fun x : V (2 * k) => leftLegs (expKernel g (‖x‖ ^ 2)))
       = fun ξ : V (2 * k) => sign.scalar * rightLegs (expKernel g' (‖ξ‖ ^ 2)) := by
+  sorry
+
+/-- The central leg of the magic contour: the segment from `0` to `i`. -/
+noncomputable def centralLeg (Ψ : ℂ → ℂ) : ℂ :=
+  ∫ᶜ z in Path.segment 0 Complex.I, scalarOneForm Ψ z
+
+/-- The vertical ray of the magic contour, from `i` towards `i∞`. -/
+noncomputable def verticalRay (Ψ : ℂ → ℂ) : ℂ :=
+  Complex.I * ∫ t in Set.Ioi (1 : ℝ), Ψ (t * Complex.I)
+
+/-- Absolute product integrability of the central-leg component integrand. -/
+def CentralIntegrable (k : ℕ) (g : ℂ → ℂ) : Prop :=
+  Integrable
+    (fun q : V (2 * k) × ℝ =>
+      ‖g (q.2 • Complex.I)‖ * Real.exp (-Real.pi * ‖q.1‖ ^ 2 * q.2))
+    (volume.prod (volume.restrict (Set.Ioc (0 : ℝ) 1)))
+
+/-- Generic central-pair Fourier identity.  The Möbius inversion carries the central segment onto
+the vertical ray directly, so no wedge homotopy is required; the transported ray integrability is
+an explicit hypothesis. -/
+theorem fourier_centralComponent {k : ℕ} (hk : 0 < k)
+    (sign : MagicFunction.FourierSign) {g g' : ℂ → ℂ}
+    (hint : CentralIntegrable k g)
+    (hint' : ∀ r : ℝ, 0 ≤ r → IntegrableOn
+      (fun t : ℝ => ‖g' (t * Complex.I)‖ * Real.exp (-Real.pi * r * t)) (Set.Ioi 1))
+    (hlaw : ∀ z : ℂ, 0 < z.im →
+      (Complex.I / z) ^ k * g z = sign.scalar * (z ^ 2)⁻¹ * g' (mobiusInv z)) :
+    𝓕 (fun x : V (2 * k) => centralLeg (expKernel g (‖x‖ ^ 2)))
+      = fun ξ : V (2 * k) => sign.scalar * verticalRay (expKernel g' (‖ξ‖ ^ 2)) := by
+  sorry
+
+/-- The full six-piece magic contour component: left legs, right legs, central leg, and vertical
+ray, each with its own kernel. -/
+noncomputable def sixPieceComponent (k : ℕ) (gL gR gC gRay : ℂ → ℂ) (x : V (2 * k)) : ℂ :=
+  leftLegs (expKernel gL (‖x‖ ^ 2)) + rightLegs (expKernel gR (‖x‖ ^ 2))
+    + centralLeg (expKernel gC (‖x‖ ^ 2)) + verticalRay (expKernel gRay (‖x‖ ^ 2))
+
+/-- Transparent six-piece assembly: when each piece is integrable and the four piecewise Fourier
+identities exchange left with right and central with ray at the common sign, the assembled
+component is a Fourier eigenfunction with that sign.  The E8 and Leech components instantiate
+this theorem through their characteristic equations; no bundled kernel record and no opaque
+constructor stands between them and the contour machinery. -/
+theorem fourier_sixPieceComponent {k : ℕ} (hk : 0 < k)
+    (sign : MagicFunction.FourierSign) {gL gR gC gRay : ℂ → ℂ}
+    (hintL : Integrable (fun x : V (2 * k) => leftLegs (expKernel gL (‖x‖ ^ 2))))
+    (hintR : Integrable (fun x : V (2 * k) => rightLegs (expKernel gR (‖x‖ ^ 2))))
+    (hintC : Integrable (fun x : V (2 * k) => centralLeg (expKernel gC (‖x‖ ^ 2))))
+    (hintRay : Integrable (fun x : V (2 * k) => verticalRay (expKernel gRay (‖x‖ ^ 2))))
+    (hLR : 𝓕 (fun x : V (2 * k) => leftLegs (expKernel gL (‖x‖ ^ 2)))
+      = fun ξ : V (2 * k) => sign.scalar * rightLegs (expKernel gR (‖ξ‖ ^ 2)))
+    (hRL : 𝓕 (fun x : V (2 * k) => rightLegs (expKernel gR (‖x‖ ^ 2)))
+      = fun ξ : V (2 * k) => sign.scalar * leftLegs (expKernel gL (‖ξ‖ ^ 2)))
+    (hCRay : 𝓕 (fun x : V (2 * k) => centralLeg (expKernel gC (‖x‖ ^ 2)))
+      = fun ξ : V (2 * k) => sign.scalar * verticalRay (expKernel gRay (‖ξ‖ ^ 2)))
+    (hRayC : 𝓕 (fun x : V (2 * k) => verticalRay (expKernel gRay (‖x‖ ^ 2)))
+      = fun ξ : V (2 * k) => sign.scalar * centralLeg (expKernel gC (‖ξ‖ ^ 2))) :
+    𝓕 (sixPieceComponent k gL gR gC gRay)
+      = fun ξ : V (2 * k) => sign.scalar * sixPieceComponent k gL gR gC gRay ξ := by
   sorry
 
 end Contour
@@ -1812,6 +1870,51 @@ theorem magicPlus_apply (x : V 8) : magicPlus x = magicPlusProfile (‖x‖ ^ 2)
 @[simp]
 theorem magicMinus_apply (x : V 8) : magicMinus x = magicMinusProfile (‖x‖ ^ 2) :=
   MagicFunction.ofNormSq_apply _ _
+
+/-- Kernels of the six-piece contour presentation of the `+1` component.  Production sources are
+the `MagicFunction.a` integrals `I₁`–`I₆`: `I₁/I₂` share the left kernel, `I₃/I₄` the right,
+`I₅` the central, and `I₆` the ray kernel. -/
+noncomputable def plusKernelLeft : ℂ → ℂ := by
+  sorry
+
+noncomputable def plusKernelRight : ℂ → ℂ := by
+  sorry
+
+noncomputable def plusKernelCentral : ℂ → ℂ := by
+  sorry
+
+noncomputable def plusKernelRay : ℂ → ℂ := by
+  sorry
+
+/-- Kernels of the six-piece contour presentation of the `-1` component.  Production sources are
+the `MagicFunction.b` integrals `J₁`–`J₆`. -/
+noncomputable def minusKernelLeft : ℂ → ℂ := by
+  sorry
+
+noncomputable def minusKernelRight : ℂ → ℂ := by
+  sorry
+
+noncomputable def minusKernelCentral : ℂ → ℂ := by
+  sorry
+
+noncomputable def minusKernelRay : ℂ → ℂ := by
+  sorry
+
+/-- Characteristic equation of the `+1` component: the profile is the six-piece contour
+component of its kernels.  This connects `fourier_magicPlus` to the generic Layer 8 Fourier
+identities and forbids an unconnected implementation of the profile. -/
+theorem magicPlus_eq_sixPieceComponent (x : V 8) :
+    magicPlus x =
+      Contour.sixPieceComponent 4 plusKernelLeft plusKernelRight
+        plusKernelCentral plusKernelRay x := by
+  sorry
+
+/-- Characteristic equation of the `-1` component. -/
+theorem magicMinus_eq_sixPieceComponent (x : V 8) :
+    magicMinus x =
+      Contour.sixPieceComponent 4 minusKernelLeft minusKernelRight
+        minusKernelCentral minusKernelRay x := by
+  sorry
 
 theorem fourier_magicPlus :
     𝓕 (magicPlus : 𝓢(V 8, ℂ)) = (magicPlus : 𝓢(V 8, ℂ)) := by
@@ -1963,6 +2066,46 @@ theorem magicPlus_apply (x : V 24) : magicPlus x = magicPlusProfile (‖x‖ ^ 2
 @[simp]
 theorem magicMinus_apply (x : V 24) : magicMinus x = magicMinusProfile (‖x‖ ^ 2) :=
   MagicFunction.ofNormSq_apply _ _
+
+/-- Kernels of the six-piece contour presentation of the dimension-24 `+1` component. -/
+noncomputable def plusKernelLeft : ℂ → ℂ := by
+  sorry
+
+noncomputable def plusKernelRight : ℂ → ℂ := by
+  sorry
+
+noncomputable def plusKernelCentral : ℂ → ℂ := by
+  sorry
+
+noncomputable def plusKernelRay : ℂ → ℂ := by
+  sorry
+
+/-- Kernels of the six-piece contour presentation of the dimension-24 `-1` component. -/
+noncomputable def minusKernelLeft : ℂ → ℂ := by
+  sorry
+
+noncomputable def minusKernelRight : ℂ → ℂ := by
+  sorry
+
+noncomputable def minusKernelCentral : ℂ → ℂ := by
+  sorry
+
+noncomputable def minusKernelRay : ℂ → ℂ := by
+  sorry
+
+/-- Characteristic equation of the dimension-24 `+1` component. -/
+theorem magicPlus_eq_sixPieceComponent (x : V 24) :
+    magicPlus x =
+      Contour.sixPieceComponent 12 plusKernelLeft plusKernelRight
+        plusKernelCentral plusKernelRay x := by
+  sorry
+
+/-- Characteristic equation of the dimension-24 `-1` component. -/
+theorem magicMinus_eq_sixPieceComponent (x : V 24) :
+    magicMinus x =
+      Contour.sixPieceComponent 12 minusKernelLeft minusKernelRight
+        minusKernelCentral minusKernelRay x := by
+  sorry
 
 theorem fourier_magicPlus :
     𝓕 (magicPlus : 𝓢(V 24, ℂ)) = (magicPlus : 𝓢(V 24, ℂ)) := by

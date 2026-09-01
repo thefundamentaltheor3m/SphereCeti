@@ -156,23 +156,27 @@ High-value material includes:
 - the Möbius-inversion/convex-wedge contour development;
 - strengthened Schwartz, sign, and special-value arguments.
 
-The Layer 8 contour targets are shaped from the following branch material, with two deliberate
-changes: the transport theorems are stated for a single pair of kernels rather than
-radius-indexed families, and the change-of-variables and open-rectangle statements carry explicit
-derivative and integrability hypotheses rather than relying on total-function junk values.
+The Layer 8 contour targets are shaped from the following branch material at commit
+`01f23eccf963c50250c9e48dd103e8cc88c36f85`, with two deliberate changes: the transport theorems
+are stated for a single pair of kernels rather than radius-indexed families, and the
+change-of-variables and open-rectangle statements carry explicit derivative and integrability
+hypotheses rather than relying on total-function junk values.
 
 ```text
 SpherePacking/Contour/MobiusInv/WedgeSetContour.lean   -- one-forms, wedge, signed permutations
 SpherePacking/ForMathlib/CauchyGoursat/OpenRectangular.lean  -- open-rectangle deformation
 SpherePacking/Integration/Measure.lean                 -- interval measures for the profiles
+SpherePacking/MagicFunction/a/Eigenfunction.lean       -- six-piece assembly, +1 component
+SpherePacking/MagicFunction/b/Eigenfunction.lean       -- six-piece assembly, -1 component
 ```
 
 The corresponding design documents are the blueprint sections
 `blueprint/src/subsections/contour-integration.tex` and
-`blueprint/src/subsections/integration-infrastructure.tex` introduced by Sphere-Packing-Lean
-PR #435, and Chapters 4--5 of Sidharth Hariharan's M4R thesis
-(`thefundamentaltheor3m/M4R_Thesis`), which record the dependency structure of the eigenfunction
-and double-zero arguments.
+`blueprint/src/subsections/integration-infrastructure.tex` of Sphere-Packing-Lean PR #435 at
+commit `5df95c5124ba691f0d377dbe8a54d6972276b0ef`, and Chapters 4--5 of Sidharth Hariharan's M4R
+thesis (`thefundamentaltheor3m/M4R_Thesis`, commit
+`5c478f0193104a70f070bfcfece283767ba17304`), which record the dependency structure of the
+eigenfunction and double-zero arguments.
 
 Do not:
 

@@ -553,10 +553,10 @@ Common API:
 - exact local zero orders through nonvanishing cofactors;
 - q-expansion Big-O estimates for cusp decay.
 
-The concrete `+1` and `-1` component proofs expose their exact signed kernel transformation laws
-before a common constructor is extracted.  The extracted declaration contains only hypotheses
-proved in both constructions, and its finite Fourier sign occurs in the transformation law that
-determines the eigenvalue.  No free complex `eigenvalue` field is part of this interface.
+The concrete `+1` and `-1` components expose their exact signed kernel transformation laws, and
+Layer 8 consumes those laws directly.  No bundled kernel datum, opaque constructor, or free
+complex `eigenvalue` field is part of the target surface: the finite Fourier sign occurs in the
+transformation law that determines it.
 
 ## Layer 8 — contour deformation and magic-integral transport
 
@@ -605,15 +605,26 @@ arguments of Layer 9.
 Intermediate wedge homotopies are proof devices, not public targets.  Radial families
 instantiate the single-pair statements; they are not part of the generic interface.
 
-### Closing deliverable: the generic component Fourier identity
+### Closing deliverable: the generic component Fourier identities and assembly
 
-For even dimension `2k`, one theorem computes the Fourier transform of a radial left-leg contour
-component `x ↦ ∫ g(z) exp(π i ‖x‖² z) dz` from explicit hypotheses: absolute product
-integrability of the double integral, the `r`-free signed Möbius law
-`(i/z)^k g(z) = ± z⁻² g'(-1/z)` on the upper half-plane, and closedness of the transported
-kernel's one-form on the wedge.  Its conclusion is the correspondingly signed right-leg
-component of `g'`.  The E8 and Leech components of Layer 9 are transparent instantiations of
-this theorem; no bundled kernel record and no opaque constructor stands between them and the
+The magic contour has six pieces: the left legs `-1 → -1+i → i`, the right legs `1 → 1+i → i`,
+the central segment `0 → i`, and the vertical ray from `i` towards `i∞`.  Three theorems compute
+their Fourier behavior in even dimension `2k` from explicit hypotheses:
+
+- the **left/right identity**: absolute product integrability, continuity of the
+  Gaussian-transformed source kernel on the left legs, the `r`-free signed Möbius law
+  `(i/z)^k g(z) = ± z⁻² g'(-1/z)` on the upper half-plane, and closedness of the transported
+  kernel's one-form on the wedge give the transform of the left-leg component as the signed
+  right-leg component of `g'`;
+- the **central-pair identity**: the Möbius inversion carries the central segment directly onto
+  the vertical ray, with explicit integrability on both sides and no wedge homotopy;
+- the **six-piece assembly**: with each piece integrable and the piecewise identities exchanging
+  left with right and central with ray at a common sign, the assembled component is a Fourier
+  eigenfunction with that sign.
+
+The E8 and Leech components of Layer 9 connect to this machinery through explicit
+**characteristic equations** identifying each component with the six-piece assembly of its four
+named kernels; no bundled kernel record and no opaque constructor stands between them and the
 contour machinery.
 
 ## Layer 9 — E8 and Leech magic functions

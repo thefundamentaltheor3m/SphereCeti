@@ -492,10 +492,10 @@ operations.
 
 ### PR J2 — sign-aware modular kernels
 
-Expose the exact signed transformation hypotheses used by each concrete `+1` and `-1` component.
-After both instances exist, extract their proven common hypotheses into a shared constructor.  Its
-finite Fourier sign occurs in the transformation law and determines the resulting eigenvalue; it
-has no unconstrained complex eigenvalue parameter.
+Expose the exact signed transformation hypotheses used by each concrete `+1` and `-1` component,
+in the form the Layer 8 transport theorems consume directly.  The finite Fourier sign occurs in
+the transformation law and determines the resulting eigenvalue; there is no bundled kernel
+datum, no shared constructor, and no unconstrained complex eigenvalue parameter.
 
 ### PR J3 — integration and differentiation adapters
 
@@ -525,7 +525,8 @@ Implement the finite-branch summit:
 - wedge openness, convexity, and boundary control;
 - the two signed contour-permutation theorems for a single pair of kernels, via Mathlib's
   curve-integral Poincaré lemma;
-- the generic component Fourier identity, consuming J3's Fubini and Gaussian adapters.
+- the generic left/right and central-pair Fourier identities and the six-piece assembly,
+  consuming J3's Fubini and Gaussian adapters.
 
 Radial families instantiate the single-pair statements; the wedge homotopies are proof devices,
 not public declarations.
@@ -599,8 +600,9 @@ their statement matches the actual geometry.
 
 ### PR L3 — direct-side radial function
 
-Construct the `+1` Fourier eigencomponent as a transparent instantiation of the generic
-component Fourier identity.  Keep its normalization and contour decomposition explicit.
+Construct the `+1` Fourier eigencomponent through its characteristic equation with the
+six-piece assembly, instantiating the generic left/right and central-pair Fourier identities.
+Keep its normalization and contour decomposition explicit.
 
 ### PR L4 — Fourier-side radial function
 

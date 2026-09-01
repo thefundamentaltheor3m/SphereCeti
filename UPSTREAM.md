@@ -222,19 +222,20 @@ inner-product space
 - [ ] **Fallback:** the Layer 8 target in `Suggested.lean`.
 - [ ] **Upstream test:** no project import remains in a minimal reproduction.
 
-### A15. Scalar one-form/segment bridge and segment change of variables
+### A15. Segment change of variables for curve integrals
 
 - [ ] **Destination:** Mathlib `MeasureTheory.Integral.CurveIntegral`.
 - [ ] **Current source:** `Sphere-Packing-Lean` `Contour/MobiusInv/WedgeSetContour.lean`
   (see `PROVENANCE.md`), restated for a single pair of kernels with honest derivative
   hypotheses.
-- [ ] **Candidate declarations:** the scalar one-form of a function `ℂ → ℂ`; the equality of the
-  curve integral along `Path.segment a b` with the parametrized interval integral; change of
-  variables along a segment under `ContinuousOn` plus interior `HasDerivAt` hypotheses.
-- [ ] **Why generic:** these are basic curve-integral lemmas about Mathlib's own `curveIntegral`
+- [ ] **Candidate declaration:** change of variables along `Path.segment a b` under
+  `ContinuousOn` plus interior `HasDerivAt` hypotheses, with the image path given by
+  `Path.map'`.  Mathlib already provides `Path.map'` and `curveIntegral_segment`; the
+  change-of-variables lemma is the genuinely new piece.
+- [ ] **Why generic:** it is a basic curve-integral lemma about Mathlib's own `curveIntegral`
   and `Path.segment`, independent of any application geometry.
 - [ ] **SphereCeti use:** the Möbius transport of the magic-function contour integrals.
-- [ ] **Fallback:** the Layer 8 targets in `Suggested.lean`.
+- [ ] **Fallback:** the Layer 8 target in `Suggested.lean`.
 - [ ] **Upstream test:** no project import remains in a minimal reproduction.
 
 The bundled closed-one-form adapter, the wedge set, and the two signed contour permutations are

@@ -107,6 +107,13 @@ for declaration in (
     "rootless_even_unimodular_rank_twentyFour_unique",
     "generated_covolume_eq_one_and_index_eq_numOrbits",
     "exists_translatedBox_normalizedCount_ge_finiteDensity_sub",
+    "perm_leftLegs_eq_smul_rightLegs",
+    "fourier_leftComponent",
+    "fourier_centralComponent",
+    "fourier_sixPieceComponent",
+    "magicPlus_eq_sixPieceComponent",
+    "magicMinus_eq_sixPieceComponent",
+    "horizontal_add_vertical_eq_vertical_of_tendsto_top",
 ):
     require(declaration in suggested, f"missing roadmap declaration boundary: {declaration}")
 
