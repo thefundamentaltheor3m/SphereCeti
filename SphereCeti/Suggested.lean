@@ -1814,6 +1814,17 @@ theorem fourier_centralComponent {k : ℕ} (hk : 0 < k)
       = fun ξ : V (2 * k) => sign.scalar * verticalRay (expKernel g' (‖ξ‖ ^ 2)) := by
   sorry
 
+/-- Reversal by Fourier involution and evenness: for integrable even functions and a sign with
+square one, `𝓕 F = s • G` implies `𝓕 G = s • F`.  This supplies the right-to-left and
+ray-to-central directions of the assembly from the left-to-right and central-to-ray
+identities. -/
+theorem fourier_reverse {d : ℕ} (sign : MagicFunction.FourierSign) {F G : V d → ℂ}
+    (hF : Integrable F) (hG : Integrable G)
+    (heven : ∀ x, F (-x) = F x)
+    (h : 𝓕 F = fun ξ => sign.scalar * G ξ) :
+    𝓕 G = fun ξ => sign.scalar * F ξ := by
+  sorry
+
 /-- The full six-piece magic contour component: left legs, right legs, central leg, and vertical
 ray, each with its own kernel. -/
 noncomputable def sixPieceComponent (k : ℕ) (gL gR gC gRay : ℂ → ℂ) (x : V (2 * k)) : ℂ :=
@@ -1916,13 +1927,170 @@ theorem magicMinus_eq_sixPieceComponent (x : V 8) :
         minusKernelCentral minusKernelRay x := by
   sorry
 
-theorem fourier_magicPlus :
-    𝓕 (magicPlus : 𝓢(V 8, ℂ)) = (magicPlus : 𝓢(V 8, ℂ)) := by
+/-! Concrete facts feeding the `+1` kernels into the generic contour identities. -/
+
+theorem plusKernels_componentIntegrable : Contour.ComponentIntegrable 4 plusKernelLeft := by
   sorry
 
+theorem plusKernels_centralIntegrable : Contour.CentralIntegrable 4 plusKernelCentral := by
+  sorry
+
+theorem plusKernels_cont : ∀ r : ℝ, 0 ≤ r → ContinuousOn
+    (fun z : ℂ => (Complex.I / z) ^ 4 * plusKernelLeft z *
+      Complex.exp (Real.pi * Complex.I * (r : ℂ) * Contour.mobiusInv z))
+    (segment ℝ (-1) (-1 + Complex.I) ∪ segment ℝ (-1 + Complex.I) Complex.I) := by
+  sorry
+
+theorem plusKernels_law_leftRight : ∀ z : ℂ, 0 < z.im →
+    (Complex.I / z) ^ 4 * plusKernelLeft z =
+      (MagicFunction.FourierSign.plus).scalar * (z ^ 2)⁻¹ *
+        plusKernelRight (Contour.mobiusInv z) := by
+  sorry
+
+theorem plusKernels_closed : ∀ r : ℝ, 0 ≤ r →
+    Contour.ClosedOneFormOn (Contour.scalarOneForm (Contour.expKernel plusKernelRight r))
+      Contour.wedgeSet := by
+  sorry
+
+theorem plusKernels_law_centralRay : ∀ z : ℂ, 0 < z.im →
+    (Complex.I / z) ^ 4 * plusKernelCentral z =
+      (MagicFunction.FourierSign.plus).scalar * (z ^ 2)⁻¹ *
+        plusKernelRay (Contour.mobiusInv z) := by
+  sorry
+
+theorem plusKernels_rayIntegrable : ∀ r : ℝ, 0 ≤ r → IntegrableOn
+    (fun t : ℝ => ‖plusKernelRay (t * Complex.I)‖ * Real.exp (-Real.pi * r * t))
+    (Set.Ioi 1) := by
+  sorry
+
+theorem plusKernels_integrablePieces :
+    Integrable (fun x : V 8 => Contour.leftLegs (Contour.expKernel plusKernelLeft (‖x‖ ^ 2))) ∧
+    Integrable (fun x : V 8 => Contour.rightLegs (Contour.expKernel plusKernelRight (‖x‖ ^ 2))) ∧
+    Integrable (fun x : V 8 =>
+      Contour.centralLeg (Contour.expKernel plusKernelCentral (‖x‖ ^ 2))) ∧
+    Integrable (fun x : V 8 =>
+      Contour.verticalRay (Contour.expKernel plusKernelRay (‖x‖ ^ 2))) := by
+  sorry
+
+/-- Contour Fourier identity for the `+1` kernels: an application of the generic identities with
+no independent analytic content. -/
+theorem fourier_sixPiece_plus :
+    𝓕 (Contour.sixPieceComponent 4 plusKernelLeft plusKernelRight plusKernelCentral
+        plusKernelRay)
+      = fun ξ : V 8 => (MagicFunction.FourierSign.plus).scalar *
+          Contour.sixPieceComponent 4 plusKernelLeft plusKernelRight plusKernelCentral
+            plusKernelRay ξ := by
+  obtain ⟨hL, hR, hC, hRay⟩ := plusKernels_integrablePieces
+  have hLR := Contour.fourier_leftComponent (k := 4) (by norm_num) .plus
+    plusKernels_componentIntegrable plusKernels_cont plusKernels_law_leftRight
+    plusKernels_closed
+  have hCRay := Contour.fourier_centralComponent (k := 4) (by norm_num) .plus
+    plusKernels_centralIntegrable plusKernels_rayIntegrable plusKernels_law_centralRay
+  have hRL := Contour.fourier_reverse .plus hL hR (fun x => by simp) hLR
+  have hRayC := Contour.fourier_reverse .plus hC hRay (fun x => by simp) hCRay
+  exact Contour.fourier_sixPieceComponent (by norm_num) .plus hL hR hC hRay hLR hRL hCRay hRayC
+
+/-! Concrete facts feeding the `-1` kernels into the generic contour identities. -/
+
+theorem minusKernels_componentIntegrable : Contour.ComponentIntegrable 4 minusKernelLeft := by
+  sorry
+
+theorem minusKernels_centralIntegrable : Contour.CentralIntegrable 4 minusKernelCentral := by
+  sorry
+
+theorem minusKernels_cont : ∀ r : ℝ, 0 ≤ r → ContinuousOn
+    (fun z : ℂ => (Complex.I / z) ^ 4 * minusKernelLeft z *
+      Complex.exp (Real.pi * Complex.I * (r : ℂ) * Contour.mobiusInv z))
+    (segment ℝ (-1) (-1 + Complex.I) ∪ segment ℝ (-1 + Complex.I) Complex.I) := by
+  sorry
+
+theorem minusKernels_law_leftRight : ∀ z : ℂ, 0 < z.im →
+    (Complex.I / z) ^ 4 * minusKernelLeft z =
+      (MagicFunction.FourierSign.minus).scalar * (z ^ 2)⁻¹ *
+        minusKernelRight (Contour.mobiusInv z) := by
+  sorry
+
+theorem minusKernels_closed : ∀ r : ℝ, 0 ≤ r →
+    Contour.ClosedOneFormOn (Contour.scalarOneForm (Contour.expKernel minusKernelRight r))
+      Contour.wedgeSet := by
+  sorry
+
+theorem minusKernels_law_centralRay : ∀ z : ℂ, 0 < z.im →
+    (Complex.I / z) ^ 4 * minusKernelCentral z =
+      (MagicFunction.FourierSign.minus).scalar * (z ^ 2)⁻¹ *
+        minusKernelRay (Contour.mobiusInv z) := by
+  sorry
+
+theorem minusKernels_rayIntegrable : ∀ r : ℝ, 0 ≤ r → IntegrableOn
+    (fun t : ℝ => ‖minusKernelRay (t * Complex.I)‖ * Real.exp (-Real.pi * r * t))
+    (Set.Ioi 1) := by
+  sorry
+
+theorem minusKernels_integrablePieces :
+    Integrable (fun x : V 8 => Contour.leftLegs (Contour.expKernel minusKernelLeft (‖x‖ ^ 2))) ∧
+    Integrable (fun x : V 8 =>
+      Contour.rightLegs (Contour.expKernel minusKernelRight (‖x‖ ^ 2))) ∧
+    Integrable (fun x : V 8 =>
+      Contour.centralLeg (Contour.expKernel minusKernelCentral (‖x‖ ^ 2))) ∧
+    Integrable (fun x : V 8 =>
+      Contour.verticalRay (Contour.expKernel minusKernelRay (‖x‖ ^ 2))) := by
+  sorry
+
+/-- Contour Fourier identity for the `-1` kernels. -/
+theorem fourier_sixPiece_minus :
+    𝓕 (Contour.sixPieceComponent 4 minusKernelLeft minusKernelRight minusKernelCentral
+        minusKernelRay)
+      = fun ξ : V 8 => (MagicFunction.FourierSign.minus).scalar *
+          Contour.sixPieceComponent 4 minusKernelLeft minusKernelRight minusKernelCentral
+            minusKernelRay ξ := by
+  obtain ⟨hL, hR, hC, hRay⟩ := minusKernels_integrablePieces
+  have hLR := Contour.fourier_leftComponent (k := 4) (by norm_num) .minus
+    minusKernels_componentIntegrable minusKernels_cont minusKernels_law_leftRight
+    minusKernels_closed
+  have hCRay := Contour.fourier_centralComponent (k := 4) (by norm_num) .minus
+    minusKernels_centralIntegrable minusKernels_rayIntegrable minusKernels_law_centralRay
+  have hRL := Contour.fourier_reverse .minus hL hR (fun x => by simp) hLR
+  have hRayC := Contour.fourier_reverse .minus hC hRay (fun x => by simp) hCRay
+  exact Contour.fourier_sixPieceComponent (by norm_num) .minus hL hR hC hRay hLR hRL hCRay hRayC
+
+/-- The Fourier eigenfunction identity for the `+1` component is glue: the characteristic
+equation, the Schwartz/function Fourier bridge, and the contour Fourier identity. -/
+theorem fourier_magicPlus :
+    𝓕 (magicPlus : 𝓢(V 8, ℂ)) = (magicPlus : 𝓢(V 8, ℂ)) := by
+  have hchar : ⇑((magicPlus : 𝓢(V 8, ℂ))) =
+      Contour.sixPieceComponent 4 plusKernelLeft plusKernelRight plusKernelCentral
+        plusKernelRay := by
+    funext x
+    rw [SphereCeti.Pinned.RadialSchwartzMap.coe_coe]
+    exact magicPlus_eq_sixPieceComponent x
+  ext ξ
+  calc (𝓕 (magicPlus : 𝓢(V 8, ℂ))) ξ
+      = 𝓕 ((magicPlus : 𝓢(V 8, ℂ)) : V 8 → ℂ) ξ :=
+        congrFun (SchwartzMap.fourier_coe _) ξ
+    _ = (fun ξ' : V 8 => (MagicFunction.FourierSign.plus).scalar *
+          Contour.sixPieceComponent 4 plusKernelLeft plusKernelRight plusKernelCentral
+            plusKernelRay ξ') ξ := by rw [hchar, fourier_sixPiece_plus]
+    _ = (magicPlus : 𝓢(V 8, ℂ)) ξ := by
+        simp only [MagicFunction.FourierSign.scalar_plus, one_mul, ← hchar]
+
+/-- The Fourier eigenfunction identity for the `-1` component, by the same glue. -/
 theorem fourier_magicMinus :
     𝓕 (magicMinus : 𝓢(V 8, ℂ)) = -(magicMinus : 𝓢(V 8, ℂ)) := by
-  sorry
+  have hchar : ⇑((magicMinus : 𝓢(V 8, ℂ))) =
+      Contour.sixPieceComponent 4 minusKernelLeft minusKernelRight minusKernelCentral
+        minusKernelRay := by
+    funext x
+    rw [SphereCeti.Pinned.RadialSchwartzMap.coe_coe]
+    exact magicMinus_eq_sixPieceComponent x
+  ext ξ
+  calc (𝓕 (magicMinus : 𝓢(V 8, ℂ))) ξ
+      = 𝓕 ((magicMinus : 𝓢(V 8, ℂ)) : V 8 → ℂ) ξ :=
+        congrFun (SchwartzMap.fourier_coe _) ξ
+    _ = (fun ξ' : V 8 => (MagicFunction.FourierSign.minus).scalar *
+          Contour.sixPieceComponent 4 minusKernelLeft minusKernelRight minusKernelCentral
+            minusKernelRay ξ') ξ := by rw [hchar, fourier_sixPiece_minus]
+    _ = (-(magicMinus : 𝓢(V 8, ℂ))) ξ := by
+        simp only [MagicFunction.FourierSign.scalar_minus, neg_one_mul, ← hchar, neg_apply]
 
 /-- Viazovska's E8 norm-squared profile with the production normalization. -/
 noncomputable def magicProfile : 𝓢(ℝ, ℂ) :=
@@ -2107,13 +2275,169 @@ theorem magicMinus_eq_sixPieceComponent (x : V 24) :
         minusKernelCentral minusKernelRay x := by
   sorry
 
-theorem fourier_magicPlus :
-    𝓕 (magicPlus : 𝓢(V 24, ℂ)) = (magicPlus : 𝓢(V 24, ℂ)) := by
+/-! Concrete facts feeding the dimension-24 kernels into the generic contour identities. -/
+
+theorem plusKernels_componentIntegrable : Contour.ComponentIntegrable 12 plusKernelLeft := by
   sorry
 
+theorem plusKernels_centralIntegrable : Contour.CentralIntegrable 12 plusKernelCentral := by
+  sorry
+
+theorem plusKernels_cont : ∀ r : ℝ, 0 ≤ r → ContinuousOn
+    (fun z : ℂ => (Complex.I / z) ^ 12 * plusKernelLeft z *
+      Complex.exp (Real.pi * Complex.I * (r : ℂ) * Contour.mobiusInv z))
+    (segment ℝ (-1) (-1 + Complex.I) ∪ segment ℝ (-1 + Complex.I) Complex.I) := by
+  sorry
+
+theorem plusKernels_law_leftRight : ∀ z : ℂ, 0 < z.im →
+    (Complex.I / z) ^ 12 * plusKernelLeft z =
+      (MagicFunction.FourierSign.plus).scalar * (z ^ 2)⁻¹ *
+        plusKernelRight (Contour.mobiusInv z) := by
+  sorry
+
+theorem plusKernels_closed : ∀ r : ℝ, 0 ≤ r →
+    Contour.ClosedOneFormOn (Contour.scalarOneForm (Contour.expKernel plusKernelRight r))
+      Contour.wedgeSet := by
+  sorry
+
+theorem plusKernels_law_centralRay : ∀ z : ℂ, 0 < z.im →
+    (Complex.I / z) ^ 12 * plusKernelCentral z =
+      (MagicFunction.FourierSign.plus).scalar * (z ^ 2)⁻¹ *
+        plusKernelRay (Contour.mobiusInv z) := by
+  sorry
+
+theorem plusKernels_rayIntegrable : ∀ r : ℝ, 0 ≤ r → IntegrableOn
+    (fun t : ℝ => ‖plusKernelRay (t * Complex.I)‖ * Real.exp (-Real.pi * r * t))
+    (Set.Ioi 1) := by
+  sorry
+
+theorem plusKernels_integrablePieces :
+    Integrable (fun x : V 24 => Contour.leftLegs (Contour.expKernel plusKernelLeft (‖x‖ ^ 2))) ∧
+    Integrable (fun x : V 24 =>
+      Contour.rightLegs (Contour.expKernel plusKernelRight (‖x‖ ^ 2))) ∧
+    Integrable (fun x : V 24 =>
+      Contour.centralLeg (Contour.expKernel plusKernelCentral (‖x‖ ^ 2))) ∧
+    Integrable (fun x : V 24 =>
+      Contour.verticalRay (Contour.expKernel plusKernelRay (‖x‖ ^ 2))) := by
+  sorry
+
+/-- Contour Fourier identity for the dimension-24 `+1` kernels. -/
+theorem fourier_sixPiece_plus :
+    𝓕 (Contour.sixPieceComponent 12 plusKernelLeft plusKernelRight plusKernelCentral
+        plusKernelRay)
+      = fun ξ : V 24 => (MagicFunction.FourierSign.plus).scalar *
+          Contour.sixPieceComponent 12 plusKernelLeft plusKernelRight plusKernelCentral
+            plusKernelRay ξ := by
+  obtain ⟨hL, hR, hC, hRay⟩ := plusKernels_integrablePieces
+  have hLR := Contour.fourier_leftComponent (k := 12) (by norm_num) .plus
+    plusKernels_componentIntegrable plusKernels_cont plusKernels_law_leftRight
+    plusKernels_closed
+  have hCRay := Contour.fourier_centralComponent (k := 12) (by norm_num) .plus
+    plusKernels_centralIntegrable plusKernels_rayIntegrable plusKernels_law_centralRay
+  have hRL := Contour.fourier_reverse .plus hL hR (fun x => by simp) hLR
+  have hRayC := Contour.fourier_reverse .plus hC hRay (fun x => by simp) hCRay
+  exact Contour.fourier_sixPieceComponent (by norm_num) .plus hL hR hC hRay hLR hRL hCRay hRayC
+
+theorem minusKernels_componentIntegrable : Contour.ComponentIntegrable 12 minusKernelLeft := by
+  sorry
+
+theorem minusKernels_centralIntegrable : Contour.CentralIntegrable 12 minusKernelCentral := by
+  sorry
+
+theorem minusKernels_cont : ∀ r : ℝ, 0 ≤ r → ContinuousOn
+    (fun z : ℂ => (Complex.I / z) ^ 12 * minusKernelLeft z *
+      Complex.exp (Real.pi * Complex.I * (r : ℂ) * Contour.mobiusInv z))
+    (segment ℝ (-1) (-1 + Complex.I) ∪ segment ℝ (-1 + Complex.I) Complex.I) := by
+  sorry
+
+theorem minusKernels_law_leftRight : ∀ z : ℂ, 0 < z.im →
+    (Complex.I / z) ^ 12 * minusKernelLeft z =
+      (MagicFunction.FourierSign.minus).scalar * (z ^ 2)⁻¹ *
+        minusKernelRight (Contour.mobiusInv z) := by
+  sorry
+
+theorem minusKernels_closed : ∀ r : ℝ, 0 ≤ r →
+    Contour.ClosedOneFormOn (Contour.scalarOneForm (Contour.expKernel minusKernelRight r))
+      Contour.wedgeSet := by
+  sorry
+
+theorem minusKernels_law_centralRay : ∀ z : ℂ, 0 < z.im →
+    (Complex.I / z) ^ 12 * minusKernelCentral z =
+      (MagicFunction.FourierSign.minus).scalar * (z ^ 2)⁻¹ *
+        minusKernelRay (Contour.mobiusInv z) := by
+  sorry
+
+theorem minusKernels_rayIntegrable : ∀ r : ℝ, 0 ≤ r → IntegrableOn
+    (fun t : ℝ => ‖minusKernelRay (t * Complex.I)‖ * Real.exp (-Real.pi * r * t))
+    (Set.Ioi 1) := by
+  sorry
+
+theorem minusKernels_integrablePieces :
+    Integrable (fun x : V 24 =>
+      Contour.leftLegs (Contour.expKernel minusKernelLeft (‖x‖ ^ 2))) ∧
+    Integrable (fun x : V 24 =>
+      Contour.rightLegs (Contour.expKernel minusKernelRight (‖x‖ ^ 2))) ∧
+    Integrable (fun x : V 24 =>
+      Contour.centralLeg (Contour.expKernel minusKernelCentral (‖x‖ ^ 2))) ∧
+    Integrable (fun x : V 24 =>
+      Contour.verticalRay (Contour.expKernel minusKernelRay (‖x‖ ^ 2))) := by
+  sorry
+
+/-- Contour Fourier identity for the dimension-24 `-1` kernels. -/
+theorem fourier_sixPiece_minus :
+    𝓕 (Contour.sixPieceComponent 12 minusKernelLeft minusKernelRight minusKernelCentral
+        minusKernelRay)
+      = fun ξ : V 24 => (MagicFunction.FourierSign.minus).scalar *
+          Contour.sixPieceComponent 12 minusKernelLeft minusKernelRight minusKernelCentral
+            minusKernelRay ξ := by
+  obtain ⟨hL, hR, hC, hRay⟩ := minusKernels_integrablePieces
+  have hLR := Contour.fourier_leftComponent (k := 12) (by norm_num) .minus
+    minusKernels_componentIntegrable minusKernels_cont minusKernels_law_leftRight
+    minusKernels_closed
+  have hCRay := Contour.fourier_centralComponent (k := 12) (by norm_num) .minus
+    minusKernels_centralIntegrable minusKernels_rayIntegrable minusKernels_law_centralRay
+  have hRL := Contour.fourier_reverse .minus hL hR (fun x => by simp) hLR
+  have hRayC := Contour.fourier_reverse .minus hC hRay (fun x => by simp) hCRay
+  exact Contour.fourier_sixPieceComponent (by norm_num) .minus hL hR hC hRay hLR hRL hCRay hRayC
+
+/-- The dimension-24 `+1` eigenfunction identity is glue over the characteristic equation and
+the contour Fourier identity. -/
+theorem fourier_magicPlus :
+    𝓕 (magicPlus : 𝓢(V 24, ℂ)) = (magicPlus : 𝓢(V 24, ℂ)) := by
+  have hchar : ((magicPlus : 𝓢(V 24, ℂ)) : V 24 → ℂ) =
+      Contour.sixPieceComponent 12 plusKernelLeft plusKernelRight plusKernelCentral
+        plusKernelRay := by
+    funext x
+    rw [SphereCeti.Pinned.RadialSchwartzMap.coe_coe]
+    exact magicPlus_eq_sixPieceComponent x
+  ext ξ
+  calc (𝓕 (magicPlus : 𝓢(V 24, ℂ))) ξ
+      = 𝓕 ((magicPlus : 𝓢(V 24, ℂ)) : V 24 → ℂ) ξ :=
+        congrFun (SchwartzMap.fourier_coe _) ξ
+    _ = (fun ξ' : V 24 => (MagicFunction.FourierSign.plus).scalar *
+          Contour.sixPieceComponent 12 plusKernelLeft plusKernelRight plusKernelCentral
+            plusKernelRay ξ') ξ := by rw [hchar, fourier_sixPiece_plus]
+    _ = (magicPlus : 𝓢(V 24, ℂ)) ξ := by
+        simp only [MagicFunction.FourierSign.scalar_plus, one_mul, ← hchar]
+
+/-- The dimension-24 `-1` eigenfunction identity, by the same glue. -/
 theorem fourier_magicMinus :
     𝓕 (magicMinus : 𝓢(V 24, ℂ)) = -(magicMinus : 𝓢(V 24, ℂ)) := by
-  sorry
+  have hchar : ((magicMinus : 𝓢(V 24, ℂ)) : V 24 → ℂ) =
+      Contour.sixPieceComponent 12 minusKernelLeft minusKernelRight minusKernelCentral
+        minusKernelRay := by
+    funext x
+    rw [SphereCeti.Pinned.RadialSchwartzMap.coe_coe]
+    exact magicMinus_eq_sixPieceComponent x
+  ext ξ
+  calc (𝓕 (magicMinus : 𝓢(V 24, ℂ))) ξ
+      = 𝓕 ((magicMinus : 𝓢(V 24, ℂ)) : V 24 → ℂ) ξ :=
+        congrFun (SchwartzMap.fourier_coe _) ξ
+    _ = (fun ξ' : V 24 => (MagicFunction.FourierSign.minus).scalar *
+          Contour.sixPieceComponent 12 minusKernelLeft minusKernelRight minusKernelCentral
+            minusKernelRay ξ') ξ := by rw [hchar, fourier_sixPiece_minus]
+    _ = (-(magicMinus : 𝓢(V 24, ℂ))) ξ := by
+        simp only [MagicFunction.FourierSign.scalar_minus, neg_one_mul, ← hchar, neg_apply]
 
 /-- The dimension-24 norm-squared profile with the coefficients from the published proof. -/
 noncomputable def magicProfile : 𝓢(ℝ, ℂ) :=

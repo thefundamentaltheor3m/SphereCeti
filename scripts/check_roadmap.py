@@ -110,12 +110,22 @@ for declaration in (
     "perm_leftLegs_eq_smul_rightLegs",
     "fourier_leftComponent",
     "fourier_centralComponent",
+    "fourier_reverse",
     "fourier_sixPieceComponent",
-    "magicPlus_eq_sixPieceComponent",
-    "magicMinus_eq_sixPieceComponent",
     "horizontal_add_vertical_eq_vertical_of_tendsto_top",
 ):
     require(declaration in suggested, f"missing roadmap declaration boundary: {declaration}")
+
+# The characteristic equations and applied contour Fourier identities must exist in both the E8
+# and the Leech namespaces: at least one statement plus one use per dimension.
+for declaration in (
+    "magicPlus_eq_sixPieceComponent",
+    "magicMinus_eq_sixPieceComponent",
+    "fourier_sixPiece_plus",
+    "fourier_sixPiece_minus",
+):
+    require(suggested.count(declaration) >= 4,
+            f"declaration boundary not present in both dimensions: {declaration}")
 
 upstream = (ROOT / "UPSTREAM.md").read_text()
 for heading in (
