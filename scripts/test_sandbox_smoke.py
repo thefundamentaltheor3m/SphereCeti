@@ -27,7 +27,7 @@ name = "SphereCetiRoadmap"
 ''')
     (candidate / 'lake-manifest.json').write_text('{"version":"1.2.0","packagesDir":".lake/packages","packages":[],"name":"sandbox_smoke","lakeDir":".lake"}\n')
     (candidate / 'SphereCeti.lean').write_text('''-- A build-time fixture, not roadmap mathematics.
-#eval do
+#eval show IO Unit from do
   let token ← IO.getEnv "GH_TOKEN"
   if token.isSome then throw (IO.userError "credential entered sandbox")
   IO.FS.writeFile ".lake/lean-ran" "sandboxed"
