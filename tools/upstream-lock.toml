@@ -18,11 +18,11 @@ name = "trusted-build"
 repository = "TauCetiProject/TauCeti"
 commit = "b743b607ce3e9742b18026ad79082e5d15badff5"
 source_paths = [".github/workflows/pr-build.yml", "scripts/sandbox-build.sh", "scripts/attest-pr-config.sh", "scripts/test_attest_pr_config.py", "scripts/test_bwrap_pin.py", "LICENSE"]
-destination_paths = [".github/workflows/pr-build.yml", "scripts", "tests", "tools/project/sphereceti/gate.py", "tools/project/sphereceti/sandbox.py", "tools/ci/bubblewrap.json", "LICENSE"]
+destination_paths = [".github/workflows/pr-build.yml", "scripts", "tests", "tools/project/sphereceti/gate.py", "tools/project/sphereceti/sandbox.py", "tools/ci/bubblewrap.json", "tools/ci/elan.json", "LICENSE"]
 state = "design-adapted"
 license = "Apache-2.0"
 license_status = "recorded"
-adaptation = "I03: retain the bubblewrap pin, isolation probes, and adapted config-attestation shell/tests; use immutable Git trees, approved config only, a separate status job, and the rc1 graph. See docs/infrastructure/trusted-build.md for modifications and license credit."
+adaptation = "I03: retain the Elan/bubblewrap pins, isolation probes, and adapted config-attestation shell/tests; use immutable Git trees, approved config only, a separate status job, and the rc1 graph. See docs/infrastructure/trusted-build.md for modifications and license credit."
 
 [[components]]
 name = "compiled-audits"

@@ -57,15 +57,8 @@ jobs:
           bash gate/scripts/attest-pr-config.sh gate candidate "$HEAD_SHA" pull_request_target 1 0
 
       # These host commands execute only T and its attested dependencies, never candidate code.
-      - name: Install approved Lean and dependency cache
-        uses: leanprover/lean-action@50fcf42d2e460296f1a34b402e990d1b24f8b596 # v1
-        with:
-          lake-package-directory: gate
-          build: false
-          test: false
-          lint: false
-          use-mathlib-cache: true
-          use-github-cache: false
+      - name: Install approved Elan, Lean, and Mathlib cache
+        run: bash gate/scripts/install_lean.sh
 
       - name: Warm approved dependencies
         working-directory: gate

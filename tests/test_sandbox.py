@@ -64,6 +64,9 @@ class SandboxTest(unittest.TestCase):
         self.assertEqual(lines[1], 'sandbox | ::error::forged')
 
     def test_pin_is_complete_and_mismatch_rejects_execution(self):
+        elan = json.loads((ROOT / 'tools/ci/elan.json').read_text())
+        self.assertEqual(elan['version'], 'v4.2.3')
+        self.assertRegex(elan['archive_sha256'], r'^[0-9a-f]{64}$')
         pin = json.loads((ROOT / 'tools/ci/bubblewrap.json').read_text())
         for key in ('deb_sha256', 'binary_sha256'):
             self.assertRegex(pin[key], r'^[0-9a-f]{64}$')

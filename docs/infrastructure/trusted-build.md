@@ -65,6 +65,9 @@ In particular, do not require `trusted-scope` for all human infrastructure PRs.
 
 ## Sandbox boundary
 
+Host bootstrap uses TauCeti's exact Elan release archive and SHA-256 from
+[`elan.json`](../../tools/ci/elan.json), then installs the approved `lean-toolchain` and
+restores Mathlib's cache. It does not fetch an installer from a moving branch.
 The launcher verifies the exact Ubuntu 24.04 bubblewrap package/binary pin recorded in
 [`bubblewrap.json`](../../tools/ci/bubblewrap.json). The installer grants user namespaces to
 that binary through its AppArmor profile. Namespace creation is mandatory, with no fallback
