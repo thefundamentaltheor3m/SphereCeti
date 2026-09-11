@@ -1,0 +1,64 @@
+# Project CLI and configuration
+
+The `sphereceti` command is the project adapter for the TauCeti infrastructure described and
+credited in the [plan](../../INFRASTRUCTURE-PLAN.md). I02 implements diagnostics only. Review,
+worker, posting, reporting, and merge commands arrive in separate PRs.
+
+From this checkout:
+
+```bash
+uv sync --locked
+uv run --locked sphereceti doctor --offline
+uv run --locked sphereceti status --json
+```
+
+After this PR lands, an installation independent of the checkout uses:
+
+```bash
+uv tool install git+https://github.com/thefundamentaltheor3m/SphereCeti
+sphereceti doctor
+sphereceti status --json
+```
+
+Without `--offline`, both commands read the canonical repository's open PR queue through `gh`.
+They never post, create branches, spend provider credits, or change repository settings.
+A failed query exits 1 and reports `queue.state = error` with `pull_requests = null`.
+An offline run reports `not_checked`, also with a null list. A confirmed empty queue alone
+has `state = available` and an empty list. JSON reports have schema version 1.
+
+`doctor` additionally locates git, gh, Lean, and Lake; a missing executable exits 1. Exit 0
+means diagnostics succeeded, not that automation is ready. App installation, required checks,
+branch protections, and the production adapter are explicitly unverified. I11 supplies
+activation diagnostics. The current scaffold has no approved roadmap; PR #1 is not silently
+used as specification, and all operational capabilities report unimplemented and disabled.
+
+The installed package includes three resources:
+
+| File | Role |
+|---|---|
+| `sphereceti.toml` | Canonical identity, mathematical destination, source paths, dependency pins, state branch names |
+| `policy/automation.toml` | Repository-owned operational switches and acceptance inputs |
+| `tools/upstream-lock.toml` | Exact upstream source revisions/paths, adaptation status, reuse terms |
+
+The CLI loads these from its installed package, or from its own source tree during development.
+It does not discover policy in the caller's working directory. Installing code from an
+unreviewed branch does not establish trust: I03 supplies approved tooling selection for
+server checks. The configuration digest is diagnostic provenance, not a review approval.
+
+`--operator-config PATH` accepts only these preferences:
+
+```toml
+provider = "none"
+budget_usd = 0
+storage = "~/.local/state/sphereceti"
+```
+
+Preferences cannot change repository identity, source selection, authorization, or automation
+switches. They are validated/reported, but I02 does not invoke a provider or create storage.
+Unknown fields, floating source commits, traversal paths, and unsupported schema versions fail.
+A source-lock component cannot move from planned to adapted/imported while its reuse terms
+remain unresolved. Planned Worker/Data entries therefore remain inactive.
+
+The wheel bundles the same project resources as the source installation. CI builds and installs
+both distributions into separate temporary environments and tests them from a foreign directory
+containing an untrusted `sphereceti.toml` and policy file.

@@ -119,3 +119,21 @@ jobs:
           else
             echo "::notice::The build restored $count Tau Ceti artifact archive(s)"
           fi
+
+  python-package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install packaging tools
+        run: |
+          python3 -m venv .venv
+          .venv/bin/pip install uv==0.10.4
+
+      - name: Check lock and build distributions
+        run: |
+          .venv/bin/uv lock --check
+          .venv/bin/uv build
+
+      - name: Test fresh wheel and source installations
+        run: python3 scripts/test_package.py

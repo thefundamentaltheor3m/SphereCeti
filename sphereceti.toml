@@ -1,0 +1,24 @@
+schema_version = 1
+
+[project]
+repository = "thefundamentaltheor3m/SphereCeti"
+default_branch = "main"
+implementation_repository = "thefundamentaltheor3m/Sphere-Packing-Lean"
+phase = "scaffold"
+
+[sources]
+library_root = "SphereCeti"
+roadmap_root = "SphereCetiRoadmap"
+roadmap_document = "README.md"
+roadmap_targets = "SphereCetiRoadmap/Suggested.lean"
+roadmap_approved = false
+
+[dependencies]
+lean = "leanprover/lean4:v4.34.0-rc1"
+tauceti = "8671bee98125933c56b9b00a08ded873b77dd23b"
+mathlib = "618f225e1ff4a6b2790a944e01b806b7c68bdc56"
+sphere_packing_semantics = "bad3de916074748eb88b7d1ee6dbf9494361ad17"
+
+[state]
+reviews_branch = "reviews"
+archive_branch = "review-data"
