@@ -94,7 +94,10 @@ def path_class(path: str) -> str:
 def evaluate(repo: Path, tooling: str, base: str, head: str) -> dict:
     for revision in (tooling, base, head):
         exact_commit(repo, revision)
-    merge_base = git(repo, 'merge-base', base, head).decode().strip()
+    bases = git(repo, 'merge-base', '--all', base, head).decode().splitlines()
+    if len(bases) != 1 or not SHA.fullmatch(bases[0]):
+        raise GateError('candidate needs one unambiguous merge base')
+    merge_base = bases[0]
     approved, ancestor, candidate = tree(repo, tooling), tree(repo, merge_base), tree(repo, head)
     project = parse_project(blob(repo, approved['sphereceti.toml']).decode())
     policy = parse_policy(blob(repo, approved['policy/automation.toml']).decode())

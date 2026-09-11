@@ -153,3 +153,16 @@ class TrustedGateTest(unittest.TestCase):
         report = evaluate(self.repo, tooling, tooling, head)
         self.assertEqual(report['diff_base'], self.base)
         self.assertFalse(report['config_attested'])
+
+    def test_multiple_merge_bases_fail_closed(self):
+        tree_oid = git(self.repo, 'rev-parse', self.base + '^{tree}').decode().strip()
+        def node(message, *parents):
+            args = ['-c', 'user.name=Test', '-c', 'user.email=test@example.com',
+                    'commit-tree', tree_oid, '-m', message]
+            for parent in parents:
+                args.extend(['-p', parent])
+            return git(self.repo, *args).decode().strip()
+        a, b = node('A', self.base), node('B', self.base)
+        left, right = node('left', a, b), node('right', b, a)
+        with self.assertRaisesRegex(GateError, 'unambiguous merge base'):
+            evaluate(self.repo, self.base, left, right)
