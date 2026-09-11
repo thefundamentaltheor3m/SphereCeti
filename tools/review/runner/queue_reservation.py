@@ -20,6 +20,11 @@ must fail closed rather than enqueue into a queue whose state it does not know.
 
 Env: GH_TOKEN, REPO (owner/name), optional DRY_RUN=1, MAX_HOLD_HOURS, RESERVATION_ACTOR.
 """
+
+# SphereCeti: imported launcher is inactive (see ../README.md).
+if __name__ == "__main__":
+    raise SystemExit("SphereCeti I05 imports this engine inactive; "
+                     "use the project CLI when its adapter is approved.")
 import argparse
 import datetime
 import sys

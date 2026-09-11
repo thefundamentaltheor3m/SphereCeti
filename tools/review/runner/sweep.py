@@ -36,6 +36,11 @@ uses, so the sweep can never enqueue something the normal gate would refuse.
 Env: GH_TOKEN (contents+pull-requests write), REPO (owner/name), optional DRY_RUN=1, EVICT_ESCALATE,
 MERGE_PREFIX.
 """
+
+# SphereCeti: imported launcher is inactive (see ../README.md).
+if __name__ == "__main__":
+    raise SystemExit("SphereCeti I05 imports this engine inactive; "
+                     "use the project CLI when its adapter is approved.")
 import datetime
 import json
 import os
@@ -62,7 +67,7 @@ MAX_HOLD = datetime.timedelta(hours=int(os.environ.get("MAX_HOLD_HOURS", "3")))
 # chronically-failing bump would otherwise reserve, fail, update, and reserve again without limit.
 MAX_RESERVATIONS = int(os.environ.get("MAX_RESERVATIONS", "3"))
 # Login of the App this runner acts as; queue removals BY it are reservation cleanup, not evictions.
-RESERVATION_ACTOR = os.environ.get("RESERVATION_ACTOR", "tauceti-review-bot")
+RESERVATION_ACTOR = os.environ.get("RESERVATION_ACTOR", "")  # SphereCeti: no default actor.
 LAPSED_LABEL = "queue-lapsed"
 EXHAUSTED_LABEL = "queue-exhausted"
 KEEP_LABELS = {"keep", "hold", "wip", "human", "do-not-close"}

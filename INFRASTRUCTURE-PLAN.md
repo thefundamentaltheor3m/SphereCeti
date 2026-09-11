@@ -114,7 +114,7 @@ Worker modes or duplicate mathematical roadmap are needed.
 
 ## Validation and activation
 
-Self-review each focused change. Test a combined checkout before claiming sibling integration:
+Self-review each focused change. Test a combined checkout against the complete stack:
 complete installed CLI/resources, real roadmap admissions, shared archive/Worker/shadow behavior,
 and the compiled build/audit pipeline. Keep integration fixes visible in their owning PRs.
 

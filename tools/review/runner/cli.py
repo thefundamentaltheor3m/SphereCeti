@@ -21,6 +21,11 @@ Prerequisites on PATH and logged in: `git`, `gh` (`gh auth login`), `claude` (Cl
 subscription) and/or `codex` (ChatGPT subscription). Each rubric is judged by whichever of the
 two you have available.
 """
+
+# SphereCeti: imported launcher is inactive (see ../README.md).
+if __name__ == "__main__":
+    raise SystemExit("SphereCeti I05 imports this engine inactive; "
+                     "use the project CLI when its adapter is approved.")
 import argparse
 import atexit
 import json
@@ -42,8 +47,8 @@ import uuid
 PROVIDER_DOWN_EXIT = 3
 
 REVIEW_REPO = "TauCetiProject/TauCetiReview"
-DEFAULT_CODE_REPO = "TauCetiProject/TauCeti"
-DEFAULT_ROADMAP_REPO = "TauCetiProject/TauCetiRoadmap"
+DEFAULT_CODE_REPO = ""  # SphereCeti: caller must supply project identity.
+DEFAULT_ROADMAP_REPO = ""  # SphereCeti evidence adapter is deferred to I06.
 CACHE_DIR = pathlib.Path(
     os.environ.get("XDG_CACHE_HOME", os.path.expanduser("~/.cache"))) / "tauceti-review"
 
@@ -106,7 +111,7 @@ def stage_tree(src, dst, *, ignore_extra=()):
 def resolve_repo_dir(explicit):
     """Locate a TauCetiReview checkout providing rubrics/ and runner/ — engine and rubrics
     together, so they never drift. Order: --repo-dir, $TAUCETI_REVIEW_DIR, this source tree if it
-    is a checkout, else a cached shallow clone refreshed each run."""
+    is a checkout; otherwise fail (SphereCeti has no mutable fallback)."""
     def ok(p):
         p = pathlib.Path(p)
         return (p / "rubrics").is_dir() and (p / "runner" / "review.py").is_file()
@@ -116,17 +121,8 @@ def resolve_repo_dir(explicit):
         if cand and ok(cand):
             return pathlib.Path(cand).resolve()
 
-    clone = CACHE_DIR / "TauCetiReview"
-    CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    if (clone / ".git").is_dir():
-        run(["git", "-C", str(clone), "fetch", "-q", "--depth", "1", "origin", "main"], quiet=True)
-        run(["git", "-C", str(clone), "reset", "-q", "--hard", "origin/main"], quiet=True)
-    else:
-        run(["git", "clone", "-q", "--depth", "1",
-             f"https://github.com/{REVIEW_REPO}", str(clone)])
-    if not ok(clone):
-        die(f"cached clone at {clone} is missing rubrics/ or runner/review.py")
-    return clone
+    # SphereCeti: missing pinned resources must never fetch upstream main.
+    die("pinned engine/rubric source is missing; no mutable fallback is permitted")
 
 
 def engine_at(sha):
@@ -401,11 +397,13 @@ def coordinate(repo, pr, head, avail, submitted_by):
 
 
 def main():
+    # SphereCeti: no workspace, provider, posting, or sync entry point in I05.
+    raise SystemExit("SphereCeti review adapter is not enabled")
     ap = argparse.ArgumentParser(
         prog="tauceti-review",
         description="Run the Tau Ceti AI review on a PR using your own claude/codex subscription.")
     ap.add_argument("pr", help="PR number to review")
-    ap.add_argument("--repo", default=DEFAULT_CODE_REPO, help="code repo (owner/name)")
+    ap.add_argument("--repo", required=True, help="code repo (owner/name)")
     ap.add_argument("--roadmap-repo", default=DEFAULT_ROADMAP_REPO)
     ap.add_argument("--rubrics", default="", help="comma-separated subset (default: all)")
     ap.add_argument("--mode", default="commit", choices=["commit", "manual"],

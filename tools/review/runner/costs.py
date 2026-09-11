@@ -41,7 +41,13 @@ Usage (installed as the ``tauceti-review-costs`` console script, or
     tauceti-review-costs report [--window day|week] [--csv FILE]
     tauceti-review-costs graph [--out FILE]   # dependency-free SVG
 """
+
 from __future__ import annotations
+
+# SphereCeti: imported launcher is inactive (see ../README.md).
+if __name__ == "__main__":
+    raise SystemExit("SphereCeti I05 imports this engine inactive; "
+                     "use the project CLI when its adapter is approved.")
 
 import argparse
 import json

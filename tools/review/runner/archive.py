@@ -16,6 +16,11 @@ is stored once and a later move to LFS/release assets is a file move, not a sche
 Usage as a library: archive_run / archive_round / archive_post.
 Usage as a command:  python3 archive.py sync --store <store> --data-dir <checkout> [--remote URL]
 """
+
+# SphereCeti: imported launcher is inactive (see ../README.md).
+if __name__ == "__main__":
+    raise SystemExit("SphereCeti I05 imports this engine inactive; "
+                     "use the project CLI when its adapter is approved.")
 import argparse
 import gzip
 import hashlib
@@ -27,7 +32,7 @@ import shutil
 import subprocess
 import sys
 
-DATA_REPO = "TauCetiProject/TauCetiData"
+DATA_REPO = ""  # SphereCeti: no configured archive publishing destination.
 
 # Conservative scrubbing for blob text that may quote tool/CLI output: known credential shapes
 # and home paths. Records themselves never carry these fields, so this is defense in depth.
@@ -202,6 +207,8 @@ def sync(outbox, data_dir, remote="", retries=5):
     local commits onto it. The outbox is the source of truth and records are write-if-absent, so
     the push is always a fast-forward and a transient conflict or a crash mid-operation can never
     wedge the checkout. Returns the number of files landed."""
+    # SphereCeti: archive publishing is outside this inactive import.
+    raise RuntimeError("SphereCeti archive publishing is disabled")
     outbox = pathlib.Path(outbox)
     data_dir = pathlib.Path(data_dir)
     url = remote or f"https://github.com/{DATA_REPO}"
@@ -237,8 +244,8 @@ def sync(outbox, data_dir, remote="", retries=5):
         if not _git(["status", "--porcelain"], data_dir).stdout.strip():
             _drain(outbox, copied)  # everything already upstream
             return 0
-        _git(["-c", "user.name=tauceti-archive", "-c",
-              "user.email=tauceti-archive@users.noreply.github.com",
+        _git(["-c", "user.name=sphereceti-archive", "-c",
+              "user.email=sphereceti-archive@users.noreply.github.com",
               "commit", "-q", "-m", f"archive: {len(copied)} file(s) from outbox"], data_dir)
         push = _git(["push", "-q", "origin", "HEAD:main"], data_dir, check=False)
         if push.returncode == 0:

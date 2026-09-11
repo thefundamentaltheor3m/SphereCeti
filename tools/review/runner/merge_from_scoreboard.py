@@ -19,6 +19,11 @@ table (one row per rubric; the 3rd cell is the state word). Writes `merge.json` 
     merge_from_scoreboard.py --pr 183 --head-sha <sha> --comments-file comments.json \
         --diff-file diff.txt --ci-build SUCCESS --bump-guard SUCCESS --merge-decision-file merge.json
 """
+
+# SphereCeti: imported launcher is inactive (see ../README.md).
+if __name__ == "__main__":
+    raise SystemExit("SphereCeti I05 imports this engine inactive; "
+                     "use the project CLI when its adapter is approved.")
 import argparse
 import json
 import pathlib
@@ -213,7 +218,7 @@ def resolve_commit_status(repo, head_sha, context):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--repo", default="TauCetiProject/TauCeti")
+    ap.add_argument("--repo", required=True)  # SphereCeti: no upstream write target.
     ap.add_argument("--pr", required=True)
     ap.add_argument("--head-sha", required=True)
     ap.add_argument("--comments-file", required=True, help="JSON array of the PR's issue comments")

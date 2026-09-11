@@ -39,12 +39,12 @@ adaptation = "I04: rc1 private-level imports, complete module ownership, exact a
 name = "review"
 repository = "TauCetiProject/TauCetiReview"
 commit = "afb424eda89e8ac96d9eb69f6a88972055a4cd1b"
-source_paths = ["runner", "rubrics", "tests", "LICENSE"]
+source_paths = ["runner", "rubrics", "tests", "LICENSE", "README.md", "REVIEWING.md", "SECURITY.md", "pyproject.toml", ".github/workflows/merge-only.yml", ".github/workflows/merge-sweep.yml", ".github/workflows/review.yml"]
 destination_paths = ["tools/review"]
-state = "planned"
+state = "imported"
 license = "Apache-2.0"
 license_status = "recorded"
-adaptation = "I05-I07: retain engine and rubrics; adapt source locations and authenticate merge-eligible reviewers."
+adaptation = "I05: copy engine, ten ordered rubrics, references, tests, and license; disable launchers/archive sync, require explicit repository identity, remove bot fallback and mutable engine fallback. Exact per-file mapping: tools/review/import-manifest.json; local changes: tools/review/README.md. I06/I07 supply the adapter and authenticated records."
 
 [[components]]
 name = "worker"

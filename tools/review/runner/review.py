@@ -9,6 +9,11 @@ run stay deferred until the block clears. With `--auto-subset`, a re-review runs
 rubrics whose last round was not `approve`. The workflow commits the store after the run.
 """
 
+# SphereCeti: imported launcher is inactive (see ../README.md).
+if __name__ == "__main__":
+    raise SystemExit("SphereCeti I05 imports this engine inactive; "
+                     "use the project CLI when its adapter is approved.")
+
 import argparse, datetime, hashlib, json, os, pathlib, random, re, secrets, sys, time
 
 import archive
@@ -558,7 +563,7 @@ def run_rubric(ctx, rubric):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--repo", default="TauCetiProject/TauCeti")
+    ap.add_argument("--repo", required=True)  # SphereCeti: no upstream write target.
     ap.add_argument("--pr", required=True)
     ap.add_argument("--rubrics", default=",".join(DEFAULT_RUBRICS))
     ap.add_argument("--rubrics-dir", required=True)

@@ -19,6 +19,11 @@ sidecar (records/posts/). A required thread failure withholds the scoreboard and
 scoreboard failure leaves the write-ahead markers pending and also exits nonzero. Thus a visible
 current-head scoreboard never names a blocker that lacks its contestable inline thread.
 """
+
+# SphereCeti: imported launcher is inactive (see ../README.md).
+if __name__ == "__main__":
+    raise SystemExit("SphereCeti I05 imports this engine inactive; "
+                     "use the project CLI when its adapter is approved.")
 import argparse, datetime, hashlib, json, os, pathlib, re, subprocess, sys
 
 import archive
@@ -206,7 +211,7 @@ def gh_api(method, endpoint, fields=None, body_file=None, failures=None, action=
 
 
 SCOREBOARD_MARKER = "<!--tauceti-scoreboard-->"
-REVIEW_BOT = "tauceti-review-bot[bot]"
+REVIEW_BOT = ""  # SphereCeti: no authorized App identity in I05.
 
 
 def current_login():
@@ -215,7 +220,10 @@ def current_login():
     write-scoped token never overwrites or removes a comment belonging to someone else."""
     r = subprocess.run(["gh", "api", "user", "--jq", ".login"], text=True, capture_output=True)
     login = (r.stdout or "").strip()
-    return login if (r.returncode == 0 and login) else REVIEW_BOT
+    if r.returncode != 0 or not login:
+        # SphereCeti: App authentication belongs to I07; never impersonate an upstream bot.
+        raise RuntimeError("cannot authenticate the publishing identity")
+    return login
 
 
 def find_scoreboard_comments(repo, pr):
