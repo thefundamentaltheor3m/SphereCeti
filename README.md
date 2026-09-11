@@ -1,5 +1,32 @@
 # SphereCeti
 
+SphereCeti is preparing a roadmap and target-signature package for sphere packing in dimensions
+8 and 24. The mathematical roadmap is being reviewed in
+[PR #1](https://github.com/thefundamentaltheor3m/SphereCeti/pull/1); substantive proofs remain in
+[Sphere-Packing-Lean](https://github.com/thefundamentaltheor3m/Sphere-Packing-Lean).
+
+**Our infrastructure adapts the work of the TauCeti contributors:**
+[TauCeti](https://github.com/TauCetiProject/TauCeti),
+[TauCetiRoadmap](https://github.com/TauCetiProject/TauCetiRoadmap),
+[TauCetiReview](https://github.com/TauCetiProject/TauCetiReview),
+[TauCetiWorker](https://github.com/kim-em/TauCetiWorker),
+[TauCetiProgress](https://github.com/TauCetiProject/TauCetiProgress), and
+[TauCetiData](https://github.com/TauCetiProject/TauCetiData).
+The [infrastructure plan](INFRASTRUCTURE-PLAN.md) records their roles, exact candidate source
+snapshots, and the focused PR sequence. Imports retain source attribution and applicable licenses.
+
+## Build boundaries
+
+```bash
+lake env python3 scripts/check_modules.py
+lake build
+```
+
+The default build checks both `SphereCeti` (the admission-free scaffold/adapters) and
+`SphereCetiRoadmap` (currently an empty target aggregator). This separation does not change the
+production proof home. See [module boundaries](docs/infrastructure/module-boundaries.md) for
+the source inventory, tests, limitations, and the integration steps for PR #1.
+
 ## GitHub configuration
 
 To set up your new GitHub repository, follow these steps:
