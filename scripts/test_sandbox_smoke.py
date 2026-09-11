@@ -38,7 +38,10 @@ name = "SphereCetiRoadmap"
     (candidate / 'scripts/sandbox-build.sh').write_text('exit 91\n')
     box = Sandbox(ROOT, candidate, args.toolchain)
     os.environ['GH_TOKEN'] = 'sandbox-smoke-host-secret'
-    result = box.build()
+    box.probe()
+    # This dependency-free fixture tests isolation. The full repository smoke below runs
+    # the approved build script and I04 audits with the actual pinned dependency graph.
+    result = box.run(['/toolchain/bin/lake', 'build', 'SphereCeti', 'SphereCetiRoadmap'])
     emit_candidate_output(result.stdout + result.stderr)
     assert result.returncode == 0, f'hosted sandbox build failed: {result.returncode}'
     assert (candidate / '.lake/lean-ran').read_text() == 'sandboxed'

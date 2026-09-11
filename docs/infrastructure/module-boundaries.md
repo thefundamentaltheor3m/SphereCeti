@@ -38,8 +38,8 @@ The tests create disposable source projects and exercise the real Lean header re
 
 This check does not elaborate proofs, audit axioms, or create a security sandbox.
 The ordinary CI tests the candidate checker. [#6](trusted-build.md) adds trusted tooling and
-isolation; #8 adds compiled axiom/module audits and builds of the complete inventory. A green
-#4 build therefore makes no claim about those later checks.
+isolation; [#8](compiled-audits.md) adds compiled axiom/module audits, lint, and builds of the
+complete inventory. Run `lake env python3 -I scripts/check_audits.py` for that combined gate.
 
 The scaffold library remains an admission-free dependency smoke check and adapter boundary.
 Substantive mathematical implementations still belong in Sphere-Packing-Lean, TauCeti, or
