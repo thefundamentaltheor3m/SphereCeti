@@ -17,6 +17,16 @@ for mirror in archive.ubuntu.com security.ubuntu.com; do
     break
   fi
 done
+# Hosted Ubuntu runners may route APT through a local mirror while public TLS endpoints
+# are unavailable. APT still requests the exact version; the hard-coded digest below
+# authenticates the bytes independently of the mirror and transport.
+if [ "$downloaded" != 1 ]; then
+  if (cd "$download" && timeout 120 apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 \
+      -o Acquire::https::Timeout=30 download "bubblewrap=${pin[0]}"); then
+    mv "$download/$deb" "$download/bwrap.deb"
+    downloaded=1
+  fi
+fi
 [ "$downloaded" = 1 ] || { echo 'Pinned bubblewrap unavailable; refusing candidate execution' >&2; exit 1; }
 printf '%s  %s\n' "${pin[1]}" "$download/bwrap.deb" | sha256sum -c -
 sudo dpkg -i "$download/bwrap.deb"
