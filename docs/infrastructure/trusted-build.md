@@ -109,8 +109,12 @@ startup/probes/pin validation.
 CI on Ubuntu 24.04 also installs the exact binary and runs
 `python3 -I scripts/test_sandbox_smoke.py --toolchain "$(lean --print-prefix)"`.
 This mandatory positive smoke performs the real probes and builds disposable Lean fixtures
-using T's script despite a failing candidate helper. It does not silently skip unsupported
-hosts. Locally, a pin mismatch or unavailable network/user namespace is a failed sandbox
+using T's script despite a failing candidate helper and a host credential canary.
+CI then runs `scripts/test_trusted_build_smoke.py`, which exercises the complete checkout
+through raw materialization, configuration attestation, dependency staging, and the sandbox.
+That CI-only script consumes the checkout's dependency cache after the ordinary build;
+it tests proposed tools without posting authoritative statuses. Neither smoke silently skips
+unsupported hosts. Locally, a pin mismatch or unavailable network/user namespace is a failed sandbox
 prerequisite; do not bypass it to run candidate code on the host.
 
 `trusted_gate.py` and `run_sandbox.py` are internal entrypoints requiring explicitly selected

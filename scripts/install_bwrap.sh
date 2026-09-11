@@ -9,8 +9,15 @@ mapfile -t pin < <(python3 -I -c 'import json,sys; p=json.load(open(sys.argv[1])
 download=$(mktemp -d)
 trap 'rm -rf "$download"' EXIT
 deb="bubblewrap_${pin[0]}_amd64.deb"
-curl --fail --location --silent --show-error \
-  "https://archive.ubuntu.com/ubuntu/pool/main/b/bubblewrap/$deb" -o "$download/bwrap.deb"
+downloaded=0
+for mirror in archive.ubuntu.com security.ubuntu.com; do
+  if curl --fail --location --silent --show-error --connect-timeout 15 --max-time 60 \
+      "https://$mirror/ubuntu/pool/main/b/bubblewrap/$deb" -o "$download/bwrap.deb"; then
+    downloaded=1
+    break
+  fi
+done
+[ "$downloaded" = 1 ] || { echo 'Pinned bubblewrap unavailable; refusing candidate execution' >&2; exit 1; }
 printf '%s  %s\n' "${pin[1]}" "$download/bwrap.deb" | sha256sum -c -
 sudo dpkg -i "$download/bwrap.deb"
 printf '%s  /usr/bin/bwrap\n' "${pin[2]}" | sha256sum -c -

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Required hosted positive sandbox test; never silently skips unavailable isolation."""
 import argparse
+import os
 from pathlib import Path
 import sys
 import tempfile
@@ -36,6 +37,7 @@ name = "SphereCetiRoadmap"
     (candidate / 'scripts').mkdir()
     (candidate / 'scripts/sandbox-build.sh').write_text('exit 91\n')
     box = Sandbox(ROOT, candidate, args.toolchain)
+    os.environ['GH_TOKEN'] = 'sandbox-smoke-host-secret'
     result = box.build()
     emit_candidate_output(result.stdout + result.stderr)
     assert result.returncode == 0, f'hosted sandbox build failed: {result.returncode}'
