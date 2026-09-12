@@ -100,6 +100,8 @@ def run(section_file, channel=None, topic=None, roadmap_parent="TauCetiRoadmap",
     Raises on a transient failure rather than swallowing it, so the workflow run goes red and a
     retry is meaningful. The dedup check above is what makes that retry safe.
     """
+    # SphereCeti: retain upstream logic below for source review; this entry is inactive.
+    raise RuntimeError('SphereCeti: inactive Progress source import; the project reporting adapter is not installed')
     channel = channel or zulip.DEFAULT_CHANNEL
     topic = topic or zulip.DEFAULT_TOPIC
 

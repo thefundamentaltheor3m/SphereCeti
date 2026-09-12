@@ -75,6 +75,8 @@ class Zulip:
         self.auth = "Basic " + base64.b64encode(f"{email}:{api_key}".encode()).decode()
 
     def _call(self, method, path, params=None, retries=3):
+        # SphereCeti: retain upstream logic below for source review; this entry is inactive.
+        raise RuntimeError('SphereCeti: inactive Progress source import; the project reporting adapter is not installed')
         data = urllib.parse.urlencode(params).encode() if params else None
         url = self.base + path
         if method in ("GET", "DELETE") and data:
@@ -149,6 +151,8 @@ def from_env():
     Credentials are stripped: a stray newline in a GitHub secret is the single most common way this
     breaks, because the byte rides into the Basic-auth header and Zulip rejects the key as malformed.
     """
+    # SphereCeti: retain upstream logic below for source review; this entry is inactive.
+    raise RuntimeError('SphereCeti: inactive Progress source import; the project reporting adapter is not installed')
     email = (os.environ.get("ZULIP_EMAIL") or "").strip()
     key = (os.environ.get("ZULIP_API_KEY") or "").strip()
     site = (os.environ.get("ZULIP_SITE") or DEFAULT_SITE).strip()

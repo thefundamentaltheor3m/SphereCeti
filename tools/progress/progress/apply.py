@@ -88,6 +88,8 @@ def pr_body(plan, section_header, version=None):
 
 
 def _run(args, cwd, check=True):
+    # SphereCeti: retain upstream logic below for source review; this entry is inactive.
+    raise RuntimeError('SphereCeti: inactive Progress source import; the project reporting adapter is not installed')
     proc = subprocess.run(args, cwd=str(cwd), capture_output=True, text=True)
     if check and proc.returncode != 0:
         raise ApplyError(f"{' '.join(args)} failed: {proc.stderr.strip() or proc.returncode}")
@@ -229,6 +231,8 @@ def render_update(plan, status_body, section_body, old_status, old_progress):
 
 def run(plan, status_body_file, section_body_file, roadmap_dir, dry_run=False, version=None):
     """Write, commit, push and open the PR. Returns a process exit code."""
+    # SphereCeti: retain upstream logic below for source review; this entry is inactive.
+    raise RuntimeError('SphereCeti: inactive Progress source import; the project reporting adapter is not installed')
     roadmap_dir = pathlib.Path(roadmap_dir)
     branch = branch_name(plan)
 

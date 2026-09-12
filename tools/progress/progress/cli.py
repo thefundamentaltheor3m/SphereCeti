@@ -15,6 +15,10 @@ must not silently treat an error as "nothing to do" -- that would let a transien
 advance a cursor past real work.
 """
 
+# SphereCeti: refuse script/module execution before runtime imports.
+if __name__ == "__main__":
+    raise SystemExit('SphereCeti: inactive Progress source import; the project reporting adapter is not installed')
+
 import argparse
 import json
 import pathlib
@@ -49,6 +53,8 @@ def cmd_prompt(args):
 
 
 def cmd_due(args):
+    # SphereCeti: retain upstream logic below for source review; this entry is inactive.
+    raise RuntimeError('SphereCeti: inactive Progress source import; the project reporting adapter is not installed')
     from . import gh, plan
 
     commits = gh.recent_roadmap_commits(limit=args.limit)
@@ -62,6 +68,8 @@ def cmd_due(args):
 
 
 def cmd_plan(args):
+    # SphereCeti: retain upstream logic below for source review; this entry is inactive.
+    raise RuntimeError('SphereCeti: inactive Progress source import; the project reporting adapter is not installed')
     from . import plan
 
     try:
@@ -103,6 +111,8 @@ def cmd_facts(args):
 
 
 def cmd_apply(args):
+    # SphereCeti: retain upstream logic below for source review; this entry is inactive.
+    raise RuntimeError('SphereCeti: inactive Progress source import; the project reporting adapter is not installed')
     from . import apply as apply_mod
 
     p = _load_plan(args.plan)
@@ -117,6 +127,8 @@ def cmd_apply(args):
 
 
 def cmd_announce(args):
+    # SphereCeti: retain upstream logic below for source review; this entry is inactive.
+    raise RuntimeError('SphereCeti: inactive Progress source import; the project reporting adapter is not installed')
     from . import announce as announce_mod
 
     return announce_mod.run(

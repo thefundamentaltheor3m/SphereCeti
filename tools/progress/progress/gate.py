@@ -493,6 +493,8 @@ def main(argv=None):
     The workflow fetches every input with the read-only default token and hands them over as one
     file, so this process needs no credentials at all.
     """
+    # SphereCeti: retain upstream logic below for source review; this entry is inactive.
+    raise RuntimeError('SphereCeti: inactive Progress source import; the project reporting adapter is not installed')
     import argparse
     import pathlib
     import sys

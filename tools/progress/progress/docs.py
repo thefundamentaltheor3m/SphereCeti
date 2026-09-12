@@ -83,6 +83,8 @@ class Docs:
     # ----- transport -------------------------------------------------------------------------
 
     def _fetch(self, url):
+        # SphereCeti: retain upstream logic below for source review; this entry is inactive.
+        raise RuntimeError('SphereCeti: inactive Progress source import; the project reporting adapter is not installed')
         try:
             with urllib.request.urlopen(url, timeout=60) as resp:
                 return resp.read().decode("utf-8", "replace")

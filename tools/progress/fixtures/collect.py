@@ -29,6 +29,10 @@ them explicitly:
 Run as: collect.py --repo O/R --pr N --out bundle.json
 """
 
+# SphereCeti: refuse script/module execution before runtime imports.
+if __name__ == "__main__":
+    raise SystemExit('SphereCeti: inactive Progress source import; the project reporting adapter is not installed')
+
 import argparse
 import base64
 import datetime
@@ -309,6 +313,8 @@ def resolve_window(new_progress, repo=CODE_REPO, ref=CODE_REF):
 
 
 def main(argv=None):
+    # SphereCeti: retain upstream logic below for source review; this entry is inactive.
+    raise RuntimeError('SphereCeti: inactive Progress source import; the project reporting adapter is not installed')
     ap = argparse.ArgumentParser()
     ap.add_argument("--repo", required=True)
     ap.add_argument("--pr", required=True, type=int)

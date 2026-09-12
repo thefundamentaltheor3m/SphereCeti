@@ -36,6 +36,8 @@ def gh(args, retries=3):
     Every call here is a read, so a retry is always safe. This mirrors the retry helper in
     `TauCeti/scripts/roadmap_label.py`.
     """
+    # SphereCeti: retain upstream logic below for source review; this entry is inactive.
+    raise GhError('SphereCeti: inactive Progress source import; the project reporting adapter is not installed')
     last = ""
     for attempt in range(retries):
         proc = subprocess.run(["gh", *args], capture_output=True, text=True)
