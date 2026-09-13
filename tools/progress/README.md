@@ -62,21 +62,11 @@ directory, including original prompts, tests and license, and check that no comm
 The separate `Progress sources` workflow runs these checks with read-only repository permissions.
 Package tooling may download build dependencies; regression scripts do not contact external services.
 
-## How this fits the infrastructure plan
+## Review and packaging boundary
 
-The core remains `main` → #4 → #5 → #6 → #8 → #9 → #10 → #11. Review those bottom-up.
-This source import branches directly from `main` and can be reviewed and landed independently.
-It splits the previous single Progress item into source import and reporting adapter. After this
-import, nine planned infrastructure PRs remain (ten if profiling and maintenance need a split).
+Review the faithful source import separately from the reporting adaptation. Reporting #14
+combines these unchanged resources with #13's documentation evidence and bundles them from
+the same source tree in the root distribution. The standalone source-package build and
+manifest/fresh-install checks remain useful import validation. Historical launchers stay inactive.
 
-The reporting adapter will combine this source baseline with #5's CLI/policy/provenance and #8's
-compiled declaration/axiom evidence. It can branch from #8 plus this import, without depending
-on the review engine, authenticated records, workers, or merge controls. Consolidate this manifest's
-pin into #5's source ledger during that adapter. Do not activate the historical upstream CLI.
-Reporting requires approved published evidence and must distinguish roadmap targets and admitted
-declarations from completed production proofs. Report cadence and publication stay separately gated.
-
-Other sibling tracks are worker import/adapter (2 PRs, reuse terms still required), merge
-observation/controller (2), archive/evaluation (2, reuse terms still required), docs/cache (1,
-starting at #8), and profiling/maintenance (1, possibly 2, starting at #6 plus merge observation).
-These follow-ups need not delay the mathematical roadmap after the core lands.
+See [tracking issue #23](https://github.com/thefundamentaltheor3m/SphereCeti/issues/23) for review order, prerequisites and landing status. All infrastructure lands before roadmap #1.
