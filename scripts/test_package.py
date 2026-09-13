@@ -7,6 +7,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import venv
+from package_contract import assert_installation
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -40,7 +41,7 @@ def main():
             assert report['roadmap']['state'] == 'not_installed'
             assert not any(report['policy'].values())
             assert report['queue']['state'] == 'not_checked'
-            assert len(report['sources']) == 6
+            assert_installation(ROOT, python, foreign, env, report)
             assert all(not capability['enabled'] for capability in report['capabilities'].values())
             print(f'Fresh installation outside checkout: {artifact.name}: OK')
 
