@@ -36,10 +36,10 @@ classified file; it does not approximate Lean import syntax with a regular expre
 Every local import edge is checked, so indirect library-to-roadmap imports are also rejected.
 The tests create disposable source projects and exercise the real Lean header reader.
 
-This check does not elaborate proofs, audit axioms, or create a security sandbox. In I01,
-CI and the checker still come from the candidate branch. I03 introduces trusted tooling and
-isolation; I04 adds compiled axiom/module audits and builds of the complete inventory. A green
-I01 build therefore makes no claim about those later checks.
+This check does not elaborate proofs, audit axioms, or create a security sandbox. In #4,
+CI and the checker still come from the candidate branch. #6 introduces trusted tooling and
+isolation; #8 adds compiled axiom/module audits and builds of the complete inventory. A green
+#4 build therefore makes no claim about those later checks.
 
 The scaffold library remains an admission-free dependency smoke check and adapter boundary.
 Substantive mathematical implementations still belong in Sphere-Packing-Lean, TauCeti, or
