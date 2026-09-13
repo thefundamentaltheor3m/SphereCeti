@@ -1,7 +1,7 @@
 # Project CLI and configuration
 
 The `sphereceti` command is the project adapter for the TauCeti infrastructure described and
-credited in the [plan](../../INFRASTRUCTURE-PLAN.md). I02 implements diagnostics only. Review,
+credited in the [plan](../../INFRASTRUCTURE-PLAN.md). #5 implements diagnostics only. Review,
 worker, posting, reporting, and merge commands arrive in separate PRs.
 
 From this checkout:
@@ -28,7 +28,7 @@ has `state = available` and an empty list. JSON reports have schema version 1.
 
 `doctor` additionally locates git, gh, Lean, and Lake; a missing executable exits 1. Exit 0
 means diagnostics succeeded, not that automation is ready. App installation, required checks,
-branch protections, and the production adapter are explicitly unverified. I11 supplies
+branch protections, and the production adapter are explicitly unverified. #16 supplies
 activation diagnostics. The current scaffold has no approved roadmap; PR #1 is not silently
 used as specification, and all operational capabilities report unimplemented and disabled.
 
@@ -42,7 +42,7 @@ The installed package includes three resources:
 
 The CLI loads these from its installed package, or from its own source tree during development.
 It does not discover policy in the caller's working directory. Installing code from an
-unreviewed branch does not establish trust: I03 supplies approved tooling selection for
+unreviewed branch does not establish trust: #6 supplies approved tooling selection for
 server checks. The configuration digest is diagnostic provenance, not a review approval.
 
 `--operator-config PATH` accepts only these preferences:
@@ -54,7 +54,7 @@ storage = "~/.local/state/sphereceti"
 ```
 
 Preferences cannot change repository identity, source selection, authorization, or automation
-switches. They are validated/reported, but I02 does not invoke a provider or create storage.
+switches. They are validated/reported, but #5 does not invoke a provider or create storage.
 Unknown fields, floating source commits, traversal paths, and unsupported schema versions fail.
 A source-lock component cannot move from planned to adapted/imported while its reuse terms
 remain unresolved. Planned Worker/Data entries therefore remain inactive.
