@@ -72,7 +72,7 @@ def main():
             report = json.loads(result.stdout)
             assert report['project']['repository'] == 'thefundamentaltheor3m/SphereCeti'
             assert report['project']['implementation_repository'] == 'thefundamentaltheor3m/Sphere-Packing-Lean'
-            assert report['roadmap']['state'] == 'not_installed'
+            assert report['roadmap']['state'] == 'approved'
             assert not any(report['policy'].values())
             assert report['queue']['state'] == 'not_checked'
             assert_installation(ROOT, python, foreign, env, report)

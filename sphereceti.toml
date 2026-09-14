@@ -4,14 +4,14 @@ schema_version = 1
 repository = "thefundamentaltheor3m/SphereCeti"
 default_branch = "main"
 implementation_repository = "thefundamentaltheor3m/Sphere-Packing-Lean"
-phase = "scaffold"
+phase = "roadmap"
 
 [sources]
 library_root = "SphereCeti"
 roadmap_root = "SphereCetiRoadmap"
 roadmap_document = "README.md"
 roadmap_targets = "SphereCetiRoadmap/Suggested.lean"
-roadmap_approved = false
+roadmap_approved = true
 
 [dependencies]
 lean = "leanprover/lean4:v4.34.0-rc1"
