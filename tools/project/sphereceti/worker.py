@@ -231,7 +231,7 @@ def plan(snapshot, project: ProjectConfig, *, requested: tuple[int, ...] | None 
             "requested_prs": list(requested) if requested is not None else None,
             "input_digest": digest({"project": asdict(project), "survey": snapshot, "frontier": frontier}),
             "advisory_only": True, "executable": False,
-            "execution_reason": "No execution adapter is installed; a plan is never authorization.",
+            "execution_reason": "Planning never executes work; worker run has a separate policy-gated review adapter.",
             "selected": candidates[0] if candidates else None, "candidates": candidates,
             "pull_requests": diagnostics,
             "roadmap": {"reason": roadmap_reason, "ready": len(work), "source_verified": False},

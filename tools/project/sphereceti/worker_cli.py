@@ -131,10 +131,34 @@ def add_parser(commands):
         if command == "plan":
             parser.add_argument("--snapshot", type=Path, help="offline survey; never calls GitHub")
             parser.add_argument("--frontier", type=Path, help="optional derived work estimates for the single roadmap")
+    run = sub.add_parser("run", help="one shared-review round; execution requires approved policy")
+    run.add_argument("--pr", action="append")
+    run.add_argument("--json", action="store_true")
+    run.add_argument("--execute", action="store_true")
+    run.add_argument("--post-review", action="store_true")
+    run.add_argument("--publish-state", action="store_true")
+    run.add_argument("--worker-id", default="worker")
+    run.add_argument("--operator-config", type=Path)
+    run.add_argument("--source-repo", type=Path)
+    run.add_argument("--dependencies-dir", type=Path)
+    run.add_argument("--provider")
+    run.add_argument("--auth", choices=("subscription", "api"), default="subscription")
+    run.add_argument("--budget-usd", type=float)
+    run.add_argument("--max-call-cost", type=float, default=1.0)
+    sync = sub.add_parser("sync", help="explicitly retry one operational run receipt; no provider")
+    sync.add_argument("--receipt", type=Path, required=True)
+    sync.add_argument("--json", action="store_true")
+    sync.add_argument("--operator-config", type=Path)
     return worker
 
 
-def run_worker(args, project) -> dict:
+def run_worker(args, project, policy=None, prefs=None) -> dict:
+    if args.worker_command == "sync":
+        from .worker_state import sync_receipt
+        return sync_receipt(args, project, policy)
+    if args.worker_command == "run":
+        from .worker_execution import run_round
+        return run_round(args, project, policy, prefs)
     requested = targets(args.pr)
     snapshot = (read_json(args.snapshot) if getattr(args, "snapshot", None) else survey(project, requested))
     if args.worker_command == "survey":
@@ -144,6 +168,8 @@ def run_worker(args, project) -> dict:
 
 
 def render(report) -> str:
+    if report["schema"] == "sphereceti.worker-round/v1":
+        return f"SphereCeti worker: {report['state']}. " + report.get('reason', 'See --json for the round receipt.')
     if report["schema"] == "sphereceti.worker-survey/v1":
         return (f"Observed {len(report['pull_requests'])} PR(s) in {report['repository']} "
                 f"as {report['actor']}. Use --json to save the survey.")
