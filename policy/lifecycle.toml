@@ -1,0 +1,6 @@
+# Label publication requires this switch AND automation.posting on approved main.
+schema_version = 1
+labels_enabled = false
+writer_user_id = 0
+stuck_hours = 24
+housekeeping_hours = 168

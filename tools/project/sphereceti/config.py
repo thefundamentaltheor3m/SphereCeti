@@ -27,6 +27,7 @@ RESOURCE_PATHS = {
     "merge-checks.toml": "policy/merge-checks.toml",
     "merge-controller.toml": "policy/merge-controller.toml",
     "merge-controller.yml": "tools/ci/merge-controller.yml",
+    "lifecycle.toml": "policy/lifecycle.toml",
     "upstream-lock.toml": "tools/upstream-lock.toml",
 }
 
