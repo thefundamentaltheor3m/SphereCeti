@@ -19,8 +19,8 @@ from sphereceti.config import (ConfigError, parse_operator, parse_policy, parse_
 class ProjectConfigTest(unittest.TestCase):
     def test_shipped_configuration_and_pins(self):
         profile = parse_project(resource_text('sphereceti.toml'))
-        self.assertEqual(profile.phase, 'scaffold')
-        self.assertFalse(profile.roadmap_approved)
+        self.assertEqual(profile.phase, 'roadmap')
+        self.assertTrue(profile.roadmap_approved)
         self.assertEqual(profile.implementation_repository, 'thefundamentaltheor3m/Sphere-Packing-Lean')
         root = Path(__file__).resolve().parents[1]
         self.assertEqual(profile.lean, (root / 'lean-toolchain').read_text().strip())
@@ -31,7 +31,7 @@ class ProjectConfigTest(unittest.TestCase):
 
     def test_invalid_profile_is_rejected(self):
         original = resource_text('sphereceti.toml')
-        cases = [original.replace('roadmap_approved = false', 'roadmap_approved = true'),
+        cases = [original.replace('roadmap_approved = true', 'roadmap_approved = false'),
                  original.replace('schema_version = 1', 'schema_version = 2'),
                  original.replace('library_root = "SphereCeti"', 'library_root = "../Elsewhere"'),
                  original.replace('library_root = "SphereCeti"', 'library_root = "./"'),
@@ -88,7 +88,7 @@ class ProjectCLITest(unittest.TestCase):
         code, report = self.run_json('status', '--offline', '--json')
         self.assertEqual(code, 0)
         self.assertEqual(report['queue'], {'state': 'not_checked', 'pull_requests': None})
-        self.assertEqual(report['roadmap']['state'], 'not_installed')
+        self.assertEqual(report['roadmap']['state'], 'approved')
         self.assertFalse(report['setup']['merging_ready'])
         self.assertTrue(all(not item['enabled'] for item in report['capabilities'].values()))
         run.assert_not_called()

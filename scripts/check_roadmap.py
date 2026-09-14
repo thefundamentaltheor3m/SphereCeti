@@ -49,11 +49,10 @@ for key, value in EXPECTED.items():
             f"README does not record {key} pin {value}")
     require(value in provenance, f"PROVENANCE.md does not record {key} pin {value}")
 
-# Local Markdown links should resolve. Ignore external URLs and anchors, and skip the Lake
-# build directory, whose dependency checkouts carry their own documentation.
-for md in ROOT.rglob("*.md"):
-    if ".lake" in md.parts:
-        continue
+# Check owned roadmap documentation; imported upstream documentation keeps its own links.
+for name in ("README.md", "CONTRIBUTING.md", "CONVENTIONS.md", "MIGRATION.md",
+             "PROVENANCE.md", "UPSTREAM.md", "VALIDATION.md", "AGENTS.md"):
+    md = ROOT / name
     text = md.read_text()
     for target in re.findall(r"\[[^\]]+\]\(([^)]+)\)", text):
         clean = target.split("#", 1)[0]
@@ -62,7 +61,7 @@ for md in ROOT.rglob("*.md"):
         require((md.parent / clean).exists(), f"broken local link in {md.name}: {target}")
 
 # Suggested targets must be mathematical declarations, not vacuous placeholders.
-for lean in (ROOT / "SphereCeti").glob("*.lean"):
+for lean in (ROOT / "SphereCetiRoadmap").glob("*.lean"):
     text = lean.read_text()
     require("by\n  exact True.intro" not in text, f"vacuous True proof in {lean.name}")
     require(not re.search(r"(?:theorem|lemma)\s+\w+[^:]*:\s*True\b", text),
@@ -70,10 +69,10 @@ for lean in (ROOT / "SphereCeti").glob("*.lean"):
     require(text.endswith("\n"), f"missing final newline in {lean.name}")
 
 # The roadmap must expose the agreed summit and classification boundaries.
-pinned = (ROOT / "SphereCeti" / "Pinned.lean").read_text()
+pinned = (ROOT / "SphereCetiRoadmap" / "Pinned.lean").read_text()
 require("public import Mathlib\n" not in pinned,
         "Pinned.lean must import the intended Mathlib modules, not the aggregate root")
-suggested = (ROOT / "SphereCeti" / "Suggested.lean").read_text()
+suggested = (ROOT / "SphereCetiRoadmap" / "Suggested.lean").read_text()
 require("Quotient P.addAction.orbitRel" in suggested,
         "Orbit must reuse the pinned production additive-action quotient")
 require("def orbitSetoid" not in suggested,
@@ -145,7 +144,7 @@ require(not (ROOT / "TauCetiRoadmap").exists(),
 # ledger.
 sorry_command = re.compile(r"^\s*sorry\s*$", re.MULTILINE)
 sorry_count = sum(len(sorry_command.findall(p.read_text()))
-                  for p in (ROOT / "SphereCeti").glob("*.lean"))
+                  for p in (ROOT / "SphereCetiRoadmap").glob("*.lean"))
 validation = (ROOT / "VALIDATION.md").read_text()
 require(f"{sorry_count} intentional `sorry` commands" in validation,
         "VALIDATION.md has a stale intentional-sorry count")

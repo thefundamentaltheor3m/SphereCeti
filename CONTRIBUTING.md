@@ -6,7 +6,7 @@ SphereCeti is a human-steered roadmap and target-signature package for the produ
 ## Authority
 
 - `README.md` is the definitive mathematical specification.
-- `SphereCeti/Suggested.lean` gives suggested declaration shapes and compile-time dependency
+- `SphereCetiRoadmap/Suggested.lean` gives suggested declaration shapes and compile-time dependency
   contracts; it is not exhaustive.
 - `CONVENTIONS.md` fixes normalizations and attribute policy.
 - `MIGRATION.md` fixes production PR sequencing.
@@ -39,7 +39,7 @@ honestly.
 - Do not disguise an unstated hypothesis as a field of type `Prop` with body `sorry`.
 - Do not use `True` as a placeholder for a mathematical condition.
 - Import existing pinned TauCeti declarations directly instead of restating them.
-- The temporary declarations in `SphereCeti/Pinned.lean` model only the older production boundary;
+- The temporary declarations in `SphereCetiRoadmap/Pinned.lean` model only the older production boundary;
   do not add new mathematics there.
 - Prefer `example` for endpoint shapes whose final namespace is not settled, and named definitions
   only for genuinely pinned object boundaries.

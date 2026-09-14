@@ -60,7 +60,8 @@ declaration, and axiom, with a reason; every transitive dependent needs its own 
 An exception is not a proof-completion claim.
 
 Roadmap `sorryAx` dependencies require exact `(moduleName, name, reason)` entries in
-`roadmap_admissions`. This ledger starts empty because PR #1 has not been integrated.
+`roadmap_admissions`. The roadmap integration proposes exact admission entries for human review; the infrastructure
+baseline has an empty ledger.
 It cannot authorize library admissions or arbitrary roadmap axioms. Missing entries and
 entries whose declarations no longer depend on `sorryAx` both fail. This makes a changed
 admission set an explicit review event. When integrating PR #1:

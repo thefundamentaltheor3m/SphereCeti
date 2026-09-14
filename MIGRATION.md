@@ -58,7 +58,7 @@ Create the roadmap package with:
 
 - exact Lean/TauCeti/Mathlib pins;
 - `README.md`;
-- `SphereCeti/Suggested.lean`;
+- `SphereCetiRoadmap/Suggested.lean`;
 - the temporary `Pinned.lean` compatibility model;
 - convention, migration, provenance, and upstream ledgers;
 - build-only CI.
@@ -104,7 +104,7 @@ Acceptance:
 **Repository:** `SphereCeti`
 
 Add `Sphere-Packing-Lean` as an exact dependency at the migrated production commit.  Replace
-`SphereCeti.Pinned` imports and temporary declarations with exact production imports.  Delete
+`SphereCetiRoadmap.Pinned` imports and temporary declarations with exact production imports.  Delete
 `Pinned.lean` in full.
 
 Acceptance:
