@@ -1,0 +1,119 @@
+# Adapted from TauCetiProject/TauCeti@b743b607ce3e9742b18026ad79082e5d15badff5,
+# .github/workflows/pr-build.yml and scripts/sandbox-build.sh (Apache-2.0).
+name: Trusted candidate
+
+on:
+  pull_request_target:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: trusted-candidate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  candidate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    outputs:
+      scope: ${{ steps.prepare.outputs.scope }}
+    steps:
+      # T is the revision of this approved base workflow. Never check out H with Actions.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: gate
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve the complete immutable candidate tree
+        id: prepare
+        env:
+          TOOLING_SHA: ${{ github.workflow_sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for sha in "$TOOLING_SHA" "$BASE_SHA" "$HEAD_SHA"; do
+            [[ "$sha" =~ ^[0-9a-f]{40}$ ]]
+          done
+          git -C gate fetch --no-tags origin "$BASE_SHA" "$HEAD_SHA"
+          python3 -I gate/scripts/trusted_gate.py --repo gate \
+            --tooling "$TOOLING_SHA" --base "$BASE_SHA" --head "$HEAD_SHA" \
+            --destination candidate --report "$RUNNER_TEMP/trusted-report.json"
+          python3 -I - <<'PY'
+          import json, os
+          from pathlib import Path
+          report = json.loads((Path(os.environ['RUNNER_TEMP']) / 'trusted-report.json').read_text())
+          assert report['scope'] in ('mathematical', 'human_review')
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write('scope=' + report['scope'] + '\n')
+          assert report['config_attested'], 'Configuration differs from approved tooling; human dependency review required'
+          PY
+          bash gate/scripts/attest-pr-config.sh gate candidate "$HEAD_SHA" pull_request_target 1 0
+
+      # These host commands execute only T and its attested dependencies, never candidate code.
+      - name: Install approved Elan, Lean, and Mathlib cache
+        run: bash gate/scripts/install_lean.sh
+
+      - name: Warm approved dependencies
+        working-directory: gate
+        shell: bash
+        run: bash scripts/prepare_cache.sh
+
+      - name: Build approved baseline and stage dependencies
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        working-directory: gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          lake build
+          python3 -I scripts/validate_dependencies.py
+          bash scripts/attest-pr-config.sh . ../candidate "$HEAD_SHA" pull_request_target 1 0
+          # Move only dependency sources/artifacts. H gets no stale root build or lakefile cache.
+          mv .lake/packages ../candidate/.lake/packages
+          echo "APPROVED_TOOLCHAIN=$(lean --print-prefix)" >> "$GITHUB_ENV"
+
+      - name: Install pinned sandbox
+        run: bash gate/scripts/install_bwrap.sh
+
+      - name: Build exact H using approved tools inside the sandbox
+        run: >-
+          python3 -I gate/scripts/run_sandbox.py --gate gate --candidate candidate
+          --toolchain "$APPROVED_TOOLCHAIN"
+
+  # Only this separate job receives status-writing permission. No candidate or tool checkout.
+  status:
+    needs: candidate
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    permissions:
+      statuses: write
+    steps:
+      - name: Publish separate build and scope verdicts for exact H
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BUILD_RESULT: ${{ needs.candidate.result }}
+          SCOPE: ${{ needs.candidate.outputs.scope }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]
+          build_state=failure
+          scope_state=failure
+          [ "$BUILD_RESULT" != success ] || build_state=success
+          [ "$SCOPE" != mathematical ] || scope_state=success
+          gh api "repos/$GH_REPO/statuses/$HEAD_SHA" -f state="$build_state" \
+            -f context=trusted-build -f target_url="$RUN_URL" \
+            -f description="Approved tooling build: $BUILD_RESULT"
+          gh api "repos/$GH_REPO/statuses/$HEAD_SHA" -f state="$scope_state" \
+            -f context=trusted-scope -f target_url="$RUN_URL" \
+            -f description="Scope: ${SCOPE:-human_review}; no merge authorization"

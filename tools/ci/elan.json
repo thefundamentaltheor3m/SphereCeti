@@ -1,0 +1,7 @@
+{
+  "upstream_repository": "TauCetiProject/TauCeti",
+  "upstream_commit": "b743b607ce3e9742b18026ad79082e5d15badff5",
+  "upstream_path": ".github/workflows/pr-build.yml",
+  "version": "v4.2.3",
+  "archive_sha256": "df0b2b3a439961ffcbb3985214365ffe40f49bc871df04dff268c7d8e21ca8b2"
+}

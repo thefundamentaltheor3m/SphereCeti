@@ -27,6 +27,10 @@ The default build checks both `SphereCeti` (the admission-free scaffold/adapters
 production proof home. See [module boundaries](docs/infrastructure/module-boundaries.md) for
 the source inventory, tests, limitations, and the integration steps for PR #1.
 
+The [trusted candidate build](docs/infrastructure/trusted-build.md) adapts TauCeti's pinned
+sandbox and configuration attestation. It uses approved tools, builds an immutable PR head,
+and reports build and scope separately; all current changes require human review.
+
 ## Project diagnostics
 
 ```bash
