@@ -67,7 +67,8 @@ roadmap, especially PR #1's README and target signatures, remains candidate evid
 
 Before the roadmap is integrated, missing context is expected and explicitly listed. All
 results in this implementation have `merge_eligible: false`, even when every rubric approves.
-This command does not authenticate a reviewer or independently verify CI. Partial, errored,
+The local result does not authenticate a reviewer or independently verify CI. The separate
+[record reader and explicit poster](review-records.md) verify publication identity through GitHub. Partial, errored,
 shadow, prospective-tooling, and missing-context results are visibly advisory.
 
 The snapshots are raw Git source bytes, without `.git` metadata, checkout filters, generated
@@ -116,7 +117,8 @@ adapter's restrictions do not authenticate review records or make them merge aut
 
 The default output is a new run directory under the operator's storage; `--output` must name a
 new directory. `evidence.json` records source selection. `result.json` adds completion, mode,
-verdicts, and engine status. `advisory.md` presents the review with an advisory heading and
+verdicts, and engine status. `record.json` and `record.md` carry a strict attestation proposal;
+only API-authenticated publication can supply an authorized review record. `advisory.md` presents the review with an advisory heading and
 without upstream scoreboard markers. Dry runs create the evidence and result records only.
 
 The existing upstream case-file and budget ledger is private local state. A repository-wide
@@ -146,7 +148,6 @@ wheel and source installations run a dry review and all ten rubrics outside the 
 conflicting cwd resources and credential canaries. The 16 original upstream test scripts also
 continue to run without external calls.
 
-The next focused PR adds authenticated review records and explicit posting, using the
-mechanical evidence from #8. It must bind effective evidence and tooling, verify GitHub identity,
-and reject advisory or stale records. The mathematical roadmap in #1 remains separate until
-that core is reviewed and ready for integration.
+The [record adapter](review-records.md) adds API-authenticated review records and explicit
+policy-gated posting. Shared merge observation will combine those records with #8’s mechanical
+evidence. All infrastructure lands before the mathematical roadmap in #1.

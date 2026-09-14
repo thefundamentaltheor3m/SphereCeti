@@ -193,8 +193,8 @@ class LocalReviewTests(unittest.TestCase):
                     f"repos/{repo}/commits/main": {"sha": fixture.tooling}}
         fake = fixture.bin / "gh"
         fake.write_text(f"#!{sys.executable}\nimport json, sys\npayloads = {payloads!r}\n"
-                        "assert len(sys.argv) == 3 and sys.argv[1] == 'api'\n"
-                        "print(json.dumps(payloads[sys.argv[2]]))\n")
+                        "assert sys.argv[1:4] == ['api', '--hostname', 'github.com'] and len(sys.argv) == 5\n"
+                        "print(json.dumps(payloads[sys.argv[4]]))\n")
         fake.chmod(0o755)
         original = fixture.command(extra=("--dry-run", "--keep-workspace"))
         command = []

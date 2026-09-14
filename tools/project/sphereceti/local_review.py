@@ -6,6 +6,7 @@ TauCetiReview contributors, Apache-2.0. Approved Git evidence follows SphereCeti
 from __future__ import annotations
 
 import argparse
+import copy
 from contextlib import contextmanager
 import fcntl
 import hashlib
@@ -40,9 +41,11 @@ class ReviewError(ValueError):
 
 
 def add_parser(commands):
-    p = commands.add_parser("review", help="prepare or run a local advisory review; never post")
+    p = commands.add_parser("review", help="review locally, inspect records, or explicitly publish when policy permits")
     p.add_argument("pr", type=int)
     p.add_argument("--dry-run", action="store_true", help="verify and list evidence without invoking providers")
+    p.add_argument("--post", action="store_true", help="explicitly publish a review record when approved policy permits")
+    p.add_argument("--read-records", action="store_true", help="inspect API-authenticated records without invoking providers")
     p.add_argument("--json", action="store_true")
     p.add_argument("--operator-config", type=Path)
     p.add_argument("--source-repo", type=Path, help="read exact objects from this Git repository")
@@ -76,10 +79,8 @@ def write_json(path: Path, value):
 
 
 def github(endpoint: str):
-    result = subprocess.run(["gh", "api", endpoint], capture_output=True, text=True, timeout=60)
-    if result.returncode:
-        raise ReviewError("GitHub evidence query failed; no review was started")
-    return json.loads(result.stdout)
+    from .review_post import GitHub
+    return GitHub().call(endpoint)
 
 
 def revisions(args, project):
@@ -288,11 +289,14 @@ def prepare(args, project, refs, cache: Path, workspace: Path, engine: Path) -> 
                      "dependencies": dependency_evidence, "evidence": evidence,
                      "missing_context": sorted(set(missing)), "config_differences": config_changed,
                      "diff_sha256": hashlib.sha256(diff).hexdigest(), "diff_prompt_truncated": len(diff.decode(errors="replace")) > 120000,
+                     "description_digest": hashlib.sha256(refs["description"].encode()).hexdigest(),
                      "upstream_review_revision": UPSTREAM, "merge_eligible": False})
+    metadata["policy_digest"] = digest({p: context_files[p] for p in
+        ("sphereceti.toml", "policy/automation.toml", "policy/audits.json") if p in context_files})
     # A changed base/evidence/engine cannot reuse an older green case file. Unrelated T commits
     # do not reset state when the effective context bytes are unchanged. Budget history survives.
     metadata["review_context_digest"] = digest({**context_files,
-        "_dependencies": manifest, "_diff_base": diff_base.encode(),
+        "_dependencies": manifest, "_diff_base": diff_base.encode(), "_description": refs["description"].encode(),
         "_tooling": metadata["installed_tooling_digest"].encode()})
     return metadata
 
@@ -414,6 +418,8 @@ def execute(args, prefs, report, workspace: Path, engine: Path, store: Path, out
               "engine_exit_code": code, "execution_mode": "shadow" if args.shadow else args.mode,
               "requested_rubrics": args.rubrics.split(","), "finished_rubrics": finished,
               "verdicts": {r: state.get(r, {}).get("verdict", "absent") for r in RUBRICS},
+              "reviews": {r: {k: state.get(r, {}).get(k) for k in ("summary", "findings", "last_reply_seen")}
+                          for r in RUBRICS},
               "advisory": True, "merge_eligible": False}
     scoreboard = output / "upstream-scoreboard.md"
     body = scoreboard.read_text() if scoreboard.exists() and not code else "No complete review was produced.\n"
@@ -430,6 +436,10 @@ def execute(args, prefs, report, workspace: Path, engine: Path, store: Path, out
 
 
 def run_review(args, project, prefs) -> dict:
+    if args.post and (args.dry_run or args.read_records or args.local_sources):
+        raise ReviewError("--post requires a live review and cannot be combined with dry-run, read-records, or local sources")
+    if args.read_records and (args.local_sources or args.dry_run):
+        raise ReviewError("--read-records requires live GitHub evidence and is already provider-free")
     requested = args.rubrics.split(",")
     if not requested or len(set(requested)) != len(requested) or any(r not in RUBRICS for r in requested):
         raise ReviewError("rubrics must be a nonempty, duplicate-free subset of the ten upstream rubrics")
@@ -469,9 +479,71 @@ def run_review(args, project, prefs) -> dict:
             report["workspace_retained"] = args.keep_workspace
             report["output"] = str(output)
             write_json(output / "evidence.json", report)
+            from .review_records import (RecordError, assess_records, collect_records, contests, make_record)
+            from .review_post import GitHub, publish
+            policy_path = workspace / "approved/policy/automation.toml"
+            selected_policy = parse_policy(policy_path.read_text()) if policy_path.is_file() else None
+            client = GitHub()
+            if args.post or args.read_records:
+                if not report["tooling_approved"] or selected_policy is None:
+                    raise ReviewError("posting/record inspection requires approved repository policy")
+                if args.post and not selected_policy.posting:
+                    raise ReviewError("posting is disabled by approved repository policy")
+                pr_info = client.call(f"repos/{project.repository}/pulls/{args.pr}")
+                author_id = pr_info["user"]["id"]
+                comments = client.comments(project.repository, args.pr)
+                approved_revision = lambda rev: client.approved_revision(project.repository, rev, report["tooling"])
+                if args.read_records:
+                    final_refs = revisions(args, project)
+                    if any(final_refs[k] != report[k] for k in ("tooling", "head", "base")):
+                        raise ReviewError("PR or approved context advanced during record inspection")
+                    result = {**report, **assess_records(comments, report, selected_policy, approved_revision, author_id),
+                              "completion": "records_read", "advisory": True}
+                    if args.keep_workspace:
+                        workspace.rename(output / "workspace")
+                    write_json(output / "result.json", result)
+                    return result
+                if args.replies_json or args.mode == "reply":
+                    raise ReviewError("posted contests come from authenticated GitHub comments; local reply inputs remain advisory")
+                pending = contests(comments, collect_records(comments, report, selected_policy),
+                                   report, selected_policy, author_id)
+                if pending:
+                    reply_path = scratch / "authenticated-contests.json"
+                    write_json(reply_path, {r: [c for c in pending if c["rubric"] == r] for r in RUBRICS})
+                    args.replies_json = reply_path
+                    args.mode = "manual"  # A posted contest response re-evaluates the full selected scope.
             result = ({**report, "completion": "dry_run", "advisory": True, "merge_eligible": False}
                       if args.dry_run else execute(args, prefs, report, workspace, engine,
                                                   storage / "engine", output, lock_fd))
+            if not args.dry_run:
+                record, rendered = make_record(result)
+                write_json(output / "record.json", record)
+                (output / "record.md").write_text(rendered)
+                if args.post:
+                    write_json(output / "result.json", result)
+                    def revalidate():
+                        fresh_args = copy.copy(args)
+                        fresh_args.tooling = None
+                        fresh_refs = revisions(fresh_args, project)
+                        with tempfile.TemporaryDirectory(prefix="refresh-", dir=scratch) as fresh:
+                            fresh = Path(fresh)
+                            current = prepare(fresh_args, project, fresh_refs, storage / "git", fresh / "workspace", fresh / "engine")
+                            live_policy = parse_policy((fresh / "workspace/approved/policy/automation.toml").read_text())
+                        from .review_records import BINDINGS
+                        if (not live_policy.posting or any(current[k] != report[k] for k in BINDINGS)
+                                or current["installed_tooling_matches_T"] != report["installed_tooling_matches_T"]
+                                or not client.approved_revision(project.repository, report["tooling"], current["tooling"])):
+                            raise ReviewError("review evidence or posting policy changed; rerun before posting")
+                        # Recheck the head/base after source materialization, immediately before the write.
+                        final_refs = revisions(fresh_args, project)
+                        if any(final_refs[k] != fresh_refs[k] for k in ("tooling", "head", "base")):
+                            raise ReviewError("PR or approved context advanced during publication checks")
+                    try:
+                        result["publication"] = publish(client, rendered, record, selected_policy, revalidate)
+                    except (RecordError, ReviewError) as error:
+                        result["publication"] = {"state": "unconfirmed", "reason": str(error), "merge_eligible": False}
+                        write_json(output / "result.json", result)
+                        raise
             if args.keep_workspace:
                 workspace.rename(output / "workspace")
             write_json(output / "result.json", result)

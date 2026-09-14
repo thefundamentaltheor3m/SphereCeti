@@ -142,6 +142,10 @@ def parse_policy(text: str) -> AutomationPolicy:
             raise ConfigError(f"{name}: expected a list")
         for item in data[name]:
             local_path(item, name) if name == "mathematical_paths" else nonempty(item, name)
+            if name == "authorized_reviewers" and not re.fullmatch(r"(?:user|app):[1-9][0-9]*", item):
+                raise ConfigError("authorized_reviewers: use immutable GitHub user:ID or app:ID")
+        if len(set(data[name])) != len(data[name]):
+            raise ConfigError(f"{name}: duplicate entry")
     if data["merging"] and not data["mathematical_paths"]:
         raise ConfigError("merging requires a separately approved nonempty path policy")
     if data["merging"] and not data["authorized_reviewers"]:
