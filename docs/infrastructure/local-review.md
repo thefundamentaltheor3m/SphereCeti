@@ -133,7 +133,8 @@ existing author-reply format. Upstream may continue through previously unreviewe
 a reply clears the last blocker. A subset or explicit reply run stays partial/advisory.
 
 `--shadow LABEL` starts a fresh manual comparison arm, retains its archive locally, and keeps
-normal case files intact. Its spend is checkpointed into the shared daily ledger after each
+normal case files intact. Executed arms additionally require `--shadow-budget-usd`; see
+[evaluation](evaluation.md) for comparisons, labels and the allowance within the shared daily cap. Its spend is checkpointed into the shared daily ledger after each
 attempt, including unsuccessful runs. No archive is pushed. Daily and per-call reservations
 use upstream cost estimates; they are not a provider-enforced billing limit. Provider failures
 are errors, never approvals. Execution has a 30-minute limit and terminates its process group

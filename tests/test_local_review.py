@@ -139,7 +139,7 @@ class LocalReviewTests(unittest.TestCase):
     def test_shadow_keeps_case_files_and_shares_daily_spend(self):
         self.run_review(output="normal")
         before = self.fixture.ledger()
-        result = self.run_review(output="shadow", extra=("--shadow", "comparison"))
+        result = self.run_review(output="shadow", extra=("--shadow", "comparison", "--shadow-budget-usd", "1"))
         after = self.fixture.ledger()
         self.assertEqual(result["execution_mode"], "shadow")
         self.assertEqual(result["completion"], "partial")

@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tests'))
 from review_fixture import installed_smoke
 from review_post_fixture import installed_post_smoke
 from archive_fixture import installed_archive_smoke
+from evaluation_fixture import installed_evaluation_smoke
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -55,6 +56,7 @@ def main():
             review_root.mkdir()
             fixture = installed_smoke(environment / 'bin' / 'sphereceti', review_root)
             installed_archive_smoke(environment / 'bin' / 'sphereceti', fixture)
+            installed_evaluation_smoke(environment / 'bin' / 'sphereceti', scratch / 'evaluation-fixture')
             posting_root = scratch / 'posting-fixture'
             posting_root.mkdir()
             installed_post_smoke(environment / 'bin' / 'sphereceti', posting_root)
