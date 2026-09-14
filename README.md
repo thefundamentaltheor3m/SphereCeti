@@ -44,6 +44,10 @@ The installed CLI packages project identity, policy, and the upstream source led
 commands report the scaffold's state; worker/review/merge capabilities remain disabled.
 See [CLI configuration and installation](docs/infrastructure/cli.md).
 
+The [inactive review import](tools/review/README.md) preserves TauCetiReview's engine,
+ten ordered rubrics, and upstream tests. Its launchers are disabled; the local review adapter
+and authenticated posting belong to I06 and I07.
+
 ## GitHub configuration
 
 To set up your new GitHub repository, follow these steps:

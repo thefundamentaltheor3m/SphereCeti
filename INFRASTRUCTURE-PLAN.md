@@ -38,20 +38,20 @@ Keep these questions separately reviewable:
   These modify the same reviewer lifecycle and need sequential integration and combined tests.
 - Reporting: inactive source import; docs/cache evidence; same-tree installed adaptation.
 - Operations: read-only merge observation; gated merge action; lifecycle diagnostics;
-  advisory profiling. They do not delay the mathematical specification.
+  advisory profiling. All infrastructure lands before the mathematical specification.
 
-Use the smallest sufficient prerequisite. A prerequisite merge must be explicitly identified
-while branches remain unmerged. After prerequisites land, rebase remaining feature changes
-onto the resulting main. Preserve reviewable commits for conflict resolution and behavior
-changes; a changed base or source pin requires fresh validation.
+The infrastructure is published as one native GitHub stack, with the mathematical roadmap at
+the top. Each PR contains the full preceding integration baseline plus its own focused change.
+The tracking issue records the landing order. Preserve separate import and adaptation commits,
+and keep integration fixes in the layer that introduces the combined behavior. After lower-layer
+edits, use cascading stack rebases and validate the affected layers before publishing.
 
 ## Mathematical roadmap integration
 
-The foundation through compiled audits is sufficient for human review and landing of the
-mathematical roadmap. Automated review publication is a separate track. Keep one mathematical
-roadmap covering dimensions 8 and 24.
+Land the complete infrastructure before the mathematical roadmap. Keep one mathematical roadmap
+covering dimensions 8 and 24, with its mechanical integration separately reviewable.
 
-Prepare a separately identifiable mechanical integration commit when #1 is ready to land:
+Prepare a separately identifiable mechanical integration commit on the final infrastructure tip:
 
 1. Preserve the admission-free `SphereCeti` library and relocate targets into
    `SphereCetiRoadmap/`, with a separate aggregator. Preserve declaration namespaces,
@@ -114,7 +114,7 @@ Worker modes or duplicate mathematical roadmap are needed.
 
 ## Validation and activation
 
-Self-review each focused change. Test a combined checkout before claiming sibling integration:
+Self-review each focused change. Test a combined checkout against the complete stack:
 complete installed CLI/resources, real roadmap admissions, shared archive/Worker/shadow behavior,
 and the compiled build/audit pipeline. Keep integration fixes visible in their owning PRs.
 
