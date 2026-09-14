@@ -1,0 +1,6 @@
+# Activation is a separate reviewed setup step. Zero IDs are deliberately unconfigured.
+schema_version = 1
+workflow_id = 0
+bot_user_id = 0
+checks_app_id = 0
+merge_method = "squash"

@@ -18,6 +18,7 @@ from review_post_fixture import installed_post_smoke
 from archive_fixture import installed_archive_smoke
 from evaluation_fixture import installed_evaluation_smoke
 from merge_fixture import installed_merge_smoke
+from controller_fixture import installed_controller_smoke
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -84,6 +85,10 @@ def main():
             assert all(not capability['enabled'] for capability in report['capabilities'].values())
             assert report['local_review']['implemented']
             assert report['merge_observation']['read_only']
+            assert report['merge_controller']['implemented'] and not report['merge_controller']['enabled']
+            controller_root = scratch / 'controller-fixture'
+            controller_root.mkdir()
+            installed_controller_smoke(environment / 'bin' / 'sphereceti', controller_root)
             merging_root = scratch / 'merge-fixture'
             merging_root.mkdir()
             installed_merge_smoke(environment / 'bin' / 'sphereceti', merging_root)

@@ -1,0 +1,43 @@
+# Inactive template: install these exact bytes as .github/workflows/merge-controller.yml
+# only through a reviewed activation change. TauCetiReview afb424e merge-only/merge-sweep design.
+name: Serialized merge controller
+on:
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: PR number; leave empty for a sweep
+        type: string
+        default: ''
+  schedule:
+    - cron: '17 * * * *'
+permissions:
+  contents: read
+concurrency:
+  group: sphereceti-merge-main
+  cancel-in-progress: false
+jobs:
+  controller:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Reconcile through the shared controller and stop switch
+        env:
+          GH_TOKEN: ${{ secrets.SPHERECETI_OBSERVER_TOKEN }}
+          SPHERECETI_MERGE_TOKEN: ${{ secrets.SPHERECETI_MERGE_TOKEN }}
+          PR_NUMBER: ${{ inputs.pr }}
+          PYTHONPATH: tools/project
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -n "$PR_NUMBER" ]; then
+            [[ "$PR_NUMBER" =~ ^[1-9][0-9]*$ ]]
+            python3 -m sphereceti.cli merge-control --pr "$PR_NUMBER" --apply --json
+          else
+            python3 -m sphereceti.cli merge-control --sweep --apply --json
+          fi

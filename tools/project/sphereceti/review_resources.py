@@ -42,6 +42,8 @@ def tooling_files() -> dict[str, bytes]:
                        ("sphereceti.toml", "sphereceti.toml"),
                        ("automation.toml", "policy/automation.toml"),
                        ("merge-checks.toml", "policy/merge-checks.toml"),
+                       ("merge-controller.toml", "policy/merge-controller.toml"),
+                       ("merge-controller.yml", "tools/ci/merge-controller.yml"),
                        ("upstream-lock.toml", "tools/upstream-lock.toml")):
         files[path] = resource_text(name).encode()
     return files
