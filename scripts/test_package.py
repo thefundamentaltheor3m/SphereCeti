@@ -12,6 +12,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tests'))
 from review_fixture import installed_smoke
+from review_post_fixture import installed_post_smoke
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -51,6 +52,9 @@ def main():
             review_root = scratch / 'review-fixture'
             review_root.mkdir()
             installed_smoke(environment / 'bin' / 'sphereceti', review_root)
+            posting_root = scratch / 'posting-fixture'
+            posting_root.mkdir()
+            installed_post_smoke(environment / 'bin' / 'sphereceti', posting_root)
             print(f'Fresh installation outside checkout: {artifact.name}: OK')
 
 

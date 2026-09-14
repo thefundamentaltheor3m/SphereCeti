@@ -9,7 +9,8 @@ harness, source mapping, and local advisory adapter.
 
 This directory supplies the engine and resources for the [local review adapter](../../docs/infrastructure/local-review.md). All eight imported script launchers exit before runtime imports or argument handling; the legacy
 `runner/cli.py` main and `archive.sync()` also refuse execution. The SphereCeti CLI provides
-`doctor`, `status`, and explicit local advisory `review`; all automation switches remain off.
+`doctor`, `status`, and `review`, including record inspection and explicit policy-gated
+posting; all shipped automation switches remain off. See [review records](../../docs/infrastructure/review-records.md).
 Internal engine functions remain importable for the upstream fake-provider tests. These
 entry-point guards prevent accidental activation; they are not a sandbox for arbitrary Python.
 
@@ -44,7 +45,7 @@ The local changes are:
   the default code/roadmap repositories and archive destination. The disabled archive commit
   identity is SphereCeti's, and no TauCeti App identity is assumed.
 - Fail when publishing identity cannot be read, instead of falling back to TauCeti's bot.
-  Clear the queue reservation actor default. Authenticated App support belongs to the posting follow-up.
+  Clear the queue reservation actor default. The record adapter checks GitHub API user/App IDs; App setup remains separate.
 - Remove the old CLI's mutable `main` fallback for missing engine/rubric resources.
   Exact upstream source links and the historical schema/marker vocabulary retain TauCeti names.
 
@@ -52,7 +53,7 @@ Provider adapters, contests, shadow runs, budgeting, rendering, and verdict sema
 upstream's. In particular, the legacy scoreboard rules are preserved for their regression
 tests; they do **not** authorize SphereCeti merges. The original common rubric still describes TauCeti's project context. The adapter uses the
 explicit `project/_common.md` and `project/scope.md` overlays in its effective prompt copy, with
-a separate content digest. Authenticated records and publishing identities are a later step.
+a separate content digest. The separate record adapter authenticates publishing identities from GitHub API metadata.
 
 ## Rubric order
 
