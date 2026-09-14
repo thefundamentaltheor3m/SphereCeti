@@ -1,4 +1,4 @@
-"""Project diagnostics, reviews, and explicit policy-gated record publication; no merging."""
+"""Project diagnostics, review, Worker operations and local reporting."""
 
 from __future__ import annotations
 
@@ -9,7 +9,6 @@ import json
 from pathlib import Path
 import shutil
 import subprocess
-import sys
 import sys
 import tomllib
 
@@ -68,6 +67,9 @@ def main(argv: list[str] | None = None) -> int:
     add_worker_parser(commands)
     from .evaluation_cli import add_parser as add_evaluation_parser, run_evaluation, render as render_evaluation
     add_evaluation_parser(commands)
+    from .progress import add_parser as add_progress_parser, run as run_progress
+    from .progress_evidence import ProgressError
+    add_progress_parser(commands)
     for command in ("doctor", "status"):
         sub = commands.add_parser(command)
         sub.add_argument("--json", action="store_true")
@@ -78,7 +80,8 @@ def main(argv: list[str] | None = None) -> int:
         project = parse_project(resource_text("sphereceti.toml"))
         policy = parse_policy(resource_text("automation.toml"))
         sources = parse_source_lock(resource_text("upstream-lock.toml"))
-        preferences = parse_operator(args.operator_config.read_text() if args.operator_config else "")
+        operator_path = getattr(args, "operator_config", None)
+        preferences = parse_operator(operator_path.read_text() if operator_path else "")
     except (ConfigError, OSError, tomllib.TOMLDecodeError) as error:
         parser.exit(2, f"sphereceti: configuration error: {error}\n")
 
@@ -132,6 +135,14 @@ def main(argv: list[str] | None = None) -> int:
             parser.exit(2, f"sphereceti worker: {reason}\n")
         print(json.dumps(report, indent=2) if args.json else render(report))
         return 1 if report.get("state") in ("error", "partial", "unconfirmed_publication") or report.get("state_publication", {}).get("state") == "unconfirmed" else 0
+    if args.command == "progress":
+        try:
+            report = run_progress(args, project)
+        except (OSError, ValueError, RuntimeError, KeyError, TypeError, subprocess.SubprocessError) as error:
+            reason = str(error) if isinstance(error, ProgressError) else f"invalid or unavailable reporting evidence ({type(error).__name__})"
+            parser.exit(2, f"sphereceti progress: {reason}\n")
+        print(json.dumps(report, indent=2) if args.json else report.get("prompt", json.dumps(report, indent=2)))
+        return 1 if report['state'] == 'missing_evidence' else 0
 
     config = {"project": asdict(project), "policy": asdict(policy), "sources": sources}
     report = {
@@ -147,6 +158,8 @@ def main(argv: list[str] | None = None) -> int:
         "worker": {"planning": True, "review_round": True, "execution_readiness": "unverified",
                    "mathematical_authoring": False},
         "local_review": {"implemented": True, "advisory_only": True, "publishing": True},
+        "progress": {"implemented": True, "local_drafts": True, "publishing": False,
+                     "production_evidence": "not_configured"},
         "queue": {"state": "not_checked", "pull_requests": None},
         "setup": {"state": "not_verified", "merging_ready": False,
                   "reason": "App installation, required checks, branch protection, and production adapter are not verified."},
