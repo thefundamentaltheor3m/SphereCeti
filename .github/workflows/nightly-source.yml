@@ -1,0 +1,66 @@
+name: Nightly source verification
+
+on:
+  schedule:
+    - cron: '37 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-source
+  cancel-in-progress: false
+
+jobs:
+  source-verification:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install pinned tools and dependency bootstrap cache
+        run: bash scripts/install_lean.sh
+      - name: Rebuild every SphereCeti source and audit without project artifact restoration
+        run: lake env python3 -I scripts/build_publication.py --source --output "$RUNNER_TEMP/source-publication"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: sphereceti-source-verification
+          path: ${{ runner.temp }}/source-publication
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+  cache-byte-comparison:
+    needs: source-verification
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            scripts/publication.py
+            scripts/compare_cache_bytes.py
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: sphereceti-source-verification
+          path: ${{ runner.temp }}/source-publication
+      - name: Record advisory comparison; missing cache is inconclusive
+        env:
+          ARTIFACT_ENDPOINT: ${{ vars.SPHERECETI_CACHE_ARTIFACT_ENDPOINT_PUBLIC }}
+          REVISION_ENDPOINT: ${{ vars.SPHERECETI_CACHE_REVISION_ENDPOINT_PUBLIC }}
+          REVISION: ${{ github.sha }}
+        run: |
+          python3 -I scripts/publication.py verify "$RUNNER_TEMP/source-publication" "$REVISION"
+          python3 -I scripts/compare_cache_bytes.py "$RUNNER_TEMP/source-publication/cache" "$REVISION" \
+            --artifact-endpoint "$ARTIFACT_ENDPOINT" --revision-endpoint "$REVISION_ENDPOINT" > "$RUNNER_TEMP/comparison.json"
+          cat "$RUNNER_TEMP/comparison.json" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: sphereceti-cache-comparison
+          path: ${{ runner.temp }}/comparison.json
+          if-no-files-found: error
+          retention-days: 7
