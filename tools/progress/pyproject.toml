@@ -1,0 +1,27 @@
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sphereceti-progress-sources"
+version = "0.1.0"
+description = "Inactive pinned TauCetiProgress sources for SphereCeti adaptation"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+dependencies = []
+
+[tool.hatch.build.targets.wheel]
+packages = ["sphereceti_progress_sources"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"progress" = "sphereceti_progress_sources/sources/progress"
+"tests" = "sphereceti_progress_sources/sources/tests"
+"fixtures" = "sphereceti_progress_sources/sources/fixtures"
+"LICENSE" = "sphereceti_progress_sources/sources/LICENSE"
+"UPSTREAM-README.md" = "sphereceti_progress_sources/sources/UPSTREAM-README.md"
+"upstream-pyproject.toml" = "sphereceti_progress_sources/sources/upstream-pyproject.toml"
+"import-manifest.json" = "sphereceti_progress_sources/sources/import-manifest.json"
+
+[tool.hatch.build.targets.sdist]
+include = ["sphereceti_progress_sources", "progress", "tests", "fixtures", "LICENSE", "README.md", "UPSTREAM-README.md", "upstream-pyproject.toml", "import-manifest.json", "pyproject.toml"]
