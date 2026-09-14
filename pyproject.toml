@@ -30,6 +30,7 @@ packages = ["tools/project/sphereceti"]
 "policy/merge-checks.toml" = "sphereceti/resources/merge-checks.toml"
 "policy/merge-controller.toml" = "sphereceti/resources/merge-controller.toml"
 "tools/ci/merge-controller.yml" = "sphereceti/resources/merge-controller.yml"
+"policy/lifecycle.toml" = "sphereceti/resources/lifecycle.toml"
 "tools/upstream-lock.toml" = "sphereceti/resources/upstream-lock.toml"
 "tools/review/runner" = "sphereceti/resources/review/runner"
 "tools/review/rubrics" = "sphereceti/resources/review/rubrics"
@@ -46,4 +47,4 @@ packages = ["tools/project/sphereceti"]
 "tools/progress/import-manifest.json" = "sphereceti/resources/progress/import-manifest.json"
 
 [tool.hatch.build.targets.sdist]
-"include" = ["policy/archive.toml", "tools/project/sphereceti", "tools/review/runner", "tools/review/rubrics", "tools/review/project", "tools/review/LICENSE", "tools/review/import-manifest.json", "sphereceti.toml", "policy/automation.toml", "tools/upstream-lock.toml", "README.md", "LICENSE", "pyproject.toml", "tools/progress", "policy/reporting.toml", "policy/merge-checks.toml", "policy/merge-controller.toml", "tools/ci/merge-controller.yml"]
+"include" = ["policy/archive.toml", "tools/project/sphereceti", "tools/review/runner", "tools/review/rubrics", "tools/review/project", "tools/review/LICENSE", "tools/review/import-manifest.json", "sphereceti.toml", "policy/automation.toml", "tools/upstream-lock.toml", "README.md", "LICENSE", "pyproject.toml", "tools/progress", "policy/reporting.toml", "policy/merge-checks.toml", "policy/merge-controller.toml", "tools/ci/merge-controller.yml", "policy/lifecycle.toml"]

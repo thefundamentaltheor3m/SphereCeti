@@ -19,6 +19,7 @@ from archive_fixture import installed_archive_smoke
 from evaluation_fixture import installed_evaluation_smoke
 from merge_fixture import installed_merge_smoke
 from controller_fixture import installed_controller_smoke
+from lifecycle_fixture import installed_lifecycle_smoke
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -89,6 +90,10 @@ def main():
             controller_root = scratch / 'controller-fixture'
             controller_root.mkdir()
             installed_controller_smoke(environment / 'bin' / 'sphereceti', controller_root)
+            assert not report['maintenance']['labels_enabled']
+            lifecycle_root = scratch / 'lifecycle-fixture'
+            lifecycle_root.mkdir()
+            installed_lifecycle_smoke(environment / 'bin' / 'sphereceti', lifecycle_root)
             merging_root = scratch / 'merge-fixture'
             merging_root.mkdir()
             installed_merge_smoke(environment / 'bin' / 'sphereceti', merging_root)
