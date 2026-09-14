@@ -15,6 +15,7 @@ The `sphereceti` command supplies project diagnostics and the adapters credited 
 | `worker run --loop` | [Bounded review loops](worker-loop.md) |
 | `progress` | [Local reporting drafts](progress-reporting.md) |
 | `merge-observe` | [Merge eligibility observations](merge-observation.md) |
+| `merge-doctor / merge-control` | [Controller diagnostics and gated action](merge-controller.md) |
 
 From this checkout:
 
@@ -53,6 +54,8 @@ The installed package includes these configuration resources:
 | `policy/automation.toml` | Repository-owned operational switches and acceptance inputs |
 | `policy/reporting.toml` | Approved documentation endpoint (initially empty), report scope and cadence |
 | `policy/merge-checks.toml` | Approved workflow and status-producer IDs, initially unconfigured |
+| `policy/merge-controller.toml` | Controller, dedicated merge identity, and required-check App IDs, initially unconfigured |
+| `tools/ci/merge-controller.yml` | Inactive serialized workflow template, packaged for exact-byte comparison |
 | `policy/archive.toml` | Private archive capture and remote sync policy |
 | `tools/upstream-lock.toml` | Exact upstream source revisions/paths, adaptation status, reuse terms |
 
