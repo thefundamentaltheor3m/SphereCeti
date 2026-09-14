@@ -18,7 +18,7 @@ snapshots, and the focused PR sequence. Imports retain source attribution and ap
 ## Build boundaries
 
 ```bash
-lake env python3 scripts/check_modules.py
+lake env python3 -I scripts/check_audits.py
 lake build
 ```
 
@@ -30,6 +30,8 @@ the source inventory, tests, limitations, and the integration steps for PR #1.
 The [trusted candidate build](docs/infrastructure/trusted-build.md) adapts TauCeti's pinned
 sandbox and configuration attestation. It uses approved tools, builds an immutable PR head,
 and reports build and scope separately; all current changes require human review.
+[Compiled audits](docs/infrastructure/compiled-audits.md) check every module, transitive axiom
+dependencies, lint, and the roadmap admission ledger.
 
 ## Project diagnostics
 

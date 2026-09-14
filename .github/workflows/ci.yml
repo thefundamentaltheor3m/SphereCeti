@@ -39,11 +39,11 @@ jobs:
       - name: Check module boundaries
         run: lake env python3 scripts/check_modules.py
 
-      - name: Test module boundaries
+      - name: Test infrastructure and compiled audit regressions
         run: lake env python3 -m unittest discover -s tests -p 'test_*.py'
 
-      - name: Build both library and roadmap targets
-        run: lake build
+      - name: Build and audit every classified source
+        run: lake env python3 -I scripts/check_audits.py
 
       - name: Install pinned sandbox
         run: bash scripts/install_bwrap.sh

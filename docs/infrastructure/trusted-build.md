@@ -91,10 +91,10 @@ only after the process exits. The build has a 30-minute timeout and the job a 45
 Output/resource exhaustion fails the run rather than yielding a successful verdict.
 
 This is the pinned TauCeti bubblewrap boundary, not a virtual machine or a claim to contain
-kernel exploits. #8 will add complete compiled-module/axiom and lint audits. #6 runs the
-existing source/import boundary check and the two named Lake targets; it does not yet audit
-compiled axioms or force every unimported inventory entry to elaborate. The mathematical
-roadmap and the Lean rc1/TauCeti/Mathlib pins are unchanged.
+kernel exploits. [#8](compiled-audits.md) extends this boundary with complete inventory builds,
+compiled module/axiom checks, lint, and an exact roadmap admission ledger. Its limits for
+compiled artifacts and hostile native code are documented there. The mathematical roadmap
+and the Lean rc1/TauCeti/Mathlib pins are unchanged.
 
 ## Validation and diagnosis
 

@@ -28,12 +28,12 @@ adaptation = "I03: retain the Elan/bubblewrap pins, isolation probes, and adapte
 name = "compiled-audits"
 repository = "TauCetiProject/TauCeti"
 commit = "b743b607ce3e9742b18026ad79082e5d15badff5"
-source_paths = ["scripts/Axioms.lean", "scripts/ModuleSystem.lean", "scripts/HeaderStyle.lean"]
-destination_paths = ["scripts"]
-state = "planned"
+source_paths = ["scripts/Axioms.lean", "scripts/ModuleSystem.lean", "scripts/HeaderStyle.lean", "scripts/lint-env.sh", "scripts/lint-style.sh", "scripts/sandbox-build.sh"]
+destination_paths = ["scripts/Audit.lean", "scripts/check_audits.py", "scripts/sandbox-build.sh", "policy/audits.json", "tests/test_compiled_audits.py"]
+state = "design-adapted"
 license = "Apache-2.0"
 license_status = "recorded"
-adaptation = "I04: backport and test compiled axiom/module audits and lint against SphereCeti's rc1 graph."
+adaptation = "I04: rc1 private-level imports, complete module ownership, exact axiom sets and roadmap ledger, structured environment lint, Mathlib source checks, and approved empty/baseline exceptions. No upstream mathematical code or historical lint baseline is copied."
 
 [[components]]
 name = "review"

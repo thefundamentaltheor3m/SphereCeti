@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "linters": [
+    "checkType",
+    "defsWithUnderscore",
+    "deprecatedNoSince",
+    "impossibleInstance",
+    "nonClassInstance",
+    "simpComm",
+    "simpNF",
+    "structureInType",
+    "subsetDotNotationLinter",
+    "synTaut",
+    "tacticDocs",
+    "unusedArguments",
+    "unusedHavesSuffices"
+  ],
+  "empty_modules": [
+    {
+      "moduleName": "SphereCeti",
+      "reason": "Approved imports-only scaffold; introducing declarations makes this exception stale."
+    },
+    {
+      "moduleName": "SphereCeti.Basic",
+      "reason": "Approved imports-only scaffold; introducing declarations makes this exception stale."
+    },
+    {
+      "moduleName": "SphereCetiRoadmap",
+      "reason": "Approved imports-only scaffold; introducing declarations makes this exception stale."
+    }
+  ],
+  "axiom_exceptions": [],
+  "roadmap_admissions": [],
+  "lint_baseline": [],
+  "nolint_allowlist": []
+}
