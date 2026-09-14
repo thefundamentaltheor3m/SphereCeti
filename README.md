@@ -44,6 +44,10 @@ The installed CLI packages project identity, policy, and the upstream source led
 commands report the scaffold's state; worker and automated review/merge capabilities remain disabled.
 See [CLI configuration and installation](docs/infrastructure/cli.md).
 
+[Lifecycle maintenance](docs/infrastructure/lifecycle.md) reports main CI health, conflicts,
+and quiet work using the shared merge observation. `sphereceti maintenance` previews by default;
+label publication is separately policy-gated and disabled. Recommendations never close PRs.
+
 The [TauCetiReview import](tools/review/README.md) preserves its engine, ten ordered rubrics,
 and upstream tests. `sphereceti review N --dry-run` verifies the exact proposed PR, selected
 context, and dependency sources without invoking a provider. An explicitly configured provider

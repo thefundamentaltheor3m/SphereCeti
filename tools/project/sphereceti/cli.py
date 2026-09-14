@@ -74,6 +74,8 @@ def main(argv: list[str] | None = None) -> int:
     add_observer(commands)
     from .merge_controller import add_parser as add_controller, run as run_controller
     add_controller(commands)
+    from .lifecycle_api import add_parser as add_maintenance, run as run_maintenance
+    add_maintenance(commands)
     for command in ("doctor", "status"):
         sub = commands.add_parser(command)
         sub.add_argument("--json", action="store_true")
@@ -113,6 +115,16 @@ def main(argv: list[str] | None = None) -> int:
             parser.exit(2, f"sphereceti {args.command}: {reason}\n")
         print(json.dumps(report, indent=2))
         return 2 if report.get('state') == 'unconfirmed' else 0
+    if args.command == 'maintenance':
+        try:
+            report = run_maintenance(args, project)
+        except (RecordError, ReviewError, GateError, ConfigError, OSError, ValueError, KeyError,
+                TypeError, subprocess.SubprocessError):
+            report = {'state': 'error', 'reason': 'incomplete or unavailable lifecycle evidence',
+                      'merge_allowed': False}
+        # JSON escaping also protects logs from candidate-controlled workflow commands.
+        print(json.dumps(report, indent=2))
+        return int(report.get('state') in ('error', 'disabled'))
 
     if args.command == "merge-observe":
         try:
@@ -186,6 +198,7 @@ def main(argv: list[str] | None = None) -> int:
                      "production_evidence": "not_configured"},
         "merge_observation": {"implemented": True, "read_only": True, "activation_verified": False},
         "merge_controller": {"implemented": True, "enabled": False, "activation_verified": False},
+        "maintenance": {"implemented": True, "labels_enabled": False, "automatic_closure": False},
         "queue": {"state": "not_checked", "pull_requests": None},
         "setup": {"state": "not_verified", "merging_ready": False,
                   "reason": "App installation, required checks, branch protection, and production adapter are not verified."},
