@@ -70,6 +70,8 @@ def main(argv: list[str] | None = None) -> int:
     from .progress import add_parser as add_progress_parser, run as run_progress
     from .progress_evidence import ProgressError
     add_progress_parser(commands)
+    from .merge_observation import add_parser as add_observer, observe
+    add_observer(commands)
     for command in ("doctor", "status"):
         sub = commands.add_parser(command)
         sub.add_argument("--json", action="store_true")
@@ -99,6 +101,17 @@ def main(argv: list[str] | None = None) -> int:
         except (ValueError, OSError, KeyError, TypeError) as error:
             parser.exit(2, f"sphereceti: archive operation failed ({type(error).__name__}): {error}\n")
         print(json.dumps(report, indent=2) if args.json else f"Archive: {report['state']}")
+        return 0
+
+    if args.command == "merge-observe":
+        try:
+            report = observe(args, project)
+        except (RecordError, ReviewError, GateError, ConfigError, OSError, ValueError, KeyError,
+                TypeError, subprocess.SubprocessError) as error:
+            reason = str(error) if isinstance(error, (RecordError, ConfigError, ReviewError)) else 'incomplete or unavailable observation evidence'
+            parser.exit(2, f"sphereceti merge-observe: {reason}\n")
+        print(json.dumps(report, indent=2) if args.json else
+              f"PR #{args.pr}: {report['eligibility']}; " + '; '.join(report['reasons']) + '\nObservation only; merging is disabled.')
         return 0
 
     if args.command == "review":
@@ -160,6 +173,7 @@ def main(argv: list[str] | None = None) -> int:
         "local_review": {"implemented": True, "advisory_only": True, "publishing": True},
         "progress": {"implemented": True, "local_drafts": True, "publishing": False,
                      "production_evidence": "not_configured"},
+        "merge_observation": {"implemented": True, "read_only": True, "activation_verified": False},
         "queue": {"state": "not_checked", "pull_requests": None},
         "setup": {"state": "not_verified", "merging_ready": False,
                   "reason": "App installation, required checks, branch protection, and production adapter are not verified."},
