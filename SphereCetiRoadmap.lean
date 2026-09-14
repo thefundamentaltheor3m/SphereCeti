@@ -6,10 +6,12 @@ Authors: SphereCeti contributors
 
 module
 
+public import SphereCetiRoadmap.Suggested
+
 /-!
 # SphereCeti roadmap target library
 
 This separately built library is reserved for the target signatures in the mathematical roadmap.
 It may import the SphereCeti library; the SphereCeti library must not import roadmap targets.
-The target files will arrive with the roadmap PR. This scaffold declares no mathematical targets.
+The target signatures belong to the single mathematical roadmap in README.md.
 -/

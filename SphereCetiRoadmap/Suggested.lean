@@ -6,7 +6,7 @@ Authors: SphereCeti contributors
 
 module
 
-public import SphereCeti.Pinned
+public import SphereCetiRoadmap.Pinned
 
 public import TauCeti.Analysis.Complex.UpperHalfPlane.ResToImagAxis
 public import TauCeti.Analysis.Fourier.Continuous

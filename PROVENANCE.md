@@ -41,7 +41,7 @@ commit      bad3de916074748eb88b7d1ee6dbf9494361ad17
 ```
 
 This baseline contains the radial Schwartz submodule and uses Lean and Mathlib `v4.32.0`.
-`SphereCeti/Pinned.lean` models its public statement boundary until PR A2 replaces the model with
+`SphereCetiRoadmap/Pinned.lean` models its public statement boundary until PR A2 replaces the model with
 direct imports from the synchronized production dependency.  The model is never a source of
 independent mathematical truth.
 

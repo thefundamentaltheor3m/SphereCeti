@@ -9,7 +9,7 @@ formalization.  The intended production home remains
 [`thefundamentaltheor3m/Sphere-Packing-Lean`](https://github.com/thefundamentaltheor3m/Sphere-Packing-Lean),
 with generic mathematics upstreamed to Mathlib or TauCeti as appropriate.
 
-`README.md` is definitive.  [`SphereCeti/Suggested.lean`](SphereCeti/Suggested.lean) records
+`README.md` is definitive.  [`SphereCetiRoadmap/Suggested.lean`](SphereCetiRoadmap/Suggested.lean) records
 suggested declaration shapes and theorem endpoints, but it is deliberately nonexhaustive and may be
 adjusted when implementation reveals a better Mathlib-shaped API.
 
@@ -44,7 +44,7 @@ The TauCeti dependency is the complete repository snapshot at the SHA above, not
 contour-specific release.
 
 The pinned Sphere-Packing baseline uses Lean/Mathlib `v4.32.0`, which is incompatible with this
-package's dependency graph.  [`SphereCeti/Pinned.lean`](SphereCeti/Pinned.lean) therefore models the
+package's dependency graph.  [`SphereCetiRoadmap/Pinned.lean`](SphereCetiRoadmap/Pinned.lean) therefore models the
 public structures and semantic normalizations at that exact production commit.  Layer 0 upgrades
 production to the shared dependency line; PR A2 then deletes the compatibility model and replaces
 it with direct imports.  The compatibility model is not permitted to become a second
@@ -762,8 +762,8 @@ The detailed main-first sequence is in [`MIGRATION.md`](MIGRATION.md).  Every pr
 | File | Role |
 |---|---|
 | `README.md` | Definitive mathematical roadmap |
-| `SphereCeti/Suggested.lean` | Proposed target signatures and contract checks |
-| `SphereCeti/Pinned.lean` | Temporary model of the older Sphere-Packing public API |
+| `SphereCetiRoadmap/Suggested.lean` | Proposed target signatures and contract checks |
+| `SphereCetiRoadmap/Pinned.lean` | Temporary model of the older Sphere-Packing public API |
 | `CONVENTIONS.md` | Permanent normalization and attribute decisions |
 | `MIGRATION.md` | Main-first targeted PR sequence |
 | `PROVENANCE.md` | Source and dependency ledger |
@@ -799,3 +799,69 @@ Formal sources and sibling projects:
 - `TauCetiProject/TauCeti` at the exact dependency pin;
 - `TauCetiProject/TauCetiRoadmap`, especially the IntegralLattices and ContourIntegration roadmaps;
 - Mathlib's `ZLattice`, Schwartz/Fourier, Gaussian, modular-form, q-expansion, and measure APIs.
+
+## Infrastructure
+
+**Our infrastructure adapts the work of the TauCeti contributors:**
+[TauCeti](https://github.com/TauCetiProject/TauCeti),
+[TauCetiRoadmap](https://github.com/TauCetiProject/TauCetiRoadmap),
+[TauCetiReview](https://github.com/TauCetiProject/TauCetiReview),
+[TauCetiWorker](https://github.com/kim-em/TauCetiWorker),
+[TauCetiProgress](https://github.com/TauCetiProject/TauCetiProgress), and
+[TauCetiData](https://github.com/TauCetiProject/TauCetiData).
+The [infrastructure plan](INFRASTRUCTURE-PLAN.md) records their roles, exact candidate source
+snapshots, and the focused PR sequence. Imports retain source attribution and applicable licenses.
+
+### Build boundaries
+
+```bash
+lake env python3 -I scripts/check_audits.py
+lake build
+```
+
+The default build checks both `SphereCeti` (the admission-free scaffold/adapters) and
+`SphereCetiRoadmap` (the roadmap target library). This separation does not change the
+production proof home. See [module boundaries](docs/infrastructure/module-boundaries.md) for
+the source inventory, tests, limitations, and the roadmap integration contract.
+
+The [trusted candidate build](docs/infrastructure/trusted-build.md) adapts TauCeti's pinned
+sandbox and configuration attestation. It uses approved tools, builds an immutable PR head,
+and reports build and scope separately; all current changes require human review.
+[Compiled audits](docs/infrastructure/compiled-audits.md) check every module, transitive axiom
+dependencies, lint, and the roadmap admission ledger.
+
+### Project diagnostics
+
+```bash
+uv run --locked sphereceti doctor --offline
+uv run --locked sphereceti status --json
+```
+
+The installed CLI packages project identity, policy, and the upstream source ledger. These
+commands report the project's state; worker and automated review/merge capabilities remain disabled.
+See [CLI configuration and installation](docs/infrastructure/cli.md).
+
+[Lifecycle maintenance](docs/infrastructure/lifecycle.md) reports main CI health, conflicts,
+and quiet work using the shared merge observation. `sphereceti maintenance` previews by default;
+label publication is separately policy-gated and disabled. Recommendations never close PRs.
+
+The [TauCetiReview import](tools/review/README.md) preserves its engine, ten ordered rubrics,
+and upstream tests. `sphereceti review N --dry-run` verifies the exact proposed PR, selected
+context, and dependency sources without invoking a provider. An explicitly configured provider
+can produce a [local advisory review](docs/infrastructure/local-review.md).
+[Review records](docs/infrastructure/review-records.md) bind that evidence to API-verified
+publication identities. `review N --read-records` inspects them without inference; explicit
+`--post` requires approved posting policy, which remains disabled. The legacy launchers remain disabled.
+
+The [durable review archive](docs/infrastructure/review-archive.md) keeps completed review
+metadata and numeric run facts in a local journal/outbox. `sphereceti archive preview` and
+`archive rebuild --output /tmp/reviews.sqlite` are provider-free; remote sync remains disabled.
+
+The [evaluation tools](docs/infrastructure/evaluation.md) summarize recorded costs, apply
+explicit dated price snapshots, compare compatible fresh shadow arms, and retain local human
+labels. `sphereceti evaluation costs --json` is offline and never invokes a provider.
+
+The [advisory profiler](docs/infrastructure/profiling.md) compares exact Git revisions using
+the trusted-build sandbox and host CPU/wall-time measurements. `sphereceti profile-plan`
+inspects inputs locally; `profile-run` measures them with prepared dependencies. Reports
+label library and roadmap sources separately and have no mathematical or merge authority.

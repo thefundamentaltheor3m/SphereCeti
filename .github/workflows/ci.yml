@@ -36,6 +36,9 @@ jobs:
         run: |
           bash scripts/prepare_cache.sh
 
+      - name: Check roadmap contracts
+        run: python3 scripts/check_roadmap.py
+
       - name: Check module boundaries
         run: lake env python3 scripts/check_modules.py
 

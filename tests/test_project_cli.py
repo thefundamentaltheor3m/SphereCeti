@@ -31,6 +31,8 @@ DISABLED_POLICY = parse_policy(DISABLED_POLICY_TEXT)
 class ProjectConfigTest(unittest.TestCase):
     def test_shipped_configuration_and_pins(self):
         profile = parse_project(resource_text('sphereceti.toml'))
+        self.assertEqual(profile.phase, 'roadmap')
+        self.assertTrue(profile.roadmap_approved)
         self.assertEqual(profile.implementation_repository, 'thefundamentaltheor3m/Sphere-Packing-Lean')
         root = Path(__file__).resolve().parents[1]
         source = parse_project((root / 'sphereceti.toml').read_text())
