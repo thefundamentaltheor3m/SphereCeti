@@ -43,8 +43,8 @@ has `state = available` and an empty list. JSON reports have schema version 1.
 
 `doctor` additionally locates git, gh, Lean, and Lake; a missing executable exits 1. Exit 0
 means diagnostics succeeded, not that automation is ready. App installation, required checks,
-branch protections, and the production adapter are explicitly unverified. Activation requires verified live configuration. The current scaffold has no approved roadmap; PR #1 is not silently
-used as specification. Automatic capabilities remain disabled; explicit posting is implemented but requires
+branch protections, and the production adapter are explicitly unverified. Activation requires verified live configuration. The profile proposes the installed roadmap state; authoritative execution still requires
+that profile and the source revision to be approved on the canonical branch. Automatic capabilities remain disabled; explicit posting is implemented but requires
 approved live policy. `local_review`
 separately reports the available advisory adapter.
 

@@ -27,14 +27,14 @@ Every dependency update is atomic:
 3. regenerate the manifest;
 4. record the resolved Mathlib SHA;
 5. build every `SphereCeti.*` module;
-6. run the declaration and normalization contracts in `SphereCeti/Suggested.lean`;
+6. run the declaration and normalization contracts in `SphereCetiRoadmap/Suggested.lean`;
 7. record any semantic changes in this ledger.
 
 Never use `main`, a tag that can move, or an unrecorded local checkout as the effective TauCeti pin.
 
 The pinned `Sphere-Packing-Lean` semantic baseline is
 `bad3de916074748eb88b7d1ee6dbf9494361ad17`.  Its Lean/Mathlib 4.32 pin requires the temporary
-statement-level model in `SphereCeti/Pinned.lean`.  PR A2 deletes that model after the synchronized
+statement-level model in `SphereCetiRoadmap/Pinned.lean`.  PR A2 deletes that model after the synchronized
 4.34 migration; no production theorem may depend on two competing packing implementations.
 
 ## 2. Ambient Euclidean spaces

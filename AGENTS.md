@@ -8,12 +8,12 @@ Read, in order:
 4. `PROVENANCE.md`;
 5. `UPSTREAM.md`;
 6. `VALIDATION.md`;
-7. `SphereCeti/Suggested.lean`.
+7. `SphereCetiRoadmap/Suggested.lean`.
 
 The repository is a roadmap package, not the production proof.  Do not add completed mathematical
 implementations here unless they are tiny elaboration adapters needed to state targets.
 
-`SphereCeti/Pinned.lean` is temporary and frozen to the public semantics of
+`SphereCetiRoadmap/Pinned.lean` is temporary and frozen to the public semantics of
 `Sphere-Packing-Lean@bad3de916074748eb88b7d1ee6dbf9494361ad17`.  Do not extend it with new project
 concepts.  After production migrates to the pinned 4.34 dependency line, delete it and import
 production directly.

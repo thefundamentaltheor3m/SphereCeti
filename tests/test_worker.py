@@ -20,7 +20,8 @@ from sphereceti.worker_cli import GitHub, ci_summary, load_json, read_json, surv
 
 NOW = datetime(2026, 9, 12, 12, 0, tzinfo=timezone.utc)
 STAMP = NOW.strftime('%Y-%m-%dT%H:%M:%SZ')
-PROJECT = parse_project(resource_text('sphereceti.toml'))
+# Keep the unapproved-roadmap fixtures explicit after the real roadmap is installed.
+PROJECT = replace(parse_project(resource_text('sphereceti.toml')), phase='scaffold', roadmap_approved=False)
 APPROVED = replace(PROJECT, phase='roadmap', roadmap_approved=True)
 
 
