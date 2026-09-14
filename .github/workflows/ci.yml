@@ -60,6 +60,9 @@ jobs:
       - name: Exercise sandbox with a disposable Lean candidate
         run: python3 -I scripts/test_sandbox_smoke.py --toolchain "$(lean --print-prefix)"
 
+      - name: Exercise advisory profiling on exact disposable revisions
+        run: python3 -I scripts/test_profiling_smoke.py --toolchain "$(lean --print-prefix)"
+
       - name: Exercise complete immutable candidate pipeline with proposed tools
         run: python3 -I scripts/test_trusted_build_smoke.py --toolchain "$(lean --print-prefix)"
 
