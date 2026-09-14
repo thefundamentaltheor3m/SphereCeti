@@ -40,11 +40,11 @@ name = "review"
 repository = "TauCetiProject/TauCetiReview"
 commit = "afb424eda89e8ac96d9eb69f6a88972055a4cd1b"
 source_paths = ["runner", "rubrics", "tests", "LICENSE", "README.md", "REVIEWING.md", "SECURITY.md", "pyproject.toml", ".github/workflows/merge-only.yml", ".github/workflows/merge-sweep.yml", ".github/workflows/review.yml"]
-destination_paths = ["tools/review"]
+destination_paths = ["tools/review", "tools/project/sphereceti/local_review.py", "tools/project/sphereceti/review_resources.py", "tools/project/sphereceti/review_bridge.py", "docs/infrastructure/local-review.md"]
 state = "imported"
 license = "Apache-2.0"
 license_status = "recorded"
-adaptation = "I05: copy engine, ten ordered rubrics, references, tests, and license; disable launchers/archive sync, require explicit repository identity, remove bot fallback and mutable engine fallback. Exact per-file mapping: tools/review/import-manifest.json; local changes: tools/review/README.md. I06/I07 supply the adapter and authenticated records."
+adaptation = "PR #9 imports the engine, ten rubrics, references, tests, and license with inactive legacy launchers. The local advisory adapter supplies exact Git evidence, installed resources, explicit project overlays, isolated provider dispatch, and shared budget accounting. Original import mapping: tools/review/import-manifest.json; integration: docs/infrastructure/local-review.md. Authentication and posting remain a follow-up."
 
 [[components]]
 name = "worker"

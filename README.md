@@ -41,12 +41,14 @@ uv run --locked sphereceti status --json
 ```
 
 The installed CLI packages project identity, policy, and the upstream source ledger. These
-commands report the scaffold's state; worker/review/merge capabilities remain disabled.
+commands report the scaffold's state; worker and automated review/merge capabilities remain disabled.
 See [CLI configuration and installation](docs/infrastructure/cli.md).
 
-The [inactive review import](tools/review/README.md) preserves TauCetiReview's engine,
-ten ordered rubrics, and upstream tests. Its launchers are disabled; the local review adapter
-and authenticated posting belong to I06 and I07.
+The [TauCetiReview import](tools/review/README.md) preserves its engine, ten ordered rubrics,
+and upstream tests. `sphereceti review N --dry-run` verifies the exact proposed PR, selected
+context, and dependency sources without invoking a provider. An explicitly configured provider
+can produce a [local advisory review](docs/infrastructure/local-review.md). Authenticated
+records and explicit posting are the next step; the legacy launchers remain disabled.
 
 ## GitHub configuration
 

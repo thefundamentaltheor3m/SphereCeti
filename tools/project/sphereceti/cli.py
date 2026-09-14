@@ -1,4 +1,4 @@
-"""Read-only project diagnostics. This command cannot author, post, review, or merge."""
+"""Project diagnostics and explicit local advisory reviews; no authoring, posting, or merging."""
 
 from __future__ import annotations
 
@@ -53,6 +53,9 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--version", action="version", version=__version__)
     commands = parser.add_subparsers(dest="command", required=True)
+    from .local_review import add_parser, run_review, ReviewError
+    from .gate import GateError
+    add_parser(commands)
     for command in ("doctor", "status"):
         sub = commands.add_parser(command)
         sub.add_argument("--json", action="store_true")
@@ -67,6 +70,25 @@ def main(argv: list[str] | None = None) -> int:
     except (ConfigError, OSError, tomllib.TOMLDecodeError) as error:
         parser.exit(2, f"sphereceti: configuration error: {error}\n")
 
+    if args.command == "review":
+        try:
+            report = run_review(args, project, preferences)
+        except (ReviewError, GateError, ConfigError, OSError, ValueError, KeyError,
+                subprocess.SubprocessError) as error:
+            reason = (str(error) if isinstance(error, (ReviewError, ConfigError)) else
+                      f"source/resource operation failed ({type(error).__name__}); check exact revisions and paths")
+            parser.exit(2, f"sphereceti: {reason}\n")
+        if args.json:
+            print(json.dumps(report, indent=2))
+        else:
+            print(f"Local advisory review #{args.pr}: {report['completion']}")
+            print(f"T={report['tooling']} H={report['head']} D={report['dependency_digest']}")
+            print(f"Evidence and result: {report['output']}")
+            print("Not authenticated; not eligible for merging.")
+            if report["missing_context"]:
+                print("Missing approved context: " + ", ".join(report["missing_context"]))
+        return 1 if report["completion"] == "error" else 0
+
     config = {"project": asdict(project), "policy": asdict(policy), "sources": sources}
     report = {
         "schema_version": 1, "version": __version__, **config,
@@ -78,6 +100,7 @@ def main(argv: list[str] | None = None) -> int:
         "capabilities": {name: {"implemented": False, "enabled": False,
                                 "policy_requested": getattr(policy, name)}
                          for name in ("review_generation", "posting", "authoring", "reporting", "merging")},
+        "local_review": {"implemented": True, "advisory_only": True, "publishing": False},
         "queue": {"state": "not_checked", "pull_requests": None},
         "setup": {"state": "not_verified", "merging_ready": False,
                   "reason": "App installation, required checks, branch protection, and production adapter are not verified."},
@@ -102,7 +125,7 @@ def main(argv: list[str] | None = None) -> int:
         queue = report["queue"]
         print(f"Queue: {len(queue['pull_requests'])} open PR(s)" if queue["state"] == "available"
               else f"Queue: {queue.get('reason', 'not checked (offline)')}")
-        print("Authoring, review generation, posting, reporting, and merging: not implemented; disabled.")
+        print("Local advisory review is available. Automated review, authoring, posting, reporting, and merging remain disabled.")
         print(f"Operational setup: {report['setup']['reason']}")
         if args.command == "doctor":
             for name, path in report["executables"].items():

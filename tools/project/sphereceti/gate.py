@@ -11,6 +11,7 @@ import argparse
 from dataclasses import dataclass
 import hashlib
 import json
+import os
 from pathlib import Path, PurePosixPath
 import re
 import subprocess
@@ -35,9 +36,18 @@ class Entry:
     oid: str
 
 
+def git_environment() -> dict[str, str]:
+    """Exact object reads must not inherit another Git directory or replacement objects."""
+    return {**{k: v for k, v in os.environ.items() if not k.startswith("GIT_")},
+            "GIT_NO_REPLACE_OBJECTS": "1", "GIT_NO_LAZY_FETCH": "1",
+            "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": os.devnull,
+            "GIT_TERMINAL_PROMPT": "0"}
+
+
 def git(repo: Path, *args: str) -> bytes:
     try:
-        return subprocess.check_output(["git", "-C", str(repo), *args], stderr=subprocess.PIPE)
+        return subprocess.check_output(["git", "-C", str(repo), *args], stderr=subprocess.PIPE,
+                                       env=git_environment())
     except subprocess.CalledProcessError as error:
         raise GateError(f"git {args[0]} failed: {error.stderr.decode(errors='replace').strip()}") from error
 
@@ -51,7 +61,7 @@ def exact_commit(repo: Path, revision: str) -> str:
     return actual
 
 
-def tree(repo: Path, revision: str) -> dict[str, Entry]:
+def tree(repo: Path, revision: str, *, dependency_links: bool = False) -> dict[str, Entry]:
     result = {}
     for record in git(repo, "ls-tree", "-rz", "--full-tree", revision).split(b"\0"):
         if not record:
@@ -66,7 +76,8 @@ def tree(repo: Path, revision: str) -> dict[str, Entry]:
             raise GateError("control character in source path")
         if any(p.lower() == '.git' for p in parts) or parts[0] in RESERVED:
             raise GateError(f"reserved source path: {path}")
-        if mode not in ("100644", "100755") or kind != "blob":
+        modes = ("100644", "100755", "120000") if dependency_links else ("100644", "100755")
+        if mode not in modes or kind != "blob":
             raise GateError(f"non-ordinary source (symlink/submodule): {path}")
         if path in result:
             raise GateError(f"duplicate source path: {path}")
