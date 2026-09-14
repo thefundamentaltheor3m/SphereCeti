@@ -24,6 +24,7 @@ RESOURCE_PATHS = {
     "sphereceti.toml": "sphereceti.toml",
     "automation.toml": "policy/automation.toml",
     "reporting.toml": "policy/reporting.toml",
+    "merge-checks.toml": "policy/merge-checks.toml",
     "upstream-lock.toml": "tools/upstream-lock.toml",
 }
 
