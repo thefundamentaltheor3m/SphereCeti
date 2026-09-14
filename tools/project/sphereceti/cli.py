@@ -76,12 +76,36 @@ def main(argv: list[str] | None = None) -> int:
     add_controller(commands)
     from .lifecycle_api import add_parser as add_maintenance, run as run_maintenance
     add_maintenance(commands)
+    for command in ('profile-plan', 'profile-run'):
+        sub = commands.add_parser(command, help='local advisory exact-revision profiling')
+        sub.add_argument('--repo', type=Path, required=True)
+        for name in ('tooling', 'base', 'head'):
+            sub.add_argument('--' + name, required=True)
+        if command == 'profile-run':
+            for name in ('workspace', 'toolchain', 'dependencies'):
+                sub.add_argument('--' + name, type=Path, required=True)
     for command in ("doctor", "status"):
         sub = commands.add_parser(command)
         sub.add_argument("--json", action="store_true")
         sub.add_argument("--offline", action="store_true", help="do not query GitHub; queue remains unknown")
         sub.add_argument("--operator-config", type=Path, help="preferences only; cannot override repository policy")
     args = parser.parse_args(argv)
+    if args.command in ('profile-plan', 'profile-run'):
+        from .profiling import plan
+        from .profile_runner import run
+        from .sandbox import SandboxError
+        try:
+            if args.command == 'profile-plan':
+                result = plan(args.repo, args.tooling, args.base, args.head)
+            else:
+                result = run(args.repo, args.tooling, args.base, args.head, args.workspace,
+                             args.toolchain, args.dependencies)
+            print(json.dumps(result, indent=2))
+            return int(result.get('state') == 'error')
+        except (ValueError, OSError, KeyError, SandboxError, subprocess.SubprocessError) as error:
+            # JSON escaping keeps Git paths/diagnostics from becoming workflow commands.
+            print(json.dumps({'state': 'error', 'reason': str(error)}))
+            return 1
     try:
         project = parse_project(resource_text("sphereceti.toml"))
         policy = parse_policy(resource_text("automation.toml"))

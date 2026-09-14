@@ -17,6 +17,7 @@ The `sphereceti` command supplies project diagnostics and the adapters credited 
 | `merge-observe` | [Merge eligibility observations](merge-observation.md) |
 | `merge-doctor / merge-control` | [Controller diagnostics and gated action](merge-controller.md) |
 | `maintenance` | [Lifecycle diagnostics and labels](lifecycle.md) |
+| `profile-plan / profile-run` | [Advisory profiling](profiling.md) |
 
 From this checkout:
 
