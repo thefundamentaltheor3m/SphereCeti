@@ -72,6 +72,8 @@ def main(argv: list[str] | None = None) -> int:
     add_progress_parser(commands)
     from .merge_observation import add_parser as add_observer, observe
     add_observer(commands)
+    from .merge_controller import add_parser as add_controller, run as run_controller
+    add_controller(commands)
     for command in ("doctor", "status"):
         sub = commands.add_parser(command)
         sub.add_argument("--json", action="store_true")
@@ -102,6 +104,15 @@ def main(argv: list[str] | None = None) -> int:
             parser.exit(2, f"sphereceti: archive operation failed ({type(error).__name__}): {error}\n")
         print(json.dumps(report, indent=2) if args.json else f"Archive: {report['state']}")
         return 0
+    if args.command in ("merge-doctor", "merge-control"):
+        try:
+            report = run_controller(args, project)
+        except (RecordError, ReviewError, GateError, ConfigError, OSError, ValueError, KeyError,
+                TypeError, subprocess.SubprocessError) as error:
+            reason = str(error) if isinstance(error, (RecordError, ConfigError, ReviewError)) else 'incomplete or unavailable controller evidence'
+            parser.exit(2, f"sphereceti {args.command}: {reason}\n")
+        print(json.dumps(report, indent=2))
+        return 2 if report.get('state') == 'unconfirmed' else 0
 
     if args.command == "merge-observe":
         try:
@@ -165,7 +176,7 @@ def main(argv: list[str] | None = None) -> int:
         "roadmap": {"state": "approved" if project.roadmap_approved else "not_installed",
                     "reason": "Approved roadmap is not installed; an open PR is not approved specification."
                     if not project.roadmap_approved else "Profile records approved roadmap sources."},
-        "capabilities": {name: {"implemented": name == "posting", "enabled": False,
+        "capabilities": {name: {"implemented": name in ("posting", "merging"), "enabled": False,
                                 "policy_requested": getattr(policy, name)}
                          for name in ("review_generation", "posting", "authoring", "reporting", "merging")},
         "worker": {"planning": True, "review_round": True, "execution_readiness": "unverified",
@@ -174,6 +185,7 @@ def main(argv: list[str] | None = None) -> int:
         "progress": {"implemented": True, "local_drafts": True, "publishing": False,
                      "production_evidence": "not_configured"},
         "merge_observation": {"implemented": True, "read_only": True, "activation_verified": False},
+        "merge_controller": {"implemented": True, "enabled": False, "activation_verified": False},
         "queue": {"state": "not_checked", "pull_requests": None},
         "setup": {"state": "not_verified", "merging_ready": False,
                   "reason": "App installation, required checks, branch protection, and production adapter are not verified."},

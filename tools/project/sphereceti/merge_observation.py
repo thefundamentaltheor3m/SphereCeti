@@ -89,6 +89,7 @@ def decide(context, scope, review, checks, pr, policy, *, current_main):
         reasons.append('current approved review/tooling evidence is incomplete')
     if pr['state'] != 'open' or pr['merged'] is not False: reasons.append('PR is not open and unmerged')
     if pr['draft'] is not False: reasons.append('draft PR requires human action')
+    if pr.get('auto_merge') is not None: reasons.append('existing auto-merge remains human-managed')
     if pr['base']['ref'] != 'main' or context['base'] != current_main:
         reasons.append('PR does not target the current approved main')
     if context['tooling'] != current_main: reasons.append('tooling is not current approved main')
