@@ -189,12 +189,12 @@ def parse_source_lock(text: str) -> list[dict]:
                 raise ConfigError(f"{key}: expected a nonempty list")
             for path in item[key]:
                 local_path(path, key)
-        if item["state"] not in ("planned", "design-adapted", "imported"):
+        if item["state"] not in ("planned", "reference-only", "design-adapted", "imported"):
             raise ConfigError("source lock: unknown component state")
         if item["license_status"] not in ("recorded", "unresolved"):
             raise ConfigError("source lock: unknown license status")
         if (item["license"] == "unresolved") != (item["license_status"] == "unresolved"):
             raise ConfigError("source lock: license and status disagree")
-        if item["state"] != "planned" and item["license_status"] != "recorded":
+        if item["state"] in ("design-adapted", "imported") and item["license_status"] != "recorded":
             raise ConfigError("source lock: reuse terms must be recorded before adaptation/import")
     return data["components"]

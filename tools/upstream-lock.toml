@@ -50,12 +50,12 @@ adaptation = "PR #9 imports the engine, ten rubrics, references, tests, and lice
 name = "worker"
 repository = "kim-em/TauCetiWorker"
 commit = "27c234a5722cfe557279aa47fbfd8e51450481a6"
-source_paths = ["tauceti_worker", "prompts", "scripts", "tests", "pyproject.toml"]
-destination_paths = ["tools/worker"]
-state = "planned"
+source_paths = ["README.md"]
+destination_paths = ["docs/infrastructure/worker.md"]
+state = "reference-only"
 license = "unresolved"
 license_status = "unresolved"
-adaptation = "I08/I09: resolve reuse terms before copying; preserve scheduling and strict targeting through the project profile."
+adaptation = "Behavioral reference only; source import cancelled. Independently authored SphereCeti worker code is Apache-2.0 under this repository's LICENSE. No Worker implementation, prompts, tests, or assets are copied. One cohesive roadmap; optional effort estimates, no area-specialization controls."
 
 [[components]]
 name = "progress"
