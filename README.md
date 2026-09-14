@@ -27,6 +27,17 @@ The default build checks both `SphereCeti` (the admission-free scaffold/adapters
 production proof home. See [module boundaries](docs/infrastructure/module-boundaries.md) for
 the source inventory, tests, limitations, and the integration steps for PR #1.
 
+## Project diagnostics
+
+```bash
+uv run --locked sphereceti doctor --offline
+uv run --locked sphereceti status --json
+```
+
+The installed CLI packages project identity, policy, and the upstream source ledger. These
+commands report the scaffold's state; worker/review/merge capabilities remain disabled.
+See [CLI configuration and installation](docs/infrastructure/cli.md).
+
 ## GitHub configuration
 
 To set up your new GitHub repository, follow these steps:

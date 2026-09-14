@@ -1,0 +1,69 @@
+schema_version = 1
+
+# Credit belongs to the upstream contributors. Planned entries are source candidates,
+# not imported code or replacements for the pinned Lean dependency graph.
+[[components]]
+name = "source-inventory-design"
+repository = "TauCetiProject/TauCeti"
+commit = "8671bee98125933c56b9b00a08ded873b77dd23b"
+source_paths = ["scripts/source-modules.sh"]
+destination_paths = ["scripts/check_modules.py"]
+state = "design-adapted"
+license = "Apache-2.0"
+license_status = "recorded"
+adaptation = "Python inventory with Lean header parsing and separate roadmap/tooling/fixture classes; no shell source copied."
+
+[[components]]
+name = "trusted-build-and-audits"
+repository = "TauCetiProject/TauCeti"
+commit = "b743b607ce3e9742b18026ad79082e5d15badff5"
+source_paths = [".github/workflows/pr-build.yml", "scripts/sandbox-build.sh", "scripts/attest-pr-config.sh", "scripts/Axioms.lean", "scripts/ModuleSystem.lean", "scripts/HeaderStyle.lean"]
+destination_paths = [".github/workflows", "scripts"]
+state = "planned"
+license = "Apache-2.0"
+license_status = "recorded"
+adaptation = "I03/I04: test/backport rc2 tooling on SphereCeti's rc1 graph; separate approved tools from candidate sources."
+
+[[components]]
+name = "review"
+repository = "TauCetiProject/TauCetiReview"
+commit = "afb424eda89e8ac96d9eb69f6a88972055a4cd1b"
+source_paths = ["runner", "rubrics", "tests", "LICENSE"]
+destination_paths = ["tools/review"]
+state = "planned"
+license = "Apache-2.0"
+license_status = "recorded"
+adaptation = "I05-I07: retain engine and rubrics; adapt source locations and authenticate merge-eligible reviewers."
+
+[[components]]
+name = "worker"
+repository = "kim-em/TauCetiWorker"
+commit = "27c234a5722cfe557279aa47fbfd8e51450481a6"
+source_paths = ["tauceti_worker", "prompts", "scripts", "tests", "pyproject.toml"]
+destination_paths = ["tools/worker"]
+state = "planned"
+license = "unresolved"
+license_status = "unresolved"
+adaptation = "I08/I09: resolve reuse terms before copying; preserve scheduling and strict targeting through the project profile."
+
+[[components]]
+name = "progress"
+repository = "TauCetiProject/TauCetiProgress"
+commit = "880e8b9737973bfbd8f1f214f4ac2ded67f5b856"
+source_paths = ["progress", "README.md", "pyproject.toml", "LICENSE"]
+destination_paths = ["tools/progress"]
+state = "planned"
+license = "Apache-2.0"
+license_status = "recorded"
+adaptation = "I13: separate proposed targets from audited achievements; retain published-documentation cursors."
+
+[[components]]
+name = "data"
+repository = "TauCetiProject/TauCetiData"
+commit = "e8e915472b02875f9a3864492616662c0c902876"
+source_paths = ["schema", "scripts", "docs"]
+destination_paths = ["tools/data"]
+state = "planned"
+license = "unresolved"
+license_status = "unresolved"
+adaptation = "I12/I16: resolve reuse terms before copying; import tooling/schemas without historical records or blobs."
