@@ -57,6 +57,8 @@ def main(argv: list[str] | None = None) -> int:
     from .gate import GateError
     from .review_records import RecordError
     add_parser(commands)
+    from .archive_cli import add_parser as add_archive_parser, run_archive
+    add_archive_parser(commands)
     for command in ("doctor", "status"):
         sub = commands.add_parser(command)
         sub.add_argument("--json", action="store_true")
@@ -70,6 +72,14 @@ def main(argv: list[str] | None = None) -> int:
         preferences = parse_operator(args.operator_config.read_text() if args.operator_config else "")
     except (ConfigError, OSError, tomllib.TOMLDecodeError) as error:
         parser.exit(2, f"sphereceti: configuration error: {error}\n")
+
+    if args.command == "archive":
+        try:
+            report = run_archive(args, project, preferences)
+        except (ValueError, OSError, KeyError, TypeError) as error:
+            parser.exit(2, f"sphereceti: archive operation failed ({type(error).__name__}): {error}\n")
+        print(json.dumps(report, indent=2) if args.json else f"Archive: {report['state']}")
+        return 0
 
     if args.command == "review":
         try:

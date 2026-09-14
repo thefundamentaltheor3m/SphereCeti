@@ -23,6 +23,7 @@ Repository = "https://github.com/thefundamentaltheor3m/SphereCeti"
 packages = ["tools/project/sphereceti"]
 
 [tool.hatch.build.targets.wheel.force-include]
+"policy/archive.toml" = "sphereceti/resources/archive.toml"
 "sphereceti.toml" = "sphereceti/resources/sphereceti.toml"
 "policy/automation.toml" = "sphereceti/resources/automation.toml"
 "tools/upstream-lock.toml" = "sphereceti/resources/upstream-lock.toml"
@@ -33,4 +34,4 @@ packages = ["tools/project/sphereceti"]
 "tools/review/import-manifest.json" = "sphereceti/resources/review/import-manifest.json"
 
 [tool.hatch.build.targets.sdist]
-include = ["tools/project/sphereceti", "tools/review/runner", "tools/review/rubrics", "tools/review/project", "tools/review/LICENSE", "tools/review/import-manifest.json", "sphereceti.toml", "policy/automation.toml", "tools/upstream-lock.toml", "README.md", "LICENSE", "pyproject.toml"]
+include = ["policy/archive.toml", "tools/project/sphereceti", "tools/review/runner", "tools/review/rubrics", "tools/review/project", "tools/review/LICENSE", "tools/review/import-manifest.json", "sphereceti.toml", "policy/automation.toml", "tools/upstream-lock.toml", "README.md", "LICENSE", "pyproject.toml"]

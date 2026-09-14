@@ -109,6 +109,14 @@ def parse_record(body):
         record = parse_json(base64.b64decode(match[1], validate=True).decode())
     except (ValueError, UnicodeError) as error:
         raise RecordError("invalid encoded record") from error
+    validate_metadata(record)
+    if record["body_sha256"] != sha(match[2]):
+        raise RecordError("rendered body digest mismatch")
+    return record
+
+
+def validate_metadata(record):
+    """Check metadata integrity only; neither authenticate a publisher nor verify omitted prose."""
     if not isinstance(record, dict) or set(record) != FIELDS or type(record["schema_version"]) is not int or record["schema_version"] != 1:
         raise RecordError("unsupported record schema")
     if type(record["pr"]) is not int or record["pr"] <= 0 or not isinstance(record["repository"], str):
@@ -129,7 +137,7 @@ def parse_record(body):
     marks = record["contests_through"]
     if not isinstance(marks, dict) or set(marks) != set(RUBRICS) or any(type(v) is not int or v < 0 for v in marks.values()):
         raise RecordError("invalid contest watermarks")
-    if record["body_sha256"] != sha(match[2]) or record["record_id"] != sha(canonical({k:v for k,v in record.items() if k != "record_id"})):
+    if record["record_id"] != sha(canonical({k:v for k,v in record.items() if k != "record_id"})):
         raise RecordError("record or rendered body digest mismatch")
     return record
 

@@ -20,6 +20,7 @@ class ConfigError(ValueError):
 REPOSITORY = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9][A-Za-z0-9_.-]*\Z")
 COMMIT = re.compile(r"[0-9a-f]{40}\Z")
 RESOURCE_PATHS = {
+    "archive.toml": "policy/archive.toml",
     "sphereceti.toml": "sphereceti.toml",
     "automation.toml": "policy/automation.toml",
     "upstream-lock.toml": "tools/upstream-lock.toml",

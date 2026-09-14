@@ -52,6 +52,10 @@ can produce a [local advisory review](docs/infrastructure/local-review.md).
 publication identities. `review N --read-records` inspects them without inference; explicit
 `--post` requires approved posting policy, which remains disabled. The legacy launchers remain disabled.
 
+The [durable review archive](docs/infrastructure/review-archive.md) keeps completed review
+metadata and numeric run facts in a local journal/outbox. `sphereceti archive preview` and
+`archive rebuild --output /tmp/reviews.sqlite` are provider-free; remote sync remains disabled.
+
 ## GitHub configuration
 
 To set up your new GitHub repository, follow these steps:
