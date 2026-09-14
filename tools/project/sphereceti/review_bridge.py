@@ -12,6 +12,30 @@ from pathlib import Path
 import sys
 
 
+def bound_shadow_budget(review, allowance):
+    """Constrain the isolated engine at its actual day-balance read, without resetting spend."""
+    original_load = review.Ledger.__init__
+    def bounded_ledger(ledger, path):
+        original_load(ledger, path)
+        original_days = ledger.data['days']
+        class BudgetDays(dict):
+            def get(self, day, default=0):
+                spent = super().get(day, default)
+                # review.py reads the day's balance once before dispatch. Its parsed
+                # args hold the daily cap, so constrain that cap at this exact read.
+                review_args.daily_budget = min(review_args.daily_budget, spent + allowance)
+                return spent
+        ledger.data['days'] = BudgetDays(original_days)
+    original_parse = review.argparse.ArgumentParser.parse_args
+    review_args = None
+    def parse_args(parser, *args, **kwargs):
+        nonlocal review_args
+        review_args = original_parse(parser, *args, **kwargs)
+        return review_args
+    review.argparse.ArgumentParser.parse_args = parse_args
+    review.Ledger.__init__ = bounded_ledger
+
+
 def main() -> int:
     request = json.loads(Path(sys.argv[1]).read_text())
     runner = Path(request["engine"]) / "runner"
@@ -53,6 +77,8 @@ def main() -> int:
             temporary.replace(shared)
 
         review.Ledger.persist = persist_shadow
+    if request.get("shadow_budget_usd") is not None:
+        bound_shadow_budget(review, request["shadow_budget_usd"])
     allowed = set(request["executables"])
 
     def guard(event, args):

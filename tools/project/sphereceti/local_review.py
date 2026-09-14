@@ -68,6 +68,7 @@ def add_parser(commands):
     p.add_argument("--reply-rubric", choices=RUBRICS)
     p.add_argument("--reply-file", type=Path)
     p.add_argument("--replies-json", type=Path, help="local untrusted author contests in the upstream format")
+    p.add_argument("--shadow-budget-usd", type=float, help="explicit per-invocation shadow allowance, within the shared daily cap")
     p.add_argument("--shadow", metavar="LABEL", help="fresh advisory arm; preserves the normal case files")
     for provider in ("claude", "codex", "kiro"):
         p.add_argument(f"--{provider}-model")
@@ -369,6 +370,9 @@ def execution_settings(args, prefs):
     budget = args.budget_usd if args.budget_usd is not None else prefs.budget_usd
     if not 0 < budget < float("inf") or not 0 < args.max_call_cost <= budget:
         raise ReviewError("set a finite positive --budget-usd and --max-call-cost no greater than that budget")
+    if args.shadow:
+        if args.shadow_budget_usd is None or not 0 < args.max_call_cost <= args.shadow_budget_usd < float('inf'):
+            raise ReviewError("shadow execution requires a finite --shadow-budget-usd at least --max-call-cost")
     return providers, budget
 
 
@@ -420,7 +424,8 @@ def execute(args, prefs, report, workspace: Path, engine: Path, store: Path, out
     request = output / "engine-request.json"
     write_json(request, {"engine": str(engine), "workspace": str(workspace), "arguments": command,
                          "context": context, "executables": sorted({PROVIDERS[p] for p in providers}),
-                         "shared_budget_ledger": str(ledger_file) if args.shadow else None})
+                         "shared_budget_ledger": str(ledger_file) if args.shadow else None,
+                         "shadow_budget_usd": args.shadow_budget_usd if args.shadow else None})
     interrupted = None
     try:
         bridge_args = (request, engine_environment(providers, args.auth), lock_fd)
@@ -442,6 +447,11 @@ def execute(args, prefs, report, workspace: Path, engine: Path, store: Path, out
     complete = (len(finished) == len(RUBRICS) and args.rubrics == ",".join(RUBRICS)
                 and args.mode != "reply" and not report["diff_prompt_truncated"] and not args.shadow)
     result = {**report, "completion": "error" if code else "complete" if complete else "partial",
+              "evaluation_request": {"auth": args.auth, "shadow": args.shadow or None,
+                                     "rubrics": args.rubrics.split(","),
+                                     "daily_budget_usd": budget,
+                                     "shadow_budget_usd": args.shadow_budget_usd if args.shadow else None,
+                                     "context": "fresh_shadow" if args.shadow else "prior_case_possible"},
               "execution_id": uuid.uuid4().hex, "finished_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
               "engine_exit_code": code, "execution_mode": "shadow" if args.shadow else args.mode,
               "requested_rubrics": args.rubrics.split(","), "finished_rubrics": finished,
@@ -480,6 +490,8 @@ def persist_review(result, output, archive):
 
 
 def run_review(args, project, prefs, *, guard=None) -> dict:
+    if args.shadow and (args.post or args.read_records or args.replies_json):
+        raise ReviewError("fresh shadow execution cannot post, inspect live records, or use prior contest inputs")
     if args.post and (args.dry_run or args.read_records or args.local_sources):
         raise ReviewError("--post requires a live review and cannot be combined with dry-run, read-records, or local sources")
     if args.read_records and (args.local_sources or args.dry_run):
@@ -498,6 +510,10 @@ def run_review(args, project, prefs, *, guard=None) -> dict:
         raise ReviewError("reply file must exist and be an ordinary file")
     if args.replies_json and not args.replies_json.is_file():
         raise ReviewError("replies JSON file must exist and be an ordinary file")
+    if args.shadow_budget_usd is not None and not args.shadow:
+        raise ReviewError("--shadow-budget-usd requires --shadow")
+    if args.shadow and len(args.shadow) > 80:
+        raise ReviewError("shadow label must be at most 80 characters")
     if args.shadow and (args.mode == "reply" or not re.fullmatch(r"[A-Za-z0-9_-]+", args.shadow)):
         raise ReviewError("shadow label must be a simple name; shadow and reply modes are separate")
     for name in ("source_repo", "dependencies_dir", "reply_file", "replies_json", "description_file"):

@@ -28,7 +28,8 @@ from .review_records import BINDINGS, canonical, parse_json, parse_record, valid
 MAX_FILE = 1024 * 1024
 MAX_FILES = 2000
 MAX_TOTAL = 64 * MAX_FILE
-SCHEMA = 'sphereceti.archive/v1'
+SCHEMA = 'sphereceti.archive/v1'  # State-branch anchor and legacy records stay unchanged.
+RECORD_V2 = 'sphereceti.archive/v2'
 HEX = r'[0-9a-f]{64}'
 RECORD_PATH = re.compile(r'records/(' + HEX + r')\.json\Z')
 BLOB_PATH = re.compile(r'blobs/([0-9a-f]{2})/(' + HEX + r')\.gz\Z')
@@ -156,24 +157,36 @@ RUN_FACTS = {'run_id', 'provider', 'model', 'rubric', 'prompt_policy', 'prices_s
 ATTEMPT_FACTS = {'model', 'secs', 'returncode', 'usage', 'cost_usd', 'cost_estimated'}
 
 
-def project_run(source, review):
+def project_run(source, review, request=None):
     require(isinstance(source, dict) and source.get('schema') == 'tauceti.run/v1', 'unknown producer schema')
     for a, b in (('repo', 'repository'), ('pr', 'pr'), ('head_sha', 'head'),
                  ('base_ref_oid', 'base'), ('merge_base_sha', 'diff_base')):
         require(source.get(a) == review[b], 'producer record has different source bindings')
-    run = facts(source, RUN_FACTS)
+    if request is not None:
+        require(source.get('auth') == request['auth'], 'producer authentication mode mismatch')
+        require(source.get('arm') == ('shadow:' + request['shadow'] if request['shadow'] else 'production'),
+                'producer arm mismatch')
+        require(source.get('mode') == ('manual' if request['shadow'] else review['execution_mode']),
+                'producer execution mode mismatch')
+    run = facts(source, RUN_FACTS | ({'started_at'} if request is not None else set()))
     attempts = source.get('attempts', [])
     require(isinstance(attempts, list) and len(attempts) <= 10 and all(isinstance(a, dict) for a in attempts),
             'invalid producer attempts')
     run['attempts'] = [facts(a, ATTEMPT_FACTS) for a in attempts]
-    validate_run(run)
+    validate_run(run, v2=request is not None)
     return run
 
 
-def validate_run(run):
-    require(isinstance(run, dict) and set(run) <= RUN_FACTS | {'attempts'}, 'unknown run fields')
+def validate_run(run, *, v2=False):
+    allowed = RUN_FACTS | ({'started_at'} if v2 else set())
+    require(isinstance(run, dict) and set(run) <= allowed | {'attempts'}, 'unknown run fields')
     require({'run_id', 'provider', 'model', 'rubric', 'prompt_policy', 'attempts'} <= set(run), 'missing run facts')
-    require(facts(run, RUN_FACTS) == {k: v for k, v in run.items() if k != 'attempts'}, 'invalid run facts')
+    require(facts(run, allowed) == {k: v for k, v in run.items() if k != 'attempts'}, 'invalid run facts')
+    if v2:
+        stamp = run.get('started_at')
+        require(isinstance(stamp, str) and re.fullmatch(r'\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ', stamp),
+                'missing or invalid producer start time')
+        datetime.fromisoformat(stamp)
     require(run['rubric'] in RUBRICS,
             'unknown archive rubric')
     require(run['prompt_policy'] in ('fresh', 'reactivation'), 'unknown prompt policy')
@@ -183,9 +196,11 @@ def validate_run(run):
 
 
 def validate_record(record, repository):
-    require(isinstance(record, dict) and set(record) ==
-            {'schema', 'execution_id', 'finished_at', 'review', 'runs', 'text_blob'}, 'unknown archive fields')
-    require(record['schema'] == SCHEMA, 'unknown archive schema')
+    require(isinstance(record, dict), 'invalid archive record')
+    v2 = record.get('schema') == RECORD_V2
+    required = {'schema', 'execution_id', 'finished_at', 'review', 'runs', 'text_blob'} | ({'request'} if v2 else set())
+    require(set(record) == required, 'unknown archive fields')
+    require(record['schema'] in (SCHEMA, RECORD_V2), 'unknown archive schema')
     require(isinstance(record['execution_id'], str) and re.fullmatch(r'[0-9a-f]{32}', record['execution_id']),
             'invalid execution ID')
     require(isinstance(record['finished_at'], str) and
@@ -195,8 +210,28 @@ def validate_record(record, repository):
     require(record['review']['pr'] <= 2**63-1, 'PR number exceeds archive range')
     require(record['review']['repository'] == repository and REPOSITORY.fullmatch(repository), 'wrong archive repository')
     require(isinstance(record['runs'], list) and len(record['runs']) <= 100, 'invalid archive runs')
+    if v2:
+        request = record['request']
+        require(isinstance(request, dict) and set(request) == {'auth', 'shadow', 'rubrics', 'context', 'daily_budget_usd', 'shadow_budget_usd'}, 'invalid request facts')
+        require(request['auth'] in ('api', 'subscription'), 'invalid authentication mode')
+        require(isinstance(request['rubrics'], list) and request['rubrics'] and
+                all(isinstance(r, str) and r in RUBRICS for r in request['rubrics']) and
+                request['rubrics'] == [r for r in RUBRICS if r in request['rubrics']], 'invalid requested rubrics')
+        shadow = record['review']['execution_mode'] == 'shadow'
+        for key in ('daily_budget_usd', 'shadow_budget_usd'):
+            value = request[key]
+            if key == 'shadow_budget_usd' and not shadow:
+                require(value is None, 'non-shadow request has a shadow allowance')
+            else:
+                require(type(value) in (int, float) and 0 < value <= 1e12, 'invalid requested budget')
+        require((isinstance(request['shadow'], str) and re.fullmatch(r'[A-Za-z0-9_-]{1,80}', request['shadow']))
+                if shadow else request['shadow'] is None, 'invalid shadow arm')
+        require(request['context'] == ('fresh_shadow' if shadow else 'prior_case_possible'), 'invalid context classification')
     for run in record['runs']:
-        validate_run(run)
+        validate_run(run, v2=v2)
+        if v2:
+            require(datetime.fromisoformat(run['started_at']) <= datetime.fromisoformat(record['finished_at']),
+                    'run starts after execution finished')
     require(len({r['run_id'] for r in record['runs']}) == len(record['runs']), 'duplicate producer run')
     require(record['text_blob'] is None or (isinstance(record['text_blob'], str) and
             re.fullmatch(HEX, record['text_blob'])), 'invalid text reference')
@@ -271,12 +306,15 @@ def enqueue(output: Path, store: Path, repository: str, *, include_text=False):
     require(all(result.get(k) == review[k] for k in (*BINDINGS, 'completion', 'execution_mode', 'verdicts')),
             'result and review bindings disagree')
     producer = output / ('shadow-archive' if review['execution_mode'] == 'shadow' else 'engine-archive') / 'records/runs'
+    request = result.get('evaluation_request')
     runs = []
     if producer.exists():
         for body in snapshot(producer).values():
-            runs.append(project_run(parse_json(body.decode()), review))
+            runs.append(project_run(parse_json(body.decode()), review, request))
     record = {'schema': SCHEMA, 'execution_id': result['execution_id'], 'finished_at': result['finished_at'],
               'review': review, 'runs': sorted(runs, key=lambda r: r['run_id']), 'text_blob': None}
+    if request is not None:
+        record.update(schema=RECORD_V2, request=request)
     files = {}
     if include_text:
         text = rendered.split('-->\n\n', 1)[1]
