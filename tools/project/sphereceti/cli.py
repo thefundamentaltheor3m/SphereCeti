@@ -10,6 +10,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import sys
 import tomllib
 
 from . import __version__
@@ -50,6 +51,9 @@ def pull_requests(repository: str) -> list[dict]:
 
 
 def main(argv: list[str] | None = None) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if not argv:
+        argv = ["worker", "plan"]
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--version", action="version", version=__version__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -127,7 +131,7 @@ def main(argv: list[str] | None = None) -> int:
             reason = str(error) if isinstance(error, (WorkerError, ReviewError, RecordError)) else "worker operation failed; exact evidence remains unconfirmed"
             parser.exit(2, f"sphereceti worker: {reason}\n")
         print(json.dumps(report, indent=2) if args.json else render(report))
-        return 1 if report.get("state") == "error" or report.get("state_publication", {}).get("state") == "unconfirmed" else 0
+        return 1 if report.get("state") in ("error", "partial", "unconfirmed_publication") or report.get("state_publication", {}).get("state") == "unconfirmed" else 0
 
     config = {"project": asdict(project), "policy": asdict(policy), "sources": sources}
     report = {

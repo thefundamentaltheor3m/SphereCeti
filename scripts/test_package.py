@@ -78,6 +78,11 @@ def main():
                                        '--execute', '--pr', '1', '--json'], cwd=foreign, env=env,
                                       text=True, capture_output=True, check=True)
             assert json.loads(disabled.stdout)['state'] == 'disabled'
+            loop = subprocess.run([str(environment / 'bin' / 'sphereceti'), 'worker', 'run',
+                                   '--loop', '--max-rounds', '2', '--execute', '--json'],
+                                  cwd=foreign, env=env, text=True, capture_output=True, check=True)
+            assert json.loads(loop.stdout)['state'] == 'disabled'
+            assert len(json.loads(loop.stdout)['rounds']) == 1
             # A hostile cwd cannot enable state publication either.
             sync = subprocess.run([str(environment / 'bin' / 'sphereceti'), 'worker', 'sync',
                                    '--receipt', str(survey)], cwd=foreign, env=env,
