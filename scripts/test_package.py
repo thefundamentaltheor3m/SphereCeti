@@ -6,10 +6,11 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
+from types import SimpleNamespace
 import venv
 from package_contract import assert_installation
-import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tests'))
 from review_fixture import installed_smoke
@@ -19,6 +20,27 @@ from evaluation_fixture import installed_evaluation_smoke
 
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / 'tests'))
+from progress_fixture import PROSE, fixture as progress_fixture
+
+
+PROGRESS_INTEGRITY = r"""
+import hashlib, importlib.util, json
+from importlib.metadata import metadata
+from sphereceti.progress_sources import MANIFEST_SHA256, source_root, sources
+assert not metadata('sphereceti').get_all('Requires-Dist')
+assert importlib.util.find_spec('progress') is None
+assert importlib.util.find_spec('sphereceti_progress_sources') is None
+root = source_root()
+raw = root.joinpath('import-manifest.json').read_bytes()
+assert hashlib.sha256(raw).hexdigest() == MANIFEST_SHA256
+manifest = json.loads(raw)
+assert manifest['commit'] == '880e8b9737973bfbd8f1f214f4ac2ded67f5b856'
+assert len(manifest['files']) == 32
+for row in manifest['files']:
+    assert hashlib.sha256(root.joinpath(row['destination']).read_bytes()).hexdigest() == row['import_sha256']
+assert sources()['files'].STATUS_MARKER == 'tauceti-status:v1'
+"""
 
 
 def main():
@@ -39,6 +61,7 @@ def main():
             (foreign / 'sphereceti.toml').write_text('repository = "attacker/checkout"\n')
             (foreign / 'policy').mkdir()
             (foreign / 'policy' / 'automation.toml').write_text('merging = true\n')
+            (foreign / 'policy' / 'reporting.toml').write_text('docs_url = "https://attacker.invalid"\n')
             env = os.environ.copy()
             env.pop('PYTHONPATH', None)
             result = subprocess.run([str(environment / 'bin' / 'sphereceti'), 'status', '--json', '--offline'],
@@ -50,6 +73,10 @@ def main():
             assert not any(report['policy'].values())
             assert report['queue']['state'] == 'not_checked'
             assert_installation(ROOT, python, foreign, env, report)
+            assert report['progress']['local_drafts'] is True
+            assert report['progress']['publishing'] is False
+            subprocess.run([str(python), '-I', '-c', PROGRESS_INTEGRITY],
+                           cwd=foreign, env=env, check=True)
             docs_source = next(s for s in report['sources'] if s['name'] == 'docs-cache-operations')
             assert docs_source['repository'] == 'TauCetiProject/TauCeti'
             assert docs_source['commit'] == 'b743b607ce3e9742b18026ad79082e5d15badff5'
@@ -91,6 +118,26 @@ def main():
                                    '--receipt', str(survey)], cwd=foreign, env=env,
                                   text=True, capture_output=True)
             assert sync.returncode == 2 and 'disabled' in sync.stderr
+            command = str(environment / 'bin' / 'sphereceti')
+            missing = subprocess.run([command, 'progress', 'plan', '--json'], cwd=foreign,
+                                     env=env, text=True, capture_output=True)
+            assert missing.returncode == 1
+            assert json.loads(missing.stdout)['state'] == 'missing_evidence'
+            data = scratch / 'fixture'; data.mkdir()
+            repo, docs, start, end = progress_fixture(data, SimpleNamespace(**report['project']))
+            prose = scratch / 'prose.json'
+            prose.write_text(json.dumps({'status': PROSE, 'progress': PROSE, 'citations': ['targetEntry']}))
+            draft = scratch / 'draft'
+            common = ['--repo', str(repo), '--evidence-dir', str(docs), '--json']
+            for args, state in (
+                (['plan', *common, '--from', start], 'ready'),
+                (['prepare', *common, '--from', start, '--prose', str(prose), '--output', str(draft)], 'prepared'),
+                (['validate', *common, '--draft', str(draft)], 'valid'),
+            ):
+                result = subprocess.run([command, 'progress', *args], cwd=foreign, env=env,
+                                        text=True, capture_output=True, check=True)
+                value = json.loads(result.stdout)
+                assert value['state'] == state and value['publication_allowed'] is False
             print(f'Fresh installation outside checkout: {artifact.name}: OK')
 
 

@@ -62,11 +62,11 @@ name = "progress"
 repository = "TauCetiProject/TauCetiProgress"
 commit = "880e8b9737973bfbd8f1f214f4ac2ded67f5b856"
 source_paths = ["progress", "README.md", "pyproject.toml", "LICENSE"]
-destination_paths = ["tools/progress"]
-state = "planned"
+destination_paths = ["tools/project/sphereceti/progress.py", "tools/project/sphereceti/progress_evidence.py", "tools/project/sphereceti/progress_sources.py", "policy/reporting.toml"]
+state = "imported"
 license = "Apache-2.0"
 license_status = "recorded"
-adaptation = "I13: separate proposed targets from audited achievements; retain published-documentation cursors."
+adaptation = "Bundle the unchanged PR #12 resources from tools/progress in the root distribution; installation uses the same source tree, with no same-repository Git dependency. Verify its manifest and all 32 resources; privately load files/window helpers with a read-only Git transport. Add local planning, prose drafts, compiled-evidence validation and strict two-path candidate scope; all publication and inference remain disabled."
 
 [[components]]
 name = "data"
