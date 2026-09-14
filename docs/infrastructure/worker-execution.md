@@ -42,7 +42,8 @@ protection, repository access grant or deployment is activated by landing this P
 The supported executable stage is **one review round**. Maintenance recommendations remain
 visible, but rebase, CI/dependency repair, progress and review-response code repair have no
 execution adapter. Selecting unsupported work stops the round, with no fallback to a
-lower-priority PR. There is no persistent loop, fleet manager, dashboard, fork authoring or
+lower-priority PR. A separate [bounded loop](worker-loop.md) can repeat review rounds. There is no fleet manager,
+interactive dashboard, fork authoring or
 area specialization. Mathematical authoring remains unavailable until separately approved
 production integration; the optional single-roadmap frontier remains planning-only.
 

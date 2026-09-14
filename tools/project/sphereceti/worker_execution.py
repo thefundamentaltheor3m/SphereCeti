@@ -131,19 +131,19 @@ def review_arguments(args, number):
     return review
 
 
-def run_round(args, project, policy, prefs):
+def run_round(args, project, policy, prefs, *, assessed=frozenset()):
     # SIGINT already raises KeyboardInterrupt. Give SIGTERM the same owned-process
     # cleanup path; restore the caller's handler when this single CLI round ends.
     def interrupted(signum, frame):
         raise KeyboardInterrupt("worker stopped")
     prior = signal.signal(signal.SIGTERM, interrupted)
     try:
-        return _run_round(args, project, policy, prefs)
+        return _run_round(args, project, policy, prefs, assessed=assessed)
     finally:
         signal.signal(signal.SIGTERM, prior)
 
 
-def _run_round(args, project, policy, prefs):
+def _run_round(args, project, policy, prefs, *, assessed=frozenset()):
     require(not (args.post_review or args.publish_state) or args.execute,
             '--post-review and --publish-state require --execute')
     requested = targets(args.pr)
@@ -154,7 +154,12 @@ def _run_round(args, project, policy, prefs):
     planned = plan(observed, project, requested=requested)
     if not args.execute:
         return {'schema': 'sphereceti.worker-round/v1', 'state': 'planned', 'executed': False, 'plan': planned}
-    selected = planned['selected']
+    # Filtering follows complete survey validation. It only narrows review work and never
+    # hides maintenance, incomplete observations or the caller's strict target constraints.
+    candidates = [item for item in planned['candidates'] if not (
+        item['stage'] == 'review-assessment' and (item['pr'], item['head'], item['base']) in assessed)]
+    selected = candidates[0] if candidates else None
+    planned = {**planned, 'selected': selected, 'candidates': candidates}
     if selected is None or selected['stage'] != 'review-assessment':
         return {'schema': 'sphereceti.worker-round/v1', 'state': 'unavailable', 'executed': False,
                 'reason': 'only the shared-review execution adapter is implemented; no fallback', 'plan': planned}
@@ -164,7 +169,8 @@ def _run_round(args, project, policy, prefs):
         result = local_review.run_review(review, project, prefs, guard=guard)
     except NothingToDo as error:
         return {'schema': 'sphereceti.worker-round/v1', 'state': 'idle', 'executed': False,
-                'reason': str(error), 'pr': selected['pr'], 'coordination': guard.receipt}
+                'reason': str(error), 'pr': selected['pr'], 'head': selected['head'],
+                'base': selected['base'], 'coordination': guard.receipt}
     except (WorkerError, RecordError, local_review.ReviewError, KeyboardInterrupt) as error:
         if guard.report is not None:
             local_review.write_json(Path(guard.report['output']) / 'worker-result.json', {

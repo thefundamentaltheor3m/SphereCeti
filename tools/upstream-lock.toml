@@ -51,11 +51,11 @@ name = "worker"
 repository = "kim-em/TauCetiWorker"
 commit = "27c234a5722cfe557279aa47fbfd8e51450481a6"
 source_paths = ["README.md"]
-destination_paths = ["docs/infrastructure/worker.md"]
+destination_paths = ["docs/infrastructure/worker.md", "docs/infrastructure/worker-loop.md"]
 state = "reference-only"
 license = "unresolved"
 license_status = "unresolved"
-adaptation = "Behavioral reference only; source import cancelled. Independently authored SphereCeti worker code is Apache-2.0 under this repository's LICENSE. No Worker implementation, prompts, tests, or assets are copied. One cohesive roadmap; optional effort estimates, no area-specialization controls. Independently authored execution, cooperative leases and operational state receipts are documented in docs/infrastructure/worker-execution.md."
+adaptation = "Behavioral reference only; source import cancelled. Independently authored SphereCeti worker code is Apache-2.0 under this repository's LICENSE. No Worker implementation, prompts, tests, or assets are copied. One cohesive roadmap; optional effort estimates, no area-specialization controls. Independently authored execution, cooperative leases and operational state receipts are documented in docs/infrastructure/worker-execution.md. The bounded loop and default read-only work overview are independently authored; see docs/infrastructure/worker-loop.md."
 
 [[components]]
 name = "progress"

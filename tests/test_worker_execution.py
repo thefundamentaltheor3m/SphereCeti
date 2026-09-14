@@ -269,7 +269,7 @@ class GuardTests(unittest.TestCase):
         from argparse import Namespace
         from sphereceti.worker_execution import run_round
         original=signal.getsignal(signal.SIGTERM)
-        def stop(*args):
+        def stop(*args, **kwargs):
             signal.getsignal(signal.SIGTERM)(signal.SIGTERM,None)
         with patch('sphereceti.worker_execution._run_round',side_effect=stop),self.assertRaises(KeyboardInterrupt):
             run_round(Namespace(),PROJECT,POLICY,PREFS)
