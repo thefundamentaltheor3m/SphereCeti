@@ -13,12 +13,14 @@ from .review_records import RecordError, identity, intact, parse_record
 
 
 class GitHub:
-    def call(self, endpoint, *, payload=None, paginate=False):
+    def call(self, endpoint, *, payload=None, paginate=False, method=None):
+        if method not in (None, "PATCH") or (method and payload is None):
+            raise RecordError("unsupported GitHub method")
         command = ["gh", "api", "--hostname", "github.com", endpoint]
         if paginate:
             command += ["--paginate", "--slurp"]
         if payload is not None:
-            command += ["--method", "POST", "--input", "-"]
+            command += ["--method", method or "POST", "--input", "-"]
         try:
             result = subprocess.run(command, input=json.dumps(payload) if payload is not None else None,
                                     capture_output=True, text=True, timeout=60)
@@ -34,7 +36,7 @@ class GitHub:
 
     def comments(self, repository, pr):
         pages = self.call(f"repos/{repository}/issues/{pr}/comments?per_page=100", paginate=True)
-        if not isinstance(pages, list) or any(not isinstance(p, list) for p in pages):
+        if not isinstance(pages, list) or not pages or any(not isinstance(p, list) for p in pages):
             raise RecordError("incomplete comments response")
         comments = [c for page in pages for c in page]
         if any(not isinstance(c, dict) or type(c.get("id")) is not int for c in comments):

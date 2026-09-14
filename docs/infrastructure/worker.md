@@ -1,6 +1,6 @@
 # SphereCeti worker planning
 
-This worker is independently authored under SphereCeti's [Apache-2.0 license](../../LICENSE).
+This planner is independently authored under SphereCeti's [Apache-2.0 license](../../LICENSE).
 The high-level maintenance-before-new-work idea and strict targeting behavior were informed by
 [the TauCetiWorker contributors' README at `27c234a`](https://github.com/kim-em/TauCetiWorker/blob/27c234a5722cfe557279aa47fbfd8e51450481a6/README.md).
 No TauCetiWorker implementation, prompts, tests, or assets are copied or relicensed. The source
@@ -65,9 +65,9 @@ Within each PR category, older updates come first, then PR number. Draft PRs can
 maintenance advice but not review-assessment advice. A green check summary is only a hint:
 this planner does not know required checks, trust their publishers, inspect accepted review
 records or prove that a review is needed. Neutral, skipped, absent and potentially capped
-check summaries do not become all-green. The execution adapter must re-read the exact
+check summaries do not become all-green. The execution adapter re-reads the exact
 head/base, invoke the existing review/gate logic, account for provider availability and
-budgets, and exclude already satisfied work before dispatch. No paid provider is queried.
+budgets, and excludes already satisfied work before dispatch. No paid provider is queried.
 
 Dependency-graph repair, progress generation and review-response repair are explicitly
 reported as deferred stages, pending their existing adapters and authenticated evidence.
@@ -77,9 +77,9 @@ the entire queue is empty. Other observed work can still be recommended.
 
 Every plan includes `advisory_only: true`, `executable: false`, exact PR head/base commits, a
 source-input digest and diagnostics. A recommendation is **never an executable ticket or
-permission to write**. All automation policy switches remain false. There is no authoring,
-provider dispatch, review posting, state publication, lease acquisition, forking, merge,
-background service or repository-setting change in this PR. The output does not authenticate
+permission to write**. All automation policy switches remain false. The planner does not author, dispatch providers, post, publish state, acquire leases, fork,
+merge or change settings. The separate [worker execution commands](worker-execution.md)
+implement explicitly gated review rounds, leases and optional operational receipts. The output does not authenticate
 its operator, prove snapshot completeness or establish current server state.
 
 ## One optional roadmap frontier

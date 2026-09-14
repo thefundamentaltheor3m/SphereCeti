@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import argparse
 import copy
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from datetime import datetime, timezone
 import fcntl
 import hashlib
@@ -21,6 +21,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import time
 from urllib.parse import quote
 import uuid
 
@@ -331,12 +332,24 @@ def engine_environment(providers, auth):
     return env
 
 
-def invoke_bridge(request: Path, env: dict, lock_fd: int) -> int:
+def invoke_bridge(request: Path, env: dict, lock_fd: int, heartbeat=None) -> int:
+    if heartbeat:
+        heartbeat()
     process = subprocess.Popen([sys.executable, "-I", str(Path(__file__).with_name("review_bridge.py")),
                                 str(request)], env=env, start_new_session=True, pass_fds=(lock_fd,),
                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     try:
-        return process.wait(timeout=1800)
+        deadline = time.monotonic() + 1800
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise subprocess.TimeoutExpired(process.args, 1800)
+            try:
+                return process.wait(timeout=min(30, remaining) if heartbeat else remaining)
+            except subprocess.TimeoutExpired:
+                if not heartbeat:
+                    raise
+                heartbeat()
     finally:
         if process.poll() is None:
             os.killpg(process.pid, signal.SIGTERM)
@@ -347,7 +360,7 @@ def invoke_bridge(request: Path, env: dict, lock_fd: int) -> int:
                 process.wait()
 
 
-def execute(args, prefs, report, workspace: Path, engine: Path, store: Path, output: Path, lock_fd: int):
+def execution_settings(args, prefs):
     providers = (args.provider or prefs.provider).split(",")
     if any(p not in PROVIDERS for p in providers):
         raise ReviewError("choose an explicit --provider (or operator preference) before running a review")
@@ -356,6 +369,12 @@ def execute(args, prefs, report, workspace: Path, engine: Path, store: Path, out
     budget = args.budget_usd if args.budget_usd is not None else prefs.budget_usd
     if not 0 < budget < float("inf") or not 0 < args.max_call_cost <= budget:
         raise ReviewError("set a finite positive --budget-usd and --max-call-cost no greater than that budget")
+    return providers, budget
+
+
+def execute(args, prefs, report, workspace: Path, engine: Path, store: Path, output: Path, lock_fd: int,
+            heartbeat=None):
+    providers, budget = execution_settings(args, prefs)
     ledger_file = store / "ledger.json"
     ledger = json.loads(ledger_file.read_text()) if ledger_file.exists() else {"days": {}, "prs": {}}
     context_path = store / "context.json"
@@ -402,10 +421,15 @@ def execute(args, prefs, report, workspace: Path, engine: Path, store: Path, out
     write_json(request, {"engine": str(engine), "workspace": str(workspace), "arguments": command,
                          "context": context, "executables": sorted({PROVIDERS[p] for p in providers}),
                          "shared_budget_ledger": str(ledger_file) if args.shadow else None})
+    interrupted = None
     try:
-        code = invoke_bridge(request, engine_environment(providers, args.auth), lock_fd)
+        bridge_args = (request, engine_environment(providers, args.auth), lock_fd)
+        code = invoke_bridge(*bridge_args, heartbeat=heartbeat) if heartbeat else invoke_bridge(*bridge_args)
     except subprocess.TimeoutExpired:
         code = 124
+    except (Exception, KeyboardInterrupt) as error:
+        # The owned bridge has stopped. Preserve completed attempts without authorizing a result.
+        interrupted, code = error, 130
     finally:
         request.unlink(missing_ok=True)
     current = json.loads((run_store / "ledger.json").read_text())
@@ -436,10 +460,26 @@ def execute(args, prefs, report, workspace: Path, engine: Path, store: Path, out
         "Rubric links credit the pinned upstream source; effective project overlays and exact evidence "
         "are recorded in evidence.json.\n\n" + body)
     scoreboard.unlink(missing_ok=True)
+    if interrupted is not None:
+        persist_review(result, output, store.parent / "archive")
+        raise interrupted
     return result
 
 
-def run_review(args, project, prefs) -> dict:
+def persist_review(result, output, archive):
+    """Retain a bound local record and accounting; capture never grants publication authority."""
+    from .review_records import make_record
+    from .archive_store import capture
+    record, rendered = make_record(result)
+    write_json(output / "record.json", record)
+    (output / "record.md").write_text(rendered)
+    write_json(output / "result.json", result)
+    result["archive"] = capture(output, archive, result["repository"])
+    write_json(output / "result.json", result)
+    return record, rendered
+
+
+def run_review(args, project, prefs, *, guard=None) -> dict:
     if args.post and (args.dry_run or args.read_records or args.local_sources):
         raise ReviewError("--post requires a live review and cannot be combined with dry-run, read-records, or local sources")
     if args.read_records and (args.local_sources or args.dry_run):
@@ -516,41 +556,49 @@ def run_review(args, project, prefs) -> dict:
                     write_json(reply_path, {r: [c for c in pending if c["rubric"] == r] for r in RUBRICS})
                     args.replies_json = reply_path
                     args.mode = "manual"  # A posted contest response re-evaluates the full selected scope.
-            result = ({**report, "completion": "dry_run", "advisory": True, "merge_eligible": False}
-                      if args.dry_run else execute(args, prefs, report, workspace, engine,
-                                                  storage / "engine", output, lock_fd))
-            if not args.dry_run:
-                record, rendered = make_record(result)
-                write_json(output / "record.json", record)
-                (output / "record.md").write_text(rendered)
-                write_json(output / "result.json", result)
-                from .archive_store import capture
-                result["archive"] = capture(output, storage / "archive", project.repository)
-                if args.post:
-                    write_json(output / "result.json", result)
-                    def revalidate():
-                        fresh_args = copy.copy(args)
-                        fresh_args.tooling = None
-                        fresh_refs = revisions(fresh_args, project)
-                        with tempfile.TemporaryDirectory(prefix="refresh-", dir=scratch) as fresh:
-                            fresh = Path(fresh)
-                            current = prepare(fresh_args, project, fresh_refs, storage / "git", fresh / "workspace", fresh / "engine")
-                            live_policy = parse_policy((fresh / "workspace/approved/policy/automation.toml").read_text())
-                        from .review_records import BINDINGS
-                        if (not live_policy.posting or any(current[k] != report[k] for k in BINDINGS)
-                                or current["installed_tooling_matches_T"] != report["installed_tooling_matches_T"]
-                                or not client.approved_revision(project.repository, report["tooling"], current["tooling"])):
-                            raise ReviewError("review evidence or posting policy changed; rerun before posting")
-                        # Recheck the head/base after source materialization, immediately before the write.
-                        final_refs = revisions(fresh_args, project)
-                        if any(final_refs[k] != fresh_refs[k] for k in ("tooling", "head", "base")):
-                            raise ReviewError("PR or approved context advanced during publication checks")
+            # Worker guard shares this exact prepared evidence and provider lifecycle. Direct
+            # local reviews keep their existing behavior; no second engine or policy parser.
+            with (guard(args, report, selected_policy, client) if guard else nullcontext()) as heartbeat:
+                result = ({**report, "completion": "dry_run", "advisory": True, "merge_eligible": False}
+                          if args.dry_run else execute(args, prefs, report, workspace, engine,
+                                                      storage / "engine", output, lock_fd, heartbeat=heartbeat))
+                if heartbeat:
                     try:
-                        result["publication"] = publish(client, rendered, record, selected_policy, revalidate)
-                    except (RecordError, ReviewError) as error:
-                        result["publication"] = {"state": "unconfirmed", "reason": str(error), "merge_eligible": False}
-                        write_json(output / "result.json", result)
+                        heartbeat()
+                    except (Exception, KeyboardInterrupt):
+                        if not args.dry_run:
+                            result.update(completion="error", engine_exit_code=130, merge_eligible=False)
+                            persist_review(result, output, storage / "archive")
                         raise
+                if not args.dry_run:
+                    record, rendered = persist_review(result, output, storage / "archive")
+                    if args.post:
+                        write_json(output / "result.json", result)
+                        def revalidate():
+                            if heartbeat:
+                                heartbeat()
+                            fresh_args = copy.copy(args)
+                            fresh_args.tooling = None
+                            fresh_refs = revisions(fresh_args, project)
+                            with tempfile.TemporaryDirectory(prefix="refresh-", dir=scratch) as fresh:
+                                fresh = Path(fresh)
+                                current = prepare(fresh_args, project, fresh_refs, storage / "git", fresh / "workspace", fresh / "engine")
+                                live_policy = parse_policy((fresh / "workspace/approved/policy/automation.toml").read_text())
+                            from .review_records import BINDINGS
+                            if (not live_policy.posting or any(current[k] != report[k] for k in BINDINGS)
+                                    or current["installed_tooling_matches_T"] != report["installed_tooling_matches_T"]
+                                    or not client.approved_revision(project.repository, report["tooling"], current["tooling"])):
+                                raise ReviewError("review evidence or posting policy changed; rerun before posting")
+                            # Recheck the head/base after source materialization, immediately before the write.
+                            final_refs = revisions(fresh_args, project)
+                            if any(final_refs[k] != fresh_refs[k] for k in ("tooling", "head", "base")):
+                                raise ReviewError("PR or approved context advanced during publication checks")
+                        try:
+                            result["publication"] = publish(client, rendered, record, selected_policy, revalidate)
+                        except (RecordError, ReviewError) as error:
+                            result["publication"] = {"state": "unconfirmed", "reason": str(error), "merge_eligible": False}
+                            write_json(output / "result.json", result)
+                            raise
             if args.keep_workspace:
                 workspace.rename(output / "workspace")
             write_json(output / "result.json", result)

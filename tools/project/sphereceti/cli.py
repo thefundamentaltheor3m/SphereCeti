@@ -111,12 +111,13 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "worker":
         try:
-            report = run_worker(args, project)
-        except (WorkerError, OSError, UnicodeError) as error:
-            reason = str(error) if isinstance(error, WorkerError) else "cannot read worker input"
+            report = run_worker(args, project, policy, preferences)
+        except (WorkerError, ReviewError, RecordError, GateError, OSError, UnicodeError,
+                subprocess.SubprocessError, KeyError, TypeError, ValueError) as error:
+            reason = str(error) if isinstance(error, (WorkerError, ReviewError, RecordError)) else "worker operation failed; exact evidence remains unconfirmed"
             parser.exit(2, f"sphereceti worker: {reason}\n")
         print(json.dumps(report, indent=2) if args.json else render(report))
-        return 0
+        return 1 if report.get("state") == "error" or report.get("state_publication", {}).get("state") == "unconfirmed" else 0
 
     config = {"project": asdict(project), "policy": asdict(policy), "sources": sources}
     report = {
@@ -129,6 +130,8 @@ def main(argv: list[str] | None = None) -> int:
         "capabilities": {name: {"implemented": name == "posting", "enabled": False,
                                 "policy_requested": getattr(policy, name)}
                          for name in ("review_generation", "posting", "authoring", "reporting", "merging")},
+        "worker": {"planning": True, "review_round": True, "execution_readiness": "unverified",
+                   "mathematical_authoring": False},
         "local_review": {"implemented": True, "advisory_only": True, "publishing": True},
         "queue": {"state": "not_checked", "pull_requests": None},
         "setup": {"state": "not_verified", "merging_ready": False,
