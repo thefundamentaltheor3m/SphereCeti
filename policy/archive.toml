@@ -1,0 +1,5 @@
+schema_version = 1
+# Local capture is available. Remote writes additionally require automation.posting.
+enabled = false
+# Metadata is the default. Explicit local text opt-in is not remote approval.
+publish_text = false

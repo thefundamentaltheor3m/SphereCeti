@@ -86,7 +86,8 @@ reviewer's comment, publishes the old TauCeti scoreboard marker, or runs a model
 publication. Before a write, an exact unedited authorized record can be adopted after an
 ambiguous earlier POST. Independent machines can still produce cosmetic duplicates; the
 same content ID does not reset contests or change the decision. Local artifacts survive a
-publication failure. Durable outbox/archive synchronization is a separate planned PR.
+publication failure. The [archive adapter](review-archive.md) queues metadata before posting and synchronizes its
+immutable outbox separately; archive failure does not undo a review comment.
 
 ## Replacement reviews and contests
 
@@ -94,8 +95,9 @@ A newer complete non-advisory record supersedes the same publisher's earlier dec
 same head. A different publisher cannot erase that publisher's blocker. Advisory/partial
 records cannot supersede authorized decisions. An edited or malformed authorized record is
 a barrier to reusing older approval; append a fresh complete record to replace it. Publication
-never PATCHes records. GitHub administrators can delete comments; this layer has no immutable
-archive and relies on the live API inventory, with durable history belonging to the archive PR.
+never PATCHes records. GitHub administrators can delete comments; this reader
+relies on the live API inventory. The separate archive retains local execution facts, not
+authenticated publication receipts.
 
 A PR author or currently authorized reviewer can contest a known record by posting an issue
 comment beginning with this marker and then the contest text:
