@@ -96,7 +96,13 @@ jobs:
             echo "enabled=0" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Build
+      - name: Check module boundaries
+        run: lake env python3 scripts/check_modules.py
+
+      - name: Test module boundaries
+        run: lake env python3 -m unittest discover -s tests -p 'test_*.py'
+
+      - name: Build both library and roadmap targets
         run: lake build
 
       # Keep degradation visible without turning a cache-service outage into a correctness failure.
