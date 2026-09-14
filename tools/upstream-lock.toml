@@ -11,6 +11,17 @@ license = "Apache-2.0"
 license_status = "recorded"
 adaptation = "Main-health and quiet-work diagnostics, independent conflict state, and convergent managed-label reconciliation using SphereCeti's shared merge observation. Exact approved-main policy, installed-resource matching, private writer identity, fresh evidence and readback; one label write per invocation. No closures, target-marker deduplication, review-budget retirement, scheduler control, or external notifications are imported."
 
+[[components]]
+name = "advisory-profiling"
+repository = "TauCetiProject/TauCeti"
+commit = "b743b607ce3e9742b18026ad79082e5d15badff5"
+source_paths = ["scripts/perf/manifest.py", "scripts/perf/measure.py", "scripts/perf/report.py", "scripts/perf/test_perf.py", "scripts/test_profile_workflow.py", ".github/workflows/pr-profile.yml", "LICENSE"]
+destination_paths = ["tools/project/sphereceti/profiling.py", "tools/project/sphereceti/profile_runner.py", "tests/test_profiling.py", "tests/profiling_fixture.py", "scripts/test_profiling_smoke.py", "docs/infrastructure/profiling.md"]
+state = "design-adapted"
+license = "Apache-2.0"
+license_status = "recorded"
+adaptation = "Local advisory CPU/wall-time reports on exact merge-base/head trees using the shared trusted sandbox. Retain host-owned counters, independent environments, timeout cleanup, and adapted threshold/source/isolation regression cases. Git tree enumeration replaces API file lists; direct Lean elaboration replaces module-output deletion. No perf status, heartbeat log ingestion, comments, or activation workflow is imported."
+
 # Credit belongs to the upstream contributors. Planned entries are source candidates,
 # not imported code or replacements for the pinned Lean dependency graph.
 [[components]]
