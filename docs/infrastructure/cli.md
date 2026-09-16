@@ -9,6 +9,7 @@ The `sphereceti` command supplies project diagnostics and the adapters credited 
 | `review` | [Local advisory review](local-review.md) |
 | `review --read-records / --post` | [Authenticated records and explicit publication](review-records.md) |
 | `archive` | [Durable review records](review-archive.md) |
+| `worker plan` | [Worker planning](worker.md) |
 
 From this checkout:
 
@@ -67,7 +68,9 @@ inference requires a selected provider and positive budget. `review N --dry-run`
 the exact evidence without invoking a provider. See [local review usage and limits](local-review.md).
 Unknown fields, floating source commits, traversal paths, and unsupported schema versions fail.
 A source-lock component cannot move from planned to adapted/imported while its reuse terms
-remain unresolved. Planned Worker/Data entries therefore remain inactive.
+remain unresolved. The Worker entry is now `reference-only`: its source import was cancelled in favor of an
+independently authored Apache-2.0 implementation. This status grants no reuse rights; the
+upstream license remains unresolved. The planned Data import remains inactive.
 
 The wheel bundles the same project resources as the source installation. CI builds and installs
 both distributions into separate temporary environments and tests them from a foreign directory

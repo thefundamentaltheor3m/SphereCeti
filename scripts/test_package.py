@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Smoke-test wheel and source installs outside the repository with hostile cwd config."""
 
+from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
@@ -57,6 +58,20 @@ def main():
             posting_root = scratch / 'posting-fixture'
             posting_root.mkdir()
             installed_post_smoke(environment / 'bin' / 'sphereceti', posting_root)
+            survey = foreign / 'survey.json'
+            survey.write_text(json.dumps({
+                'schema': 'sphereceti.worker-survey/v1', 'repository': report['project']['repository'],
+                'actor': 'fixture', 'observed_at': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+                'scope': None, 'pull_requests': []}))
+            worker = subprocess.run([str(environment / 'bin' / 'sphereceti'), 'worker', 'plan',
+                                     '--snapshot', str(survey), '--json'], cwd=foreign, env=env,
+                                    text=True, capture_output=True, check=True)
+            planned = json.loads(worker.stdout)
+            assert planned['selected'] is None and not planned['executable']
+            assert planned['advisory_only'] and not planned['roadmap']['source_verified']
+            subprocess.run([str(python), '-c',
+                'from sphereceti.worker import targets; assert targets(["#3,2"]) == (2,3)'],
+                cwd=foreign, env=env, check=True)
             print(f'Fresh installation outside checkout: {artifact.name}: OK')
 
 

@@ -59,6 +59,9 @@ def main(argv: list[str] | None = None) -> int:
     add_parser(commands)
     from .archive_cli import add_parser as add_archive_parser, run_archive
     add_archive_parser(commands)
+    from .worker_cli import add_parser as add_worker_parser, render, run_worker
+    from .worker import WorkerError
+    add_worker_parser(commands)
     for command in ("doctor", "status"):
         sub = commands.add_parser(command)
         sub.add_argument("--json", action="store_true")
@@ -106,6 +109,15 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"Published comment {posted['comment_id']}; API identity: {posted['identity']}; authorized: {posted['authorized']}")
         return 1 if report["completion"] == "error" else 0
 
+    if args.command == "worker":
+        try:
+            report = run_worker(args, project)
+        except (WorkerError, OSError, UnicodeError) as error:
+            reason = str(error) if isinstance(error, WorkerError) else "cannot read worker input"
+            parser.exit(2, f"sphereceti worker: {reason}\n")
+        print(json.dumps(report, indent=2) if args.json else render(report))
+        return 0
+
     config = {"project": asdict(project), "policy": asdict(policy), "sources": sources}
     report = {
         "schema_version": 1, "version": __version__, **config,
@@ -147,7 +159,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "doctor":
             for name, path in report["executables"].items():
                 print(f"{name}: {path or 'missing'}")
-        pending = [s["name"] for s in sources if s["license_status"] == "unresolved"]
+        pending = [s["name"] for s in sources if s["license_status"] == "unresolved" and s["state"] == "planned"]
         if pending:
             print(f"Planned imports awaiting reuse terms: {', '.join(pending)}")
     return exit_code
