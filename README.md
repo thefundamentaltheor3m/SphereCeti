@@ -56,6 +56,10 @@ The [durable review archive](docs/infrastructure/review-archive.md) keeps comple
 metadata and numeric run facts in a local journal/outbox. `sphereceti archive preview` and
 `archive rebuild --output /tmp/reviews.sqlite` are provider-free; remote sync remains disabled.
 
+The [evaluation tools](docs/infrastructure/evaluation.md) summarize recorded costs, apply
+explicit dated price snapshots, compare compatible fresh shadow arms, and retain local human
+labels. `sphereceti evaluation costs --json` is offline and never invokes a provider.
+
 ## GitHub configuration
 
 To set up your new GitHub repository, follow these steps:

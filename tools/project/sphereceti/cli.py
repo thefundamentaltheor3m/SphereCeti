@@ -62,6 +62,8 @@ def main(argv: list[str] | None = None) -> int:
     from .worker_cli import add_parser as add_worker_parser, render, run_worker
     from .worker import WorkerError
     add_worker_parser(commands)
+    from .evaluation_cli import add_parser as add_evaluation_parser, run_evaluation, render as render_evaluation
+    add_evaluation_parser(commands)
     for command in ("doctor", "status"):
         sub = commands.add_parser(command)
         sub.add_argument("--json", action="store_true")
@@ -75,6 +77,14 @@ def main(argv: list[str] | None = None) -> int:
         preferences = parse_operator(args.operator_config.read_text() if args.operator_config else "")
     except (ConfigError, OSError, tomllib.TOMLDecodeError) as error:
         parser.exit(2, f"sphereceti: configuration error: {error}\n")
+
+    if args.command == "evaluation":
+        try:
+            report = run_evaluation(args, project, preferences)
+        except (ValueError, OSError, KeyError, TypeError) as error:
+            parser.exit(2, f"sphereceti: evaluation failed: {error}\n")
+        print(json.dumps(report, indent=2) if args.json else render_evaluation(report, args.action))
+        return 0
 
     if args.command == "archive":
         try:

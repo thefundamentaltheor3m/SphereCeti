@@ -52,12 +52,16 @@ to repair a partial batch. No retention/garbage-collection command deletes the j
 
 ## Fields, text, and authority
 
-`records/<sha256>.json` contains `sphereceti.archive/v1`, a per-execution UUID and UTC finish
+`records/<sha256>.json` contains a versioned archive record, a per-execution UUID and UTC finish
 time, #11's review metadata, observed run facts, and an optional redacted-text hash. The review
 metadata retains repository/PR, exact head/base/diff-base/tooling revisions, dependency,
 engine/rubric/tooling/policy/context/description digests, completion/mode/advisory status,
 verdicts, contest watermarks, and original body/record digests. Enqueue verifies the original
 rendered envelope and matching local result before discarding its prose by default.
+
+The [evaluation extension](evaluation.md) adds v2 records with exact run start times and
+explicit request/context/budget facts. V1 records remain readable; older readers reject v2
+and need an approved tooling upgrade. The branch anchor remains v1.
 
 Run records retain provider/model/rubric identifiers, upstream run ID, prompt policy and
 prompt hash, price-table identifier, duration, known numeric token fields, recorded cost and

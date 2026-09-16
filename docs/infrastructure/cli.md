@@ -11,6 +11,7 @@ The `sphereceti` command supplies project diagnostics and the adapters credited 
 | `archive` | [Durable review records](review-archive.md) |
 | `worker plan` | [Worker planning](worker.md) |
 | `worker run` | [Guarded execution and leases](worker-execution.md) |
+| `evaluation` | [Costs and shadow comparisons](evaluation.md) |
 
 From this checkout:
 
