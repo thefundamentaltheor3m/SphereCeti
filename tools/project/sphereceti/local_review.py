@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import copy
 from contextlib import contextmanager
+from datetime import datetime, timezone
 import fcntl
 import hashlib
 import json
@@ -387,6 +388,8 @@ def execute(args, prefs, report, workspace: Path, engine: Path, store: Path, out
         value = getattr(args, name)
         if value:
             command += ["--" + name.replace("_", "-"), str(value)]
+    if not args.shadow:
+        command += ["--archive-dir", str(output / "engine-archive")]
     if args.shadow:
         command += ["--shadow", "--arm", "shadow:" + args.shadow, "--archive-dir", str(output / "shadow-archive")]
     context = ("## SphereCeti evidence selected by the local adapter\n"
@@ -415,6 +418,7 @@ def execute(args, prefs, report, workspace: Path, engine: Path, store: Path, out
     complete = (len(finished) == len(RUBRICS) and args.rubrics == ",".join(RUBRICS)
                 and args.mode != "reply" and not report["diff_prompt_truncated"] and not args.shadow)
     result = {**report, "completion": "error" if code else "complete" if complete else "partial",
+              "execution_id": uuid.uuid4().hex, "finished_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
               "engine_exit_code": code, "execution_mode": "shadow" if args.shadow else args.mode,
               "requested_rubrics": args.rubrics.split(","), "finished_rubrics": finished,
               "verdicts": {r: state.get(r, {}).get("verdict", "absent") for r in RUBRICS},
@@ -519,6 +523,9 @@ def run_review(args, project, prefs) -> dict:
                 record, rendered = make_record(result)
                 write_json(output / "record.json", record)
                 (output / "record.md").write_text(rendered)
+                write_json(output / "result.json", result)
+                from .archive_store import capture
+                result["archive"] = capture(output, storage / "archive", project.repository)
                 if args.post:
                     write_json(output / "result.json", result)
                     def revalidate():

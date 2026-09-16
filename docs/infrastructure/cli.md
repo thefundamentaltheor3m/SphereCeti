@@ -8,6 +8,7 @@ The `sphereceti` command supplies project diagnostics and the adapters credited 
 | `doctor`, `status` | Project identity, policy and queue diagnostics (below) |
 | `review` | [Local advisory review](local-review.md) |
 | `review --read-records / --post` | [Authenticated records and explicit publication](review-records.md) |
+| `archive` | [Durable review records](review-archive.md) |
 
 From this checkout:
 
@@ -44,6 +45,7 @@ The installed package includes these configuration resources:
 |---|---|
 | `sphereceti.toml` | Canonical identity, mathematical destination, source paths, dependency pins, state branch names |
 | `policy/automation.toml` | Repository-owned operational switches and acceptance inputs |
+| `policy/archive.toml` | Private archive capture and remote sync policy |
 | `tools/upstream-lock.toml` | Exact upstream source revisions/paths, adaptation status, reuse terms |
 
 The CLI loads these from its installed package, or from its own source tree during development.

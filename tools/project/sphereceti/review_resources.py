@@ -38,7 +38,8 @@ def tooling_files() -> dict[str, bytes]:
     for entry in resources.files("sphereceti").iterdir():
         if entry.name.endswith(".py"):
             files["tools/project/sphereceti/" + entry.name] = entry.read_bytes()
-    for name, path in (("sphereceti.toml", "sphereceti.toml"),
+    for name, path in (("archive.toml", "policy/archive.toml"),
+                       ("sphereceti.toml", "sphereceti.toml"),
                        ("automation.toml", "policy/automation.toml"),
                        ("upstream-lock.toml", "tools/upstream-lock.toml")):
         files[path] = resource_text(name).encode()
