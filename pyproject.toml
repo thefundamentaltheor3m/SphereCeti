@@ -26,6 +26,11 @@ packages = ["tools/project/sphereceti"]
 "sphereceti.toml" = "sphereceti/resources/sphereceti.toml"
 "policy/automation.toml" = "sphereceti/resources/automation.toml"
 "tools/upstream-lock.toml" = "sphereceti/resources/upstream-lock.toml"
+"tools/review/runner" = "sphereceti/resources/review/runner"
+"tools/review/rubrics" = "sphereceti/resources/review/rubrics"
+"tools/review/project" = "sphereceti/resources/review/project"
+"tools/review/LICENSE" = "sphereceti/resources/review/LICENSE"
+"tools/review/import-manifest.json" = "sphereceti/resources/review/import-manifest.json"
 
 [tool.hatch.build.targets.sdist]
-include = ["tools/project/sphereceti", "sphereceti.toml", "policy/automation.toml", "tools/upstream-lock.toml", "README.md", "LICENSE", "pyproject.toml"]
+include = ["tools/project/sphereceti", "tools/review/runner", "tools/review/rubrics", "tools/review/project", "tools/review/LICENSE", "tools/review/import-manifest.json", "sphereceti.toml", "policy/automation.toml", "tools/upstream-lock.toml", "README.md", "LICENSE", "pyproject.toml"]

@@ -130,7 +130,7 @@ class ProjectCLITest(unittest.TestCase):
         self.assertTrue(all(value is None for value in report['executables'].values()))
 
     def test_no_mutating_command_is_available(self):
-        for command in ('work', 'review', 'merge', 'post'):
+        for command in ('work', 'merge', 'post'):
             with self.subTest(command=command), patch('sys.stderr', io.StringIO()), self.assertRaises(SystemExit) as error:
                 cli.main([command])
             self.assertEqual(error.exception.code, 2)
