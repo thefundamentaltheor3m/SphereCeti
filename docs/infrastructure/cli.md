@@ -1,8 +1,11 @@
 # Project CLI and configuration
 
-The `sphereceti` command is the project adapter for the TauCeti infrastructure described and
-credited in the [plan](../../INFRASTRUCTURE-PLAN.md). #5 implements diagnostics only. Review,
-worker, posting, reporting, and merge commands arrive in separate PRs.
+The `sphereceti` command supplies project diagnostics and the adapters credited in the
+[architecture plan](../../INFRASTRUCTURE-PLAN.md). Available command families are:
+
+| Command | Guide |
+|---|---|
+| `doctor`, `status` | Project identity, policy and queue diagnostics (below) |
 
 From this checkout:
 
@@ -12,7 +15,7 @@ uv run --locked sphereceti doctor --offline
 uv run --locked sphereceti status --json
 ```
 
-After this PR lands, an installation independent of the checkout uses:
+After landing, installation from the canonical repository uses:
 
 ```bash
 uv tool install git+https://github.com/thefundamentaltheor3m/SphereCeti
