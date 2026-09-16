@@ -17,6 +17,7 @@ from review_fixture import installed_smoke
 from review_post_fixture import installed_post_smoke
 from archive_fixture import installed_archive_smoke
 from evaluation_fixture import installed_evaluation_smoke
+from merge_fixture import installed_merge_smoke
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -82,6 +83,10 @@ def main():
             assert docs_source['commit'] == 'b743b607ce3e9742b18026ad79082e5d15badff5'
             assert all(not capability['enabled'] for capability in report['capabilities'].values())
             assert report['local_review']['implemented']
+            assert report['merge_observation']['read_only']
+            merging_root = scratch / 'merge-fixture'
+            merging_root.mkdir()
+            installed_merge_smoke(environment / 'bin' / 'sphereceti', merging_root)
             review_root = scratch / 'review-fixture'
             review_root.mkdir()
             fixture = installed_smoke(environment / 'bin' / 'sphereceti', review_root)

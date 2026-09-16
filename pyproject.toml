@@ -27,6 +27,7 @@ packages = ["tools/project/sphereceti"]
 "sphereceti.toml" = "sphereceti/resources/sphereceti.toml"
 "policy/automation.toml" = "sphereceti/resources/automation.toml"
 "policy/reporting.toml" = "sphereceti/resources/reporting.toml"
+"policy/merge-checks.toml" = "sphereceti/resources/merge-checks.toml"
 "tools/upstream-lock.toml" = "sphereceti/resources/upstream-lock.toml"
 "tools/review/runner" = "sphereceti/resources/review/runner"
 "tools/review/rubrics" = "sphereceti/resources/review/rubrics"
@@ -43,4 +44,4 @@ packages = ["tools/project/sphereceti"]
 "tools/progress/import-manifest.json" = "sphereceti/resources/progress/import-manifest.json"
 
 [tool.hatch.build.targets.sdist]
-include = ["policy/archive.toml", "tools/project/sphereceti", "tools/review/runner", "tools/review/rubrics", "tools/review/project", "tools/review/LICENSE", "tools/review/import-manifest.json", "sphereceti.toml", "policy/automation.toml", "tools/upstream-lock.toml", "README.md", "LICENSE", "pyproject.toml", "tools/progress", "policy/reporting.toml"]
+"include" = ["policy/archive.toml", "tools/project/sphereceti", "tools/review/runner", "tools/review/rubrics", "tools/review/project", "tools/review/LICENSE", "tools/review/import-manifest.json", "sphereceti.toml", "policy/automation.toml", "tools/upstream-lock.toml", "README.md", "LICENSE", "pyproject.toml", "tools/progress", "policy/reporting.toml", "policy/merge-checks.toml"]

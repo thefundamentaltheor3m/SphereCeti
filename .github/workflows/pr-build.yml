@@ -102,7 +102,7 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           BUILD_RESULT: ${{ needs.candidate.result }}
           SCOPE: ${{ needs.candidate.outputs.scope }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}
         shell: bash
         run: |
           set -euo pipefail

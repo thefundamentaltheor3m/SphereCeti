@@ -14,6 +14,7 @@ The `sphereceti` command supplies project diagnostics and the adapters credited 
 | `evaluation` | [Costs and shadow comparisons](evaluation.md) |
 | `worker run --loop` | [Bounded review loops](worker-loop.md) |
 | `progress` | [Local reporting drafts](progress-reporting.md) |
+| `merge-observe` | [Merge eligibility observations](merge-observation.md) |
 
 From this checkout:
 
@@ -51,6 +52,7 @@ The installed package includes these configuration resources:
 | `sphereceti.toml` | Canonical identity, mathematical destination, source paths, dependency pins, state branch names |
 | `policy/automation.toml` | Repository-owned operational switches and acceptance inputs |
 | `policy/reporting.toml` | Approved documentation endpoint (initially empty), report scope and cadence |
+| `policy/merge-checks.toml` | Approved workflow and status-producer IDs, initially unconfigured |
 | `policy/archive.toml` | Private archive capture and remote sync policy |
 | `tools/upstream-lock.toml` | Exact upstream source revisions/paths, adaptation status, reuse terms |
 

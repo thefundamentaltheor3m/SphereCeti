@@ -1,0 +1,5 @@
+# Reviewed GitHub API IDs, never display names or a caller-directory override.
+# Populate only after the trusted candidate workflow lands and its producer is verified.
+schema_version = 1
+workflow_id = 0
+status_creator_ids = []
