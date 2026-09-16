@@ -10,6 +10,7 @@ The `sphereceti` command supplies project diagnostics and the adapters credited 
 | `review --read-records / --post` | [Authenticated records and explicit publication](review-records.md) |
 | `archive` | [Durable review records](review-archive.md) |
 | `worker plan` | [Worker planning](worker.md) |
+| `worker run` | [Guarded execution and leases](worker-execution.md) |
 
 From this checkout:
 

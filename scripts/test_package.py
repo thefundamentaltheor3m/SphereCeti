@@ -72,6 +72,15 @@ def main():
             subprocess.run([str(python), '-c',
                 'from sphereceti.worker import targets; assert targets(["#3,2"]) == (2,3)'],
                 cwd=foreign, env=env, check=True)
+            disabled = subprocess.run([str(environment / 'bin' / 'sphereceti'), 'worker', 'run',
+                                       '--execute', '--pr', '1', '--json'], cwd=foreign, env=env,
+                                      text=True, capture_output=True, check=True)
+            assert json.loads(disabled.stdout)['state'] == 'disabled'
+            # A hostile cwd cannot enable state publication either.
+            sync = subprocess.run([str(environment / 'bin' / 'sphereceti'), 'worker', 'sync',
+                                   '--receipt', str(survey)], cwd=foreign, env=env,
+                                  text=True, capture_output=True)
+            assert sync.returncode == 2 and 'disabled' in sync.stderr
             print(f'Fresh installation outside checkout: {artifact.name}: OK')
 
 
