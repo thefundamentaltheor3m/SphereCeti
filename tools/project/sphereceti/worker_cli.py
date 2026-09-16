@@ -135,6 +135,9 @@ def add_parser(commands):
     run.add_argument("--pr", action="append")
     run.add_argument("--json", action="store_true")
     run.add_argument("--execute", action="store_true")
+    run.add_argument("--loop", action="store_true", help="bounded sequential rounds; requires --max-rounds")
+    run.add_argument("--max-rounds", type=int)
+    run.add_argument("--interval-seconds", type=int, default=60)
     run.add_argument("--post-review", action="store_true")
     run.add_argument("--publish-state", action="store_true")
     run.add_argument("--worker-id", default="worker")
@@ -157,6 +160,11 @@ def run_worker(args, project, policy=None, prefs=None) -> dict:
         from .worker_state import sync_receipt
         return sync_receipt(args, project, policy)
     if args.worker_command == "run":
+        if args.loop:
+            from .worker_loop import run_loop
+            return run_loop(args, project, policy, prefs)
+        require(args.max_rounds is None and args.interval_seconds == 60,
+                '--max-rounds and --interval-seconds require --loop')
         from .worker_execution import run_round
         return run_round(args, project, policy, prefs)
     requested = targets(args.pr)
@@ -168,6 +176,8 @@ def run_worker(args, project, policy=None, prefs=None) -> dict:
 
 
 def render(report) -> str:
+    if report["schema"] == "sphereceti.worker-loop/v1":
+        return f"SphereCeti worker: {len(report['rounds'])} round(s), stopped: {report['state']}."
     if report["schema"] == "sphereceti.worker-round/v1":
         return f"SphereCeti worker: {report['state']}. " + report.get('reason', 'See --json for the round receipt.')
     if report["schema"] == "sphereceti.worker-survey/v1":

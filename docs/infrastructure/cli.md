@@ -12,6 +12,7 @@ The `sphereceti` command supplies project diagnostics and the adapters credited 
 | `worker plan` | [Worker planning](worker.md) |
 | `worker run` | [Guarded execution and leases](worker-execution.md) |
 | `evaluation` | [Costs and shadow comparisons](evaluation.md) |
+| `worker run --loop` | [Bounded review loops](worker-loop.md) |
 
 From this checkout:
 
