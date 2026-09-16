@@ -78,3 +78,14 @@ state = "planned"
 license = "unresolved"
 license_status = "unresolved"
 adaptation = "I12/I16: resolve reuse terms before copying; import tooling/schemas without historical records or blobs."
+
+[[components]]
+name = "docs-cache-operations"
+repository = "TauCetiProject/TauCeti"
+commit = "b743b607ce3e9742b18026ad79082e5d15badff5"
+source_paths = [".github/workflows/pages.yml", ".github/workflows/ci.yml", ".github/workflows/publish-lake-cache.yml", ".github/workflows/nightly-verify.yml", "scripts/lake_cache_probe.py", "scripts/compare-build-outputs.py", "docs/cache-infrastructure.md"]
+destination_paths = ["scripts/publication.py", "scripts/build_publication.py", "scripts/compare_cache_bytes.py", ".github/workflows/docs-cache.yml", ".github/workflows/nightly-source.yml", "docs/infrastructure/docs-cache.md"]
+state = "design-adapted"
+license = "Apache-2.0"
+license_status = "recorded"
+adaptation = "Compiled declaration reference and exact deployed SOURCE_SHA; library-only native Lake staging, fresh key-bearing publisher with no project build, SphereCeti/platform/toolchain namespace, source verification and separate advisory archive-byte comparison. No upstream site, production statistics, workflows, or live credentials are copied."

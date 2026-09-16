@@ -50,6 +50,9 @@ def main():
             assert not any(report['policy'].values())
             assert report['queue']['state'] == 'not_checked'
             assert_installation(ROOT, python, foreign, env, report)
+            docs_source = next(s for s in report['sources'] if s['name'] == 'docs-cache-operations')
+            assert docs_source['repository'] == 'TauCetiProject/TauCeti'
+            assert docs_source['commit'] == 'b743b607ce3e9742b18026ad79082e5d15badff5'
             assert all(not capability['enabled'] for capability in report['capabilities'].values())
             assert report['local_review']['implemented']
             review_root = scratch / 'review-fixture'

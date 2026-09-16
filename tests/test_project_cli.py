@@ -63,6 +63,9 @@ class ProjectConfigTest(unittest.TestCase):
     def test_source_lock_requires_exact_provenance_and_reuse_terms(self):
         text = resource_text('upstream-lock.toml')
         entries = parse_source_lock(text)
+        docs = next(entry for entry in entries if entry['name'] == 'docs-cache-operations')
+        self.assertEqual(docs['repository'], 'TauCetiProject/TauCeti')
+        self.assertEqual(docs['commit'], 'b743b607ce3e9742b18026ad79082e5d15badff5')
         cases = [text.replace('8671bee98125933c56b9b00a08ded873b77dd23b', 'main'),
                  text.replace('source_paths = ["scripts/source-modules.sh"]', 'source_paths = []'),
                  text.replace('source_paths = ["scripts/source-modules.sh"]', 'source_paths = ["../escape"]'),

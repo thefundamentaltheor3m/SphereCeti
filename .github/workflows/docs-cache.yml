@@ -1,0 +1,132 @@
+name: Documentation and cache
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-cache-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  source-rebuild-check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install pinned tools and dependency bootstrap cache
+        run: bash scripts/install_lean.sh
+      - name: Exercise the nightly source path on this revision
+        run: lake env python3 -I scripts/build_publication.py --source --output "$RUNNER_TEMP/source-publication"
+
+  docs-cache-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Install pinned tools and dependency cache
+        run: bash scripts/install_lean.sh
+      - name: Consume anonymous pinned TauCeti cache with source fallback
+        run: bash scripts/prepare_cache.sh
+      - name: Test publication boundaries
+        run: python3 -B -m unittest discover -s tests -p 'test_publication.py' -v
+      - name: Build audited documentation and library cache
+        run: lake env python3 -I scripts/build_publication.py --output "$RUNNER_TEMP/publication"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: sphereceti-publication
+          path: ${{ runner.temp }}/publication
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+      - name: Prepare Pages data only after explicit setup
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.SPHERECETI_PAGES_ENABLED == 'true'
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
+        with:
+          path: ${{ runner.temp }}/publication/docs
+
+  deploy-pages:
+    needs: [docs-cache-build, source-rebuild-check]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.SPHERECETI_PAGES_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      # Fresh runner: no checkout, Lean, Python helper, or candidate code execution.
+      - uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
+        id: deployment
+
+  publish-cache:
+    needs: [docs-cache-build, source-rebuild-check]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.SPHERECETI_CACHE_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    environment: sphereceti-cache
+    steps:
+      # Only accepted-main publication helpers and pins; never unpack or execute artifacts.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            lean-toolchain
+            scripts/publication.py
+            scripts/install_lean.sh
+            tools/ci/elan.json
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: sphereceti-publication
+          path: ${{ runner.temp }}/publication
+      - name: Verify data and independently checked toolchain
+        env:
+          REVISION: ${{ github.sha }}
+        run: |
+          python3 -I scripts/publication.py verify "$RUNNER_TEMP/publication" "$REVISION"
+          test "$(cat lean-toolchain)" = 'leanprover/lean4:v4.34.0-rc1'
+          bash scripts/install_lean.sh --toolchain-only
+      - name: Validate separate SphereCeti storage setup
+        env:
+          ARTIFACT_ENDPOINT: ${{ vars.SPHERECETI_CACHE_ARTIFACT_ENDPOINT }}
+          REVISION_ENDPOINT: ${{ vars.SPHERECETI_CACHE_REVISION_ENDPOINT }}
+          PUBLIC_ENDPOINT: ${{ vars.SPHERECETI_CACHE_REVISION_ENDPOINT_PUBLIC }}
+          REVISION: ${{ github.sha }}
+        run: |
+          python3 -I scripts/publication.py endpoints "$ARTIFACT_ENDPOINT" "$REVISION_ENDPOINT" "$PUBLIC_ENDPOINT" "$REVISION" > "$RUNNER_TEMP/public-map-url"
+      - name: Upload data with the pinned Lake binary from an empty directory
+        env:
+          LAKE_CACHE_KEY: ${{ secrets.SPHERECETI_CACHE_KEY }}
+          LAKE_CACHE_ARTIFACT_ENDPOINT: ${{ vars.SPHERECETI_CACHE_ARTIFACT_ENDPOINT }}
+          LAKE_CACHE_REVISION_ENDPOINT: ${{ vars.SPHERECETI_CACHE_REVISION_ENDPOINT }}
+          REVISION: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          test -n "$LAKE_CACHE_KEY"
+          mkdir "$RUNNER_TEMP/upload-empty"
+          cd "$RUNNER_TEMP/upload-empty"
+          env -i HOME="$HOME" PATH=/usr/bin:/bin \
+            LAKE_CACHE_KEY="$LAKE_CACHE_KEY" \
+            LAKE_CACHE_ARTIFACT_ENDPOINT="$LAKE_CACHE_ARTIFACT_ENDPOINT" \
+            LAKE_CACHE_REVISION_ENDPOINT="$LAKE_CACHE_REVISION_ENDPOINT" \
+            "$HOME/.elan/toolchains/leanprover--lean4---v4.34.0-rc1/bin/lake" cache put-staged "$RUNNER_TEMP/publication/cache" \
+            --repo thefundamentaltheor3m/SphereCeti --rev "$REVISION" \
+            --toolchain leanprover/lean4:v4.34.0-rc1 --platform x86_64-unknown-linux-gnu
+      - name: Confirm exact public map without credentials
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --max-time 30 --retry 3 \
+            "$(cat "$RUNNER_TEMP/public-map-url")" -o "$RUNNER_TEMP/observed-map"
+          cmp "$RUNNER_TEMP/observed-map" "$RUNNER_TEMP/publication/cache/outputs.jsonl"
