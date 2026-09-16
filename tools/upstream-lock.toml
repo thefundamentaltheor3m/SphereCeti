@@ -1,5 +1,16 @@
 schema_version = 1
 
+[[components]]
+name = "lifecycle-maintenance"
+repository = "TauCetiProject/TauCeti"
+commit = "b743b607ce3e9742b18026ad79082e5d15badff5"
+source_paths = ["scripts/pr_status/core.py", "scripts/pr_status/labels.py", "scripts/pr_status/conflicts.py", "scripts/pr_status/stuck_alerts.py", "scripts/housekeeping.py", "scripts/pr_status/test_pr_labels.py", "scripts/pr_status/test_conflicts.py", "scripts/pr_status/test_stuck_alerts.py", "scripts/test_housekeeping.py", "LICENSE"]
+destination_paths = ["tools/project/sphereceti/lifecycle.py", "tools/project/sphereceti/lifecycle_api.py", "policy/lifecycle.toml", "tests/test_lifecycle.py", "tests/lifecycle_fixture.py", "docs/infrastructure/lifecycle.md"]
+state = "design-adapted"
+license = "Apache-2.0"
+license_status = "recorded"
+adaptation = "Main-health and quiet-work diagnostics, independent conflict state, and convergent managed-label reconciliation using SphereCeti's shared merge observation. Exact approved-main policy, installed-resource matching, private writer identity, fresh evidence and readback; one label write per invocation. No closures, target-marker deduplication, review-budget retirement, scheduler control, or external notifications are imported."
+
 # Credit belongs to the upstream contributors. Planned entries are source candidates,
 # not imported code or replacements for the pinned Lean dependency graph.
 [[components]]

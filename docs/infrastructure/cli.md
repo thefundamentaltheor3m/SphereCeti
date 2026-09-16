@@ -16,6 +16,7 @@ The `sphereceti` command supplies project diagnostics and the adapters credited 
 | `progress` | [Local reporting drafts](progress-reporting.md) |
 | `merge-observe` | [Merge eligibility observations](merge-observation.md) |
 | `merge-doctor / merge-control` | [Controller diagnostics and gated action](merge-controller.md) |
+| `maintenance` | [Lifecycle diagnostics and labels](lifecycle.md) |
 
 From this checkout:
 
@@ -57,6 +58,7 @@ The installed package includes these configuration resources:
 | `policy/merge-controller.toml` | Controller, dedicated merge identity, and required-check App IDs, initially unconfigured |
 | `tools/ci/merge-controller.yml` | Inactive serialized workflow template, packaged for exact-byte comparison |
 | `policy/archive.toml` | Private archive capture and remote sync policy |
+| `policy/lifecycle.toml` | Managed labels and lifecycle thresholds |
 | `tools/upstream-lock.toml` | Exact upstream source revisions/paths, adaptation status, reuse terms |
 
 The CLI loads these from its installed package, or from its own source tree during development.
