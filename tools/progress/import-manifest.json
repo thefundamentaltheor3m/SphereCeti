@@ -1,0 +1,263 @@
+{
+  "schema_version": 1,
+  "repository": "TauCetiProject/TauCetiProgress",
+  "commit": "880e8b9737973bfbd8f1f214f4ac2ded67f5b856",
+  "files": [
+    {
+      "source": ".github/scripts/collect.py",
+      "destination": "fixtures/collect.py",
+      "git_mode": "100644",
+      "git_blob": "e2a8a3fa42bf8e12d68baffb9eba923c3c09b7b4",
+      "upstream_sha256": "0f970eacfe841a31324cc414e788013afa92da401334a2ef98e7c48cc8343651",
+      "import_sha256": "f41eda2eb0b3765ac1a989619828fbb1942351a87bb64304cea9b580083aec7d"
+    },
+    {
+      "source": "LICENSE",
+      "destination": "LICENSE",
+      "git_mode": "100644",
+      "git_blob": "8dada3edaf50dbc082c9a125058f25def75e625a",
+      "upstream_sha256": "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1",
+      "import_sha256": "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1"
+    },
+    {
+      "source": "README.md",
+      "destination": "UPSTREAM-README.md",
+      "git_mode": "100644",
+      "git_blob": "9443b1772b39f9ca5f7b4934b3202277b9e9e169",
+      "upstream_sha256": "bca872883f536d5195a38e4875d96a76a289b7d1ea2ec8d53ec15b839af54960",
+      "import_sha256": "bca872883f536d5195a38e4875d96a76a289b7d1ea2ec8d53ec15b839af54960"
+    },
+    {
+      "source": "progress/__init__.py",
+      "destination": "progress/__init__.py",
+      "git_mode": "100644",
+      "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "upstream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "import_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "progress/announce.py",
+      "destination": "progress/announce.py",
+      "git_mode": "100644",
+      "git_blob": "1d6448b28e0157a0126466fb3b5c2bd5e5926bcc",
+      "upstream_sha256": "7c291aae2b2662547f2a895f0e393d982a9e10bbf10a3aec096288a474e8d1c5",
+      "import_sha256": "081890b451933418f117444aff23030ee27b299be27d8abc602666780139a18b"
+    },
+    {
+      "source": "progress/apply.py",
+      "destination": "progress/apply.py",
+      "git_mode": "100644",
+      "git_blob": "07c011dfb5353c71e07339bb129c97802f3740ef",
+      "upstream_sha256": "46be1da59b56b835c3c96eb2a5e7977d4704ae651c5fe08ed8b8f0d337f4533c",
+      "import_sha256": "f67c98c915dc778e231fcf9e7b4f7c94c52902700650c53be2351a7ba38c92fd"
+    },
+    {
+      "source": "progress/cli.py",
+      "destination": "progress/cli.py",
+      "git_mode": "100644",
+      "git_blob": "08487f986c891348d1e7721646361665ea426233",
+      "upstream_sha256": "d40640c93da573057341ef2f42195e6c803d69351dde95d0e6184f36e2cd2077",
+      "import_sha256": "48f914821a5dc7456acbadfd5d534e7e524e9f06d3a6e799097ea09ceeb0bd54"
+    },
+    {
+      "source": "progress/context.py",
+      "destination": "progress/context.py",
+      "git_mode": "100644",
+      "git_blob": "e2515ad41b5ea5ab8cf810745bfd6f863b94ed81",
+      "upstream_sha256": "a1461a802aeb4f4109adebfe372a8960ced51dab0258857101af3a9b818517ac",
+      "import_sha256": "a1461a802aeb4f4109adebfe372a8960ced51dab0258857101af3a9b818517ac"
+    },
+    {
+      "source": "progress/docs.py",
+      "destination": "progress/docs.py",
+      "git_mode": "100644",
+      "git_blob": "af70aa33e1e50697b5f34f48a06ad33ee1c79944",
+      "upstream_sha256": "c608e5d4be080e84aedac4219eb22f207f32013eb9d4729a7962e3e1f0765912",
+      "import_sha256": "6a340d97481300e2eaf9ca73e8d4b2955112cd515063980c45cabaa88882e90f"
+    },
+    {
+      "source": "progress/facts.py",
+      "destination": "progress/facts.py",
+      "git_mode": "100644",
+      "git_blob": "52ec578dc7dedec6e3ae6cc973aced98b55d7f65",
+      "upstream_sha256": "b55d7dc3ebafecfc478c5e76c56015ff53ae71ee49e755ddd03be365033b25d5",
+      "import_sha256": "b55d7dc3ebafecfc478c5e76c56015ff53ae71ee49e755ddd03be365033b25d5"
+    },
+    {
+      "source": "progress/files.py",
+      "destination": "progress/files.py",
+      "git_mode": "100644",
+      "git_blob": "3385dd457e2a9502494ee8c06cc39a613fe510e9",
+      "upstream_sha256": "6573d0a73802264289e2678f23253a0ce987bda8d950d260c260ec28f25a560d",
+      "import_sha256": "6573d0a73802264289e2678f23253a0ce987bda8d950d260c260ec28f25a560d"
+    },
+    {
+      "source": "progress/gate.py",
+      "destination": "progress/gate.py",
+      "git_mode": "100644",
+      "git_blob": "e85bd6a6ed040a5ccfbf002a7cd683db64e8e884",
+      "upstream_sha256": "ad1cd2cb9a1a61c2ff62641bf3869fa2e27ae0bb682d9e0caf3f22ff4f8c9406",
+      "import_sha256": "93434b173d5de3fb7c707a85a354942d2a1deddad6fbf094588a0021274a6afd"
+    },
+    {
+      "source": "progress/gh.py",
+      "destination": "progress/gh.py",
+      "git_mode": "100644",
+      "git_blob": "58eab1c2e4f835e9066d0c018a89445985e2fd2c",
+      "upstream_sha256": "b68dbf93a05cc17fe5e438383df22e581010e723af8531603a2e548587915ac2",
+      "import_sha256": "0de69a02257cc1f91b33cc9c2c7f3ed1c15cd192fa88f41693a357aa98772a7d"
+    },
+    {
+      "source": "progress/plan.py",
+      "destination": "progress/plan.py",
+      "git_mode": "100644",
+      "git_blob": "5cad96088ad4fe7c148fdf08aa61cc36b4df17df",
+      "upstream_sha256": "c5d24ff3d6599c06c60a04515be5bb69b7bedaa5b24f82ca801ead1e7bde5464",
+      "import_sha256": "c5d24ff3d6599c06c60a04515be5bb69b7bedaa5b24f82ca801ead1e7bde5464"
+    },
+    {
+      "source": "progress/prompts/progress.md",
+      "destination": "progress/prompts/progress.md",
+      "git_mode": "100644",
+      "git_blob": "ffc8872633b90cff4684a8e2e717ab90d8274f64",
+      "upstream_sha256": "c2b7da1b9f76e0a752ed9f851575bbc487469affd33e80340de9af7093ba5176",
+      "import_sha256": "c2b7da1b9f76e0a752ed9f851575bbc487469affd33e80340de9af7093ba5176"
+    },
+    {
+      "source": "progress/prompts/status.md",
+      "destination": "progress/prompts/status.md",
+      "git_mode": "100644",
+      "git_blob": "7e8649ed6e5b7e67349361aabd31bd69b7995b5b",
+      "upstream_sha256": "5d87766f3d20c34374795e1dea3819bddb848045db5a1fd0fd62d794ae1f43cb",
+      "import_sha256": "5d87766f3d20c34374795e1dea3819bddb848045db5a1fd0fd62d794ae1f43cb"
+    },
+    {
+      "source": "progress/window.py",
+      "destination": "progress/window.py",
+      "git_mode": "100644",
+      "git_blob": "8435a8aae398992120ec3aaa4e058185e9cfd7c7",
+      "upstream_sha256": "cb1a657f09c1ef351c3cc93121e6818ea18306df35a003bdb37348e998730701",
+      "import_sha256": "cb1a657f09c1ef351c3cc93121e6818ea18306df35a003bdb37348e998730701"
+    },
+    {
+      "source": "progress/zulip.py",
+      "destination": "progress/zulip.py",
+      "git_mode": "100644",
+      "git_blob": "ade249623c1d5ee1cf4e39def5322e52ec2cb9bf",
+      "upstream_sha256": "26d791725d1daa76b0030be61a8264c3eb0153fcd5b7a1dfe3046a890c9d7548",
+      "import_sha256": "e45eb0b7f853d7686ba9f1ed783c5eed991319ad305ef68f3da89a5b83d4d992"
+    },
+    {
+      "source": "pyproject.toml",
+      "destination": "upstream-pyproject.toml",
+      "git_mode": "100644",
+      "git_blob": "4de62b2d5ea0853d08c91320afed0e7e48d6d938",
+      "upstream_sha256": "3014d1fc6104c2aef7abeefe7116fc887e40a742d64b0dfa22400075f1d3cb86",
+      "import_sha256": "3014d1fc6104c2aef7abeefe7116fc887e40a742d64b0dfa22400075f1d3cb86"
+    },
+    {
+      "source": "tests/fixtures/module-page.html",
+      "destination": "tests/fixtures/module-page.html",
+      "git_mode": "100644",
+      "git_blob": "59d11131f90bee814e2ef06803f1b71b70ab6582",
+      "upstream_sha256": "ab82b4cffb1a8d0c79edd8cba58e0bbdd3ca1908108092c1c2123a26b1c42db4",
+      "import_sha256": "ab82b4cffb1a8d0c79edd8cba58e0bbdd3ca1908108092c1c2123a26b1c42db4"
+    },
+    {
+      "source": "tests/run",
+      "destination": "tests/run",
+      "git_mode": "100755",
+      "git_blob": "ff2eb675e61b71330bb3011823f59c3d3641744e",
+      "upstream_sha256": "19e903d922ac750e1a19edcd7ad2f0283e0514d65113762d46738c109045b4e1",
+      "import_sha256": "19e903d922ac750e1a19edcd7ad2f0283e0514d65113762d46738c109045b4e1"
+    },
+    {
+      "source": "tests/test_apply_announce.py",
+      "destination": "tests/test_apply_announce.py",
+      "git_mode": "100644",
+      "git_blob": "806775307ff3d4f29945f617f7c0493a7ee4cbb0",
+      "upstream_sha256": "f32f367afb8e17ae23c75f09e0bb21f2f7f32451787000ffcba084252e21910e",
+      "import_sha256": "f32f367afb8e17ae23c75f09e0bb21f2f7f32451787000ffcba084252e21910e"
+    },
+    {
+      "source": "tests/test_collect.py",
+      "destination": "tests/test_collect.py",
+      "git_mode": "100644",
+      "git_blob": "383b10234562cc56d31a859cb4d401d6b97de031",
+      "upstream_sha256": "b324132271aba67da561f662ff4de3311d3f6d433f415623ab70169ca81652b1",
+      "import_sha256": "b324132271aba67da561f662ff4de3311d3f6d433f415623ab70169ca81652b1"
+    },
+    {
+      "source": "tests/test_context.py",
+      "destination": "tests/test_context.py",
+      "git_mode": "100644",
+      "git_blob": "ccc797df614c23a3b5b0f969dfdf66255fbafc91",
+      "upstream_sha256": "20d2f8ebee63104ef40b73a499a46420c0e679bf0f63ea4181b8d87a1f40f1f7",
+      "import_sha256": "20d2f8ebee63104ef40b73a499a46420c0e679bf0f63ea4181b8d87a1f40f1f7"
+    },
+    {
+      "source": "tests/test_docs.py",
+      "destination": "tests/test_docs.py",
+      "git_mode": "100644",
+      "git_blob": "2f15a4d65192606daec5e4d8f493292949ec63f5",
+      "upstream_sha256": "5ece59a6f70eab8e5f989070d9f92d817a9f2d4ed8b99c359e119e6042f6265d",
+      "import_sha256": "5ece59a6f70eab8e5f989070d9f92d817a9f2d4ed8b99c359e119e6042f6265d"
+    },
+    {
+      "source": "tests/test_facts.py",
+      "destination": "tests/test_facts.py",
+      "git_mode": "100644",
+      "git_blob": "2e25acb2aac998b935947a0c12dfd999e1f3d5fb",
+      "upstream_sha256": "8051c797e3ce813d07816dcd0cf10ee5e0fb80dd3c446ac96de3c39d571078da",
+      "import_sha256": "8051c797e3ce813d07816dcd0cf10ee5e0fb80dd3c446ac96de3c39d571078da"
+    },
+    {
+      "source": "tests/test_files.py",
+      "destination": "tests/test_files.py",
+      "git_mode": "100644",
+      "git_blob": "d1b3624a828303f96622df909c42b2fa28a9f30b",
+      "upstream_sha256": "7b06b5113b5772898c712643ea324f635a9fb67d30b493244afa6c7d54c7be84",
+      "import_sha256": "7b06b5113b5772898c712643ea324f635a9fb67d30b493244afa6c7d54c7be84"
+    },
+    {
+      "source": "tests/test_gate.py",
+      "destination": "tests/test_gate.py",
+      "git_mode": "100644",
+      "git_blob": "3e8b04165860c4717ff4067bd08a66da54302eeb",
+      "upstream_sha256": "cd3447e3d7a5d3aebbd176ee9a10b50b6c63d4f7aad5d47ecd87a87c45596b67",
+      "import_sha256": "cd3447e3d7a5d3aebbd176ee9a10b50b6c63d4f7aad5d47ecd87a87c45596b67"
+    },
+    {
+      "source": "tests/test_in_flight.py",
+      "destination": "tests/test_in_flight.py",
+      "git_mode": "100644",
+      "git_blob": "82415412630630494e130ae6b6c3de49bb3e8cbb",
+      "upstream_sha256": "53560664a85097049237fbf292f8e7b527eac865743b7b86eb82645ef9999a08",
+      "import_sha256": "53560664a85097049237fbf292f8e7b527eac865743b7b86eb82645ef9999a08"
+    },
+    {
+      "source": "tests/test_prompts.py",
+      "destination": "tests/test_prompts.py",
+      "git_mode": "100644",
+      "git_blob": "02124d9e795accdd8da73a991524e0be78490ef2",
+      "upstream_sha256": "a998e2700dae97389055a4c776a16d9a0baca6911d9a2122e29d3543068c24bd",
+      "import_sha256": "a998e2700dae97389055a4c776a16d9a0baca6911d9a2122e29d3543068c24bd"
+    },
+    {
+      "source": "tests/test_window.py",
+      "destination": "tests/test_window.py",
+      "git_mode": "100644",
+      "git_blob": "862d2a4432805fce86c137012f5e97864fbef731",
+      "upstream_sha256": "ef707bfadf8af623f0fd8d06103c61fcdca155ab171f5c105dbd9aa4a5a1fe0a",
+      "import_sha256": "ef707bfadf8af623f0fd8d06103c61fcdca155ab171f5c105dbd9aa4a5a1fe0a"
+    },
+    {
+      "source": "tests/test_window_resolution.py",
+      "destination": "tests/test_window_resolution.py",
+      "git_mode": "100644",
+      "git_blob": "8753ace3243fda4f399772a8ee3586cc582e396c",
+      "upstream_sha256": "9ff007b8ce3d81eac52e5a76ad4941a5a82ba152cab19fbe9470353a0b16c180",
+      "import_sha256": "9ff007b8ce3d81eac52e5a76ad4941a5a82ba152cab19fbe9470353a0b16c180"
+    }
+  ]
+}

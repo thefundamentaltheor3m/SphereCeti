@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Run every test module. No test framework: each file is a plain script that exits non-zero on
+# failure, matching TauCetiReview's `tests.yml` (byte-compile plus a plain-script test run).
+set -uo pipefail
+
+cd "$(dirname "$0")/.."
+
+rc=0
+echo "== byte-compiling =="
+python3 -m py_compile progress/*.py || rc=1
+
+for f in tests/test_*.py; do
+  echo
+  echo "== $f =="
+  python3 "$f" || rc=1
+done
+
+echo
+if [ "$rc" -eq 0 ]; then
+  echo "ALL SUITES PASSED"
+else
+  echo "FAILURES (see above)"
+fi
+exit "$rc"

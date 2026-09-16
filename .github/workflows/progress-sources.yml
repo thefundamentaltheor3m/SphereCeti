@@ -1,0 +1,31 @@
+name: Progress sources
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  progress-sources:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install package tooling
+        run: python3 -m pip install uv==0.10.4
+      - name: Check inactive boundaries and offline harness
+        run: python3 -B -m unittest discover -s tests -p 'test_progress_import.py' -v
+      - name: Run unchanged upstream regressions offline
+        run: python3 -I scripts/run_progress_tests.py
+      - name: Check package lock and build
+        run: |
+          uv lock --project tools/progress --check
+          uv build tools/progress
+      - name: Verify fresh wheel and source installations
+        run: python3 -I scripts/test_progress_package.py

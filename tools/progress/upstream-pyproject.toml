@@ -1,0 +1,26 @@
+[project]
+name = "tauceti-progress"
+version = "0.1.0"
+description = "Decide, generate, and publish per-roadmap progress reports for Tau Ceti."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+# No Python dependencies: like the review engine, this shells out to the `git` and `gh`
+# CLIs, and talks to Zulip over the standard library.
+dependencies = []
+
+[project.scripts]
+tauceti-progress = "progress.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["progress"]
+
+[tool.setuptools.package-data]
+# Inside the package, not `../prompts`: setuptools does not reliably ship files from outside the
+# package directory, and the worker fetches these prompts from an installed build rather than from a
+# checkout, so a prompt that does not install is a prompt that does not exist.
+progress = ["prompts/*.md"]
