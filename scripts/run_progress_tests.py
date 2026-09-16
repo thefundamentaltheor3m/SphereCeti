@@ -12,7 +12,10 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCES = ROOT / 'tools/progress'
+# Harness from PR #12; use the root distribution or its own same-tree sources.
+sys.path.insert(0, str(ROOT / "tools/project"))
+from sphereceti.progress_sources import source_root
+SOURCES = Path(str(source_root()))
 
 CHILD = r'''
 import os

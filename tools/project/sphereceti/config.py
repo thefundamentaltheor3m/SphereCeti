@@ -23,6 +23,7 @@ RESOURCE_PATHS = {
     "archive.toml": "policy/archive.toml",
     "sphereceti.toml": "sphereceti.toml",
     "automation.toml": "policy/automation.toml",
+    "reporting.toml": "policy/reporting.toml",
     "upstream-lock.toml": "tools/upstream-lock.toml",
 }
 

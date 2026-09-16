@@ -1,0 +1,7 @@
+# Accepted project policy; operator preferences cannot supply a publication authority.
+schema_version = 1
+repository = "thefundamentaltheor3m/SphereCeti"
+docs_url = ""
+area = "SphereCeti"
+minimum_interval_hours = 24
+# Production milestone evidence is not installed. Local fixture previews are always untrusted.
