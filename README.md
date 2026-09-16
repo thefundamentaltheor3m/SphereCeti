@@ -64,6 +64,11 @@ The [evaluation tools](docs/infrastructure/evaluation.md) summarize recorded cos
 explicit dated price snapshots, compare compatible fresh shadow arms, and retain local human
 labels. `sphereceti evaluation costs --json` is offline and never invokes a provider.
 
+The [advisory profiler](docs/infrastructure/profiling.md) compares exact Git revisions using
+the trusted-build sandbox and host CPU/wall-time measurements. `sphereceti profile-plan`
+inspects inputs locally; `profile-run` measures them with prepared dependencies. Reports
+label library and roadmap sources separately and have no mathematical or merge authority.
+
 ## GitHub configuration
 
 To set up your new GitHub repository, follow these steps:

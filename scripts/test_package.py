@@ -153,6 +153,24 @@ def main():
                                         text=True, capture_output=True, check=True)
                 value = json.loads(result.stdout)
                 assert value['state'] == state and value['publication_allowed'] is False
+
+            # Installed profiling resolves exact Git inputs independently of caller config.
+            import sys
+            sys.path.insert(0, str(ROOT / 'tests'))
+            from profiling_fixture import fixture as profiling_fixture
+            base, head = profiling_fixture(scratch / 'profile-repo')
+            result = subprocess.run([str(environment / 'bin' / 'sphereceti'), 'profile-plan',
+                                     '--repo', str(scratch / 'profile-repo'), '--tooling', head,
+                                     '--base', base, '--head', head],
+                                    cwd=foreign, env=env, text=True, capture_output=True, check=True)
+            profile = json.loads(result.stdout)
+            assert profile['head'] == head and profile['diff_base'] == base
+            assert profile['changes'][0]['path'] == 'SphereCeti/Basic.lean'
+            subprocess.run([str(python), '-c',
+                            'from pathlib import Path; import sys; '
+                            'from sphereceti.profile_runner import verify_tools; '
+                            'verify_tools(Path(sys.argv[1]), sys.argv[2])',
+                            str(scratch / 'profile-repo'), head], cwd=foreign, env=env, check=True)
             print(f'Fresh installation outside checkout: {artifact.name}: OK')
 
 
