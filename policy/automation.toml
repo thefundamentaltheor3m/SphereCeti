@@ -7,3 +7,4 @@ reporting = false
 merging = false
 mathematical_paths = []
 authorized_reviewers = []
+# Future authorization uses immutable GitHub identities: "user:12345" or "app:12345".

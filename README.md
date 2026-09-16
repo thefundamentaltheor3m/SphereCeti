@@ -47,8 +47,10 @@ See [CLI configuration and installation](docs/infrastructure/cli.md).
 The [TauCetiReview import](tools/review/README.md) preserves its engine, ten ordered rubrics,
 and upstream tests. `sphereceti review N --dry-run` verifies the exact proposed PR, selected
 context, and dependency sources without invoking a provider. An explicitly configured provider
-can produce a [local advisory review](docs/infrastructure/local-review.md). Authenticated
-records and explicit posting are the next step; the legacy launchers remain disabled.
+can produce a [local advisory review](docs/infrastructure/local-review.md).
+[Review records](docs/infrastructure/review-records.md) bind that evidence to API-verified
+publication identities. `review N --read-records` inspects them without inference; explicit
+`--post` requires approved posting policy, which remains disabled. The legacy launchers remain disabled.
 
 ## GitHub configuration
 

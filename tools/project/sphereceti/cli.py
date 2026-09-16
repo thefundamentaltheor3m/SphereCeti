@@ -1,4 +1,4 @@
-"""Project diagnostics and explicit local advisory reviews; no authoring, posting, or merging."""
+"""Project diagnostics, reviews, and explicit policy-gated record publication; no merging."""
 
 from __future__ import annotations
 
@@ -55,6 +55,7 @@ def main(argv: list[str] | None = None) -> int:
     commands = parser.add_subparsers(dest="command", required=True)
     from .local_review import add_parser, run_review, ReviewError
     from .gate import GateError
+    from .review_records import RecordError
     add_parser(commands)
     for command in ("doctor", "status"):
         sub = commands.add_parser(command)
@@ -75,7 +76,7 @@ def main(argv: list[str] | None = None) -> int:
             report = run_review(args, project, preferences)
         except (ReviewError, GateError, ConfigError, OSError, ValueError, KeyError,
                 subprocess.SubprocessError) as error:
-            reason = (str(error) if isinstance(error, (ReviewError, ConfigError)) else
+            reason = (str(error) if isinstance(error, (ReviewError, RecordError, ConfigError)) else
                       f"source/resource operation failed ({type(error).__name__}); check exact revisions and paths")
             parser.exit(2, f"sphereceti: {reason}\n")
         if args.json:
@@ -84,9 +85,15 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Local advisory review #{args.pr}: {report['completion']}")
             print(f"T={report['tooling']} H={report['head']} D={report['dependency_digest']}")
             print(f"Evidence and result: {report['output']}")
-            print("Not authenticated; not eligible for merging.")
+            print("This command does not authorize merging.")
             if report["missing_context"]:
                 print("Missing approved context: " + ", ".join(report["missing_context"]))
+            if "review_safe" in report:
+                print("Authorized review evidence: " + ("current and approving" if report["review_safe"] else
+                      "; ".join(report["reasons"])))
+            if "publication" in report:
+                posted = report["publication"]
+                print(f"Published comment {posted['comment_id']}; API identity: {posted['identity']}; authorized: {posted['authorized']}")
         return 1 if report["completion"] == "error" else 0
 
     config = {"project": asdict(project), "policy": asdict(policy), "sources": sources}
@@ -97,10 +104,10 @@ def main(argv: list[str] | None = None) -> int:
         "roadmap": {"state": "approved" if project.roadmap_approved else "not_installed",
                     "reason": "Approved roadmap is not installed; an open PR is not approved specification."
                     if not project.roadmap_approved else "Profile records approved roadmap sources."},
-        "capabilities": {name: {"implemented": False, "enabled": False,
+        "capabilities": {name: {"implemented": name == "posting", "enabled": False,
                                 "policy_requested": getattr(policy, name)}
                          for name in ("review_generation", "posting", "authoring", "reporting", "merging")},
-        "local_review": {"implemented": True, "advisory_only": True, "publishing": False},
+        "local_review": {"implemented": True, "advisory_only": True, "publishing": True},
         "queue": {"state": "not_checked", "pull_requests": None},
         "setup": {"state": "not_verified", "merging_ready": False,
                   "reason": "App installation, required checks, branch protection, and production adapter are not verified."},
@@ -125,7 +132,7 @@ def main(argv: list[str] | None = None) -> int:
         queue = report["queue"]
         print(f"Queue: {len(queue['pull_requests'])} open PR(s)" if queue["state"] == "available"
               else f"Queue: {queue.get('reason', 'not checked (offline)')}")
-        print("Local advisory review is available. Automated review, authoring, posting, reporting, and merging remain disabled.")
+        print("Local review and explicit policy-gated posting are available. Automated review, authoring, reporting, and merging remain disabled.")
         print(f"Operational setup: {report['setup']['reason']}")
         if args.command == "doctor":
             for name, path in report["executables"].items():

@@ -7,6 +7,7 @@ The `sphereceti` command supplies project diagnostics and the adapters credited 
 |---|---|
 | `doctor`, `status` | Project identity, policy and queue diagnostics (below) |
 | `review` | [Local advisory review](local-review.md) |
+| `review --read-records / --post` | [Authenticated records and explicit publication](review-records.md) |
 
 From this checkout:
 
@@ -33,7 +34,8 @@ has `state = available` and an empty list. JSON reports have schema version 1.
 `doctor` additionally locates git, gh, Lean, and Lake; a missing executable exits 1. Exit 0
 means diagnostics succeeded, not that automation is ready. App installation, required checks,
 branch protections, and the production adapter are explicitly unverified. Activation requires verified live configuration. The current scaffold has no approved roadmap; PR #1 is not silently
-used as specification. Automated capabilities report unimplemented and disabled; `local_review`
+used as specification. Automatic capabilities remain disabled; explicit posting is implemented but requires
+approved live policy. `local_review`
 separately reports the available advisory adapter.
 
 The installed package includes these configuration resources:
