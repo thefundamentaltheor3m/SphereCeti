@@ -9,7 +9,7 @@ SphereCeti is preparing a roadmap and target-signature package for sphere packin
 [TauCeti](https://github.com/TauCetiProject/TauCeti),
 [TauCetiRoadmap](https://github.com/TauCetiProject/TauCetiRoadmap),
 [TauCetiReview](https://github.com/TauCetiProject/TauCetiReview),
-[TauCetiWorker](https://github.com/kim-em/TauCetiWorker),
+[TauCetiWorker](https://github.com/TauCetiProject/TauCetiWorker),
 [TauCetiProgress](https://github.com/TauCetiProject/TauCetiProgress), and
 [TauCetiData](https://github.com/TauCetiProject/TauCetiData).
 The [infrastructure plan](INFRASTRUCTURE-PLAN.md) records their roles, exact candidate source

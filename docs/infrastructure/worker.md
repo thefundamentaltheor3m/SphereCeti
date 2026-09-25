@@ -2,7 +2,7 @@
 
 This planner is independently authored under SphereCeti's [Apache-2.0 license](../../LICENSE).
 The high-level maintenance-before-new-work idea and strict targeting behavior were informed by
-[the TauCetiWorker contributors' README at `27c234a`](https://github.com/kim-em/TauCetiWorker/blob/27c234a5722cfe557279aa47fbfd8e51450481a6/README.md).
+[the TauCetiWorker contributors' README at `27c234a`](https://github.com/TauCetiProject/TauCetiWorker/blob/27c234a5722cfe557279aa47fbfd8e51450481a6/README.md).
 No TauCetiWorker implementation, prompts, tests, or assets are copied or relicensed. The source
 ledger records this as `reference-only`, with upstream reuse terms still unresolved. The
 planned Worker source import is superseded by this independent implementation.

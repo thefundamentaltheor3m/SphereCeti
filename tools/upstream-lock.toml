@@ -70,7 +70,7 @@ adaptation = "PR #9 imports the engine, ten rubrics, references, tests, and lice
 
 [[components]]
 name = "worker"
-repository = "kim-em/TauCetiWorker"
+repository = "TauCetiProject/TauCetiWorker"
 commit = "27c234a5722cfe557279aa47fbfd8e51450481a6"
 source_paths = ["README.md"]
 destination_paths = ["docs/infrastructure/worker.md", "docs/infrastructure/worker-loop.md"]

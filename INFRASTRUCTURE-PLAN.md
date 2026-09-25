@@ -18,7 +18,7 @@ activation status. Use native SphereCeti PR numbers. Keep queue counts out of th
 | TauCeti mathematical dependency | [8671bee](https://github.com/TauCetiProject/TauCeti/tree/8671bee98125933c56b9b00a08ded873b77dd23b) | Fixed Lake dependency; original module inventory adapted from `scripts/source-modules.sh` |
 | TauCetiReview | [afb424e](https://github.com/TauCetiProject/TauCetiReview/tree/afb424eda89e8ac96d9eb69f6a88972055a4cd1b) | `runner/`, `rubrics/`, `tests/`, references and license; Apache-2.0 |
 | TauCetiProgress | [880e8b9](https://github.com/TauCetiProject/TauCetiProgress/tree/880e8b9737973bfbd8f1f214f4ac2ded67f5b856) | `progress/`, tests, prompts, references and license; Apache-2.0 |
-| TauCetiWorker | [27c234a](https://github.com/kim-em/TauCetiWorker/blob/27c234a5722cfe557279aa47fbfd8e51450481a6/README.md) | Behavioral reference: README only. SphereCeti's Worker is independently authored under Apache-2.0; no source, prompts, tests or assets copied |
+| TauCetiWorker | [27c234a](https://github.com/TauCetiProject/TauCetiWorker/blob/27c234a5722cfe557279aa47fbfd8e51450481a6/README.md) | Behavioral reference: README only. SphereCeti's Worker is independently authored under Apache-2.0; no source, prompts, tests or assets copied |
 | TauCetiData | [e8e9154](https://github.com/TauCetiProject/TauCetiData/tree/e8e915472b02875f9a3864492616662c0c902876) | Reference candidate with unresolved reuse terms; no source or historical records imported |
 
 The [source ledger](tools/upstream-lock.toml) records precise upstream paths, destinations,
