@@ -1,7 +1,7 @@
-# SphereCeti provenance and dependency ledger
+# SphereCeti provenance and dependency record
 
-This file records what the roadmap is pinned against and where implementation material may be
-mined.  It is a provenance ledger, not an instruction to copy an entire branch or repository.
+This file records what the roadmap is pinned against and from which sources proofs may be
+adapted.  It is a record of provenance, not an instruction to copy an entire branch or repository.
 
 ## 1. Exact dependency snapshot
 
@@ -45,11 +45,11 @@ This baseline contains the radial Schwartz submodule and uses Lean and Mathlib `
 direct imports from the synchronized production dependency.  The model is never a source of
 independent mathematical truth.
 
-## 2. Pinned TauCeti modules consumed directly
+## 2. Pinned TauCeti modules used directly
 
 ### Integral lattices
 
-The roadmap is shaped against:
+The roadmap statements are written against:
 
 ```text
 TauCeti/LinearAlgebra/IntegralLattice/Basic.lean
@@ -77,11 +77,11 @@ Relevant existing declarations include:
 - `IntegralLattice.IsUnimodular` and determinant criteria.
 
 SphereCeti adds the bridge from this rational algebraic presentation to Mathlib's real topological
-`ZLattice` representation.  It does not copy the TauCeti lattice bundle.
+`ZLattice` representation.  It does not copy the TauCeti lattice definitions.
 
 ### Contour and complex analysis
 
-Directly consumed:
+Used directly:
 
 ```text
 TauCeti/Analysis/Complex/UpperHalfPlane/ResToImagAxis.lean
@@ -90,7 +90,7 @@ TauCeti/Analysis/Fourier/Continuous.lean
 
 ### Modular forms and q-expansions
 
-Directly consumed or targeted:
+Used directly or targeted:
 
 ```text
 TauCeti/NumberTheory/ModularForms/ResToImagAxis.lean
@@ -102,8 +102,8 @@ TauCeti/NumberTheory/ModularForms/SturmBound.lean
 ```
 
 SphereCeti keeps dimension-specific E8 and Leech modular forms in the sphere-packing production
-repository.  The TauCeti material supplies generic restriction, transformation, growth, and finite
-coefficient-equality machinery.
+repository.  The TauCeti material supplies the general results on restriction, transformation,
+growth, and finite coefficient equality.
 
 ## 3. Sphere-Packing-Lean material to preserve
 
@@ -177,10 +177,10 @@ Do not:
 
 ## 5. PR #420
 
-PR #420 is a source quarry containing several separable contributions:
+PR #420 is a source of proofs to adapt, containing several separable contributions:
 
 1. Schwartz summability on lattices;
-2. real dual-lattice adapters;
+2. comparison of the real inner-product dual lattice with the bilinear-form dual;
 3. Poisson summation;
 4. basis-independent covolume facts;
 5. general periodic Cohn--Elkies counting.
@@ -264,7 +264,7 @@ polynomial, the modulo-eight/residue-code coordinate description scaled by `1 / 
 
 ## 7. TauCetiRoadmap sources
 
-SphereCeti follows the roadmap discipline and borrows target shape from:
+SphereCeti follows the roadmap discipline and borrows the form of its target statements from:
 
 ```text
 TauCetiRoadmap/IntegralLattices/README.md
@@ -294,7 +294,7 @@ authors' work.
 
 ## 9. Provenance checklist for production PRs
 
-For each mined theorem, record:
+For each theorem adapted from an existing source, record:
 
 ```text
 Source repository:
@@ -308,11 +308,11 @@ License/header action:
 ```
 
 For large ports, add a temporary mapping table to the PR description.  The permanent code must
-retain only useful mathematical provenance, not branch-war history.
+retain only useful mathematical provenance, not a history of competing branches.
 
 ## 10. Roadmap-package validation
 
 `scripts/check_roadmap.py` checks the package for pin coherence, file/link consistency, and
-target-shape contracts.  On the pinned toolchain, `lake exe cache get` followed by `lake build`
-elaborates every target signature, locally and in CI, with the intentional `sorry` warnings in the
-target files as the only warnings.
+required features of the target statements.  On the pinned toolchain, `lake exe cache get`
+followed by `lake build` elaborates every target signature, locally and in CI, with the
+intentional `sorry` warnings in the target files as the only warnings.

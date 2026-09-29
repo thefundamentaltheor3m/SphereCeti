@@ -165,7 +165,8 @@ theorem isRadial_iff {E F : Type*} [Norm E] (f : E → F) :
 
 end Function
 
-/-- The submodule of radial Schwartz functions, matching the production API shape. -/
+/-- The submodule of radial Schwartz functions, with the same signature as the production
+definition. -/
 def RadialSchwartzMap (𝕜 E F : Type*) [NormedField 𝕜]
     [NormedAddCommGroup E] [NormedSpace ℝ E]
     [NormedAddCommGroup F] [NormedSpace ℝ F] [NormedSpace 𝕜 F]
@@ -215,7 +216,7 @@ end RadialSchwartzMap
 
 /-! ## Dimension-eight declarations pinned from production `main` -/
 
-/-- Roadmap-local stand-in for the production `E8Lattice`. -/
+/-- Local placeholder for the production `E8Lattice`, to be replaced by an import of it. -/
 noncomputable def E8Lattice : Submodule ℤ (V 8) := by
   sorry
 
@@ -225,7 +226,7 @@ noncomputable instance E8Lattice.discreteTopology : DiscreteTopology E8Lattice :
 noncomputable instance E8Lattice.isZLattice : IsZLattice ℝ E8Lattice := by
   sorry
 
-/-- Roadmap-local stand-in for the production `E8Packing`. -/
+/-- Local placeholder for the production `E8Packing`, to be replaced by an import of it. -/
 noncomputable def E8Packing : PeriodicSpherePacking 8 := by
   sorry
 
