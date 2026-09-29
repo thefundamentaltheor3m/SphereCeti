@@ -14,6 +14,42 @@ suggested formal statements of the key definitions and theorems, but it is delib
 nonexhaustive and may be adjusted when implementation reveals a form closer to Mathlib's
 conventions.
 
+## Reading this roadmap
+
+Readers who do not use Lean may find the following conventions helpful.
+
+- **Targets and `sorry`.**  A target is a definition or theorem the roadmap asks to be
+  formalized.  In `Suggested.lean` each target is stated precisely, and Lean checks the statement;
+  its proof, or the body of a definition, is `sorry`, Lean's placeholder for missing work.  A
+  definition whose body is `sorry` cannot be unfolded, so any property it must have is stated as a
+  separate theorem.
+- **Assumed theorem.**  An unproved roadmap target on which another proof relies, such as the
+  classification of even unimodular lattices of rank 8.  It is a statement still to be proved,
+  here or in the library named as its intended home, and never an axiom.
+- **`#check` lines.**  A `#check` line confirms that a named declaration exists, with the stated
+  form, at the fixed library versions below.
+- **Fixed ("pinned") versions.**  Lean, Mathlib, TauCeti and Sphere-Packing-Lean are used at
+  specific commits, listed below, so that every statement is checked against exactly the same
+  libraries.
+- **Upstream.**  The shared libraries this project builds on: Mathlib and TauCeti.  A result goes
+  upstream when it is contributed there; [`UPSTREAM.md`](UPSTREAM.md) lists the candidates.
+- **Cohn--Elkies certificate.**  `CohnElkies.Certificate d r` consists of a Schwartz function `f`
+  on `ℝ^d` together with the properties the Cohn--Elkies bound requires of it: `r > 0`; `f` and its
+  Fourier transform `f̂` are real-valued; `f(x) ≤ 0` whenever `‖x‖ ≥ r`; `f̂ ≥ 0` everywhere; and
+  `f̂(0) > 0`.
+- **Chosen representatives.**  Where an argument needs one center from each orbit of the period
+  lattice, it uses a chosen representative.  The quotient of the centers by the period lattice is
+  the canonical object, and every stated result is independent of the choice.
+- **Values outside the domain.**  Lean's functions are defined everywhere: division by zero, the
+  integral of a non-integrable function, and the derivative at a point of non-differentiability
+  are given conventional values (usually `0`).  Statements therefore carry explicit integrability
+  and differentiability hypotheses, so that no theorem holds merely because of these conventions.
+- **Automation attributes.**  `@[simp]`, `@[grind]` and `@[fun_prop]` register a lemma with Lean's
+  automatic rewriting and proof-search tools.  They change how proofs are found, not what is true.
+- **Coercions and `ℝ≥0∞`.**  A coercion is an implicit map, such as `ℕ → ℝ` or the inclusion of a
+  lattice into its ambient space.  `ℝ≥0∞` denotes the extended nonnegative reals `[0, ∞]`, where
+  densities take their values.
+
 ## The two deliberate differences from TauCetiRoadmap
 
 SphereCeti follows TauCetiRoadmap's mathematical and library-design discipline, with two explicit
