@@ -242,24 +242,27 @@ from a full discrete Euclidean lattice, a positive separation, and a minimum-nor
 
 Refactor `E8Packing` through it while preserving the existing public name and theorem statements.
 
-### PR D2 — canonical finite pattern
+### PR D2 — orbit quotient and chosen representatives
 
-Introduce one `FundamentalPattern` data type for a periodic packing:
+Expose the quotient of the centers by the period lattice as `Orbit`, an abbreviation for the
+existing `Quotient P.addAction.orbitRel`, and prove that it is finite.  Where an argument needs
+actual centers, use the chosen representative `orbitRep` (through `Quotient.out`) and prove:
 
-- finite representatives of type `P.centers` in a fundamental domain;
-- coverage;
-- uniqueness modulo the period lattice;
-- pairwise distinct orbits.
+- every center differs from the representative of its orbit by a period
+  (`exists_lattice_vadd_orbitRep`);
+- representatives of distinct orbits lie in distinct cosets of the period lattice
+  (`orbitRep_sub_mem_lattice_iff`).
 
-Its membership type makes separate ambient membership and action-soundness fields unnecessary.
-Prove conversion from the existing representative construction.
+Relate the quotient to production's basis-relative fundamental-domain representatives through
+`addActionOrbitRelEquiv'`.  No separate pattern structure is introduced, and every statement that
+uses the representatives is independent of the choice.
 
 ### PR D3 — retire duplicate representative counts
 
-Expose `Orbit` as an abbreviation for the existing `Quotient P.addAction.orbitRel` and define
-`numOrbits` as its `Fintype.card`.  Prove `FundamentalPattern.card_eq_numOrbits`, migrate the
-declarations that use the old counts, define `centerIntensity` as `numOrbits / covolume`, deprecate
-`numReps` and `numReps'`, then remove the duplicate representative code in PR O3.
+Define `numOrbits` as the `Fintype.card` of `Orbit` and prove that it agrees with the old `numReps`
+and `numReps'`.  Migrate the declarations that use the old counts, define `centerIntensity` as
+`numOrbits / covolume`, deprecate `numReps` and `numReps'`, then remove the duplicate
+representative code in PR O3.
 
 ### PR D4 — basis-free density formula
 
