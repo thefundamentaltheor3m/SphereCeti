@@ -7,7 +7,7 @@ defaultTargets = ["SphereCeti", "SphereCetiRoadmap"]
 [[require]]
 name = "TauCeti"
 git = "https://github.com/TauCetiProject/TauCeti"
-rev = "8671bee98125933c56b9b00a08ded873b77dd23b"
+rev = "1308f316bc62983c8350ec69f0a03dec25dbbbff"
 
 [[lean_lib]]
 name = "SphereCeti"

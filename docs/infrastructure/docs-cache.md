@@ -58,7 +58,7 @@ is introduced.
 The cache includes only explicitly selected, audited library targets. Roadmap, tool, fixture,
 dependency and native executable targets are excluded. The mappings use the existing package's
 platform-dependent scope: `thefundamentaltheor3m/SphereCeti`,
-`x86_64-unknown-linux-gnu`, and `leanprover/lean4:v4.34.0-rc1`. Configuration that would change
+`x86_64-unknown-linux-gnu`, and `leanprover/lean4:v4.35.0-rc3`. Configuration that would change
 that scope is refused until the publisher is updated. The existing anonymous pinned TauCeti cache
 consumer and source fallback are unchanged; this PR does not silently enable consumption of the
 new SphereCeti cache.

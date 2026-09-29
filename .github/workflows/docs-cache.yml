@@ -96,7 +96,7 @@ jobs:
           REVISION: ${{ github.sha }}
         run: |
           python3 -I scripts/publication.py verify "$RUNNER_TEMP/publication" "$REVISION"
-          test "$(cat lean-toolchain)" = 'leanprover/lean4:v4.34.0-rc1'
+          test "$(cat lean-toolchain)" = 'leanprover/lean4:v4.35.0-rc3'
           bash scripts/install_lean.sh --toolchain-only
       - name: Validate separate SphereCeti storage setup
         env:
@@ -121,9 +121,9 @@ jobs:
             LAKE_CACHE_KEY="$LAKE_CACHE_KEY" \
             LAKE_CACHE_ARTIFACT_ENDPOINT="$LAKE_CACHE_ARTIFACT_ENDPOINT" \
             LAKE_CACHE_REVISION_ENDPOINT="$LAKE_CACHE_REVISION_ENDPOINT" \
-            "$HOME/.elan/toolchains/leanprover--lean4---v4.34.0-rc1/bin/lake" cache put-staged "$RUNNER_TEMP/publication/cache" \
+            "$HOME/.elan/toolchains/leanprover--lean4---v4.35.0-rc3/bin/lake" cache put-staged "$RUNNER_TEMP/publication/cache" \
             --repo thefundamentaltheor3m/SphereCeti --rev "$REVISION" \
-            --toolchain leanprover/lean4:v4.34.0-rc1 --platform x86_64-unknown-linux-gnu
+            --toolchain leanprover/lean4:v4.35.0-rc3 --platform x86_64-unknown-linux-gnu
       - name: Confirm exact public map without credentials
         run: |
           set -euo pipefail
