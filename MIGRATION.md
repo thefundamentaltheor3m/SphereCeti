@@ -96,7 +96,8 @@ Acceptance:
 - full production build green;
 - E8 public declarations remain available;
 - the summit theorem retains its statement;
-- Fourier Gaussian normalization contract passes;
+- checks of the Fourier convention pass: the kernel sign and Gaussian transform agree with
+  [CONVENTIONS.md §10](CONVENTIONS.md#10-fourier-transform), using proofs without new admissions;
 - no dependency has an unpinned branch revision.
 
 ### PR A2 — direct SphereCeti imports
@@ -109,7 +110,9 @@ Add `Sphere-Packing-Lean` as an exact dependency at the migrated production comm
 
 Acceptance:
 
-- every `#check` in `Suggested.lean` resolves to production or pinned TauCeti declarations;
+- every required declaration in `Suggested.lean` resolves to production or pinned TauCeti
+  declarations, and typed checks confirm the expected interfaces (a bare `#check` checks only
+  name resolution);
 - no duplicate `SpherePacking`, `PeriodicSpherePacking`, or `RadialSchwartzMap` remains;
 - the manifest records exact commits for both dependencies.
 
@@ -808,4 +811,4 @@ Downstream roadmap targets discharged:
 ```
 
 A green build alone does not establish that a refactor preserved the intended normalization; the
-normalization contracts are part of acceptance.
+checks of the mathematical conventions are part of acceptance; notation linting alone is not enough.
