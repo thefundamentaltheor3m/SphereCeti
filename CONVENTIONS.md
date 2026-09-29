@@ -28,7 +28,7 @@ Every dependency update is atomic:
 4. record the resolved Mathlib SHA;
 5. build every `SphereCeti.*` module;
 6. check required declarations and mathematical conventions as described below;
-7. record any semantic changes in this ledger.
+7. record any semantic changes in this file.
 
 Never use `main`, a tag that can move, or an unrecorded local checkout as the effective TauCeti pin.
 
@@ -144,8 +144,8 @@ Where packings meet Poisson summation:
 [IsZLattice ℝ Λ]
 ```
 
-This is Mathlib's real full-rank discrete lattice representation.  It owns covolume, fundamental
-regions, lattice sums, and the action on periodic center sets.
+This is Mathlib's real full-rank discrete lattice representation.  Covolume, fundamental regions,
+lattice sums, and the action on periodic center sets are developed for this representation.
 
 ### Rational integral lattice
 
@@ -156,7 +156,7 @@ TauCeti.IntegralLattice W
 ```
 
 in a rational ambient space.  TauCeti's predicates `IsEven`, `IsUnimodular`, `IsPosDef`, and its
-isometry API are canonical.
+notion of isometry are the ones used throughout.
 
 ### Bridge
 
@@ -195,7 +195,7 @@ let typeclass inference choose a bilinear form or a presentation.
 
 A Fourier-side Poisson theorem uses the real dual lattice.  A unimodularity classification theorem
 uses TauCeti's dual carrier.  The bridge is what permits the same concrete E8 or Leech lattice to
-satisfy both APIs.
+be used in both settings.
 
 ## 8. Covolume and determinant
 
@@ -283,9 +283,9 @@ def RadialSchwartzMap.ofNormSq (φ : 𝓢(ℝ, ℂ)) :
 
 with an evaluation theorem.  Do not redefine radiality as factorization through squared norm.
 
-The restricted Fourier transform on `RadialSchwartzMap` is the canonical involution and owns the
-`+1` and `-1` eigenspaces.  Dimension-specific `a` and `b` proofs do not reprove generic Fourier
-inversion.
+The restricted Fourier transform on `RadialSchwartzMap` is the canonical involution, and the `+1`
+and `-1` eigenspaces are defined in terms of it.  Dimension-specific `a` and `b` proofs do not
+reprove generic Fourier inversion.
 
 ## 12. Poisson summation
 
@@ -385,8 +385,9 @@ UpperHalfPlane.PosOnImagAxis
 UpperHalfPlane.EventuallyPosOnImagAxis
 ```
 
-and the modular `S`-transformation adapter.  Sphere-Packing's older names receive temporary
-compatibility aliases during migration; new code uses the TauCeti names.
+and the lemma `UpperHalfPlane.resToImagAxis_slash_S` for the modular `S`-transformation.
+Sphere-Packing's older names receive temporary compatibility aliases during migration; new code
+uses the TauCeti names.
 
 Use TauCeti's q-coefficient/Big-O dictionary for cusp decay instead of reproving coefficientwise
 asymptotics in each dimension.
@@ -439,9 +440,9 @@ is a SphereCeti consequence combining the Cohn--Elkies equality case with algebr
 
 ### Periodic packing uniqueness
 
-An optimal periodic packing is similar to the canonical packing.  The general periodic equality API
-must retain the Fourier structure factor, but the E8/Leech uniqueness deduction follows the more
-specific Cohn--Elkies Section-8 route:
+An optimal periodic packing is similar to the canonical packing.  The general equality theory for
+periodic packings must retain the Fourier structure factor, but the E8/Leech uniqueness deduction
+follows the more specific Cohn--Elkies Section-8 route:
 
 1. exact direct-side roots force even integral pairwise squared distances;
 2. the translated centers generate a full even integral lattice;
@@ -493,11 +494,12 @@ nontrivial inequalities as global grind rules.
 
 ### `@[fun_prop]`
 
-Use TauCeti's established compositional APIs for realness/positivity on the imaginary axis,
-differentiability, and algebraic closure.  Add new rules only after proving the actual analytic
-statement, never as a substitute for it.
+Use TauCeti's established compositional `fun_prop` lemmas for realness/positivity on the imaginary
+axis, differentiability, and algebraic closure.  Add new rules only after proving the actual
+analytic statement, never as a substitute for it.
 
-Every new global attribute gets a small `example` or `#guard` contract in the same PR.
+Every new global attribute gets a small `example` or `#guard` check of its intended behavior in
+the same PR.
 
 ## 19. Typeclass policy
 
@@ -539,7 +541,7 @@ SpherePacking/
     E8/
     Leech/
   Rigidity/
-  Summit/
+  MainTheorems/
 ```
 
 Compatibility aliases stay near the new declaration and carry deprecation metadata.  Do not add a

@@ -24,8 +24,9 @@ Every PR must preserve the following unless its title explicitly changes one of 
 5. Public names receive compatibility aliases before removal.
 6. No new theorem imports a tactic test file through the production root.
 7. No hard proof is mixed with a tree-wide file move.
-8. No source material mined from `gauss2` or PR #420 is copied without a provenance note.
-9. `@[simp]`, `@[grind]`, and `@[fun_prop]` changes include focused contract examples.
+8. No source material adapted from `gauss2` or PR #420 is copied without a provenance note.
+9. `@[simp]`, `@[grind]`, and `@[fun_prop]` changes include small, focused `example`s that check the
+   intended behavior.
 10. The full project builds at the PR head; roadmap target signatures are updated in the same PR or
     an immediately following SphereCeti PR.
 
@@ -36,13 +37,13 @@ Every PR must preserve the following unless its title explicitly changes one of 
 | `Basic/SpherePacking.lean` definitions | Preserve statements and semantics |
 | scaling theorems | Preserve; add safe simp attributes |
 | periodic density proof | Preserve mathematics; replace exposed implementation details |
-| `Basic/E8.lean` | Preserve mathematical content; split only after adapters land |
+| `Basic/E8.lean` | Preserve mathematical content; split only after PR H1's bridge results land |
 | `ForMathlib/RadialSchwartz/*` | Make this the standard setting for Fourier analysis |
-| Jacobi theta, E2/E4/E6, Δ, Serre derivative | Preserve; converge generic APIs with TauCeti |
+| Jacobi theta, E2/E4/E6, Δ, Serre derivative | Preserve; converge generic lemmas with TauCeti |
 | `MagicFunction/a`, `b`, `g` | Preserve E8 proof content; move generic pieces out incrementally |
-| `CohnElkies/Prereqs.lean` | Retire after genuine Poisson/dual API lands |
+| `CohnElkies/Prereqs.lean` | Retire after genuine Poisson summation and dual-lattice results land |
 | root aggregator test imports | Remove immediately |
-| `numReps'` and basis-dependent public counting | Migrate to one orbit API |
+| `numReps'` and basis-dependent public counting | Migrate to a single orbit-count definition |
 | heterogeneous `NNReal`/`ENNReal` global instances | Remove in a focused PR |
 | full periodic density formula marked `@[simp]` | Remove attribute; retain named theorem |
 | `gauss2` completed theorem | Port theorem-by-theorem after foundations |
@@ -50,7 +51,7 @@ Every PR must preserve the following unless its title explicitly changes one of 
 
 ## 3. Phase A — establish the exact dependency line
 
-### PR A0 — SphereCeti roadmap bootstrap
+### PR A0 — initial SphereCeti roadmap
 
 **Repository:** `thefundamentaltheor3m/SphereCeti`
 
@@ -60,7 +61,7 @@ Create the roadmap package with:
 - `README.md`;
 - `SphereCetiRoadmap/Suggested.lean`;
 - the temporary `Pinned.lean` compatibility model;
-- convention, migration, provenance, and upstream ledgers;
+- convention, migration, provenance, and upstream records;
 - build-only CI.
 
 Acceptance:
@@ -95,7 +96,7 @@ Acceptance:
 
 - full production build green;
 - E8 public declarations remain available;
-- the summit theorem retains its statement;
+- the main theorem retains its statement;
 - checks of the Fourier convention pass: the kernel sign and Gaussian transform agree with
   [CONVENTIONS.md §10](CONVENTIONS.md#10-fourier-transform), using proofs without new admissions;
 - no dependency has an unpinned branch revision.
@@ -118,18 +119,18 @@ Acceptance:
 
 ## 4. Phase B — stabilize the existing public definitions
 
-### PR B1 — import hygiene
+### PR B1 — keep test files out of the production import graph
 
 Split:
 
 ```text
 SpherePacking.lean       -- production modules only
-SpherePackingTests.lean  -- tactic and contract tests
+SpherePackingTests.lean  -- tactic tests and behavior checks
 ```
 
 Do not change proofs beyond import fallout.
 
-### PR B2 — core packing API polish
+### PR B2 — basic lemmas for sphere packings
 
 Add:
 
@@ -141,7 +142,7 @@ Add:
 - basepointed finite density and a proof that upper density is basepoint-independent;
 - transport by real affine isometries, with explicit formulas for the transported centers and
   separation;
-- `IsCongruent` and `IsSimilar` with reflexive/symmetric/transitive API;
+- `IsCongruent` and `IsSimilar` with reflexivity, symmetry, and transitivity lemmas;
 - positive density implies that the center set is nonempty.
 
 The periodic `scale_density` target has no dimension-positivity hypothesis.  Translation invariance
@@ -149,9 +150,9 @@ must pass through basepoint independence rather than a finite-density rewrite at
 
 Do not expand the full density formula under `simp`.
 
-### PR B3 — root declaration and namespace contracts
+### PR B3 — checks of root declarations and namespaces
 
-Add a small contract module checking:
+Add a small module of checks confirming:
 
 - public declaration names and namespaces;
 - separation/radius semantics;
@@ -159,7 +160,8 @@ Add a small contract module checking:
 - Fourier convention;
 - no test module in the production import graph.
 
-This is intentionally separate from B2 to give downstream refactors a stable tripwire.
+This is intentionally separate from B2 to give downstream refactors a stable early check that fails
+if any of these change.
 
 ## 5. Phase C — the real/rational lattice bridge
 
@@ -255,9 +257,9 @@ Prove conversion from the existing representative construction.
 ### PR D3 — retire duplicate representative counts
 
 Expose `Orbit` as an abbreviation for the existing `Quotient P.addAction.orbitRel` and define
-`numOrbits` as its `Fintype.card`.  Prove `FundamentalPattern.card_eq_numOrbits`, migrate consumers,
-define `centerIntensity` as `numOrbits / covolume`, deprecate `numReps` and `numReps'`, then remove
-the duplicate representative code in PR O3.
+`numOrbits` as its `Fintype.card`.  Prove `FundamentalPattern.card_eq_numOrbits`, migrate the
+declarations that use the old counts, define `centerIntensity` as `numOrbits / covolume`, deprecate
+`numReps` and `numReps'`, then remove the duplicate representative code in PR O3.
 
 ### PR D4 — basis-free density formula
 
@@ -295,7 +297,7 @@ as its own theorem/file.  The proof does not depend on E8 or dimension-specific 
 
 ## 7. Phase E — Poisson summation
 
-Mine PR #420, but split it.
+Adapt proofs from PR #420, but split it.
 
 ### PR E1 — Schwartz lattice summability
 
@@ -306,7 +308,7 @@ Add generic theorems for:
 - uniform/local estimates needed by Poisson;
 - finite-dimensional Euclidean specialization.
 
-### PR E2 — real dual-lattice API
+### PR E2 — real dual-lattice lemmas
 
 Add only the missing real-topological dual facts required by Poisson.  Reuse Mathlib's bilinear-form
 dual submodule where possible, and keep the comparison to TauCeti in the bridge layer.  Provide
@@ -341,13 +343,13 @@ by periodic equality cases.
 
 ### PR F1 — certificate structure
 
-Add a nonradial `CohnElkies.Certificate d r` and its basic API:
+Add a nonradial `CohnElkies.Certificate d r` and its basic theory:
 
 - direct/Fourier real-valuedness;
 - sign conditions;
 - positivity at Fourier zero;
 - scale and linear-isometry transport;
-- `ofRadial` adapter.
+- `ofRadial`, the constructor from radial functions.
 
 ### PR F2 — lattice and periodic bounds
 
@@ -356,8 +358,8 @@ until nonnegativity is applied.
 
 ### PR F3 — unrestricted bound
 
-Combine the periodic theorem with D5.  Retire `CohnElkies/Prereqs.lean` once all consumers use the
-real Poisson API.
+Combine the periodic theorem with D5.  Retire `CohnElkies/Prereqs.lean` once every result that uses
+it relies instead on the real Poisson summation theorems.
 
 ### PR F4 — equality relation
 
@@ -418,7 +420,7 @@ rootless rank 24: Θ = E₄³ - 720 Δ
 
 ## 10. Phase H — E8 as a fully bridged object
 
-### PR H1 — split-free adapters
+### PR H1 — bridge results without splitting the E8 file
 
 Without moving the large existing E8 file, add:
 
@@ -448,9 +450,10 @@ Develop only the coding theory needed by the extended binary Golay code:
 - dual code and self-duality;
 - doubly-evenness;
 - generator/parity-check matrices;
-- weight enumerator facts actually consumed by the lattice proof.
+- weight enumerator facts actually used by the lattice proof.
 
-This material is a leading candidate for a TauCeti coding-theory roadmap; use upstream-shaped names.
+This material is a leading candidate for a TauCeti coding-theory roadmap; choose names in the form
+intended for upstream.
 
 ### PR I2 — extended Golay code
 
@@ -548,7 +551,7 @@ target.
 
 ## 13. Phase K — port the E8 proof from `gauss2`
 
-Each PR is mined from a named source range and rebased onto current `main`.
+Each PR adapts proofs from a named source range and is rebased onto current `main`.
 
 ### PR K1 — E8 `a` Fourier permutation
 
@@ -558,7 +561,7 @@ eigencomponent.  Replace duplicate generic Fourier involution by
 
 ### PR K2 — E8 `b` Fourier permutation
 
-Do the analogous migration for the `-1` eigencomponent through the common radial API.
+Do the analogous migration for the `-1` eigencomponent through the common radial Schwartz lemmas.
 
 ### PR K3 — E8 Schwartz and special values
 
@@ -574,12 +577,12 @@ multiplicity and quantitative estimates needed by the stability roadmaps recorde
 
 Assemble the final auxiliary function as
 `((π * I) / 8640) • magicPlus - (I / (240 * π)) • magicMinus`, derive its distinct Fourier
-transform from the two component eigenvalue theorems, bundle the certificate, and prove its bound
+transform from the two component eigenvalue theorems, package the certificate, and prove its bound
 equals `π^4/384`.
 
-### PR K6 — E8 optimality summit
+### PR K6 — E8 optimality main theorem
 
-The summit is a short lower-bound/upper-bound `le_antisymm` proof.
+The main theorem has a short lower-bound/upper-bound `le_antisymm` proof.
 
 ## 14. Phase L — Leech magic function
 
@@ -639,8 +642,8 @@ contour, q-expansion, or sign calculation belongs in the summit file.
 ## 15. Phase M — algebraic uniqueness in TauCeti-facing form
 
 The reusable classification results have TauCeti's IntegralLattices roadmap extension as their
-intended home; prove them locally with exactly that statement shape whenever coordination or
-timing requires it.  They are required dependencies of this roadmap either way.
+intended home; prove them locally, stated exactly in that form, whenever coordination or timing
+requires it.  They are required dependencies of this roadmap either way.
 
 ### PR M1 — rank-eight even-unimodular uniqueness
 
@@ -755,26 +758,27 @@ lattices results.
 
 ## 17. Phase O — final assembly and cleanup
 
-### PR O1 — dimension-8 summit module
+### PR O1 — dimension-8 main-theorem module
 
 Imports only stable API modules; proves the numerical constant, optimality, and periodic/lattice
 uniqueness.
 
-### PR O2 — dimension-24 summit module
+### PR O2 — dimension-24 main-theorem module
 
 Analogous.
 
 ### PR O3 — compatibility removal
 
 Remove the deprecated `numReps` and `numReps'` aliases and the duplicate representative
-construction after D3 migrates their consumers.  Delete `CohnElkies/Prereqs.lean` after E3--E4 and
-F1 supply its replacements.  Remove every other compatibility alias only when an earlier PR names
-both its canonical replacement and every migrated consumer.
+construction after D3 migrates the declarations that use them.  Delete `CohnElkies/Prereqs.lean`
+after E3--E4 and F1 supply its replacements.  Remove every other compatibility alias only when an
+earlier PR names both its canonical replacement and every migrated use.
 
 ### PR O4 — upstream issue creation
 
-Turn `UPSTREAM.md` entries that have concrete consumers and stable APIs into GitHub issues in the
-appropriate repository.  This PR changes only the ledger links/status, not production mathematics.
+Turn `UPSTREAM.md` entries that have concrete uses and stable APIs into GitHub issues in the
+appropriate repository.  This PR changes only the links and status recorded in `UPSTREAM.md`, not
+production mathematics.
 
 ## 18. Parallelization map
 
@@ -792,7 +796,7 @@ After A1:
   L8 waits for I5 and the generic lattice/periodic bound.
 - M1 can proceed once TauCeti lattice bridges and E8 root data are available; it does not wait for
   the magic function.
-- M2 can proceed once Leech/Golay and the required classification infrastructure exist; it does not
+- M2 can proceed once Leech/Golay and the required classification results exist; it does not
   wait for the magic function.
 - N1--N3 wait for F4 plus the dimension-specific exact zero results, and do not wait for M1/M2;
   N4 additionally waits for M1, N5 for M2, and N6 follows from N4/N5.
@@ -806,8 +810,8 @@ Mathematical statement:
 Dependency/stacking:
 Public declarations added or changed:
 Compatibility aliases:
-Automation attributes and contract tests:
-Source provenance (if mined):
+Automation attributes and behavior-checking examples:
+Source provenance (if adapted):
 Axiom/sorry delta:
 Downstream roadmap targets discharged:
 ```

@@ -6,12 +6,12 @@ SphereCeti is a human-steered roadmap and target-signature package for the produ
 ## Authority
 
 - `README.md` is the definitive mathematical specification.
-- `SphereCetiRoadmap/Suggested.lean` gives suggested declaration shapes and compile-time dependency
-  contracts; it is not exhaustive.
+- `SphereCetiRoadmap/Suggested.lean` gives suggested forms for the declarations, together with
+  `#check` lines confirming that the declarations they depend on exist; it is not exhaustive.
 - `CONVENTIONS.md` fixes normalizations and attribute policy.
 - `MIGRATION.md` fixes production PR sequencing.
 - `PROVENANCE.md` records sources and exact pins.
-- `UPSTREAM.md` is the issue-ready ledger of generic destinations.
+- `UPSTREAM.md` is the issue-ready list of Mathlib and TauCeti destinations for general results.
 - `VALIDATION.md` records the current static and Lean-elaboration status.
 
 A change to `Suggested.lean` does not silently change the roadmap; update the relevant prose and
@@ -52,8 +52,8 @@ A pin update must be one atomic PR updating:
 - the TauCeti revision in `lakefile.toml`;
 - `lake-manifest.json`;
 - the pin table in `README.md`;
-- the dependency ledger in `PROVENANCE.md`;
-- any `#check` or import contracts affected by API changes.
+- the dependency record in `PROVENANCE.md`;
+- any `#check` lines or imports affected by API changes.
 
 The PR must state the old and new TauCeti and resolved Mathlib SHAs.  Never change the effective
 Mathlib revision only by deleting or ignoring the manifest.
@@ -70,7 +70,7 @@ one immediate stacking dependency is named explicitly.
 ## Automation attributes
 
 A proposed or production `@[simp]`, `@[grind]`, or `@[fun_prop]` attribute is an API decision.
-Include a small contract showing the intended successful behavior and a note explaining why the
+Include a small `example` showing the intended successful behavior and a note explaining why the
 rule will not cause semantic expansion or search loops.
 
 ## Provenance
@@ -89,7 +89,7 @@ lake exe cache get
 lake build
 ```
 
-Run the static contract check before asking Lean to elaborate the targets.  The committed
+Run the static consistency check before asking Lean to elaborate the targets.  The committed
 `lake-manifest.json` pins the full dependency graph; do not run `lake update` outside a pin-update
 PR, and if it is ever run it must leave the committed manifest unchanged.  `sorry` warnings are
 expected in the roadmap targets; syntax, imports, and types must elaborate.

@@ -54,7 +54,7 @@ implementation.
 The committed `lake-manifest.json` records the entire resolved dependency graph from the TauCeti
 snapshot, not merely the user-facing TauCeti SHA.
 
-## Summit statements
+## Main theorems
 
 The density statements are:
 
@@ -130,7 +130,7 @@ of `L`.  Only then does the original packing separation imply minimum squared no
 8 or `4` in dimension 24.  The remaining statement is precisely the algebraic E8 or rootless-Leech
 classification above.
 
-Fourier structure factors remain part of the general equality API and are useful checks, but
+Fourier structure factors remain part of the general equality theory and are useful checks, but
 Cohn--Elkies explicitly note that the uniqueness deduction needs only the exact direct-side root
 set, not restrictions on the roots of the Fourier transform.
 
@@ -146,7 +146,7 @@ set, not restrictions on the roots of the Fourier transform.
    records passed to common constructors are acceptable; a global `MagicDimension` instance is
    not.
 4. **Use TauCeti's integral-lattice layer rather than creating duplicate algebraic predicates.**
-   SphereCeti owns the bridge to Mathlib's real topological `ZLattice` representation.
+   The bridge to Mathlib's real topological `ZLattice` representation is developed in SphereCeti.
 5. **Pin every hidden normalization.**  Fourier sign, Haar measure, theta exponent, q parameter,
    separation versus sphere radius, covolume, and modular slash conventions are permanent API
    decisions.
@@ -156,14 +156,14 @@ set, not restrictions on the roots of the Fourier transform.
 7. **Keep geometric density in `ℝ≥0∞`.**  Add coercion lemmas for finite expressions rather than
    replacing the measure-theoretic definition by a real-valued surrogate.
 8. **Every production PR starts from current `main`.**  The historical `gauss2` branch and PR #420
-   are proof quarries, not branch bases or architectural specifications.
+   are sources of proofs to adapt, not branch bases or architectural specifications.
 9. **Automation attributes are part of the public API.**  `@[simp]`, `@[grind]`, and `@[fun_prop]`
-   additions require small contract examples.
-10. **Generic local work is shaped for upstream from the beginning.**  The issue-ready destination
-    is recorded in `UPSTREAM.md`, even when waiting would block SphereCeti and a local proof is
-    temporarily necessary.
+   additions require small `example`s that check the intended behavior.
+10. **Generic local work is stated in the form intended for upstream from the beginning.**  The
+    issue-ready destination is recorded in `UPSTREAM.md`, even when waiting would block SphereCeti
+    and a local proof is temporarily necessary.
 
-## Existing material to preserve and consume
+## Existing material to preserve and use
 
 ### From Sphere-Packing-Lean `main`
 
@@ -185,31 +185,32 @@ Migrate the following mathematics without gratuitous rewrites.
 Required cleanup:
 
 - separate test imports from the public root aggregator;
-- consolidate `numReps`/`numReps'` into one orbit-count API;
+- consolidate `numReps`/`numReps'` into one orbit-count definition with its lemmas;
 - remove global heterogeneous `NNReal`/`ENNReal` arithmetic instances;
 - remove `@[simp]` from the large basis-free periodic density expansion;
 - replace duplicate Fourier involution arguments in `a/Eigenfunction` and `b/Eigenfunction` by the
-  radial Schwartz API;
-- retire the temporary Cohn--Elkies prerequisites file after the real Poisson API lands;
+  radial Schwartz lemmas;
+- retire the temporary Cohn--Elkies prerequisites file after the real Poisson summation results
+  land;
 - extract generic q-series and analytic lemmas from the E8-specific files.
 
 ### From the `gauss2` branch
 
-Mine, with exact source attribution:
+Adapt proofs from this branch, with exact source attribution:
 
-- the completed E8 summit theorem;
+- the completed E8 main theorem;
 - the final normalization of the magic function;
 - real-valuedness and Fourier-eigenfunction assembly;
 - exact sign and zero deductions;
 - the Möbius-inversion wedge contour argument;
 - the more developed Fourier permutation proof for the integral pieces.
 
-Do not wholesale merge or rebase the branch.  Port one coherent theorem or API at a time onto the
-upgraded production `main`.
+Do not wholesale merge or rebase the branch.  Port one coherent theorem or body of supporting
+lemmas at a time onto the upgraded production `main`.
 
 ### From PR #420
 
-Mine and split:
+Adapt proofs from this PR, split into separate pieces:
 
 - general lattice summability for Schwartz functions;
 - dual-lattice infrastructure;
@@ -219,7 +220,7 @@ Mine and split:
 
 ### From the pinned TauCeti snapshot
 
-SphereCeti must directly consume the following coherent APIs.
+SphereCeti must directly import and use the following coherent bodies of definitions and lemmas.
 
 #### Integral lattices
 
@@ -236,16 +237,17 @@ existing Sphere-Packing lattice lives as a discrete full-rank `ℤ`-submodule of
 space.  SphereCeti therefore introduces an explicit `IntegralPresentation` consisting of a
 `ℤ`-basis and integer Gram matrix.  It produces a TauCeti integral lattice while recording the
 comparison with the real lattice.  This bridge is central; defining another unrelated notion of
-“integral real lattice” would create a permanent schism.
+“integral real lattice” would create two permanently incompatible notions.
 
 #### Complex and modular analysis
 
 - `TauCeti.Contour.circleIntegral_eq_zero_of_meromorphicOrderAt_nonneg` for closed circles;
-- the generic `UpperHalfPlane.resToImagAxis` API and its modular `S`-transformation;
+- the generic `UpperHalfPlane.resToImagAxis` definition, its lemmas, and its modular
+  `S`-transformation;
 - q-coefficient vanishing versus cusp-function Big-O estimates;
 - the generic function and logarithmic-derivative `S`-transformation;
 - finite-index Sturm bounds when a congruence-level identity genuinely requires them;
-- the small Fourier-continuity adapter.
+- the small Fourier-continuity lemma.
 
 These do not replace Sphere-Packing's open rectangular contour deformation or the specialized
 convex-wedge Möbius argument.  Closed circles, unbounded rectangles, and finite path homotopies solve
@@ -253,7 +255,7 @@ different problems.
 
 ## Permanent mathematical conventions
 
-The fuller ledger is in [`CONVENTIONS.md`](CONVENTIONS.md).  The central choices are:
+The fuller record is in [`CONVENTIONS.md`](CONVENTIONS.md).  The central choices are:
 
 ### Ambient Euclidean space
 
@@ -306,8 +308,8 @@ Thus:
 `SpherePacking.map` transports centers by a real affine isometry and preserves separation.
 Basepoint-independent density, proved by comparing translated balls, supplies the nontrivial
 translation step in density invariance.  `IsCongruent` is equality after such a transport;
-`IsSimilar` permits one positive scaling before congruence.  Both relations have
-reflexive/symmetric/transitive APIs, and positive density supplies the center used by rigidity.
+`IsSimilar` permits one positive scaling before congruence.  Both relations have reflexivity,
+symmetry, and transitivity lemmas, and positive density supplies the center used by rigidity.
 
 ### Attributes
 
@@ -404,7 +406,7 @@ Positive-definiteness is derived from the full Euclidean presentation rather tha
 separate hypothesis.  The E8 and Leech reference objects and classifications remain in their
 dimension-specific layers.
 
-## Layer 3 — periodic orbit and density API
+## Layer 3 — periodic orbits and the density formula
 
 **Goal:** replace implementation-dependent representative choices by the canonical orbit
 quotient of the production action.
@@ -448,11 +450,11 @@ Deliverables:
 - Schwartz summability on lattice translates;
 - shifted and unshifted Poisson summation with the exact positive phase and inverse-covolume
   factor;
-- automatic discreteness, full-rank, double-dual, and reciprocal-covolume APIs for the real dual;
+- automatic discreteness, full-rank, double-dual, and reciprocal-covolume lemmas for the real dual;
 - a unit-Gaussian normalization test and the exact finite-pattern squared-amplitude formula;
 - `CohnElkies.Certificate d r`, with no radiality requirement;
-- certificate bound and scaling API;
-- `Certificate.ofRadial` as a construction adapter;
+- certificate bound and scaling lemmas;
+- `Certificate.ofRadial`, the constructor of a certificate from a radial function;
 - unrestricted sphere-packing bound;
 - lattice sharpness relation;
 - complex periodic structure amplitude and its nonnegative real squared-norm structure factor;
@@ -482,10 +484,10 @@ and they must not grow into a second generic implementation.
 
 Deliverables:
 
-- the `ThetaSeries` stand-ins: `dual`, `poissonSummation` with its summability lemmas,
-  `shell`/`repNum`, real-lattice evenness and unimodularity, `thetaSeries`,
-  `thetaSeries_neg_inv`, `thetaForm` with its coercion and q-expansion coefficients, and the
-  rank-8/rank-24/rootless classifications;
+- provisional local statements of the `ThetaSeries` targets, to be replaced by TauCeti imports:
+  `dual`, `poissonSummation` with its summability lemmas, `shell`/`repNum`, real-lattice evenness
+  and unimodularity, `thetaSeries`, `thetaSeries_neg_inv`, `thetaForm` with its coercion and
+  q-expansion coefficients, and the rank-8/rank-24/rootless classifications;
 - the presentation bridges: an even (respectively unimodular) integral presentation makes the
   real lattice even (unimodular) in the roadmap's sense, the dual compatibility
   `EuclideanLattice.dual = ThetaSeries.dual`, and the shell-coefficient identification
@@ -545,7 +547,7 @@ Leech lattice.
 
 **Goal:** extract the genuinely common analytic pattern without hiding dimension-specific formulas.
 
-Common API:
+Common definitions and lemmas:
 
 - squared-norm radial profile constructor;
 - restricted radial Schwartz Fourier transform;
@@ -558,8 +560,8 @@ Common API:
 - q-expansion Big-O estimates for cusp decay.
 
 The concrete `+1` and `-1` components expose their exact signed kernel transformation laws, and
-Layer 8 consumes those laws directly.  No bundled kernel datum, opaque constructor, or free
-complex `eigenvalue` field is part of the target surface: the finite Fourier sign occurs in the
+Layer 8 uses those laws directly.  No kernel datum packaged in a structure, opaque constructor,
+or free complex `eigenvalue` field is among the targets: the finite Fourier sign occurs in the
 transformation law that determines it.
 
 ## Layer 8 — contour deformation for the magic-function integrals
@@ -579,7 +581,7 @@ The layer has two independent summits.
 
 ### Unbounded branch: open rectangles
 
-- boundary vanishing on a bounded rectangle, consumed from Mathlib's rectangular
+- boundary vanishing on a bounded rectangle, taken from Mathlib's rectangular
   Cauchy--Goursat theorem;
 - deformation of a horizontal edge into the two vertical half-lines above its endpoints, with
   explicit integrability hypotheses on the half-lines and the top edge controlled either by
@@ -594,9 +596,10 @@ arguments of Layer 9.
   a parametrized segment and Mathlib curve integrals;
 - change of variables along a segment, carrying an honest derivative/chain-rule hypothesis for
   the substitution;
-- a closed-one-form adapter bundling differentiability-with-closure-continuity and symmetry of
-  the within-derivative, together with the one-way discharge lemma from holomorphy with closure
-  continuity to closedness of the scalar one-form; the converse is not a target;
+- a closedness predicate for one-forms combining, in one structure, the two hypotheses of
+  Mathlib's curve-integral Poincaré lemma (differentiability-with-closure-continuity and symmetry
+  of the within-derivative), together with the lemma that holomorphy with closure continuity
+  implies closedness of the scalar one-form (the converse is not a target);
 - the Möbius inversion, its derivative, and its action on the upper half-plane;
 - the wedge `{z : 0 < Im z, |Re z - 1| < Im z}`: openness, convexity, and the fact that its
   closure meets the real axis only at `1`;
@@ -605,8 +608,8 @@ arguments of Layer 9.
   integrals over the left legs `[-1, -1+i]` and `[-1+i, i]` equal the correspondingly signed
   integrals over the right legs `[1, 1+i]` and `[1+i, i]`.
 
-Intermediate wedge homotopies are proof devices, not public targets.  Radial families
-instantiate the single-pair statements; they are not part of the generic interface.
+Intermediate wedge homotopies are proof devices, not public targets.  Radial families are
+special cases of the single-pair statements; they are not part of the generic statements.
 
 ### Closing deliverable: the generic component Fourier identities and assembly
 
@@ -647,7 +650,7 @@ For each dimension, prove:
 - exact local zero orders through nonvanishing cofactors, which imply reusable quantitative lower
   bounds near every shell;
 - separate strict direct- and Fourier-side signs away from the shell zeros;
-- the bundled Cohn--Elkies certificate with `certificate.f = magic`;
+- the Cohn--Elkies certificate, packaged as a structure, with `certificate.f = magic`;
 - candidate-lattice sharpness and equality of the bound with the candidate lattice density.
 
 The exact zero set is itself a required result.  Density optimality only needs weak inequalities,
@@ -663,7 +666,7 @@ preserve multiplicity and quantitative lower-bound information rather than provi
 **Goal:** formalize the equality case of the linear-programming argument, not just the numerical
 bound.
 
-### Common equality engine
+### Common equality argument
 
 Given an optimal periodic packing and a fundamental pattern:
 
@@ -683,7 +686,7 @@ Given an optimal periodic packing and a fundamental pattern:
 
 This is the formal counterpart of Cohn--Elkies, Lemma 8.2 and the argument immediately following
 it.  Expose the covolume/discriminant bridge and quotient-cardinality argument through
-reusable intermediate theorems, not hidden in two enormous summit proofs.
+reusable intermediate theorems, not hidden in two enormous proofs of the main theorems.
 The quotient cardinal inequality is stated only after discreteness and full rank of the generated
 lattice have made the relative quotient finite; Mathlib's `relIndex` is zero at infinite index.
 
@@ -710,7 +713,7 @@ mandatory dependency here, recorded in `UPSTREAM.md`.  SphereCeti consumes exact
 uniqueness statement and does not restate the case enumeration or selection machinery; it is
 proved locally with the same statement shape when coordination or timing requires it.
 
-## Layer 11 — summit assembly
+## Layer 11 — assembly of the main theorems
 
 Assemble:
 
@@ -724,8 +727,9 @@ Assemble:
 - Leech unique optimal periodic packing;
 - lattice uniqueness corollaries.
 
-The summit files contain only imports, two inequalities, `le_antisymm`, and the equality-case
-theorem.  Analytic or lattice classification work in a summit file signals a missing API layer.
+The main-theorem files contain only imports, two inequalities, `le_antisymm`, and the
+equality-case theorem.  Analytic or lattice classification work in a main-theorem file signals
+that a supporting layer is missing.
 
 # Uniqueness, universal optimality, and stability
 
@@ -733,7 +737,7 @@ The roadmap includes **exact periodic uniqueness** because it is a direct equali
 of the same Cohn--Elkies certificates used for density optimality.
 
 Universal optimality and Fourier interpolation are independent projects and are not dependencies
-of the optimality or periodic-uniqueness summits.  The roadmap does not attempt to absorb the
+of the optimality or periodic-uniqueness main theorems.  The roadmap does not attempt to absorb the
 following larger theories:
 
 - universal optimality for completely monotone functions of squared distance;
@@ -754,8 +758,8 @@ The detailed main-first sequence is in [`MIGRATION.md`](MIGRATION.md).  Every pr
 - begin from current `main` unless stacked on one named immediate predecessor;
 - change one mathematical topic;
 - preserve or reduce `sorry` count;
-- record source provenance when mining `gauss2` or PR #420;
-- include small API/automation contract examples;
+- record source provenance when adapting proofs from `gauss2` or PR #420;
+- include small `example`s that check the intended behavior of new API and automation;
 - avoid broad directory moves in the same PR as a hard proof;
 - provide compatibility aliases before deleting public names;
 - distinguish “copied proof material” from “new target API”.
@@ -765,12 +769,12 @@ The detailed main-first sequence is in [`MIGRATION.md`](MIGRATION.md).  Every pr
 | File | Role |
 |---|---|
 | `README.md` | Definitive mathematical roadmap |
-| `SphereCetiRoadmap/Suggested.lean` | Proposed target signatures and contract checks |
+| `SphereCetiRoadmap/Suggested.lean` | Proposed target signatures and `#check` confirmations |
 | `SphereCetiRoadmap/Pinned.lean` | Temporary model of the older Sphere-Packing public API |
 | `CONVENTIONS.md` | Permanent normalization and attribute decisions |
 | `MIGRATION.md` | Main-first targeted PR sequence |
-| `PROVENANCE.md` | Source and dependency ledger |
-| `UPSTREAM.md` | Issue-ready Mathlib/TauCeti upstream ledger |
+| `PROVENANCE.md` | Source and dependency record |
+| `UPSTREAM.md` | Issue-ready list of Mathlib/TauCeti upstream candidates |
 | `VALIDATION.md` | Static contract and Lean-elaboration validation record |
 | `scripts/check_roadmap.py` | Deterministic pin, link, and target-shape contract check |
 | `.github/workflows/ci.yml` | Static contract check followed by Lean elaboration |
@@ -801,7 +805,8 @@ Formal sources and sibling projects:
 - `thefundamentaltheor3m/Sphere-Packing-Lean` at the pinned production baseline;
 - `TauCetiProject/TauCeti` at the exact dependency pin;
 - `TauCetiProject/TauCetiRoadmap`, especially the IntegralLattices and ContourIntegration roadmaps;
-- Mathlib's `ZLattice`, Schwartz/Fourier, Gaussian, modular-form, q-expansion, and measure APIs.
+- Mathlib's `ZLattice`, Schwartz/Fourier, Gaussian, modular-form, q-expansion, and measure-theory
+  libraries.
 
 ## Infrastructure
 

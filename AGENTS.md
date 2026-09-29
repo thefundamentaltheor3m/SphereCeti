@@ -11,7 +11,8 @@ Read, in order:
 7. `SphereCetiRoadmap/Suggested.lean`.
 
 The repository is a roadmap package, not the production proof.  Do not add completed mathematical
-implementations here unless they are tiny elaboration adapters needed to state targets.
+implementations here unless they are tiny auxiliary definitions or lemmas needed only to state the
+targets.
 
 `SphereCetiRoadmap/Pinned.lean` is temporary and frozen to the public semantics of
 `Sphere-Packing-Lean@bad3de916074748eb88b7d1ee6dbf9494361ad17`.  Do not extend it with new project
@@ -23,11 +24,12 @@ Never:
 - weaken a target merely to make it easy to state;
 - use `True` or an unconstrained `Prop` field as a placeholder;
 - track TauCeti `main` instead of an exact commit;
-- redefine a pinned TauCeti object behind a local stand-in;
+- redefine locally an object that the pinned TauCeti revision already provides;
 - conflate sphere radius with center separation;
 - state global uniqueness for arbitrary limsup-density packings;
 - turn Poisson summation, a density expansion, or a theta transformation into a simp rule;
 - treat `gauss2` or PR #420 as a branch base.
 
-For source mining, record exact commit and path.  For generic material, consult `UPSTREAM.md`, but do
-not wait for upstream acceptance before making progress in production.
+When adapting proofs from a source, record the exact commit and path.  For general material,
+consult `UPSTREAM.md`, but do not wait for upstream acceptance before making progress in
+production.

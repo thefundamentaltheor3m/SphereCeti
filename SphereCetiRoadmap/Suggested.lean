@@ -59,7 +59,7 @@ abbrev SpherePackingConstant := SphereCeti.Pinned.SpherePackingConstant
 abbrev PeriodicSpherePackingConstant := SphereCeti.Pinned.PeriodicSpherePackingConstant
 abbrev RadialSchwartzMap := SphereCeti.Pinned.RadialSchwartzMap
 
-/-! ## Layer 0: exact dependency and declaration contracts -/
+/-! ## Layer 0: exact dependencies and `#check` lines for the declarations used below -/
 
 #check TauCeti.IntegralLattice
 #check TauCeti.IntegralLattice.IsEven
@@ -254,8 +254,9 @@ theorem normSq_lower_bound {d : ℕ} {Λ : Submodule ℤ (V d)} {a : ℝ}
 def generatedSubmodule {d : ℕ} (S : Set (V d)) : Submodule ℤ (V d) :=
   Submodule.span ℤ S
 
-/-- A concrete integral Gram presentation of a real Euclidean lattice.  TauCeti owns the algebraic
-integral-lattice object; SphereCeti records the comparison with the existing real `ZLattice`. -/
+/-- A concrete integral Gram presentation of a real Euclidean lattice.  The algebraic
+integral-lattice object belongs to TauCeti; SphereCeti records the comparison with the existing
+real `ZLattice`. -/
 structure IntegralPresentation {d : ℕ} (Λ : Submodule ℤ (V d)) where
   basis : Basis (Fin d) ℤ Λ
   gram : Matrix (Fin d) (Fin d) ℤ
@@ -308,7 +309,7 @@ theorem IntegralPresentation.isPosDef {d : ℕ} {Λ : Submodule ℤ (V d)}
     P.IsPosDef := by
   sorry
 
-/-- Cohn--Elkies Lemma 8.2 in generic API form.  A full-dimensional set containing zero whose
+/-- Cohn--Elkies Lemma 8.2 for an arbitrary point set.  A full-dimensional set containing zero whose
 pairwise squared distances are even integers generates a discrete full-rank even integral lattice.
 The conclusion is expressed through the real/TauCeti presentation bridge used throughout this
 roadmap. -/
@@ -695,12 +696,13 @@ namespace ThetaSeries
 variable {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E] [FiniteDimensional ℝ E]
   [MeasurableSpace E] [BorelSpace E]
 
-/-- Stand-in for the roadmap's `dual`: literally Mathlib's `BilinForm.dualSubmodule` for the
-inner product, and definitionally `EuclideanLattice.dual` in the ambient packing space. -/
+/-- Temporary local copy of the roadmap's `dual`, to be replaced by the TauCeti import: literally
+Mathlib's `BilinForm.dualSubmodule` for the inner product, and definitionally
+`EuclideanLattice.dual` in the ambient packing space. -/
 @[expose] def dual (L : Submodule ℤ E) : Submodule ℤ E :=
   LinearMap.BilinForm.dualSubmodule (innerₗ E) L
 
-/-- Stand-in for the roadmap's shifted Poisson summation. -/
+/-- Temporary local copy of the roadmap's shifted Poisson summation. -/
 theorem poissonSummation (L : Submodule ℤ E) [DiscreteTopology L] [IsZLattice ℝ L]
     (f : 𝓢(E, ℂ)) (v : E) :
     ∑' ℓ : L, f (v + (ℓ : E)) =
@@ -709,13 +711,13 @@ theorem poissonSummation (L : Submodule ℤ E) [DiscreteTopology L] [IsZLattice 
           Complex.exp (2 * Real.pi * Complex.I * ⟪v, (m : E)⟫_ℝ) := by
   sorry
 
-/-- Stand-in for the roadmap's lattice-side summability. -/
+/-- Temporary local copy of the roadmap's lattice-side summability. -/
 theorem summable_poisson_left (L : Submodule ℤ E) [DiscreteTopology L] [IsZLattice ℝ L]
     (f : 𝓢(E, ℂ)) (v : E) :
     Summable fun ℓ : L => f (v + (ℓ : E)) := by
   sorry
 
-/-- Stand-in for the roadmap's dual-side summability. -/
+/-- Temporary local copy of the roadmap's dual-side summability. -/
 theorem summable_poisson_right (L : Submodule ℤ E) [DiscreteTopology L] [IsZLattice ℝ L]
     (f : 𝓢(E, ℂ)) (v : E) :
     Summable fun m : dual L => 𝓕 (fun x : E => f x) (m : E) *
@@ -734,8 +736,8 @@ end EuclideanLattice
 
 namespace Poisson
 
-/-- Unit-Gaussian acceptance test for the Fourier and covolume normalization, consuming the
-`ThetaSeries` stand-in. -/
+/-- Unit-Gaussian check of the Fourier and covolume normalizations, using the temporary local copy
+of the `ThetaSeries` statements. -/
 theorem gaussian_one {d : ℕ} (Λ : Submodule ℤ (V d))
     [DiscreteTopology Λ] [IsZLattice ℝ Λ] :
     ∑' x : Λ, Real.exp (-Real.pi * ‖(x : V d)‖ ^ 2) =
@@ -765,8 +767,8 @@ def Certificate.bound {d : ℕ} {r : ℝ} (C : Certificate d r) : ℝ≥0∞ :=
 def Certificate.IsNormalized {d : ℕ} {r : ℝ} (C : Certificate d r) : Prop :=
   C.f 0 = 1 ∧ 𝓕 C.f 0 = 1
 
-/-- Radial functions feed the generic certificate without contaminating the generic theorem with a
-radiality hypothesis. -/
+/-- A radial Schwartz function with the certificate properties gives a certificate, so the generic
+theorem needs no radiality hypothesis. -/
 noncomputable def Certificate.ofRadial {d : ℕ} {r : ℝ}
     (hr : 0 < r) (f : RadialSchwartzMap ℂ (V d) ℂ)
     (hreal : ∀ x, (f x).im = 0)
@@ -964,34 +966,35 @@ namespace ThetaSeries
 
 variable {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E] [FiniteDimensional ℝ E]
 
-/-- Stand-in for the roadmap's shell at a real squared norm. -/
+/-- Temporary local copy of the roadmap's shell at a real squared norm, to be replaced by the
+TauCeti import. -/
 def shell (L : Submodule ℤ E) (t : ℝ) : Set L := {v : L | ‖(v : E)‖ ^ 2 = t}
 
-/-- Stand-in for the roadmap's representation number. -/
+/-- Temporary local copy of the roadmap's representation number. -/
 noncomputable def repNum (L : Submodule ℤ E) (t : ℝ) : ℕ := (shell L t).ncard
 
-/-- Stand-in for the roadmap's evenness of a real lattice. -/
+/-- Temporary local copy of the roadmap's evenness of a real lattice. -/
 def IsEven (L : Submodule ℤ E) : Prop := ∀ x ∈ L, ∃ m : ℤ, ‖x‖ ^ 2 = 2 * (m : ℝ)
 
-/-- Stand-in for the roadmap's unimodularity of a real lattice. -/
+/-- Temporary local copy of the roadmap's unimodularity of a real lattice. -/
 def IsUnimodular (L : Submodule ℤ E) : Prop := L = dual L
 
 variable (L : Submodule ℤ E) [DiscreteTopology L] [IsZLattice ℝ L]
 
-/-- Stand-in for the roadmap's theta series; the exponent is `π i ‖v‖² τ`. -/
+/-- Temporary local copy of the roadmap's theta series; the exponent is `π i ‖v‖² τ`. -/
 noncomputable def thetaSeries (τ : UpperHalfPlane) : ℂ :=
   ∑' v : L, Complex.exp (Real.pi * Complex.I * (‖(v : E)‖ ^ 2 : ℝ) * (τ : ℂ))
 
 variable [MeasurableSpace E] [BorelSpace E]
 
-/-- Stand-in for the roadmap's theta inversion, Poisson summation at the Gaussian. -/
+/-- Temporary local copy of the roadmap's theta inversion, Poisson summation at the Gaussian. -/
 theorem thetaSeries_neg_inv (k : ℕ) (hn : Module.finrank ℝ E = 2 * k) (τ : UpperHalfPlane) :
     thetaSeries L (ModularGroup.S • τ) =
       ((ZLattice.covolume L : ℂ)⁻¹) * (-Complex.I) ^ k * (τ : ℂ) ^ k *
         thetaSeries (dual L) τ := by
   sorry
 
-/-- Stand-in for the roadmap's theta modular form of an even unimodular lattice. -/
+/-- Temporary local copy of the roadmap's theta modular form of an even unimodular lattice. -/
 noncomputable def thetaForm (k : ℕ) (hn : Module.finrank ℝ E = 2 * k)
     (he : IsEven L) (hu : IsUnimodular L) : ModularForm 𝒮ℒ (k : ℤ) := by
   sorry
@@ -1002,26 +1005,26 @@ theorem coe_thetaForm (k : ℕ) (hn : Module.finrank ℝ E = 2 * k)
     ⇑(thetaForm L k hn he hu) = thetaSeries L := by
   sorry
 
-/-- Stand-in for the roadmap's q-expansion coefficients of the theta form. -/
+/-- Temporary local copy of the roadmap's q-expansion coefficients of the theta form. -/
 theorem qExpansion_thetaForm_coeff (k : ℕ) (hn : Module.finrank ℝ E = 2 * k)
     (he : IsEven L) (hu : IsUnimodular L) (m : ℕ) :
     (UpperHalfPlane.qExpansion 1 (thetaForm L k hn he hu)).coeff m =
       (repNum L (2 * m) : ℂ) := by
   sorry
 
-/-- Stand-in for the roadmap's rank-eight classification. -/
+/-- Temporary local copy of the roadmap's rank-eight classification. -/
 theorem thetaForm_eq_E₄ (hn : Module.finrank ℝ E = 8)
     (he : IsEven L) (hu : IsUnimodular L) :
     thetaForm L 4 (by omega) he hu = ModularForm.E₄ := by
   sorry
 
-/-- Stand-in for the roadmap's rank-eight root count. -/
+/-- Temporary local copy of the roadmap's rank-eight root count. -/
 theorem repNum_two_rank_eight (hn : Module.finrank ℝ E = 8)
     (he : IsEven L) (hu : IsUnimodular L) :
     repNum L 2 = 240 := by
   sorry
 
-/-- Stand-in for the roadmap's rank-24 classification by the root count. -/
+/-- Temporary local copy of the roadmap's rank-24 classification by the root count. -/
 theorem thetaForm_rank_24 (hn : Module.finrank ℝ E = 24)
     (he : IsEven L) (hu : IsUnimodular L) :
     (thetaForm L 12 (by omega) he hu : UpperHalfPlane → ℂ) =
@@ -1029,7 +1032,7 @@ theorem thetaForm_rank_24 (hn : Module.finrank ℝ E = 24)
         ((repNum L 2 : ℂ) - 720) * ModularForm.discriminant τ := by
   sorry
 
-/-- Stand-in for the roadmap's rootless rank-24 Leech identity. -/
+/-- Temporary local copy of the roadmap's rootless rank-24 Leech identity. -/
 theorem coe_thetaForm_rank_24_rootless (hn : Module.finrank ℝ E = 24)
     (he : IsEven L) (hu : IsUnimodular L) (hr : repNum L 2 = 0) :
     (thetaForm L 12 (by omega) he hu : UpperHalfPlane → ℂ) =
@@ -1040,7 +1043,8 @@ end ThetaSeries
 
 namespace Theta
 
-/-- The packing-facing theta series is the roadmap stand-in, applied in the ambient space. -/
+/-- The theta series used for packings is the temporary local copy of the roadmap's theta series,
+applied in the ambient space. -/
 noncomputable abbrev latticeTheta {d : ℕ} (Λ : Submodule ℤ (V d))
     [DiscreteTopology Λ] [IsZLattice ℝ Λ] : UpperHalfPlane → ℂ :=
   ThetaSeries.thetaSeries Λ
@@ -1073,7 +1077,7 @@ theorem isUnimodular_real_of_presentation {d : ℕ} {Λ : Submodule ℤ (V d)}
   sorry
 
 /-- SphereCeti corollary of the roadmap's rank-eight classification, through the presentation
-bridge, in the form the E8 package consumes. -/
+bridge, in the form used by the E8 results. -/
 theorem theta_eq_E4_of_even_unimodular
     (Λ : Submodule ℤ (V 8)) [DiscreteTopology Λ] [IsZLattice ℝ Λ]
     (P : EuclideanLattice.IntegralPresentation Λ)
@@ -1478,13 +1482,13 @@ end MagicFunction
 
 All required finite deformations use straight segments and their images under the Möbius
 inversion `z ↦ -1/z`; all required unbounded deformations use axis-aligned rectangles.  The
-declarations are shaped for the production `SpherePacking.Contour` and
+declarations are stated in the form intended for the production `SpherePacking.Contour` and
 `SpherePacking.Integration` namespaces; Mathlib's `curveIntegral`, `Path.segment`, and
-curve-integral Poincaré lemma are consumed directly. -/
+curve-integral Poincaré lemma are used directly. -/
 
 namespace Contour
 
-/-! ### Ownership contracts for the two contour tools -/
+/-! ### Mathlib results used by the two contour tools -/
 
 #check @Complex.integral_boundary_rect_eq_zero_of_differentiable_on_off_countable
 #check @curveIntegral
@@ -1530,8 +1534,7 @@ noncomputable def scalarOneForm (F : ℂ → ℂ) : ℂ → ℂ →L[ℂ] ℂ :=
 @[simp]
 theorem scalarOneForm_apply (F : ℂ → ℂ) (z v : ℂ) : scalarOneForm F z v = F z * v := rfl
 
-/- The interval-integral/segment bridge is Mathlib's `curveIntegral_segment`, consumed
-directly. -/
+/- The interval-integral/segment bridge is Mathlib's `curveIntegral_segment`, used directly. -/
 #check @curveIntegral_segment
 
 /-- Change of variables along a segment, with an honest chain-rule hypothesis: `f` is continuous
@@ -1546,15 +1549,16 @@ theorem curveIntegral_segment_change_of_variables
       = ∫ᶜ z in (Path.segment a b).map' hf, scalarOneForm G z := by
   sorry
 
-/-- Bundled closedness of a one-form on a set: differentiability with continuity up to the
-closure, and symmetry of the within-derivative on tangent vectors.  This is a local adapter for
-the hypotheses of Mathlib's curve-integral Poincaré lemma, which takes them separately. -/
+/-- Closedness of a one-form on a set, combined in one structure: differentiability with
+continuity up to the closure, and symmetry of the within-derivative on tangent vectors.  This local
+structure packages the hypotheses of Mathlib's curve-integral Poincaré lemma, which takes them
+separately. -/
 structure ClosedOneFormOn (ω : ℂ → ℂ →L[ℂ] ℂ) (s : Set ℂ) : Prop where
   diffContOnCl : DiffContOnCl ℝ ω s
   symm : ∀ x ∈ s, ∀ u ∈ tangentConeAt ℝ s x, ∀ v ∈ tangentConeAt ℝ s x,
     fderivWithin ℝ ω s x u v = fderivWithin ℝ ω s x v u
 
-/-- One-way discharge: differentiability with closure continuity of `F` makes its scalar
+/-- Sufficient condition: differentiability with closure continuity of `F` makes its scalar
 one-form closed.  The converse is not a target. -/
 theorem ClosedOneFormOn.of_diffContOnCl {F : ℂ → ℂ} {s : Set ℂ}
     (hF : DiffContOnCl ℂ F s) : ClosedOneFormOn (scalarOneForm F) s := by
@@ -1602,7 +1606,7 @@ noncomputable def rightLegs (Ψ : ℂ → ℂ) : ℂ :=
 /-- Signed contour permutation for a single pair of kernels: under the signed Möbius
 transformation law on the upper half-plane, with `Ψ` continuous on the left legs and the
 transported one-form closed on the wedge, the left-leg integrals equal the correspondingly
-signed right-leg integrals.  Radial families instantiate this statement. -/
+signed right-leg integrals.  Radial families are special cases of this statement. -/
 theorem perm_leftLegs_eq_smul_rightLegs (sign : MagicFunction.FourierSign)
     {Ψ Ψ' : ℂ → ℂ}
     (hcont : ContinuousOn Ψ
@@ -1612,7 +1616,7 @@ theorem perm_leftLegs_eq_smul_rightLegs (sign : MagicFunction.FourierSign)
     leftLegs Ψ = sign.scalar * rightLegs Ψ' := by
   sorry
 
-/-! ### Closing deliverable: the generic component Fourier identity -/
+/-! ### Final result of Layer 8: the generic component Fourier identity -/
 
 /-- The exponential kernel of a contour component at radial parameter `r`. -/
 noncomputable def expKernel (g : ℂ → ℂ) (r : ℝ) : ℂ → ℂ :=
@@ -1791,7 +1795,7 @@ theorem magicMinus_eq_sixPieceComponent (x : V 8) :
         minusKernelCentral minusKernelRay x := by
   sorry
 
-/-! Concrete facts feeding the `+1` kernels into the generic contour identities. -/
+/-! Concrete facts needed to apply the generic contour identities to the `+1` kernels. -/
 
 theorem plusKernels_componentIntegrable : Contour.ComponentIntegrable 4 plusKernelLeft := by
   sorry
@@ -1854,7 +1858,7 @@ theorem fourier_sixPiece_plus :
   have hRayC := Contour.fourier_reverse .plus hC hRay (fun x => by simp) hCRay
   exact Contour.fourier_sixPieceComponent (by norm_num) .plus hL hR hC hRay hLR hRL hCRay hRayC
 
-/-! Concrete facts feeding the `-1` kernels into the generic contour identities. -/
+/-! Concrete facts needed to apply the generic contour identities to the `-1` kernels. -/
 
 theorem minusKernels_componentIntegrable : Contour.ComponentIntegrable 4 minusKernelLeft := by
   sorry
@@ -2140,7 +2144,7 @@ theorem magicMinus_eq_sixPieceComponent (x : V 24) :
         minusKernelCentral minusKernelRay x := by
   sorry
 
-/-! Concrete facts feeding the dimension-24 kernels into the generic contour identities. -/
+/-! Concrete facts needed to apply the generic contour identities to the dimension-24 kernels. -/
 
 theorem plusKernels_componentIntegrable : Contour.ComponentIntegrable 12 plusKernelLeft := by
   sorry
@@ -2472,9 +2476,10 @@ theorem translated_centers_subset_generatedIntegralLattice {d : ℕ}
     (fun x => x - x₀) '' P.centers ⊆ generatedIntegralLattice P x₀ := by
   sorry
 
-/-- Cohn--Elkies Lemma 8.2 in API form.  A full-dimensional set containing zero whose pairwise
-squared distances are even integers generates a discrete full-rank even integral lattice.  The
-period lattice of a periodic packing supplies the full-dimensionality hypothesis. -/
+/-- Cohn--Elkies Lemma 8.2 for a translated periodic center set.  A full-dimensional set
+containing zero whose pairwise squared distances are even integers generates a discrete full-rank
+even integral lattice.  The period lattice of a periodic packing supplies the full-dimensionality
+hypothesis. -/
 theorem generatedIntegralLattice_evenIntegral_full {d : ℕ}
     (P : PeriodicSpherePacking d) (x₀ : V d) (hx₀ : x₀ ∈ P.centers)
     (heven : ∀ x ∈ P.centers, ∀ y ∈ P.centers,
@@ -2681,7 +2686,7 @@ theorem uniqueOptimalLattice
 
 end Leech
 
-/-! ## Layer 11: literal summit theorems -/
+/-! ## Layer 11: the main theorems -/
 
 theorem spherePackingConstant_eight :
     SpherePackingConstant 8 = ENNReal.ofReal (Real.pi ^ 4 / 384) := by
