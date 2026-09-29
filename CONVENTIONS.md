@@ -328,8 +328,8 @@ When the data for a construction are already available, the target is defined as
 application of its constructor, so that its defining equations hold by unfolding the definition.
 In particular, the E8 and Leech certificates are literally `Certificate.ofRadial` applied to their
 data, and the equations for their `f` components follow from that constructor.  A construction
-whose body is not given explicitly (a `sorry`-bodied, hence opaque, definition) must come with a
-theorem stating its defining equation in its structured type; do not postulate an unrelated
+whose body is left as `sorry` determines nothing by unfolding, so it must come with a theorem
+stating its defining equation in its structured type; do not postulate an unrelated
 object together with a plausible pointwise equation.
 
 ## 14. Theta series and q-expansions

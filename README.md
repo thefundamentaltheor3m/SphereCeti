@@ -33,8 +33,8 @@ Readers who do not use Lean may find the following conventions helpful.
   a definition, is `sorry`, Lean's placeholder for missing work.  Lean checks that each statement
   is well-formed and type-correct, not that it is true or that it is the intended one; that is for
   human review.  A proof that relies on other targets is complete only once those are proved.  A
-  definition whose body is `sorry` cannot be unfolded, so any property it must have is stated as a
-  separate theorem.
+  definition whose body is `sorry` unfolds only to that placeholder, so it determines nothing, and
+  any property it must have is stated as a separate theorem.
 - **Assumed theorem.**  An unproved roadmap target on which another proof relies, such as the
   classification of even unimodular lattices of rank 8.  It is a statement still to be proved,
   here or in the library named as its intended home; it is never introduced as a named axiom, and
@@ -619,8 +619,8 @@ Common definitions and lemmas:
 - q-expansion Big-O estimates for cusp decay.
 
 The concrete `+1` and `-1` components expose their exact signed kernel transformation laws, and
-Layer 8 uses those laws directly.  No structure packaging kernel data, no opaque
-(`sorry`-bodied) constructor, and no free complex `eigenvalue` field is among the targets: the
+Layer 8 uses those laws directly.  No structure packaging kernel data, no constructor whose
+output is left unspecified, and no free complex `eigenvalue` field is among the targets: the
 finite Fourier sign occurs in the transformation law that determines it.
 
 ## Layer 8 — contour deformation for the magic-function integrals
@@ -762,8 +762,9 @@ obtain periodic congruence.
 The classification theorem is general integral-lattice mathematics.  In this roadmap it is a
 required dependency stated as an assumed theorem, that is, an unproved roadmap target on which the
 uniqueness proof relies.  Its intended home is an extension of the TauCeti Integral Lattices
-roadmap, recorded in `UPSTREAM.md`; until TauCeti provides it, SphereCeti keeps a local statement
-of exactly the intended form, which is deleted once TauCeti provides the result.  Acceptance
+roadmap, recorded in `UPSTREAM.md`.  If TauCeti has not provided it when the uniqueness proof
+needs it, prove it locally in SphereCeti with exactly the intended statement; the local statement
+and proof are deleted once TauCeti provides the result.  Acceptance
 upstream is never a prerequisite.
 
 ### Leech rigidity
@@ -777,8 +778,9 @@ home is an extension of the TauCeti Integral Lattices roadmap proving that Nieme
 complete: that roadmap defines the twenty-four Niemeier lattices but does not prove completeness,
 so the statement remains a required dependency here, recorded in `UPSTREAM.md`.  SphereCeti uses
 only the uniqueness statement and does not restate the list of Niemeier lattices or the case
-analysis; until TauCeti provides it, SphereCeti keeps a local statement of exactly the intended
-form, which is deleted once TauCeti provides the result.
+analysis.  If TauCeti has not provided it when the uniqueness proof needs it, prove it locally in
+SphereCeti with exactly the intended statement; the local statement and proof are deleted once
+TauCeti provides the result.
 
 ## Layer 11 — assembly of the main theorems
 

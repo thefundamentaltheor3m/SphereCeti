@@ -648,9 +648,9 @@ contour, q-expansion, or sign calculation belongs in the main-theorem file.
 ## 15. Phase M — algebraic uniqueness in TauCeti-facing form
 
 The reusable classification results have TauCeti's IntegralLattices roadmap extension as their
-intended home.  They are required dependencies of this roadmap: until TauCeti provides them,
-SphereCeti keeps local statements of exactly the intended form, which are deleted once TauCeti
-provides the results.
+intended home.  They are required dependencies of this roadmap: if TauCeti has not provided them
+when the uniqueness proofs need them, prove them locally in SphereCeti with exactly the intended
+statements; the local statements and proofs are deleted once TauCeti provides the results.
 
 ### PR M1 — rank-eight even-unimodular uniqueness
 
