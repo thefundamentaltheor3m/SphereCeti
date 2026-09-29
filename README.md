@@ -762,9 +762,9 @@ obtain periodic congruence.
 The classification theorem is general integral-lattice mathematics.  In this roadmap it is a
 required dependency stated as an assumed theorem, that is, an unproved roadmap target on which the
 uniqueness proof relies.  Its intended home is an extension of the TauCeti Integral Lattices
-roadmap, recorded in `UPSTREAM.md`.  If TauCeti has not provided it when the uniqueness proof
-needs it, prove it locally in SphereCeti with exactly the intended statement; the local statement
-and proof are deleted once TauCeti provides the result.  Acceptance
+roadmap, recorded in `UPSTREAM.md`.  If TauCeti has not provided it when the production
+uniqueness proof needs it, the production development proves it locally, with exactly the intended
+statement, and replaces the local proof by an import once TauCeti provides the result.  Acceptance
 upstream is never a prerequisite.
 
 ### Leech rigidity
@@ -778,9 +778,9 @@ home is an extension of the TauCeti Integral Lattices roadmap proving that Nieme
 complete: that roadmap defines the twenty-four Niemeier lattices but does not prove completeness,
 so the statement remains a required dependency here, recorded in `UPSTREAM.md`.  SphereCeti uses
 only the uniqueness statement and does not restate the list of Niemeier lattices or the case
-analysis.  If TauCeti has not provided it when the uniqueness proof needs it, prove it locally in
-SphereCeti with exactly the intended statement; the local statement and proof are deleted once
-TauCeti provides the result.
+analysis.  If TauCeti has not provided it when the production uniqueness proof needs it, the
+production development proves it locally, with exactly the intended statement, and replaces the
+local proof by an import once TauCeti provides the result.
 
 ## Layer 11 — assembly of the main theorems
 
