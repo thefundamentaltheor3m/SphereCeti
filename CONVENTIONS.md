@@ -27,7 +27,7 @@ Every dependency update is atomic:
 3. regenerate the manifest;
 4. record the resolved Mathlib SHA;
 5. build every `SphereCeti.*` module;
-6. run the declaration and normalization contracts in `SphereCetiRoadmap/Suggested.lean`;
+6. check required declarations and mathematical conventions as described below;
 7. record any semantic changes in this ledger.
 
 Never use `main`, a tag that can move, or an unrecorded local checkout as the effective TauCeti pin.
@@ -36,6 +36,27 @@ The pinned `Sphere-Packing-Lean` semantic baseline is
 `bad3de916074748eb88b7d1ee6dbf9494361ad17`.  Its Lean/Mathlib 4.32 pin requires the temporary
 statement-level model in `SphereCetiRoadmap/Pinned.lean`.  PR A2 deletes that model after the synchronized
 4.34 migration; no production theorem may depend on two competing packing implementations.
+
+### Declaration and convention checks
+
+These are regression checks that a dependency upgrade preserves the mathematical interface.
+They have two purposes:
+
+- **Required declarations and their types.** Check that the intended imports supply the named
+  definitions and theorems, with the expected hypotheses and conclusions. A bare `#check name`
+  only checks that a name resolves and displays its type. To check an expected type as well,
+  use `#check (name : ExpectedType)` or a small typed `example`. The current declaration list in
+  `SphereCetiRoadmap/Suggested.lean` primarily supplies the first, weaker check; the production
+  migration must also check the types on which downstream arguments rely.
+- **Mathematical conventions.** Prove standard identities using the actual imported definitions
+  to check Fourier signs, measures, and normalization constants; see §10 below. These checks
+  concern the mathematics, not merely the choice of notation. A theorem stated with `sorry` in
+  the roadmap specifies a required identity but does not verify it. The corresponding production
+  checks must use proofs without new admissions.
+
+We call these **checks of declarations and mathematical conventions**. They are more than
+notation linting: a notation linter alone cannot establish that the imported operations have
+the intended meaning.
 
 ## 2. Ambient Euclidean spaces
 
@@ -235,11 +256,15 @@ t^(-d/2) exp(-π ‖ξ‖²/t).
 
 Regression tests must include:
 
-1. the one-dimensional Gaussian;
-2. the `d`-dimensional Gaussian factor;
-3. Fourier involution on even/radial Schwartz maps;
-4. the Poisson formula's covolume factor;
-5. the theta `S`-transformation.
+1. the kernel sign, through its defining identity or a shifted/modulated test function;
+2. the one-dimensional Gaussian;
+3. the `d`-dimensional Gaussian factor;
+4. Fourier involution on even/radial Schwartz maps;
+5. the Poisson formula's covolume factor;
+6. the theta `S`-transformation.
+
+At `t = 1` the Gaussian is its own Fourier transform. This is a useful normalization check,
+but the centered Gaussian is even and cannot by itself distinguish the two Fourier signs.
 
 Do not define a second Fourier transform for the magic-function layer.
 

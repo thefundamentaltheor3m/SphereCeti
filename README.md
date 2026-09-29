@@ -19,7 +19,7 @@ SphereCeti follows TauCetiRoadmap's mathematical and API discipline, with two ex
 
 1. **SphereCeti imports a fixed TauCeti snapshot.**  TauCeti is not merely an external source or an
    informal upstream target: it is a Lake dependency pinned to a full commit.  This makes the
-   `Suggested.lean` imports and `#check` contracts reproducible.
+   `Suggested.lean` imports and checks of required declarations reproducible.
 2. **Upstream candidates live in one file.**  There is no parallel directory tree of
    proposed Mathlib or TauCeti roadmaps.  [`UPSTREAM.md`](UPSTREAM.md) is an issue-ready ledger of
    declarations and larger topics whose intended destination is Mathlib or an appropriate
@@ -351,7 +351,8 @@ Deliverables:
 2. pin TauCeti to `8671bee98125933c56b9b00a08ded873b77dd23b`;
 3. resolve Mathlib to `618f225e1ff4a6b2790a944e01b806b7c68bdc56`;
 4. repair source incompatibilities without opportunistic refactors;
-5. add exact `#check` and Fourier-normalization contracts;
+5. add [checks of required declarations and Fourier conventions](CONVENTIONS.md#declaration-and-convention-checks):
+   preserve the expected types, Fourier sign, measure, and normalization constants;
 6. add Sphere-Packing as a direct SphereCeti dependency;
 7. delete `SphereCeti.Pinned` and rewrite `Suggested.lean` imports against production declarations.
 
