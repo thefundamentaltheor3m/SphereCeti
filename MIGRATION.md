@@ -10,8 +10,8 @@ The standing rule is:
 > predecessor on which it is intentionally stacked.
 
 The SphereCeti roadmap repository is downstream documentation and target-signature checking.  The
-mathematics lands in Sphere-Packing-Lean, TauCeti, or Mathlib according to the boundary in
-`UPSTREAM.md`.
+mathematics lands in Sphere-Packing-Lean, TauCeti, or Mathlib according to the division recorded
+in `UPSTREAM.md`.
 
 ## 1. Migration invariants
 
@@ -37,7 +37,7 @@ Every PR must preserve the following unless its title explicitly changes one of 
 | scaling theorems | Preserve; add safe simp attributes |
 | periodic density proof | Preserve mathematics; replace exposed implementation details |
 | `Basic/E8.lean` | Preserve mathematical content; split only after adapters land |
-| `ForMathlib/RadialSchwartz/*` | Make canonical common Fourier layer |
+| `ForMathlib/RadialSchwartz/*` | Make this the standard setting for Fourier analysis |
 | Jacobi theta, E2/E4/E6, Δ, Serre derivative | Preserve; converge generic APIs with TauCeti |
 | `MagicFunction/a`, `b`, `g` | Preserve E8 proof content; move generic pieces out incrementally |
 | `CohnElkies/Prereqs.lean` | Retire after genuine Poisson/dual API lands |
@@ -116,7 +116,7 @@ Acceptance:
 - no duplicate `SpherePacking`, `PeriodicSpherePacking`, or `RadialSchwartzMap` remains;
 - the manifest records exact commits for both dependencies.
 
-## 4. Phase B — stabilize the existing public boundary
+## 4. Phase B — stabilize the existing public definitions
 
 ### PR B1 — import hygiene
 
@@ -139,7 +139,8 @@ Add:
 - safe `[simp]` constructor projections;
 - `[simp]` on positive scale density and scale-to-packing projections;
 - basepointed finite density and a proof that upper density is basepoint-independent;
-- transport by real affine isometries, with characteristic center and separation equations;
+- transport by real affine isometries, with explicit formulas for the transported centers and
+  separation;
 - `IsCongruent` and `IsSimilar` with reflexive/symmetric/transitive API;
 - positive density implies that the center set is nonempty.
 
@@ -272,7 +273,7 @@ Add explicit, short specializations for one-coset lattice packings.
 ### PR D5 — periodic approximation
 
 Use translated coordinate boxes with a guard band of one center separation.  Define the finite
-patch, its period lattice, and the repeated center set, then expose the characteristic equations
+patch, its period lattice, and the repeated center set, then state explicit equations
 for the centers and separation of `ofFinitePatternInBoxAt`.  Prove in order:
 
 - a Fubini/Følner averaging lemma: from an arbitrarily large ball whose finite density approaches
@@ -493,7 +494,7 @@ operations.
 ### PR J2 — sign-aware modular kernels
 
 Expose the exact signed transformation hypotheses used by each concrete `+1` and `-1` component,
-in the form the Layer 8 transport theorems consume directly.  The finite Fourier sign occurs in
+in the form the Layer 8 contour theorems use directly.  The finite Fourier sign occurs in
 the transformation law and determines the resulting eigenvalue; there is no bundled kernel
 datum, no shared constructor, and no unconstrained complex eigenvalue parameter.
 
@@ -509,7 +510,7 @@ Consolidate:
 
 ### PR J4 — segment integrals, scalar one-forms, and change of variables
 
-Implement the curve-integral transport interface:
+Implement the curve-integral change-of-variables results:
 
 - the scalar one-form of a complex function;
 - the interval-integral/segment bridge for Mathlib curve integrals;
@@ -582,8 +583,9 @@ The summit is a short lower-bound/upper-bound `le_antisymm` proof.
 
 ## 14. Phase L — Leech magic function
 
-Mirror Phase K at the common API boundary, but do not copy E8 files wholesale.  Each file must make
-clear which theorem is common and which modular identity is specifically 24-dimensional.
+Mirror Phase K through the common definitions and lemmas, but do not copy E8 files wholesale.  Each
+file must make clear which theorem is common and which modular identity is specifically
+24-dimensional.
 
 ### PR L1 — dimension-24 modular forms and q-expansions
 
@@ -600,8 +602,8 @@ their statement matches the actual geometry.
 
 ### PR L3 — direct-side radial function
 
-Construct the `+1` Fourier eigencomponent through its characteristic equation with the
-six-piece assembly, instantiating the generic left/right and central-pair Fourier identities.
+Construct the `+1` Fourier eigencomponent through its defining formula as a six-piece contour
+integral, so that the general left/right and central-pair Fourier identities apply to it.
 Keep its normalization and contour decomposition explicit.
 
 ### PR L4 — Fourier-side radial function
@@ -625,8 +627,8 @@ and the absence of additional zeros in the sign ranges.
 Assemble the final auxiliary function as
 `-((π * I) / 113218560) • magicPlus - (I / (262080 * π)) • magicMinus`, derive its distinct
 Fourier transform, prove the weak sign hypotheses for optimality and strict sign hypotheses for
-equality rigidity, and bundle the resulting `CohnElkies.Certificate 24 2` with its characteristic
-equation.
+equality rigidity, and package the resulting `CohnElkies.Certificate 24 2` together with the
+equation identifying its function `f`.
 
 ### PR L8 — candidate comparison and Leech optimality summit
 
@@ -675,8 +677,8 @@ Use Niemeier classification.  Define the exact 24-case type: Leech and the 23 ro
 `A11 D7 E6`, `A12^2`, `A15 D9`, `A17 E7`, `A24`, `D4^6`, `D6^4`, `D8^3`, `D10 E7^2`,
 `D12^2`, `D16 E8`, `D24`, `E6^4`, and `E8^3`.  The classification development constructs each
 canonical lattice from its root system and glue code and produces an integral-lattice isometry.
-Expose the exact characteristic theorem that the norm-two root set is empty if and only if the
-classified case is Leech, then derive the rootless uniqueness target.
+Prove the criterion that the norm-two root set is empty if and only if the classified case is
+Leech, then derive the rootless uniqueness target.
 
 The classification sources are Niemeier, *Journal of Number Theory* 5 (1973), 142--178, and
 Conway--Sloane, Chapter 16, §1 and Table 16.1 plus §3.  The root-system proof and the rootless
@@ -800,7 +802,7 @@ After A1:
 Every nontrivial PR must state:
 
 ```text
-Mathematical boundary:
+Mathematical statement:
 Dependency/stacking:
 Public declarations added or changed:
 Compatibility aliases:

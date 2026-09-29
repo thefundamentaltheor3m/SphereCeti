@@ -41,7 +41,7 @@ commit      bad3de916074748eb88b7d1ee6dbf9494361ad17
 ```
 
 This baseline contains the radial Schwartz submodule and uses Lean and Mathlib `v4.32.0`.
-`SphereCetiRoadmap/Pinned.lean` models its public statement boundary until PR A2 replaces the model with
+`SphereCetiRoadmap/Pinned.lean` models its public statements until PR A2 replaces the model with
 direct imports from the synchronized production dependency.  The model is never a source of
 independent mathematical truth.
 
@@ -127,7 +127,7 @@ In particular:
 
 - the packing structures and limsup density are the pinned starting definitions;
 - the E8 coordinate/basis equivalence, minimum norm, packing, and density are retained;
-- `Function.IsRadial` and `RadialSchwartzMap` are the common Fourier boundary;
+- `Function.IsRadial` and `RadialSchwartzMap` are the common setting for Fourier analysis;
 - the existing modular-form and magic-function proof content is a production asset; named file and
   API changes belong in the migration sequence.
 
@@ -148,7 +148,7 @@ High-value material includes:
 - strengthened Schwartz, sign, and special-value arguments.
 
 The Layer 8 contour targets are shaped from the following branch material at commit
-`01f23eccf963c50250c9e48dd103e8cc88c36f85`, with two deliberate changes: the transport theorems
+`01f23eccf963c50250c9e48dd103e8cc88c36f85`, with two deliberate changes: the contour-deformation theorems
 are stated for a single pair of kernels rather than radius-indexed families, and the
 change-of-variables and open-rectangle statements carry explicit derivative and integrability
 hypotheses rather than relying on total-function junk values.

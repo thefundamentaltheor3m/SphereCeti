@@ -132,7 +132,8 @@ inner-product space
 - [ ] **Why generic:** it is a reusable Fourier-analytic subspace on arbitrary finite-dimensional
   inner-product spaces.
 - [ ] **SphereCeti use:** common 8+24 magic-function layer.
-- [ ] **Fallback:** preserve the current production implementation and make it canonical there.
+- [ ] **Fallback:** preserve the current production implementation and make it the standard
+  version there.
 - [ ] **Design note:** intrinsic radiality factors through `‖x‖`; `ofNormSq` is a separate
   constructor, not the definition of radiality.
 
@@ -153,7 +154,7 @@ inner-product space
 ### A9. Real inner-product dual lattice adapters
 
 - [ ] **Destination:** Mathlib bilinear-form dual lattice / `ZLattice` comparison.
-- [ ] **Candidate boundary:** identify the inner-product dual of a full Euclidean `ℤ`-lattice with
+- [ ] **Candidate statement:** identify the inner-product dual of a full Euclidean `ℤ`-lattice with
   `LinearMap.BilinForm.dualSubmodule`, and establish discreteness/full rank.
 - [ ] **SphereCeti use:** Poisson summation and self-duality.
 - [ ] **Fallback:** local bridge, explicitly connected to TauCeti's rational dual carrier.
@@ -161,8 +162,9 @@ inner-product space
 ### A10. Covolume squared versus Gram determinant
 
 - [ ] **Destination:** Mathlib `ZLattice`/Haar measure.
-- [ ] **Candidate boundary:** for a real lattice basis, square of the covolume equals the determinant
-  of its Gram matrix; include basis independence and positive-definite square-root corollaries.
+- [ ] **Candidate statement:** for a real lattice basis, square of the covolume equals the
+  determinant of its Gram matrix; include basis independence and positive-definite square-root
+  corollaries.
 - [ ] **SphereCeti use:** compare real covolume with TauCeti discriminant/unimodularity.
 - [ ] **Fallback:** SphereCeti real/rational bridge.
 
@@ -205,7 +207,7 @@ inner-product space
   change-of-variables lemma is the genuinely new piece.
 - [ ] **Why generic:** it is a basic curve-integral lemma about Mathlib's own `curveIntegral`
   and `Path.segment`, independent of any application geometry.
-- [ ] **SphereCeti use:** the Möbius transport of the magic-function contour integrals.
+- [ ] **SphereCeti use:** the Möbius change of variables in the magic-function contour integrals.
 - [ ] **Fallback:** the Layer 8 target in `Suggested.lean`.
 - [ ] **Upstream test:** no project import remains in a minimal reproduction.
 
@@ -298,7 +300,7 @@ SphereCeti.
 - [ ] **Destination:** new TauCeti coding-theory roadmap.
 - [ ] **Scope:** linear codes, duality, Hamming weight/distance, weight enumerators, self-dual and
   doubly-even binary codes, equivalence under coordinate permutations.
-- [ ] **Boundary:** reusable algebraic coding theory, not a one-off Golay matrix verification.
+- [ ] **Scope limit:** reusable algebraic coding theory, not a one-off Golay matrix verification.
 
 ### C2. Extended binary Golay code
 
@@ -406,4 +408,4 @@ Deletion/import payoff after landing:
 ```
 
 Mark an item complete here only after SphereCeti has switched to the upstream declaration or has
-explicitly decided that the local boundary is permanent.
+explicitly decided that the local version is permanent.

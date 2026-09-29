@@ -29,7 +29,7 @@ A roadmap PR must identify:
 6. any new source or upstream destination.
 
 Do not add vague work items such as “finish analysis” or “generalize later.”  Name the object,
-hypotheses, theorem boundary, and dependency layer.
+hypotheses, precise statement, and dependency layer.
 
 ## Lean target signatures
 
@@ -39,10 +39,10 @@ honestly.
 - Do not disguise an unstated hypothesis as a field of type `Prop` with body `sorry`.
 - Do not use `True` as a placeholder for a mathematical condition.
 - Import existing pinned TauCeti declarations directly instead of restating them.
-- The temporary declarations in `SphereCetiRoadmap/Pinned.lean` model only the older production boundary;
-  do not add new mathematics there.
-- Prefer `example` for endpoint shapes whose final namespace is not settled, and named definitions
-  only for genuinely pinned object boundaries.
+- The temporary declarations in `SphereCetiRoadmap/Pinned.lean` model only the public statements
+  of the older production release; do not add new mathematics there.
+- Prefer `example` for final statements whose namespace is not settled, and named definitions
+  only for objects whose definition is fixed.
 
 ## Pin updates
 
