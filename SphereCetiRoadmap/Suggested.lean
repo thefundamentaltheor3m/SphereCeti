@@ -1695,12 +1695,14 @@ theorem fourier_centralComponent {k : ℕ} (hk : 0 < k)
       = fun ξ : V (2 * k) => sign.scalar * verticalRay (expKernel g' (‖ξ‖ ^ 2)) := by
   sorry
 
-/-- Reversal by Fourier involution and evenness: for integrable even functions and a sign with
-square one, `𝓕 F = s • G` implies `𝓕 G = s • F`.  This supplies the right-to-left and
-ray-to-central directions of the assembly from the left-to-right and central-to-ray
-identities. -/
+/-- Reversal by Fourier inversion and evenness: for integrable `F` and `G` with `F` continuous and
+even, and a sign with square one, `𝓕 F = s • G` implies `𝓕 G = s • F`.  Continuity of `F` is
+needed for the pointwise conclusion: Fourier inversion recovers an integrable function with
+integrable transform only almost everywhere, and changing `F` at a single point changes neither
+`𝓕 F` nor `G`.  This supplies the right-to-left and ray-to-central directions of the assembly
+from the left-to-right and central-to-ray identities. -/
 theorem fourier_reverse {d : ℕ} (sign : MagicFunction.FourierSign) {F G : V d → ℂ}
-    (hF : Integrable F) (hG : Integrable G)
+    (hF : Integrable F) (hG : Integrable G) (hFc : Continuous F)
     (heven : ∀ x, F (-x) = F x)
     (h : 𝓕 F = fun ξ => sign.scalar * G ξ) :
     𝓕 G = fun ξ => sign.scalar * F ξ := by
@@ -1852,6 +1854,15 @@ theorem plusKernels_integrablePieces :
       Contour.verticalRay (Contour.expKernel plusKernelRay (‖x‖ ^ 2))) := by
   sorry
 
+/-- Continuity of the left-leg and central-leg pieces of the `+1` kernels, needed for
+the pointwise Fourier inversion in `Contour.fourier_reverse`. -/
+theorem plusKernels_continuousPieces :
+    Continuous (fun x : V 8 =>
+      Contour.leftLegs (Contour.expKernel plusKernelLeft (‖x‖ ^ 2))) ∧
+    Continuous (fun x : V 8 =>
+      Contour.centralLeg (Contour.expKernel plusKernelCentral (‖x‖ ^ 2))) := by
+  sorry
+
 /-- Contour Fourier identity for the `+1` kernels: an application of the generic identities with
 no independent analytic content. -/
 theorem fourier_sixPiece_plus :
@@ -1861,13 +1872,14 @@ theorem fourier_sixPiece_plus :
           Contour.sixPieceComponent 4 plusKernelLeft plusKernelRight plusKernelCentral
             plusKernelRay ξ := by
   obtain ⟨hL, hR, hC, hRay⟩ := plusKernels_integrablePieces
+  obtain ⟨hLc, hCc⟩ := plusKernels_continuousPieces
   have hLR := Contour.fourier_leftComponent (k := 4) (by norm_num) .plus
     plusKernels_componentIntegrable plusKernels_cont plusKernels_law_leftRight
     plusKernels_closed
   have hCRay := Contour.fourier_centralComponent (k := 4) (by norm_num) .plus
     plusKernels_centralIntegrable plusKernels_rayIntegrable plusKernels_law_centralRay
-  have hRL := Contour.fourier_reverse .plus hL hR (fun x => by simp) hLR
-  have hRayC := Contour.fourier_reverse .plus hC hRay (fun x => by simp) hCRay
+  have hRL := Contour.fourier_reverse .plus hL hR hLc (fun x => by simp) hLR
+  have hRayC := Contour.fourier_reverse .plus hC hRay hCc (fun x => by simp) hCRay
   exact Contour.fourier_sixPieceComponent (by norm_num) .plus hL hR hC hRay hLR hRL hCRay hRayC
 
 /-! Concrete facts needed to apply the generic contour identities to the `-1` kernels. -/
@@ -1916,6 +1928,15 @@ theorem minusKernels_integrablePieces :
       Contour.verticalRay (Contour.expKernel minusKernelRay (‖x‖ ^ 2))) := by
   sorry
 
+/-- Continuity of the left-leg and central-leg pieces of the `-1` kernels, needed for
+the pointwise Fourier inversion in `Contour.fourier_reverse`. -/
+theorem minusKernels_continuousPieces :
+    Continuous (fun x : V 8 =>
+      Contour.leftLegs (Contour.expKernel minusKernelLeft (‖x‖ ^ 2))) ∧
+    Continuous (fun x : V 8 =>
+      Contour.centralLeg (Contour.expKernel minusKernelCentral (‖x‖ ^ 2))) := by
+  sorry
+
 /-- Contour Fourier identity for the `-1` kernels. -/
 theorem fourier_sixPiece_minus :
     𝓕 (Contour.sixPieceComponent 4 minusKernelLeft minusKernelRight minusKernelCentral
@@ -1924,13 +1945,14 @@ theorem fourier_sixPiece_minus :
           Contour.sixPieceComponent 4 minusKernelLeft minusKernelRight minusKernelCentral
             minusKernelRay ξ := by
   obtain ⟨hL, hR, hC, hRay⟩ := minusKernels_integrablePieces
+  obtain ⟨hLc, hCc⟩ := minusKernels_continuousPieces
   have hLR := Contour.fourier_leftComponent (k := 4) (by norm_num) .minus
     minusKernels_componentIntegrable minusKernels_cont minusKernels_law_leftRight
     minusKernels_closed
   have hCRay := Contour.fourier_centralComponent (k := 4) (by norm_num) .minus
     minusKernels_centralIntegrable minusKernels_rayIntegrable minusKernels_law_centralRay
-  have hRL := Contour.fourier_reverse .minus hL hR (fun x => by simp) hLR
-  have hRayC := Contour.fourier_reverse .minus hC hRay (fun x => by simp) hCRay
+  have hRL := Contour.fourier_reverse .minus hL hR hLc (fun x => by simp) hLR
+  have hRayC := Contour.fourier_reverse .minus hC hRay hCc (fun x => by simp) hCRay
   exact Contour.fourier_sixPieceComponent (by norm_num) .minus hL hR hC hRay hLR hRL hCRay hRayC
 
 /-- The `+1` component is a Fourier eigenfunction with eigenvalue `1`.  The proof only combines
@@ -2202,6 +2224,15 @@ theorem plusKernels_integrablePieces :
       Contour.verticalRay (Contour.expKernel plusKernelRay (‖x‖ ^ 2))) := by
   sorry
 
+/-- Continuity of the left-leg and central-leg pieces of the `+1` kernels, needed for
+the pointwise Fourier inversion in `Contour.fourier_reverse`. -/
+theorem plusKernels_continuousPieces :
+    Continuous (fun x : V 24 =>
+      Contour.leftLegs (Contour.expKernel plusKernelLeft (‖x‖ ^ 2))) ∧
+    Continuous (fun x : V 24 =>
+      Contour.centralLeg (Contour.expKernel plusKernelCentral (‖x‖ ^ 2))) := by
+  sorry
+
 /-- Contour Fourier identity for the dimension-24 `+1` kernels. -/
 theorem fourier_sixPiece_plus :
     𝓕 (Contour.sixPieceComponent 12 plusKernelLeft plusKernelRight plusKernelCentral
@@ -2210,13 +2241,14 @@ theorem fourier_sixPiece_plus :
           Contour.sixPieceComponent 12 plusKernelLeft plusKernelRight plusKernelCentral
             plusKernelRay ξ := by
   obtain ⟨hL, hR, hC, hRay⟩ := plusKernels_integrablePieces
+  obtain ⟨hLc, hCc⟩ := plusKernels_continuousPieces
   have hLR := Contour.fourier_leftComponent (k := 12) (by norm_num) .plus
     plusKernels_componentIntegrable plusKernels_cont plusKernels_law_leftRight
     plusKernels_closed
   have hCRay := Contour.fourier_centralComponent (k := 12) (by norm_num) .plus
     plusKernels_centralIntegrable plusKernels_rayIntegrable plusKernels_law_centralRay
-  have hRL := Contour.fourier_reverse .plus hL hR (fun x => by simp) hLR
-  have hRayC := Contour.fourier_reverse .plus hC hRay (fun x => by simp) hCRay
+  have hRL := Contour.fourier_reverse .plus hL hR hLc (fun x => by simp) hLR
+  have hRayC := Contour.fourier_reverse .plus hC hRay hCc (fun x => by simp) hCRay
   exact Contour.fourier_sixPieceComponent (by norm_num) .plus hL hR hC hRay hLR hRL hCRay hRayC
 
 theorem minusKernels_componentIntegrable : Contour.ComponentIntegrable 12 minusKernelLeft := by
@@ -2264,6 +2296,15 @@ theorem minusKernels_integrablePieces :
       Contour.verticalRay (Contour.expKernel minusKernelRay (‖x‖ ^ 2))) := by
   sorry
 
+/-- Continuity of the left-leg and central-leg pieces of the `-1` kernels, needed for
+the pointwise Fourier inversion in `Contour.fourier_reverse`. -/
+theorem minusKernels_continuousPieces :
+    Continuous (fun x : V 24 =>
+      Contour.leftLegs (Contour.expKernel minusKernelLeft (‖x‖ ^ 2))) ∧
+    Continuous (fun x : V 24 =>
+      Contour.centralLeg (Contour.expKernel minusKernelCentral (‖x‖ ^ 2))) := by
+  sorry
+
 /-- Contour Fourier identity for the dimension-24 `-1` kernels. -/
 theorem fourier_sixPiece_minus :
     𝓕 (Contour.sixPieceComponent 12 minusKernelLeft minusKernelRight minusKernelCentral
@@ -2272,13 +2313,14 @@ theorem fourier_sixPiece_minus :
           Contour.sixPieceComponent 12 minusKernelLeft minusKernelRight minusKernelCentral
             minusKernelRay ξ := by
   obtain ⟨hL, hR, hC, hRay⟩ := minusKernels_integrablePieces
+  obtain ⟨hLc, hCc⟩ := minusKernels_continuousPieces
   have hLR := Contour.fourier_leftComponent (k := 12) (by norm_num) .minus
     minusKernels_componentIntegrable minusKernels_cont minusKernels_law_leftRight
     minusKernels_closed
   have hCRay := Contour.fourier_centralComponent (k := 12) (by norm_num) .minus
     minusKernels_centralIntegrable minusKernels_rayIntegrable minusKernels_law_centralRay
-  have hRL := Contour.fourier_reverse .minus hL hR (fun x => by simp) hLR
-  have hRayC := Contour.fourier_reverse .minus hC hRay (fun x => by simp) hCRay
+  have hRL := Contour.fourier_reverse .minus hL hR hLc (fun x => by simp) hLR
+  have hRayC := Contour.fourier_reverse .minus hC hRay hCc (fun x => by simp) hCRay
   exact Contour.fourier_sixPieceComponent (by norm_num) .minus hL hR hC hRay hLR hRL hCRay hRayC
 
 /-- The dimension-24 `+1` component is a Fourier eigenfunction with eigenvalue `1`.  The proof
