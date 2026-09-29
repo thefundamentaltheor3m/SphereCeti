@@ -1128,8 +1128,8 @@ every positive-definite even unimodular lattice of rank eight is isometric to E8
 home is TauCeti's Integral Lattices and Root Systems development, where it follows from the ADE
 decomposition of the root system and the root count; SphereCeti uses only this statement and does
 not restate the theory of root systems.  If TauCeti has not provided the result when the
-uniqueness proof needs it, prove it locally with exactly this statement; the local statement and
-proof are deleted once TauCeti provides the result.
+production uniqueness proof needs it, production proves it locally with exactly this statement
+and replaces the local proof by an import once TauCeti provides the result.
 Positive-definiteness supplies nondegeneracy internally. -/
 theorem even_unimodular_rank_eight_unique
     {W : Type u} [AddCommGroup W] [Module ℚ W]
@@ -1199,9 +1199,9 @@ relies: every positive-definite even unimodular lattice of rank 24 without roots
 Lattices roadmap proving that Niemeier's list is complete: that roadmap defines the twenty-four
 Niemeier lattices but does not prove completeness, so this statement remains a required
 dependency here.  SphereCeti uses only this statement and does not restate the list of Niemeier
-lattices or the case analysis.  If TauCeti has not provided the result when the uniqueness proof
-needs it, prove it locally with exactly this statement; the local statement and proof are deleted
-once TauCeti provides the result.
+lattices or the case analysis.  If TauCeti has not provided the result when the production
+uniqueness proof needs it, production proves it locally with exactly this statement and replaces
+the local proof by an import once TauCeti provides the result.
 Positive-definiteness supplies nondegeneracy internally. -/
 theorem rootless_even_unimodular_rank_twentyFour_unique
     {W : Type u} [AddCommGroup W] [Module ℚ W]
