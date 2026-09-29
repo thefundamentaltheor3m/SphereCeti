@@ -1127,8 +1127,9 @@ noncomputable def integralLattice : TauCeti.IntegralLattice (Fin 8 → ℚ) := b
 every positive-definite even unimodular lattice of rank eight is isometric to E8.  Its intended
 home is TauCeti's Integral Lattices and Root Systems development, where it follows from the ADE
 decomposition of the root system and the root count; SphereCeti uses only this statement and does
-not restate the theory of root systems.  Until TauCeti provides the result, this local statement
-of exactly the intended form stands in for it, and it is deleted once TauCeti provides it.
+not restate the theory of root systems.  If TauCeti has not provided the result when the
+uniqueness proof needs it, prove it locally with exactly this statement; the local statement and
+proof are deleted once TauCeti provides the result.
 Positive-definiteness supplies nondegeneracy internally. -/
 theorem even_unimodular_rank_eight_unique
     {W : Type u} [AddCommGroup W] [Module ℚ W]
@@ -1198,8 +1199,9 @@ relies: every positive-definite even unimodular lattice of rank 24 without roots
 Lattices roadmap proving that Niemeier's list is complete: that roadmap defines the twenty-four
 Niemeier lattices but does not prove completeness, so this statement remains a required
 dependency here.  SphereCeti uses only this statement and does not restate the list of Niemeier
-lattices or the case analysis.  Until TauCeti provides the result, this local statement of exactly
-the intended form stands in for it, and it is deleted once TauCeti provides it.
+lattices or the case analysis.  If TauCeti has not provided the result when the uniqueness proof
+needs it, prove it locally with exactly this statement; the local statement and proof are deleted
+once TauCeti provides the result.
 Positive-definiteness supplies nondegeneracy internally. -/
 theorem rootless_even_unimodular_rank_twentyFour_unique
     {W : Type u} [AddCommGroup W] [Module ℚ W]
@@ -1481,9 +1483,9 @@ end FourierSign
 
 /- The Fourier sign of each component is determined by the transformation law of its kernels
 under `z ↦ -1/z`, which the Layer 8 contour theorems take as a hypothesis.  The eigenvalue is
-therefore not a free parameter, and no structure packaging kernel data and no unspecified
-(`sorry`-bodied) construction of a component appears among the targets: each component is given
-by an explicit defining formula in terms of its kernels. -/
+therefore not a free parameter, and neither a structure packaging kernel data nor a construction
+of a component whose output is left unspecified appears among the targets: each component is
+given by an explicit defining formula in terms of its kernels. -/
 
 end MagicFunction
 
