@@ -26,17 +26,21 @@ public import Mathlib.NumberTheory.ModularForms.Discriminant
 public import Mathlib.NumberTheory.ModularForms.EisensteinSeries.QExpansion
 
 /-!
-# Suggested SphereCeti target signatures
+# Suggested SphereCeti target statements
 
-The accompanying `README.md` is the definitive roadmap.  This file gives suggested Lean shapes for
-important objects and endpoints; it is deliberately nonexhaustive, and declaration names or binder
-order may change when implementation reveals a better Mathlib-shaped API.  It contains `sorry`
-because it specifies work to be done.
+This file states the definitions and theorems that the roadmap asks to be formalized, with
+`sorry` in place of the proofs: sphere packings and their densities, lattices and their duals,
+the Cohn--Elkies bound, lattice theta series, the E8 and Leech lattices, the contour integrals
+defining the magic functions, the equality case, and the main theorems on optimality and periodic
+uniqueness in dimensions 8 and 24.  The accompanying `README.md` is the definitive roadmap.  The
+statements here are suggestions and deliberately nonexhaustive; names and argument order may
+change when implementation reveals a form closer to Mathlib's conventions.
 
-Unlike an ordinary TauCetiRoadmap target file, this package directly imports the exact TauCeti
-snapshot named in `lakefile.toml`.  The bootstrap `SphereCeti.Pinned` namespace models the public
-Sphere-Packing-Lean definitions at the pinned production snapshot.  PR A2 deletes that namespace
-after PR A1 establishes exact production imports on this toolchain.
+Unlike an ordinary TauCetiRoadmap target file, this package imports a fixed version of TauCeti,
+the one named in `lakefile.toml`.  The temporary namespace `SphereCeti.Pinned` reproduces the
+public Sphere-Packing-Lean definitions at a fixed version of that library.  It is deleted (PR A2
+in `MIGRATION.md`) once Sphere-Packing-Lean is built on the same Lean and Mathlib versions and can
+be imported directly (PR A1).
 -/
 
 public section
@@ -684,12 +688,14 @@ theorem covolume_dual {d : ℕ} (Λ : Submodule ℤ (V d))
 
 end EuclideanLattice
 
-/-! The generic real-lattice dual, Poisson summation, and theta-series theory is owned by the
-TauCeti ThetaSeries roadmap.  The `ThetaSeries` namespace here and in Layer 5 carries
-deletion-bound stand-ins shaped exactly like that roadmap's targets: they are deleted and
-replaced by direct TauCeti imports when the roadmap is implemented, and they must not grow into
-a second generic implementation.  SphereCeti keeps the orbit Poisson identity, the certificate
-theory, the presentation bridges, and the E8/Leech-facing corollaries. -/
+/-! Duality of real lattices, Poisson summation, and the theory of lattice theta series are to be
+developed in the TauCeti ThetaSeries roadmap.  The `ThetaSeries` namespace here and in Layer 5
+contains temporary copies of that roadmap's target statements, stated exactly as there.  They are
+deleted and replaced by imports from TauCeti when the corresponding TauCeti implementation lands,
+and they are not to be developed into a second general theory.  SphereCeti itself keeps the
+Poisson identity over center orbits, the theory of Cohn--Elkies certificates, the comparison
+between the Euclidean and the integral (Gram-matrix) descriptions of a lattice, and the
+consequences for E8 and Leech. -/
 
 namespace ThetaSeries
 
@@ -1117,11 +1123,12 @@ abbrev packing : PeriodicSpherePacking 8 := SphereCeti.Pinned.E8Packing
 noncomputable def integralLattice : TauCeti.IntegralLattice (Fin 8 → ℚ) := by
   sorry
 
-/-- Required upstream dependency: every positive-definite even unimodular rank-eight lattice is
-E8.  Its intended home is TauCeti's IntegralLattices and Root Systems development, whose ADE
-decomposition and root-count identification prove it; SphereCeti consumes exactly this endpoint
-and does not restate the root-system machinery.  Local implementation with exactly this
-statement is available whenever coordination or timing requires it.
+/-- Assumed theorem, that is, an unproved roadmap target on which the E8 uniqueness proof relies:
+every positive-definite even unimodular lattice of rank eight is isometric to E8.  Its intended
+home is TauCeti's Integral Lattices and Root Systems development, where it follows from the ADE
+decomposition of the root system and the root count; SphereCeti uses only this statement and does
+not restate the theory of root systems.  Until TauCeti provides the result, this local statement
+of exactly the intended form stands in for it, and it is deleted once TauCeti provides it.
 Positive-definiteness supplies nondegeneracy internally. -/
 theorem even_unimodular_rank_eight_unique
     {W : Type u} [AddCommGroup W] [Module ℚ W]
@@ -1185,13 +1192,15 @@ namespace Leech
 noncomputable def integralLattice : TauCeti.IntegralLattice (Fin 24 → ℚ) := by
   sorry
 
-/-- Required upstream dependency: every positive-definite rootless even unimodular rank-24
-lattice is Leech.  Its intended home is a TauCeti Niemeier-completeness extension of the
-Integral Lattices roadmap: that roadmap defines the twenty-four reference lattices but does not
-prove completeness, so this endpoint remains a mandatory dependency here.  SphereCeti consumes
-exactly this statement and does not restate the Niemeier case list or selection machinery; local
-implementation with exactly this statement is available whenever coordination or timing requires
-it.  Positive-definiteness supplies nondegeneracy internally. -/
+/-- Assumed theorem, that is, an unproved roadmap target on which the Leech uniqueness proof
+relies: every positive-definite even unimodular lattice of rank 24 without roots (vectors of norm
+`2`) is isometric to the Leech lattice.  Its intended home is an extension of TauCeti's Integral
+Lattices roadmap proving that Niemeier's list is complete: that roadmap defines the twenty-four
+Niemeier lattices but does not prove completeness, so this statement remains a required
+dependency here.  SphereCeti uses only this statement and does not restate the list of Niemeier
+lattices or the case analysis.  Until TauCeti provides the result, this local statement of exactly
+the intended form stands in for it, and it is deleted once TauCeti provides it.
+Positive-definiteness supplies nondegeneracy internally. -/
 theorem rootless_even_unimodular_rank_twentyFour_unique
     {W : Type u} [AddCommGroup W] [Module ℚ W]
     (L : TauCeti.IntegralLattice W) (hrank : Module.finrank ℚ W = 24)

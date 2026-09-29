@@ -136,8 +136,8 @@ PR B1 removes those imports; they are not a semantic convention.
 
 ## 4. Source branch: `gauss2`
 
-The `gauss2` branch is a proof quarry.  Mine only named coherent results, with source commit and
-path recorded in the destination file or PR description.
+The `gauss2` branch is a source of proofs to adapt.  Adapt only named, coherent results, with the
+source commit and path recorded in the destination file or PR description.
 
 High-value material includes:
 
@@ -147,11 +147,12 @@ High-value material includes:
 - the Möbius-inversion/convex-wedge contour development;
 - strengthened Schwartz, sign, and special-value arguments.
 
-The Layer 8 contour targets are shaped from the following branch material at commit
-`01f23eccf963c50250c9e48dd103e8cc88c36f85`, with two deliberate changes: the contour-deformation theorems
-are stated for a single pair of kernels rather than radius-indexed families, and the
-change-of-variables and open-rectangle statements carry explicit derivative and integrability
-hypotheses rather than relying on total-function junk values.
+The Layer 8 contour targets are based on the following branch material at commit
+`01f23eccf963c50250c9e48dd103e8cc88c36f85`, with two deliberate changes: the contour-deformation
+theorems are stated for a single pair of kernels rather than for families indexed by the radius,
+and the change-of-variables and open-rectangle statements carry explicit derivative and
+integrability hypotheses instead of relying on the conventional values Lean assigns to derivatives
+and integrals that do not exist.
 
 ```text
 SpherePacking/Contour/MobiusInv/WedgeSetContour.lean   -- one-forms, wedge, signed permutations
@@ -173,7 +174,8 @@ Do not:
 
 - use `gauss2` as the base branch for new production work;
 - assume every namespace or helper abstraction on the branch is the desired public API;
-- combine branch archaeology, toolchain migration, directory movement, and a hard proof in one PR.
+- combine reconstructing the branch's history, toolchain migration, directory movement, and a hard
+  proof in one PR.
 
 ## 5. PR #420
 

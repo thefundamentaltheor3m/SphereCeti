@@ -16,16 +16,18 @@ conventions.
 
 ## The two deliberate differences from TauCetiRoadmap
 
-SphereCeti follows TauCetiRoadmap's mathematical and API discipline, with two explicit changes.
+SphereCeti follows TauCetiRoadmap's mathematical and library-design discipline, with two explicit
+changes.
 
-1. **SphereCeti imports a fixed TauCeti snapshot.**  TauCeti is not merely an external source or an
-   informal upstream target: it is a Lake dependency pinned to a full commit.  This makes the
-   `Suggested.lean` imports and checks of required declarations reproducible.
-2. **Upstream candidates live in one file.**  There is no parallel directory tree of
-   proposed Mathlib or TauCeti roadmaps.  [`UPSTREAM.md`](UPSTREAM.md) is an issue-ready ledger of
-   declarations and larger topics whose intended destination is Mathlib or an appropriate
-   TauCeti roadmap.  It records destinations only: upstream acceptance is never a prerequisite
-   for any SphereCeti target.
+1. **SphereCeti depends on a fixed version of TauCeti.**  TauCeti is not merely a cited source or
+   an informal destination: it is a Lake dependency fixed at a specific commit, so the TauCeti
+   results imported by `Suggested.lean`, and the checks of required declarations, are
+   reproducible.
+2. **Candidates for Mathlib and TauCeti are listed in one file.**  There is no parallel directory
+   tree of proposed Mathlib or TauCeti roadmaps.  [`UPSTREAM.md`](UPSTREAM.md) lists the
+   declarations and larger topics whose intended home is Mathlib or an appropriate TauCeti
+   roadmap, each described so that it can be filed as an issue.  It records intended homes only:
+   acceptance upstream is never a prerequisite for any SphereCeti target.
 
 ## Exact dependency snapshot
 
@@ -471,16 +473,17 @@ amplitude therefore descends to the canonical orbit quotient.
 The two equality directions remain separate: an empty packing has vacuous termwise conditions but
 zero density, whereas every certificate bound is positive.
 
-## Layer 5 — theta series, consumed from the TauCeti ThetaSeries roadmap
+## Layer 5 — theta series, taken from the TauCeti ThetaSeries roadmap
 
-**Goal:** consume the generic lattice theta theory and keep only SphereCeti's bridges and
-candidate-lattice corollaries.
+**Goal:** use the general theory of lattice theta series, keeping in SphereCeti only the
+comparison with integral presentations and the consequences for the candidate lattices.
 
-The TauCeti ThetaSeries roadmap owns generic real-lattice duality, Poisson summation, the theta
-series, its transformation laws, the even-unimodular modular theta form, and the rank-8/rank-24
-classifications.  SphereCeti carries deletion-bound stand-ins shaped exactly like that roadmap's
-targets: they are deleted and replaced by direct TauCeti imports when the roadmap is implemented,
-and they must not grow into a second generic implementation.
+Duality of real lattices, Poisson summation, the theta series and its transformation laws, the
+theta series of an even unimodular lattice as a level-one modular form, and the classifications in
+ranks 8 and 24 are to be developed in the TauCeti ThetaSeries roadmap.  Until the corresponding
+TauCeti implementation lands, SphereCeti carries temporary copies of that roadmap's target
+statements, stated exactly as there.  They are deleted and replaced by imports from TauCeti, and
+they are not to be developed into a second general theory.
 
 Deliverables:
 
@@ -560,9 +563,9 @@ Common definitions and lemmas:
 - q-expansion Big-O estimates for cusp decay.
 
 The concrete `+1` and `-1` components expose their exact signed kernel transformation laws, and
-Layer 8 uses those laws directly.  No kernel datum packaged in a structure, opaque constructor,
-or free complex `eigenvalue` field is among the targets: the finite Fourier sign occurs in the
-transformation law that determines it.
+Layer 8 uses those laws directly.  No structure packaging kernel data, no opaque
+(`sorry`-bodied) constructor, and no free complex `eigenvalue` field is among the targets: the
+finite Fourier sign occurs in the transformation law that determines it.
 
 ## Layer 8 — contour deformation for the magic-function integrals
 
@@ -571,13 +574,13 @@ integrals, stated once for a single pair of kernels.
 
 All required finite deformations use straight segments and their images under the Möbius
 inversion `z ↦ -1/z`; all required unbounded deformations use axis-aligned rectangles.  No
-circular-arc contour is a target.  Each contour tool has one owner:
+circular-arc contour is a target.  Each kind of deformation is proved in exactly one place:
 
 - unbounded vertical deformations use this layer's open-rectangle theorems;
-- finite Möbius deformations use this layer's wedge interface, consuming Mathlib's
-  curve-integral Poincaré lemma.
+- finite Möbius deformations use this layer's results on the wedge, which rely on Mathlib's
+  Poincaré lemma for curve integrals.
 
-The layer has two independent summits.
+The layer has two independent main results, one for each kind of deformation.
 
 ### Unbounded branch: open rectangles
 
@@ -696,22 +699,26 @@ The E8 shell spectrum gives a positive-definite even unimodular rank-eight latti
 classification theorem that such a lattice is isometric to E8, then transport the center coset to
 obtain periodic congruence.
 
-The classification theorem is generic integral-lattice mathematics; its intended home is a
-TauCeti IntegralLattices roadmap extension, recorded in `UPSTREAM.md`.  It is a required
-dependency of this roadmap: implement it locally, with exactly the upstream-shaped statement,
-whenever coordination or timing requires it.  Upstream acceptance is never a prerequisite.
+The classification theorem is general integral-lattice mathematics.  In this roadmap it is a
+required dependency stated as an assumed theorem, that is, an unproved roadmap target on which the
+uniqueness proof relies.  Its intended home is an extension of the TauCeti Integral Lattices
+roadmap, recorded in `UPSTREAM.md`; until TauCeti provides it, SphereCeti keeps a local statement
+of exactly the intended form, which is deleted once TauCeti provides the result.  Acceptance
+upstream is never a prerequisite.
 
 ### Leech rigidity
 
 The Leech shell spectrum gives a rootless positive-definite even unimodular rank-24 lattice.  Use the
 uniqueness characterization of Leech and transport the center coset.
 
-The rank-24 dependency is rootless even-unimodular uniqueness.  Its intended owner is a TauCeti
-Niemeier-completeness extension of the Integral Lattices roadmap: that roadmap defines the
-twenty-four reference lattices but does not prove completeness, so the endpoint remains a
-mandatory dependency here, recorded in `UPSTREAM.md`.  SphereCeti consumes exactly the
-uniqueness statement and does not restate the case enumeration or selection machinery; it is
-proved locally with the same statement shape when coordination or timing requires it.
+The rank-24 dependency is uniqueness of the rootless even unimodular lattice of rank 24, again an
+assumed theorem: an unproved roadmap target on which the uniqueness proof relies.  Its intended
+home is an extension of the TauCeti Integral Lattices roadmap proving that Niemeier's list is
+complete: that roadmap defines the twenty-four Niemeier lattices but does not prove completeness,
+so the statement remains a required dependency here, recorded in `UPSTREAM.md`.  SphereCeti uses
+only the uniqueness statement and does not restate the list of Niemeier lattices or the case
+analysis; until TauCeti provides it, SphereCeti keeps a local statement of exactly the intended
+form, which is deleted once TauCeti provides the result.
 
 ## Layer 11 — assembly of the main theorems
 
