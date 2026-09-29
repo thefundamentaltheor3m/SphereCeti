@@ -384,33 +384,35 @@ unqualified `iff`: the empty packing makes termwise sharpness vacuous.
 
 Do not yet prove dimension-specific rigidity.
 
-## 9. Phase G — theta series consumption
+## 9. Phase G — theta series from the TauCeti ThetaSeries roadmap
 
-This phase can run in parallel with the magic-function port after E3/C4.  The generic real-lattice
-duality, Poisson summation, theta series, transformation laws, and rank-8/rank-24 classifications
-are owned by the TauCeti ThetaSeries roadmap; SphereCeti consumes them.
+This phase can run in parallel with the magic-function port after E3/C4.  Duality of real
+lattices, Poisson summation, lattice theta series with their transformation laws, and the
+classifications in ranks 8 and 24 are to be developed in the TauCeti ThetaSeries roadmap;
+SphereCeti uses them.
 
-### PR G1 — ThetaSeries stand-ins
+### PR G1 — temporary ThetaSeries statements
 
-Compile the deletion-bound stand-ins shaped exactly like the ThetaSeries roadmap's targets:
+Add temporary copies of the ThetaSeries roadmap's target statements, stated exactly as there:
 `dual`, `poissonSummation` with its two summability lemmas, `shell`/`repNum`, real-lattice
 `IsEven`/`IsUnimodular`, `thetaSeries`, `thetaSeries_neg_inv`, `thetaForm` with its coercion and
 q-expansion coefficients, `thetaForm_eq_E₄`, `repNum_two_rank_eight`, `thetaForm_rank_24`, and
-`coe_thetaForm_rank_24_rootless`.  The stand-ins are deleted and replaced by direct TauCeti
-imports when that roadmap is implemented; they must not grow into a second generic
-implementation.
+`coe_thetaForm_rank_24_rootless`.  These copies are deleted and replaced by imports from TauCeti
+when the corresponding TauCeti implementation lands; they are not to be developed into a second
+general theory.
 
-### PR G2 — presentation bridges
+### PR G2 — comparison with integral presentations
 
-Bridge integral presentations to the roadmap's real-lattice vocabulary: evenness, unimodularity,
-the dual compatibility `EuclideanLattice.dual = ThetaSeries.dual`, and the root-count/shell
-coefficient identification `rootCard = repNum 2 = thetaEvenCoeff 1`.  Construct shells as
-`Finset`s after supplying discreteness; do not use the zero-on-infinite-sets behavior of
-`Set.ncard`.
+Relate integral presentations to the roadmap's vocabulary for real lattices: evenness,
+unimodularity, the equality of duals `EuclideanLattice.dual = ThetaSeries.dual`, and the
+identification of the root count with a shell coefficient,
+`rootCard = repNum 2 = thetaEvenCoeff 1`.  Construct shells as `Finset`s after supplying
+discreteness; do not use the zero-on-infinite-sets behavior of `Set.ncard`.
 
 ### PR G3 — E8/Leech theta corollaries
 
-Derive, through the bridges, the three corollaries the candidate packages consume:
+Derive, through these comparisons, the three corollaries used by the E8 and Leech lattice
+packages:
 
 ```text
 rank 8 even unimodular: Θ = E₄
@@ -487,67 +489,71 @@ Prove:
 - covolume one;
 - canonical unit-ball packing and density.
 
-## 12. Phase J — common magic-function analytic machinery
+## 12. Phase J — common analytic tools for the magic functions
 
 ### PR J1 — radial squared-norm profiles
 
-Add `RadialSchwartzMap.ofNormSq`, evaluation/coercion lemmas, and transport under Fourier eigenspace
-operations.
+Add `RadialSchwartzMap.ofNormSq`, evaluation/coercion lemmas, and its compatibility with the
+Fourier eigenspace operations.
 
-### PR J2 — sign-aware modular kernels
+### PR J2 — signed transformation laws of the modular kernels
 
-Expose the exact signed transformation hypotheses used by each concrete `+1` and `-1` component,
-in the form the Layer 8 contour theorems use directly.  The finite Fourier sign occurs in
-the transformation law and determines the resulting eigenvalue; there is no bundled kernel
-datum, no shared constructor, and no unconstrained complex eigenvalue parameter.
+State the exact signed transformation laws under `z ↦ -1/z` satisfied by the kernels of each
+concrete `+1` and `-1` component, in the form the Layer 8 contour theorems use directly.  The
+Fourier sign occurs in the transformation law and determines the resulting eigenvalue; there is
+no structure packaging kernel data, no shared constructor, and no free complex eigenvalue
+parameter.
 
-### PR J3 — integration and differentiation adapters
+### PR J3 — integration and differentiation lemmas
 
-Consolidate:
+Collect:
 
 - integrability of parameterized Gaussian kernels;
-- Fubini/Tonelli swaps;
+- Fubini/Tonelli interchanges;
 - differentiation under the integral;
 - Schwartz decay from q-expansion Big-O estimates;
-- TauCeti imaginary-axis predicates.
+- TauCeti's predicates for functions on the imaginary axis.
 
 ### PR J4 — segment integrals, scalar one-forms, and change of variables
 
-Implement the curve-integral change-of-variables results:
+Prove the curve-integral change-of-variables results:
 
-- the scalar one-form of a complex function;
-- the interval-integral/segment bridge for Mathlib curve integrals;
-- change of variables along a segment with an honest derivative/chain-rule hypothesis;
-- the closed-one-form adapter and its one-way discharge lemma from differentiability with
-  closure continuity.
+- the scalar one-form `F(z) dz` of a complex function;
+- the identification of Mathlib curve integrals along a segment with parametrized interval
+  integrals;
+- change of variables along a segment, with an honest derivative (chain-rule) hypothesis;
+- the structure recording that a one-form is closed, and the implication that a function
+  differentiable on a set and continuous on its closure has a closed scalar one-form there (the
+  converse is not a target).
 
-### PR J5 — Möbius inversion, wedge geometry, and signed permutations
+### PR J5 — Möbius inversion, the wedge, and the signed permutations
 
-Implement the finite-branch summit:
+Prove the main result for finite contours:
 
-- the Möbius inversion, its derivative, and its upper-half-plane action;
-- wedge openness, convexity, and boundary control;
+- the Möbius inversion, its derivative, and its action on the upper half-plane;
+- openness and convexity of the wedge, and the fact that its closure meets the real axis only at
+  `1`;
 - the two signed contour-permutation theorems for a single pair of kernels, via Mathlib's
-  curve-integral Poincaré lemma;
-- the generic left/right and central-pair Fourier identities and the six-piece assembly,
-  consuming J3's Fubini and Gaussian adapters.
+  Poincaré lemma for curve integrals;
+- the general left/right and central-pair Fourier identities and the six-piece assembly, using
+  the Fubini and Gaussian lemmas of J3.
 
-Radial families instantiate the single-pair statements; the wedge homotopies are proof devices,
-not public declarations.
+Radial families are special cases of the single-pair statements; the homotopies inside the wedge
+are proof devices, not public declarations.
 
 ### PR J6 — open rectangular deformation
 
-Implement the unbounded-branch summit: deformation of a horizontal edge into the two vertical
-half-lines above its endpoints, with explicit half-line integrability and the top edge controlled
-by uniform decay or top-edge-integral convergence.  This PR is independent of J4--J5.
+Prove the main result for unbounded contours: deformation of a horizontal edge into the two
+vertical half-lines above its endpoints, with explicit integrability on the half-lines and the top
+edge controlled by uniform decay or by convergence of the top-edge integrals.  This PR is
+independent of J4--J5.
 
-Across J4--J6, maintain two explicit contour interfaces:
+Across J4--J6, keep the two kinds of contour deformation separate:
 
 - open rectangular deformation at infinity;
-- finite wedge/Poincaré path deformation.
+- finite deformation inside the wedge, via the Poincaré lemma.
 
-Do not force the two into one generic contour abstraction; no circular-arc contour is a
-target.
+Do not force the two into one general contour framework; no circular-arc contour is a target.
 
 ## 13. Phase K — port the E8 proof from `gauss2`
 
@@ -586,22 +592,22 @@ The main theorem has a short lower-bound/upper-bound `le_antisymm` proof.
 
 ## 14. Phase L — Leech magic function
 
-Mirror Phase K through the common definitions and lemmas, but do not copy E8 files wholesale.  Each
-file must make clear which theorem is common and which modular identity is specifically
-24-dimensional.
+Phase L follows Phase K for the Leech lattice, using the same common definitions and lemmas with
+the dimension-24 kernels and modular forms, but does not copy E8 files wholesale.  Each file must
+make clear which theorem is common and which modular identity is specifically 24-dimensional.
 
 ### PR L1 — dimension-24 modular forms and q-expansions
 
 Define only the Leech-specific weakly holomorphic/quasimodular inputs and prove their finite
-q-expansion, transformation, cusp-growth, and imaginary-axis reality contracts through the common
-TauCeti APIs.
+q-expansions, transformation laws, growth at the cusp, and reality on the imaginary axis, using
+TauCeti's common results.
 
-### PR L2 — Leech contour and interchange instantiations
+### PR L2 — the contour identities in dimension 24
 
-Instantiate the generic contour layer at the 24-dimensional kernels: the signed Möbius laws, the
-wedge closedness hypotheses, the Fubini/Tonelli interchanges, and the Gaussian Fourier transforms
-consumed by the component constructions below.  Import TauCeti's contour theorems only where
-their statement matches the actual geometry.
+Specialize the general contour results to the 24-dimensional kernels: the signed Möbius
+transformation laws, closedness of the relevant one-forms on the wedge, the Fubini/Tonelli
+interchanges, and the Gaussian Fourier transforms used by the component constructions below.
+Import TauCeti's contour theorems only where their statement matches the actual geometry.
 
 ### PR L3 — direct-side radial function
 
@@ -611,8 +617,8 @@ Keep its normalization and contour decomposition explicit.
 
 ### PR L4 — Fourier-side radial function
 
-Construct the `-1` Fourier eigencomponent by the same instantiation.  Reverse permutations must
-use the radial Fourier involution rather than duplicate Fourier inversion.
+Construct the `-1` Fourier eigencomponent in the same way, through its defining formula.  Reverse
+permutations must use the radial Fourier involution rather than duplicate Fourier inversion.
 
 ### PR L5 — Schwartz estimates
 
@@ -633,17 +639,18 @@ Fourier transform, prove the weak sign hypotheses for optimality and strict sign
 equality rigidity, and package the resulting `CohnElkies.Certificate 24 2` together with the
 equation identifying its function `f`.
 
-### PR L8 — candidate comparison and Leech optimality summit
+### PR L8 — candidate comparison and Leech optimality main theorem
 
 Prove lattice sharpness, identify the certificate bound with `π^12 / 12!` through the candidate
 density, and assemble the Leech lower and upper bounds in a short `le_antisymm` theorem.  No
-contour, q-expansion, or sign calculation belongs in the summit file.
+contour, q-expansion, or sign calculation belongs in the main-theorem file.
 
 ## 15. Phase M — algebraic uniqueness in TauCeti-facing form
 
 The reusable classification results have TauCeti's IntegralLattices roadmap extension as their
-intended home; prove them locally, stated exactly in that form, whenever coordination or timing
-requires it.  They are required dependencies of this roadmap either way.
+intended home.  They are required dependencies of this roadmap: until TauCeti provides them,
+SphereCeti keeps local statements of exactly the intended form, which are deleted once TauCeti
+provides the results.
 
 ### PR M1 — rank-eight even-unimodular uniqueness
 

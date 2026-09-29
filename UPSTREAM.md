@@ -1,15 +1,17 @@
 # Potential Mathlib and TauCeti destinations
 
-This file is an issue-ready ledger.  It deliberately does **not** create a parallel directory tree
-of upstream roadmaps.  Each item records a prospective destination, a stable mathematical boundary,
-and SphereCeti's local fallback; the items carry no ordering.  Turning an item into an issue does
-not commit Mathlib or TauCeti to accepting it.
+This file lists results and topics intended for Mathlib or TauCeti, each described so that it
+can be filed as an issue.  It deliberately does **not** create a parallel directory tree of
+upstream roadmaps.  Each item records the intended home, a precise statement or scope, and the
+local version SphereCeti uses until the item lands upstream; the items are not ordered.  Filing an
+item as an issue does not commit Mathlib or TauCeti to accepting it.
 
-The ledger follows two rules:
+The list follows two rules:
 
-1. SphereCeti never waits for upstream work.  When a generic theorem is needed, implement it locally
-   in an upstream-shaped form and keep the proof usable.
-2. Upstreaming is a deletion/import opportunity, not part of the proof of the sphere-packing summit.
+1. SphereCeti never waits for upstream work.  When a general theorem is needed, prove it locally,
+   stated in the form intended for its upstream home, and keep the proof usable.
+2. Contributing a result upstream lets the local proof be replaced by an import; it is not part of
+   the proof of the sphere-packing main theorems.
 
 ## Issue title suggestion
 

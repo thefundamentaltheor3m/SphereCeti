@@ -1,10 +1,10 @@
-# SphereCeti convention ledger
+# SphereCeti conventions
 
-This file records choices that must not be rediscovered independently in the 8- and
-24-dimensional developments.  A change to one of these conventions is an architectural change:
-it requires a migration plan, explicit compatibility lemmas, and regression tests at E8 and Leech.
+This file records conventions that must not be chosen independently in the 8- and 24-dimensional
+developments.  Changing one of them is a structural change: it requires a migration plan,
+explicit compatibility lemmas, and checks at both E8 and Leech that nothing else changed.
 
-`README.md` remains the definitive roadmap.  This ledger fixes the notation and normalization under
+`README.md` remains the definitive roadmap.  This file fixes the notation and normalizations under
 which the roadmap is to be implemented.
 
 ## 1. Dependency and pinning policy
