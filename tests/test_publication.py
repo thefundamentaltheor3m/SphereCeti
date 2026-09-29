@@ -2,6 +2,7 @@
 from pathlib import Path
 import json
 import http.client
+import re
 import subprocess
 import sys
 import tempfile
@@ -181,6 +182,23 @@ print(json.dumps({'http_code': 200, 'response_code': 200, 'urlnum': 0}), file=sy
         self.assertIn(p.map_url('https://cache.example/revisions', SHA), requests)
         self.assertIn(ART, requests)
         self.assertFalse((scratch / 'lakefile.toml').exists())
+
+    def test_cache_publication_workflow_matches_pinned_toolchain(self):
+        # The publish job runs only on main, so check its pins offline on every PR.
+        self.assertEqual((ROOT / 'lean-toolchain').read_text(), p.TOOLCHAIN + '\n')
+        elan_dir = p.TOOLCHAIN.replace('/', '--').replace(':', '---')
+        workflow = (ROOT / '.github/workflows/docs-cache.yml').read_text()
+        for required in (f"test \"$(cat lean-toolchain)\" = '{p.TOOLCHAIN}'",
+                         f'"$HOME/.elan/toolchains/{elan_dir}/bin/lake" cache put-staged',
+                         f'--toolchain {p.TOOLCHAIN} --platform {p.PLATFORM}'):
+            with self.subTest(required=required):
+                self.assertTrue(required in workflow, f'docs-cache.yml lacks {required!r}')
+        for path in sorted((ROOT / '.github/workflows').glob('*.yml')):
+            text = path.read_text()
+            for pin in re.findall(r'leanprover/lean4:[^\s\'"]+', text):
+                with self.subTest(workflow=path.name, pin=pin): self.assertEqual(pin, p.TOOLCHAIN)
+            for pin in re.findall(r'leanprover--lean4---[^\s/\'"]+', text):
+                with self.subTest(workflow=path.name, pin=pin): self.assertEqual(pin, elan_dir)
 
     def test_producer_selects_only_library_targets_and_binds_revision(self):
         root = Path(self.temp.name) / 'checkout'; (root / '.lake').mkdir(parents=True)
