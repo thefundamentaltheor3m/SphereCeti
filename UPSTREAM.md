@@ -184,7 +184,7 @@ inner-product space
 - [ ] **Upstream test:** the provisional `ThetaSeries` namespace is deleted and replaced by direct
   TauCeti imports.
 
-### A12. Open-rectangle contour deformation
+### A12. Contour deformation for half-infinite rectangles
 
 - [ ] **Destination:** Mathlib complex analysis, beside the bounded rectangular Cauchy--Goursat
   theorem.
@@ -204,7 +204,7 @@ inner-product space
 
 - [ ] **Destination:** Mathlib `MeasureTheory.Integral.CurveIntegral`.
 - [ ] **Current source:** `Sphere-Packing-Lean` `Contour/MobiusInv/WedgeSetContour.lean`
-  (see `PROVENANCE.md`), restated for a single pair of kernels with honest derivative
+  (see `PROVENANCE.md`), restated for a single pair of kernels with genuine derivative
   hypotheses.
 - [ ] **Candidate declaration:** change of variables along `Path.segment a b` under
   `ContinuousOn` plus interior `HasDerivAt` hypotheses, with the image path given by
@@ -212,7 +212,8 @@ inner-product space
   change-of-variables lemma is the genuinely new piece.
 - [ ] **Why general:** it is a basic curve-integral lemma about Mathlib's own `curveIntegral`
   and `Path.segment`, independent of any application geometry.
-- [ ] **SphereCeti use:** the Möbius change of variables in the magic-function contour integrals.
+- [ ] **SphereCeti use:** the change of variables `z ↦ -1/z` in the magic-function contour
+  integrals.
 - [ ] **Fallback:** the Layer 8 target in `Suggested.lean`.
 - [ ] **Upstream test:** no project import remains in a minimal reproduction.
 
@@ -393,8 +394,8 @@ important:
 - [ ] E8 and Leech magic modular forms;
 - [ ] the exact E8 and Leech auxiliary functions;
 - [ ] dimension-specific contour decompositions and sign inequalities;
-- [ ] the closed-one-form structure `ClosedOneFormOn`, the wedge set, and the signed Möbius
-  contour permutations;
+- [ ] the closed-one-form structure `ClosedOneFormOn`, the wedge set, and the signed contour
+  permutations under `z ↦ -1/z`;
 - [ ] E8/Leech packing density formulas;
 - [ ] the equality-case path from a periodic packing to a generated lattice;
 - [ ] the main theorems on optimality and periodic uniqueness.
