@@ -4,8 +4,9 @@ A TauCeti-style roadmap for a unified Lean development of sphere packing in dime
 starting from the existing `Sphere-Packing-Lean` definitions and culminating in optimality and
 uniqueness among periodic packings for the E8 and Leech configurations.
 
-This repository is a **roadmap and compile-oriented target-signature package**, not a competing production
-formalization.  The intended production home remains
+This repository is a **roadmap together with precise target statements that Lean type-checks,
+with the proofs omitted**; it is not a competing production formalization.  The intended
+production home remains
 [`thefundamentaltheor3m/Sphere-Packing-Lean`](https://github.com/thefundamentaltheor3m/Sphere-Packing-Lean),
 with generic mathematics upstreamed to Mathlib or TauCeti as appropriate.
 
@@ -18,32 +19,51 @@ conventions.
 
 Readers who do not use Lean may find the following conventions helpful.
 
+- **Mathlib, TauCeti, Sphere-Packing-Lean.**  Mathlib is Lean's general mathematics library;
+  TauCeti is a library built on Mathlib and developed from coordinated roadmaps like this one;
+  Sphere-Packing-Lean is the existing formalization of the dimension-8 proof, called the
+  *production* repository because the mathematics of this roadmap is to be implemented there.
+- **Upstream.**  Mathlib and TauCeti, the libraries this project builds on.  A result goes
+  upstream when it is contributed there; [`UPSTREAM.md`](UPSTREAM.md) lists the candidates.
+- **Layers, phases, and PRs.**  The roadmap is organized in *layers*, stages of the mathematics,
+  each building on the earlier ones.  [`MIGRATION.md`](MIGRATION.md) divides the implementation
+  into *phases* of planned *pull requests* (PRs), each a single reviewed contribution of code.
 - **Targets and `sorry`.**  A target is a definition or theorem the roadmap asks to be
-  formalized.  In `Suggested.lean` each target is stated precisely, and Lean checks the statement;
-  its proof, or the body of a definition, is `sorry`, Lean's placeholder for missing work.  A
+  formalized.  In `Suggested.lean` each target is stated precisely and its proof, or the body of
+  a definition, is `sorry`, Lean's placeholder for missing work.  Lean checks that each statement
+  is well-formed and type-correct, not that it is true or that it is the intended one; that is for
+  human review.  A proof that relies on other targets is complete only once those are proved.  A
   definition whose body is `sorry` cannot be unfolded, so any property it must have is stated as a
   separate theorem.
 - **Assumed theorem.**  An unproved roadmap target on which another proof relies, such as the
   classification of even unimodular lattices of rank 8.  It is a statement still to be proved,
-  here or in the library named as its intended home, and never an axiom.
-- **`#check` lines.**  A `#check` line confirms that a named declaration exists, with the stated
-  form, at the fixed library versions below.
+  here or in the library named as its intended home; it is never introduced as a named axiom, and
+  Lean reports every proof depending on it as incomplete until it is proved.
+- **`#check` lines.**  A `#check` line makes the build fail unless the named declaration exists,
+  and displays its type for comparison with the intended statement.
 - **Fixed ("pinned") versions.**  Lean, Mathlib, TauCeti and Sphere-Packing-Lean are used at
   specific commits, listed below, so that every statement is checked against exactly the same
   libraries.
-- **Upstream.**  The shared libraries this project builds on: Mathlib and TauCeti.  A result goes
-  upstream when it is contributed there; [`UPSTREAM.md`](UPSTREAM.md) lists the candidates.
+- **Structures, fields, constructors.**  A *structure* bundles data with required properties; its
+  components are called *fields* (unrelated to algebraic fields), and a *constructor* builds an
+  element of the structure from its fields.
 - **Cohn--Elkies certificate.**  `CohnElkies.Certificate d r` consists of a Schwartz function `f`
   on `ℝ^d` together with the properties the Cohn--Elkies bound requires of it: `r > 0`; `f` and its
   Fourier transform `f̂` are real-valued; `f(x) ≤ 0` whenever `‖x‖ ≥ r`; `f̂ ≥ 0` everywhere; and
-  `f̂(0) > 0`.
+  `f̂(0) > 0`.  The Fourier transform is normalized with the kernel `exp(-2πi⟨x, ξ⟩)`.
+- **Direct side, Fourier side, shells.**  Statements about `f` are on the *direct side* and
+  statements about `f̂` on the *Fourier side*.  A *shell* of a lattice is the set of its vectors of
+  a given squared norm; for E8 and Leech the nonzero shells have squared norms `2n`.
+- **Kernels.**  Besides the Fourier kernel, *kernel* refers to the modular-form expressions `g`
+  in the contour integrals `∫ g(z) exp(πi‖x‖²z) dz` defining the magic functions.
 - **Chosen representatives.**  Where an argument needs one center from each orbit of the period
   lattice, it uses a chosen representative.  The quotient of the centers by the period lattice is
   the canonical object, and every stated result is independent of the choice.
 - **Values outside the domain.**  Lean's functions are defined everywhere: division by zero, the
   integral of a non-integrable function, and the derivative at a point of non-differentiability
   are given conventional values (usually `0`).  Statements therefore carry explicit integrability
-  and differentiability hypotheses, so that no theorem holds merely because of these conventions.
+  and differentiability hypotheses, so that they are not satisfied vacuously through these
+  conventions.
 - **Automation attributes.**  `@[simp]`, `@[grind]` and `@[fun_prop]` register a lemma with Lean's
   automatic rewriting and proof-search tools.  They change how proofs are found, not what is true.
 - **Coercions and `ℝ≥0∞`.**  A coercion is an implicit map, such as `ℕ → ℝ` or the inclusion of a
@@ -240,7 +260,7 @@ Adapt proofs from this branch, with exact source attribution:
 - the final normalization of the magic function;
 - real-valuedness and Fourier-eigenfunction assembly;
 - exact sign and zero deductions;
-- the Möbius-inversion wedge contour argument;
+- the contour argument in the wedge under the inversion `z ↦ -1/z`;
 - the more developed Fourier permutation proof for the integral pieces.
 
 Do not wholesale merge or rebase the branch.  Port one coherent theorem or body of supporting
@@ -287,9 +307,9 @@ comparison with the real lattice.  This bridge is central; defining another unre
 - finite-index Sturm bounds when a congruence-level identity genuinely requires them;
 - the small Fourier-continuity lemma.
 
-These do not replace Sphere-Packing's open rectangular contour deformation or the specialized
-convex-wedge Möbius argument.  Closed circles, unbounded rectangles, and finite path homotopies solve
-different problems.
+These do not replace Sphere-Packing's half-infinite rectangular contour deformation or the
+specialized convex-wedge argument under `z ↦ -1/z`.  Closed circles, unbounded rectangles, and
+finite path homotopies solve different problems.
 
 ## Permanent mathematical conventions
 
@@ -453,7 +473,7 @@ Deliverables:
 
 - `PeriodicSpherePacking.ofZLattice`;
 - the existing finite quotient `Quotient P.addAction.orbitRel`, exposed as `P.Orbit`, with the
-  chosen representative `P.orbitRep` (through `Quotient.out`), with downstream statements
+  chosen representative `P.orbitRep` (through `Quotient.out`), with every statement that uses it
   choice-independent at dual frequencies; production's
   basis-relative fundamental-domain representatives realize the same quotient through
   `addActionOrbitRelEquiv'`, and no separate pattern structure exists;
@@ -608,17 +628,19 @@ finite Fourier sign occurs in the transformation law that determines it.
 **Goal:** provide the contour-deformation identities used to evaluate the magic-function contour
 integrals, stated once for a single pair of kernels.
 
-All required finite deformations use straight segments and their images under the Möbius
-inversion `z ↦ -1/z`; all required unbounded deformations use axis-aligned rectangles.  No
+All required finite deformations use straight segments and their images under the inversion
+`z ↦ -1/z`; all required unbounded deformations use half-infinite axis-aligned rectangles.  The
+images of segments under `z ↦ -1/z` are circular arcs, but they occur only inside proofs; no
 circular-arc contour is a target.  Each kind of deformation is proved in exactly one place:
 
-- unbounded vertical deformations use this layer's open-rectangle theorems;
-- finite Möbius deformations use this layer's results on the wedge, which rely on Mathlib's
-  Poincaré lemma for curve integrals.
+- unbounded vertical deformations use this layer's theorems on half-infinite rectangles;
+- finite deformations under `z ↦ -1/z` use this layer's results on the wedge, which rely on
+  Mathlib's Poincaré lemma for curve integrals: integrals of a closed one-form are invariant
+  under homotopy, and for a one-form `F dz` closedness amounts to holomorphy of `F`.
 
 The layer has two independent main results, one for each kind of deformation.
 
-### Unbounded branch: open rectangles
+### Unbounded branch: half-infinite rectangles
 
 - boundary vanishing on a bounded rectangle, taken from Mathlib's rectangular
   Cauchy--Goursat theorem;
@@ -629,23 +651,24 @@ The layer has two independent main results, one for each kind of deformation.
 These identities feed the vertical-line rewrites, Laplace representations, and double-zero
 arguments of Layer 9.
 
-### Finite branch: curve integrals and the Möbius wedge
+### Finite branch: curve integrals and the wedge
 
 - the scalar one-form of a function `F : ℂ → ℂ`, with the bridge between interval integrals over
   a parametrized segment and Mathlib curve integrals;
-- change of variables along a segment, carrying an honest derivative/chain-rule hypothesis for
+- change of variables along a segment, carrying a genuine derivative (chain-rule) hypothesis for
   the substitution;
 - a closedness predicate for one-forms combining, in one structure, the two hypotheses of
   Mathlib's curve-integral Poincaré lemma (differentiability-with-closure-continuity and symmetry
   of the within-derivative), together with the lemma that holomorphy with closure continuity
   implies closedness of the scalar one-form (the converse is not a target);
-- the Möbius inversion, its derivative, and its action on the upper half-plane;
+- the inversion `z ↦ -1/z`, its derivative, and its action on the upper half-plane;
 - the wedge `{z : 0 < Im z, |Re z - 1| < Im z}`: openness, convexity, and the fact that its
   closure meets the real axis only at `1`;
 - the two signed contour-permutation theorems, stated for a single pair `Ψ, Ψ' : ℂ → ℂ`
-  satisfying the signed Möbius transformation law with `ω_{Ψ'}` closed on the wedge: the
-  integrals over the left legs `[-1, -1+i]` and `[-1+i, i]` equal the correspondingly signed
-  integrals over the right legs `[1, 1+i]` and `[1+i, i]`.
+  satisfying the signed transformation law under `z ↦ -1/z`, with the one-form `Ψ' dz` closed on
+  the wedge: the sum of the integrals of `Ψ dz` over the left legs `[-1, -1+i]` and `[-1+i, i]`
+  equals the correspondingly signed sum of the integrals of `Ψ' dz` over the right legs
+  `[1, 1+i]` and `[1+i, i]`.
 
 Intermediate wedge homotopies are proof devices, not public targets.  Radial families are
 special cases of the single-pair statements; they are not part of the generic statements.
@@ -657,11 +680,12 @@ the central segment `0 → i`, and the vertical ray from `i` towards `i∞`.  Th
 their Fourier behavior in even dimension `2k` from explicit hypotheses:
 
 - the **left/right identity**: absolute product integrability, continuity of the
-  Gaussian-transformed source kernel on the left legs, the `r`-free signed Möbius law
+  Gaussian-transformed source kernel on the left legs, the signed inversion law (independent of
+  the radial variable `r`)
   `(i/z)^k g(z) = ± z⁻² g'(-1/z)` on the upper half-plane, and closedness of the transported
   kernel's one-form on the wedge give the transform of the left-leg component as the signed
   right-leg component of `g'`;
-- the **central-pair identity**: the Möbius inversion carries the central segment directly onto
+- the **central-pair identity**: the inversion `z ↦ -1/z` carries the central segment directly onto
   the vertical ray, with explicit integrability on both sides and no wedge homotopy;
 - the **six-piece assembly**: with each piece integrable and the piecewise identities exchanging
   left with right and central with ray at a common sign, the assembled component is a Fourier

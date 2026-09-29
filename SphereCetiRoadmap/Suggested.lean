@@ -1489,11 +1489,11 @@ end MagicFunction
 
 /-! ## Layer 8: contour deformation for the magic-function integrals
 
-All required finite deformations use straight segments and their images under the Möbius
-inversion `z ↦ -1/z`; all required unbounded deformations use axis-aligned rectangles.  The
-declarations are stated in the form intended for the production `SpherePacking.Contour` and
-`SpherePacking.Integration` namespaces; Mathlib's `curveIntegral`, `Path.segment`, and
-curve-integral Poincaré lemma are used directly. -/
+All required finite deformations use straight segments and their images under the inversion
+`z ↦ -1/z` (circular arcs, which occur only inside proofs); all required unbounded deformations
+use half-infinite axis-aligned rectangles.  The declarations are stated in the form intended for
+the production `SpherePacking.Contour` and `SpherePacking.Integration` namespaces; Mathlib's
+`curveIntegral`, `Path.segment`, and curve-integral Poincaré lemma are used directly. -/
 
 namespace Contour
 
@@ -1503,7 +1503,7 @@ namespace Contour
 #check @curveIntegral
 #check @ContinuousMap.Homotopy.curveIntegral_add_curveIntegral_eq_of_diffContOnCl
 
-/-! ### Unbounded branch: open rectangles -/
+/-! ### Unbounded branch: half-infinite rectangles -/
 
 /-- Deformation of a horizontal edge into the two vertical half-lines above its endpoints, off a
 countable exceptional set, matching the generality of Mathlib's bounded rectangle theorem.  The
@@ -1546,7 +1546,7 @@ theorem scalarOneForm_apply (F : ℂ → ℂ) (z v : ℂ) : scalarOneForm F z v 
 /- The interval-integral/segment bridge is Mathlib's `curveIntegral_segment`, used directly. -/
 #check @curveIntegral_segment
 
-/-- Change of variables along a segment, with an honest chain-rule hypothesis: `f` is continuous
+/-- Change of variables along a segment, with a genuine chain-rule hypothesis: `f` is continuous
 on the segment, differentiable along its interior with derivative `f'`, and the kernels
 correspond under the substitution.  The image path is Mathlib's `Path.map'`. -/
 theorem curveIntegral_segment_change_of_variables
@@ -1573,9 +1573,9 @@ theorem ClosedOneFormOn.of_diffContOnCl {F : ℂ → ℂ} {s : Set ℂ}
     (hF : DiffContOnCl ℂ F s) : ClosedOneFormOn (scalarOneForm F) s := by
   sorry
 
-/-! ### Finite branch: the Möbius wedge and the signed permutations -/
+/-! ### Finite branch: the wedge and the signed permutations -/
 
-/-- The Möbius inversion `z ↦ -1/z`. -/
+/-- The inversion `z ↦ -1/z`, the Möbius transformation of the modular matrix `S`. -/
 @[expose]
 noncomputable def mobiusInv : ℂ → ℂ := fun z => -z⁻¹
 
@@ -1612,10 +1612,11 @@ noncomputable def rightLegs (Ψ : ℂ → ℂ) : ℂ :=
   (∫ᶜ z in Path.segment 1 (1 + Complex.I), scalarOneForm Ψ z)
     + ∫ᶜ z in Path.segment (1 + Complex.I) Complex.I, scalarOneForm Ψ z
 
-/-- Signed contour permutation for a single pair of kernels: under the signed Möbius
-transformation law on the upper half-plane, with `Ψ` continuous on the left legs and the
-transported one-form closed on the wedge, the left-leg integrals equal the correspondingly
-signed right-leg integrals.  Radial families are special cases of this statement. -/
+/-- Signed contour permutation for a single pair of kernels: under the signed transformation law
+under `z ↦ -1/z` on the upper half-plane, with `Ψ` continuous on the left legs and the
+transported one-form closed on the wedge, the sum of the two left-leg integrals equals the
+correspondingly signed sum of the two right-leg integrals.  Radial families are special cases of
+this statement. -/
 theorem perm_leftLegs_eq_smul_rightLegs (sign : MagicFunction.FourierSign)
     {Ψ Ψ' : ℂ → ℂ}
     (hcont : ContinuousOn Ψ
@@ -1645,8 +1646,8 @@ def ComponentIntegrable (k : ℕ) (g : ℂ → ℂ) : Prop :=
 /-- Generic left/right Fourier identity.  In even dimension `2k`, the Fourier transform of the
 radial left-leg component of `g` is computed from explicit hypotheses: absolute product
 integrability, continuity of the Gaussian-transformed source kernel on the left legs, the
-`r`-free signed Möbius law relating that kernel to `g'`, and closedness of the transported
-kernels on the wedge. -/
+signed inversion law, independent of the radial variable `r`, relating that kernel to `g'`, and
+closedness of the transported kernels on the wedge. -/
 theorem fourier_leftComponent {k : ℕ} (hk : 0 < k)
     (sign : MagicFunction.FourierSign) {g g' : ℂ → ℂ}
     (hint : ComponentIntegrable k g)
@@ -1678,9 +1679,9 @@ def CentralIntegrable (k : ℕ) (g : ℂ → ℂ) : Prop :=
       ‖g (q.2 • Complex.I)‖ * Real.exp (-Real.pi * ‖q.1‖ ^ 2 * q.2))
     (volume.prod (volume.restrict (Set.Ioc (0 : ℝ) 1)))
 
-/-- Generic central-pair Fourier identity.  The Möbius inversion carries the central segment onto
-the vertical ray directly, so no wedge homotopy is required; the transported ray integrability is
-an explicit hypothesis. -/
+/-- Generic central-pair Fourier identity.  The inversion `z ↦ -1/z` carries the central segment
+onto the vertical ray directly, so no wedge homotopy is required; the transported ray
+integrability is an explicit hypothesis. -/
 theorem fourier_centralComponent {k : ℕ} (hk : 0 < k)
     (sign : MagicFunction.FourierSign) {g g' : ℂ → ℂ}
     (hint : CentralIntegrable k g)
@@ -2618,7 +2619,7 @@ theorem translated_centers_eq_generatedIntegralLattice {d : ℕ}
   sorry
 
 /-- Once the center set has been identified with the generated lattice, the original packing
-separation applies to every nonzero lattice vector.  This is deliberately downstream of the
+separation applies to every nonzero lattice vector.  This is deliberately proved after the
 covolume/index argument; evenness alone would not supply the Leech minimum norm. -/
 theorem generated_minNorm_of_centers_eq {d : ℕ}
     (P : PeriodicSpherePacking d) (x₀ : V d) (hx₀ : x₀ ∈ P.centers)

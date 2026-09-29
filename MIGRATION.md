@@ -521,16 +521,16 @@ Prove the curve-integral change-of-variables results:
 - the scalar one-form `F(z) dz` of a complex function;
 - the identification of Mathlib curve integrals along a segment with parametrized interval
   integrals;
-- change of variables along a segment, with an honest derivative (chain-rule) hypothesis;
+- change of variables along a segment, with a genuine derivative (chain-rule) hypothesis;
 - the structure recording that a one-form is closed, and the implication that a function
   differentiable on a set and continuous on its closure has a closed scalar one-form there (the
   converse is not a target).
 
-### PR J5 — Möbius inversion, the wedge, and the signed permutations
+### PR J5 — the inversion `z ↦ -1/z`, the wedge, and the signed permutations
 
 Prove the main result for finite contours:
 
-- the Möbius inversion, its derivative, and its action on the upper half-plane;
+- the inversion `z ↦ -1/z`, its derivative, and its action on the upper half-plane;
 - openness and convexity of the wedge, and the fact that its closure meets the real axis only at
   `1`;
 - the two signed contour-permutation theorems for a single pair of kernels, via Mathlib's
@@ -541,7 +541,7 @@ Prove the main result for finite contours:
 Radial families are special cases of the single-pair statements; the homotopies inside the wedge
 are proof devices, not public declarations.
 
-### PR J6 — open rectangular deformation
+### PR J6 — deformation of half-infinite rectangles
 
 Prove the main result for unbounded contours: deformation of a horizontal edge into the two
 vertical half-lines above its endpoints, with explicit integrability on the half-lines and the top
@@ -550,7 +550,7 @@ independent of J4--J5.
 
 Across J4--J6, keep the two kinds of contour deformation separate:
 
-- open rectangular deformation at infinity;
+- deformation of half-infinite rectangles at infinity;
 - finite deformation inside the wedge, via the Poincaré lemma.
 
 Do not force the two into one general contour framework; no circular-arc contour is a target.
@@ -604,8 +604,8 @@ TauCeti's common results.
 
 ### PR L2 — the contour identities in dimension 24
 
-Specialize the general contour results to the 24-dimensional kernels: the signed Möbius
-transformation laws, closedness of the relevant one-forms on the wedge, the Fubini/Tonelli
+Specialize the general contour results to the 24-dimensional kernels: the signed transformation
+laws under `z ↦ -1/z`, closedness of the relevant one-forms on the wedge, the Fubini/Tonelli
 interchanges, and the Gaussian Fourier transforms used by the component constructions below.
 Import TauCeti's contour theorems only where their statement matches the actual geometry.
 

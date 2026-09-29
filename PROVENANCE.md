@@ -144,19 +144,19 @@ High-value material includes:
 - the completed E8 Cohn--Elkies upper bound;
 - the final E8 main theorem assembly;
 - completed Fourier permutations of the `a` integral pieces;
-- the Möbius-inversion/convex-wedge contour development;
+- the contour development in the convex wedge under the inversion `z ↦ -1/z`;
 - strengthened Schwartz, sign, and special-value arguments.
 
 The Layer 8 contour targets are based on the following branch material at commit
 `01f23eccf963c50250c9e48dd103e8cc88c36f85`, with two deliberate changes: the contour-deformation
 theorems are stated for a single pair of kernels rather than for families indexed by the radius,
-and the change-of-variables and open-rectangle statements carry explicit derivative and
+and the change-of-variables and half-infinite-rectangle statements carry explicit derivative and
 integrability hypotheses instead of relying on the conventional values Lean assigns to derivatives
 and integrals that do not exist.
 
 ```text
 SpherePacking/Contour/MobiusInv/WedgeSetContour.lean   -- one-forms, wedge, signed permutations
-SpherePacking/ForMathlib/CauchyGoursat/OpenRectangular.lean  -- open-rectangle deformation
+SpherePacking/ForMathlib/CauchyGoursat/OpenRectangular.lean  -- half-infinite rectangles
 SpherePacking/Integration/Measure.lean                 -- interval measures for the profiles
 SpherePacking/MagicFunction/a/Eigenfunction.lean       -- six-piece assembly, +1 component
 SpherePacking/MagicFunction/b/Eigenfunction.lean       -- six-piece assembly, -1 component
