@@ -2,7 +2,7 @@
 
 This is independently authored SphereCeti code under [Apache-2.0](../../LICENSE). The general
 maintenance/targeting requirements were informed by the
-[TauCetiWorker contributors' README at `27c234a`](https://github.com/kim-em/TauCetiWorker/blob/27c234a5722cfe557279aa47fbfd8e51450481a6/README.md).
+[TauCetiWorker contributors' README at `27c234a`](https://github.com/TauCetiProject/TauCetiWorker/blob/27c234a5722cfe557279aa47fbfd8e51450481a6/README.md).
 No Worker code, prompts, assets or tests are copied. Execution calls the existing
 [TauCetiReview engine at `afb424e`](https://github.com/TauCetiProject/TauCetiReview/tree/afb424eda89e8ac96d9eb69f6a88972055a4cd1b),
 Apache-2.0, credited to its contributors: `runner/review.py`, `runner/ledger.py`, `runner/post.py`

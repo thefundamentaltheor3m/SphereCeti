@@ -1,7 +1,7 @@
 # Work overview and bounded review loops
 
 Independently authored under SphereCeti's Apache-2.0 license. Behavioral credit:
-[TauCetiWorker contributors' README at 27c234a](https://github.com/kim-em/TauCetiWorker/blob/27c234a5722cfe557279aa47fbfd8e51450481a6/README.md),
+[TauCetiWorker contributors' README at 27c234a](https://github.com/TauCetiProject/TauCetiWorker/blob/27c234a5722cfe557279aa47fbfd8e51450481a6/README.md),
 which describes a default work overview and repeated rounds. No upstream Worker implementation,
 prompts or tests are copied. The shared review engine remains pinned to
 [TauCetiReview afb424e](https://github.com/TauCetiProject/TauCetiReview/tree/afb424eda89e8ac96d9eb69f6a88972055a4cd1b).
