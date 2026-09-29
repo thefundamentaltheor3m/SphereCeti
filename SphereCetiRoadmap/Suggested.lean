@@ -1855,12 +1855,14 @@ theorem plusKernels_integrablePieces :
       Contour.verticalRay (Contour.expKernel plusKernelRay (‖x‖ ^ 2))) := by
   sorry
 
-/-- Continuity of the left-leg and central-leg pieces of the `+1` kernels, needed for
-the pointwise Fourier inversion in `Contour.fourier_reverse`.  For `r ≥ 0` and `Im z ≥ 0`,
-`‖exp (π i r z)‖ ≤ 1`, so continuity in `r = ‖x‖ ^ 2` follows by dominated convergence with a
-dominating function independent of `r`, including at `x = 0`.  On the left legs the kernel is
-continuous on the compact legs, by `plusKernels_cont` at `r = 0` since `z ≠ 0` there; on the
-central leg it is integrable along `(0, i]`, by a slice of `plusKernels_centralIntegrable`. -/
+/-- Continuity of the left-leg and central-leg pieces of the `+1` kernels, needed for the pointwise
+Fourier inversion in `Contour.fourier_reverse`.  For `r ≥ 0` and `Im z ≥ 0`, `‖exp (π i r z)‖ ≤ 1`,
+so continuity in `r = ‖x‖ ^ 2` follows by dominated convergence with a dominating function
+independent of `r`, including at `x = 0`.  On the left legs the kernel is continuous on the compact
+legs, by `plusKernels_cont` at `r = 0` since `z ≠ 0` there.  On the central leg,
+`plusKernels_centralIntegrable` has integrable slices for almost every `x₀`; choose one such `x₀`
+(not necessarily `0`).  Since `exp (-π ‖x₀‖ ^ 2 t) ≥ exp (-π ‖x₀‖ ^ 2) > 0` for `0 < t ≤ 1`, the
+kernel itself is integrable along `(0, i]`, which gives the dominating function. -/
 theorem plusKernels_continuousPieces :
     Continuous (fun x : V 8 =>
       Contour.leftLegs (Contour.expKernel plusKernelLeft (‖x‖ ^ 2))) ∧
@@ -1933,12 +1935,14 @@ theorem minusKernels_integrablePieces :
       Contour.verticalRay (Contour.expKernel minusKernelRay (‖x‖ ^ 2))) := by
   sorry
 
-/-- Continuity of the left-leg and central-leg pieces of the `-1` kernels, needed for
-the pointwise Fourier inversion in `Contour.fourier_reverse`.  For `r ≥ 0` and `Im z ≥ 0`,
-`‖exp (π i r z)‖ ≤ 1`, so continuity in `r = ‖x‖ ^ 2` follows by dominated convergence with a
-dominating function independent of `r`, including at `x = 0`.  On the left legs the kernel is
-continuous on the compact legs, by `minusKernels_cont` at `r = 0` since `z ≠ 0` there; on the
-central leg it is integrable along `(0, i]`, by a slice of `minusKernels_centralIntegrable`. -/
+/-- Continuity of the left-leg and central-leg pieces of the `-1` kernels, needed for the pointwise
+Fourier inversion in `Contour.fourier_reverse`.  For `r ≥ 0` and `Im z ≥ 0`, `‖exp (π i r z)‖ ≤ 1`,
+so continuity in `r = ‖x‖ ^ 2` follows by dominated convergence with a dominating function
+independent of `r`, including at `x = 0`.  On the left legs the kernel is continuous on the compact
+legs, by `minusKernels_cont` at `r = 0` since `z ≠ 0` there.  On the central leg,
+`minusKernels_centralIntegrable` has integrable slices for almost every `x₀`; choose one such `x₀`
+(not necessarily `0`).  Since `exp (-π ‖x₀‖ ^ 2 t) ≥ exp (-π ‖x₀‖ ^ 2) > 0` for `0 < t ≤ 1`, the
+kernel itself is integrable along `(0, i]`, which gives the dominating function. -/
 theorem minusKernels_continuousPieces :
     Continuous (fun x : V 8 =>
       Contour.leftLegs (Contour.expKernel minusKernelLeft (‖x‖ ^ 2))) ∧
@@ -2237,8 +2241,10 @@ theorem plusKernels_integrablePieces :
 the pointwise Fourier inversion in `Contour.fourier_reverse`.  For `r ≥ 0` and `Im z ≥ 0`,
 `‖exp (π i r z)‖ ≤ 1`, so continuity in `r = ‖x‖ ^ 2` follows by dominated convergence with a
 dominating function independent of `r`, including at `x = 0`.  On the left legs the kernel is
-continuous on the compact legs, by `plusKernels_cont` at `r = 0` since `z ≠ 0` there; on the
-central leg it is integrable along `(0, i]`, by a slice of `plusKernels_centralIntegrable`. -/
+continuous on the compact legs, by `plusKernels_cont` at `r = 0` since `z ≠ 0` there.  On the
+central leg, `plusKernels_centralIntegrable` has integrable slices for almost every `x₀`; choose
+one such `x₀` (not necessarily `0`).  Since `exp (-π ‖x₀‖ ^ 2 t) ≥ exp (-π ‖x₀‖ ^ 2) > 0` for
+`0 < t ≤ 1`, the kernel itself is integrable along `(0, i]`, which gives the dominating function. -/
 theorem plusKernels_continuousPieces :
     Continuous (fun x : V 24 =>
       Contour.leftLegs (Contour.expKernel plusKernelLeft (‖x‖ ^ 2))) ∧
@@ -2313,8 +2319,10 @@ theorem minusKernels_integrablePieces :
 the pointwise Fourier inversion in `Contour.fourier_reverse`.  For `r ≥ 0` and `Im z ≥ 0`,
 `‖exp (π i r z)‖ ≤ 1`, so continuity in `r = ‖x‖ ^ 2` follows by dominated convergence with a
 dominating function independent of `r`, including at `x = 0`.  On the left legs the kernel is
-continuous on the compact legs, by `minusKernels_cont` at `r = 0` since `z ≠ 0` there; on the
-central leg it is integrable along `(0, i]`, by a slice of `minusKernels_centralIntegrable`. -/
+continuous on the compact legs, by `minusKernels_cont` at `r = 0` since `z ≠ 0` there.  On the
+central leg, `minusKernels_centralIntegrable` has integrable slices for almost every `x₀`; choose
+one such `x₀` (not necessarily `0`).  Since `exp (-π ‖x₀‖ ^ 2 t) ≥ exp (-π ‖x₀‖ ^ 2) > 0` for
+`0 < t ≤ 1`, the kernel itself is integrable along `(0, i]`, which gives the dominating function. -/
 theorem minusKernels_continuousPieces :
     Continuous (fun x : V 24 =>
       Contour.leftLegs (Contour.expKernel minusKernelLeft (‖x‖ ^ 2))) ∧

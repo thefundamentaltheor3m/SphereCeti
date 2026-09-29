@@ -641,7 +641,8 @@ place:
 - unbounded vertical deformations use this layer's theorems on half-infinite rectangles;
 - finite deformations under `z ↦ -1/z` use this layer's results on the wedge, which rely on
   Mathlib's Poincaré lemma for curve integrals: integrals of a closed one-form are invariant
-  under homotopy, and for a one-form `F dz` closedness amounts to holomorphy of `F`.
+  under homotopy.  For a one-form `F dz`, holomorphy of `F`, together with continuity up to the
+  closure, supplies the closedness hypotheses used here.
 
 The layer has two independent main results, one for each kind of deformation.
 
