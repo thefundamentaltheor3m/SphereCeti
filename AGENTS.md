@@ -15,7 +15,7 @@ implementations here unless they are tiny elaboration adapters needed to state t
 
 `SphereCetiRoadmap/Pinned.lean` is temporary and frozen to the public semantics of
 `Sphere-Packing-Lean@bad3de916074748eb88b7d1ee6dbf9494361ad17`.  Do not extend it with new project
-concepts.  After production migrates to the pinned 4.34 dependency line, delete it and import
+concepts.  After production migrates to the pinned 4.35 dependency line, delete it and import
 production directly.
 
 Never:

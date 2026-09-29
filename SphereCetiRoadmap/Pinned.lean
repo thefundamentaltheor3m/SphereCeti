@@ -19,7 +19,7 @@ public import TauCeti.LinearAlgebra.IntegralLattice.Unimodular
 This file is a roadmap-local model of the public definitions at
 `thefundamentaltheor3m/Sphere-Packing-Lean@bad3de916074748eb88b7d1ee6dbf9494361ad17`.
 It exists only because that production snapshot uses Lean/Mathlib `v4.32.0`, while SphereCeti
-starts at Lean `v4.34.0-rc1` and imports a recent TauCeti snapshot.
+uses Lean `v4.35.0-rc3` and imports a recent TauCeti snapshot.
 
 The structures and density definitions below pin the semantic starting point.  They are not a
 fork of the production library.  The first migration layer upgrades Sphere-Packing-Lean and then

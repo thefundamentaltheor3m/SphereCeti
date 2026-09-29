@@ -1,4 +1,4 @@
-"""Real rc1 compiled-environment regressions in disposable projects; no fixture proofs published."""
+"""Pinned-toolchain compiled-environment regressions in disposable projects; no fixture proofs published."""
 import copy
 import json
 import os

@@ -193,7 +193,7 @@ class ProfileTest(unittest.TestCase):
         (toolchain / 'bin').mkdir(parents=True)
         for name in ('lean', 'lake'):
             (toolchain / 'bin' / name).write_text('fixture binary')
-        version = 'Lean (version 4.34.0-rc1, fixture)'
+        version = 'Lean (version 4.35.0-rc3, fixture)'
         with patch.object(runner, 'ProfileSandbox') as box, \
                 patch.object(runner, 'verify_dependencies'), \
                 patch.object(runner.subprocess, 'check_output', return_value=version), \

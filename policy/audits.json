@@ -11,6 +11,7 @@
     "structureInType",
     "subsetDotNotationLinter",
     "synTaut",
+    "tacticAlt",
     "tacticDocs",
     "unusedArguments",
     "unusedHavesSuffices"

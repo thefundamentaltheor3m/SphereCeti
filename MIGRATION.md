@@ -77,9 +77,9 @@ Acceptance:
 Bump production to:
 
 ```text
-Lean       v4.34.0-rc1
-TauCeti    8671bee98125933c56b9b00a08ded873b77dd23b
-Mathlib    618f225e1ff4a6b2790a944e01b806b7c68bdc56
+Lean       v4.35.0-rc3
+TauCeti    1308f316bc62983c8350ec69f0a03dec25dbbbff
+Mathlib    b2bf051988bf69448bce88722cc09a05fea31662
 ```
 
 Scope:

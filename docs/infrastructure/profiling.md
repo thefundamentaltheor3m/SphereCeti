@@ -32,7 +32,7 @@ unique Git merge base; the plan records all four revisions. Supply full commit S
 sphereceti profile-plan --repo /path/to/git-repo --tooling "$T" --base "$B" --head "$H"
 sphereceti profile-run --repo /path/to/git-repo --tooling "$T" --base "$B" --head "$H" \
   --workspace /path/to/new-profile-run \
-  --toolchain /path/to/lean-4.34.0-rc1 \
+  --toolchain /path/to/lean-4.35.0-rc3 \
   --dependencies /path/to/prepared/.lake/packages
 ```
 

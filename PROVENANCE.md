@@ -8,14 +8,14 @@ mined.  It is a provenance ledger, not an instruction to copy an entire branch o
 ### SphereCeti toolchain
 
 ```text
-leanprover/lean4:v4.34.0-rc1
+leanprover/lean4:v4.35.0-rc3
 ```
 
 ### TauCeti
 
 ```text
 repository  https://github.com/TauCetiProject/TauCeti
-commit      8671bee98125933c56b9b00a08ded873b77dd23b
+commit      1308f316bc62983c8350ec69f0a03dec25dbbbff
 ```
 
 The commit is the complete sibling-library snapshot imported by SphereCeti.  It is not described as
@@ -27,7 +27,7 @@ The pinned TauCeti manifest resolves Mathlib to:
 
 ```text
 repository  https://github.com/leanprover-community/mathlib4
-commit      618f225e1ff4a6b2790a944e01b806b7c68bdc56
+commit      b2bf051988bf69448bce88722cc09a05fea31662
 ```
 
 SphereCeti follows that resolved revision.  It does not independently request `master` or a release
@@ -57,7 +57,7 @@ TauCeti/LinearAlgebra/IntegralLattice/Norm.lean
 TauCeti/LinearAlgebra/IntegralLattice/Gram.lean
 TauCeti/LinearAlgebra/IntegralLattice/Even.lean
 TauCeti/LinearAlgebra/IntegralLattice/Signature.lean
-TauCeti/LinearAlgebra/IntegralLattice/Isometry.lean
+TauCeti/LinearAlgebra/IntegralLattice/Isometry/Basic.lean
 TauCeti/LinearAlgebra/IntegralLattice/StandardCoordinates.lean
 TauCeti/LinearAlgebra/IntegralLattice/Dual/Basic.lean
 TauCeti/LinearAlgebra/IntegralLattice/Discriminant/*

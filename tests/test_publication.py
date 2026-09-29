@@ -117,7 +117,7 @@ class PublicationTests(unittest.TestCase):
 
     def test_endpoint_and_platform_namespace(self):
         url = p.map_url('https://cache.example/revisions', SHA)
-        self.assertIn('/thefundamentaltheor3m/SphereCeti/pt/x86_64-unknown-linux-gnu/tc/leanprover--lean4---v4.34.0-rc1/', url)
+        self.assertIn('/thefundamentaltheor3m/SphereCeti/pt/x86_64-unknown-linux-gnu/tc/leanprover--lean4---v4.35.0-rc3/', url)
         for endpoint in ('http://cache.example', 'https://user:pass@cache.example', 'https://cache.example/?q=x',
                          'https://cache.example/a/../b', 'https://cache.example/%2e%2e',
                          'https://cache.taucetiproject.org/artifacts', 'https://cache.example/\nsecret'):

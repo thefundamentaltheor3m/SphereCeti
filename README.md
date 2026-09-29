@@ -30,12 +30,12 @@ SphereCeti follows TauCetiRoadmap's mathematical and API discipline, with two ex
 
 | Component | Pin |
 |---|---|
-| Lean toolchain line | `leanprover/lean4:v4.34.0-rc1` |
-| TauCeti | `8671bee98125933c56b9b00a08ded873b77dd23b` |
-| Exact Mathlib commit resolved by that TauCeti snapshot | `618f225e1ff4a6b2790a944e01b806b7c68bdc56` |
+| Lean toolchain line | `leanprover/lean4:v4.35.0-rc3` |
+| TauCeti | `1308f316bc62983c8350ec69f0a03dec25dbbbff` |
+| Exact Mathlib commit resolved by that TauCeti snapshot | `b2bf051988bf69448bce88722cc09a05fea31662` |
 | Sphere-Packing semantic baseline | `bad3de916074748eb88b7d1ee6dbf9494361ad17` |
 
-Here “the 4.34.0-rc1 Mathlib pin” means the **Lean/Mathlib release line** selected by the toolchain,
+Here “the 4.35.0-rc3 Mathlib pin” means the **Lean/Mathlib release line** selected by the toolchain,
 while source reproducibility is supplied by the exact Mathlib commit in `lake-manifest.json`.  We do
 not add an independent floating Mathlib requirement beside TauCeti: SphereCeti must use the same
 resolved Mathlib graph as its pinned TauCeti dependency.
@@ -343,13 +343,13 @@ differentiability, and algebraic closure properties.
 ## Layer 0 — synchronized toolchain migration and direct imports
 
 **Goal:** move production `Sphere-Packing-Lean/main` from Lean/Mathlib `v4.32.0` to the exact
-4.34/TauCeti dependency graph of SphereCeti, with no mathematical redesign in the same PR.
+4.35/TauCeti dependency graph of SphereCeti, with no mathematical redesign in the same PR.
 
 Deliverables:
 
-1. bump `lean-toolchain` to `v4.34.0-rc1`;
-2. pin TauCeti to `8671bee98125933c56b9b00a08ded873b77dd23b`;
-3. resolve Mathlib to `618f225e1ff4a6b2790a944e01b806b7c68bdc56`;
+1. bump `lean-toolchain` to `v4.35.0-rc3`;
+2. pin TauCeti to `1308f316bc62983c8350ec69f0a03dec25dbbbff`;
+3. resolve Mathlib to `b2bf051988bf69448bce88722cc09a05fea31662`;
 4. repair source incompatibilities without opportunistic refactors;
 5. add [checks of required declarations and Fourier conventions](CONVENTIONS.md#declaration-and-convention-checks):
    preserve the expected types, Fourier sign, measure, and normalization constants;
@@ -774,7 +774,7 @@ The detailed main-first sequence is in [`MIGRATION.md`](MIGRATION.md).  Every pr
 | `.github/workflows/ci.yml` | Static contract check followed by Lean elaboration |
 | `lakefile.toml` | Exact TauCeti dependency |
 | `lake-manifest.json` | Full resolved pin set |
-| `lean-toolchain` | Lean `v4.34.0-rc1` |
+| `lean-toolchain` | Lean `v4.35.0-rc3` |
 
 # References
 

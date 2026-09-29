@@ -35,7 +35,7 @@ class ProjectConfigTest(unittest.TestCase):
                  original.replace('schema_version = 1', 'schema_version = 2'),
                  original.replace('library_root = "SphereCeti"', 'library_root = "../Elsewhere"'),
                  original.replace('library_root = "SphereCeti"', 'library_root = "./"'),
-                 original.replace('8671bee98125933c56b9b00a08ded873b77dd23b', 'main')]
+                 original.replace('1308f316bc62983c8350ec69f0a03dec25dbbbff', 'main')]
         for text in cases:
             with self.subTest(text=text), self.assertRaises(ConfigError):
                 parse_project(text)

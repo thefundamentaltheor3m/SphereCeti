@@ -12,9 +12,9 @@ which the roadmap is to be implemented.
 The roadmap package uses:
 
 ```text
-Lean       leanprover/lean4:v4.34.0-rc1
-TauCeti    8671bee98125933c56b9b00a08ded873b77dd23b
-Mathlib    618f225e1ff4a6b2790a944e01b806b7c68bdc56
+Lean       leanprover/lean4:v4.35.0-rc3
+TauCeti    1308f316bc62983c8350ec69f0a03dec25dbbbff
+Mathlib    b2bf051988bf69448bce88722cc09a05fea31662
 ```
 
 The Mathlib commit is not an independent choice: it is the resolved Mathlib revision in the pinned
@@ -35,7 +35,7 @@ Never use `main`, a tag that can move, or an unrecorded local checkout as the ef
 The pinned `Sphere-Packing-Lean` semantic baseline is
 `bad3de916074748eb88b7d1ee6dbf9494361ad17`.  Its Lean/Mathlib 4.32 pin requires the temporary
 statement-level model in `SphereCetiRoadmap/Pinned.lean`.  PR A2 deletes that model after the synchronized
-4.34 migration; no production theorem may depend on two competing packing implementations.
+4.35 migration; no production theorem may depend on two competing packing implementations.
 
 ### Declaration and convention checks
 
