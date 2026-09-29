@@ -10,8 +10,9 @@ formalization.  The intended production home remains
 with generic mathematics upstreamed to Mathlib or TauCeti as appropriate.
 
 `README.md` is definitive.  [`SphereCetiRoadmap/Suggested.lean`](SphereCetiRoadmap/Suggested.lean) records
-suggested declaration shapes and theorem endpoints, but it is deliberately nonexhaustive and may be
-adjusted when implementation reveals a better Mathlib-shaped API.
+suggested formal statements of the key definitions and theorems, but it is deliberately
+nonexhaustive and may be adjusted when implementation reveals a form closer to Mathlib's
+conventions.
 
 ## The two deliberate differences from TauCetiRoadmap
 
@@ -55,7 +56,7 @@ snapshot, not merely the user-facing TauCeti SHA.
 
 ## Summit statements
 
-The density endpoints are:
+The density statements are:
 
 ```lean
 theorem spherePackingConstant_eight :
@@ -76,7 +77,7 @@ theorem Leech.isOptimal :
     SpherePackingConstant 24 = Leech.packing.density
 ```
 
-The uniqueness endpoints are deliberately restricted to periodic packings:
+The uniqueness statements are deliberately restricted to periodic packings:
 
 ```lean
 theorem E8.uniqueOptimalPeriodic (P : PeriodicSpherePacking 8)
@@ -360,7 +361,8 @@ This is the only layer in which the compatibility model is tolerated.
 
 ## Layer 1 — packing API preservation and import hygiene
 
-**Goal:** stabilize the public geometric boundary before adding new mathematics.
+**Goal:** stabilize the public definitions and basic lemmas about packings before adding new
+mathematics.
 
 Deliverables:
 
@@ -528,7 +530,7 @@ single coordinate lattice; its integer matrix has determinant `8^12`.  These fin
 must use explicit Lean-checked certificates rather than relying on an unverified transcription.  No
 second opaque lattice submodule is introduced.
 
-Required endpoints:
+Required results:
 
 - even, unimodular, positive-definite;
 - minimum squared norm `4`;
@@ -560,10 +562,10 @@ Layer 8 consumes those laws directly.  No bundled kernel datum, opaque construct
 complex `eigenvalue` field is part of the target surface: the finite Fourier sign occurs in the
 transformation law that determines it.
 
-## Layer 8 — contour deformation and magic-integral transport
+## Layer 8 — contour deformation for the magic-function integrals
 
-**Goal:** provide the deformation identities that transport the magic-function contour integrals,
-stated once over a single pair of kernels.
+**Goal:** provide the contour-deformation identities used to evaluate the magic-function contour
+integrals, stated once for a single pair of kernels.
 
 All required finite deformations use straight segments and their images under the Möbius
 inversion `z ↦ -1/z`; all required unbounded deformations use axis-aligned rectangles.  No
@@ -586,7 +588,7 @@ The layer has two independent summits.
 These identities feed the vertical-line rewrites, Laplace representations, and double-zero
 arguments of Layer 9.
 
-### Finite branch: curve-integral transport and the Möbius wedge
+### Finite branch: curve integrals and the Möbius wedge
 
 - the scalar one-form of a function `F : ℂ → ℂ`, with the bridge between interval integrals over
   a parametrized segment and Mathlib curve integrals;
@@ -623,10 +625,10 @@ their Fourier behavior in even dimension `2k` from explicit hypotheses:
   left with right and central with ray at a common sign, the assembled component is a Fourier
   eigenfunction with that sign.
 
-The E8 and Leech components of Layer 9 connect to this machinery through explicit
-**characteristic equations** identifying each component with the six-piece assembly of its four
-named kernels; no bundled kernel record and no opaque constructor stands between them and the
-contour machinery.
+The E8 and Leech components of Layer 9 are given by explicit **defining formulas** identifying
+each component with the six-piece assembly of its four named kernels, so the identities above
+apply to them directly.  No structure packaging kernel data and no unspecified construction of a
+component appears among the targets.
 
 ## Layer 9 — E8 and Leech magic functions
 
@@ -648,8 +650,8 @@ For each dimension, prove:
 - the bundled Cohn--Elkies certificate with `certificate.f = magic`;
 - candidate-lattice sharpness and equality of the bound with the candidate lattice density.
 
-The exact zero set is a first-class endpoint.  Density optimality only needs weak inequalities, but
-periodic uniqueness needs to infer that every nonzero pairwise difference lies on an E8 or Leech
+The exact zero set is itself a required result.  Density optimality only needs weak inequalities,
+but periodic uniqueness needs to infer that every nonzero pairwise difference lies on an E8 or Leech
 shell.
 
 So that the stability roadmaps recorded in `UPSTREAM.md` can reuse the hard analytic work,
@@ -750,7 +752,7 @@ SphereCeti must preserve exact zero multiplicities and estimates for reuse by th
 The detailed main-first sequence is in [`MIGRATION.md`](MIGRATION.md).  Every production PR must:
 
 - begin from current `main` unless stacked on one named immediate predecessor;
-- change one mathematical boundary;
+- change one mathematical topic;
 - preserve or reduce `sorry` count;
 - record source provenance when mining `gauss2` or PR #420;
 - include small API/automation contract examples;

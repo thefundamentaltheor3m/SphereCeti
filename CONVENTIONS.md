@@ -66,9 +66,9 @@ Use:
 abbrev V (d : ℕ) := EuclideanSpace ℝ (Fin d)
 ```
 
-The coordinate index type is `Fin d`, not an arbitrary finite type at the packing boundary.  Generic
-lattice and Fourier lemmas may be stated for an arbitrary finite-dimensional real inner-product
-space and specialized at the boundary.
+The coordinate index type is `Fin d`, not an arbitrary finite type, in every statement about
+packings.  General lattice and Fourier lemmas may be stated for an arbitrary finite-dimensional real
+inner-product space and specialized to `V d` where packings enter.
 
 The standard measure on `V d` is Mathlib's additive Haar/Lebesgue measure induced by the Euclidean
 structure.  Covolume and Fourier transform theorems must use the same measure normalization.
@@ -83,7 +83,7 @@ A `SpherePacking d` stores:
 
 The packed open balls have radius `r / 2`.  Never call the stored `separation` the sphere radius.
 
-Canonical normalizations:
+Standard normalizations:
 
 | Configuration | Minimum center distance | Ball radius |
 |---|---:|---:|
@@ -124,7 +124,7 @@ center set of `P` onto the center set of `Q`, with equal separation.  Since a ge
 isometry may include translation, this is the correct notion for center sets.
 
 `SpherePacking.IsSimilar P Q` means that a positive scaling of one packing is congruent to the
-other.  Similarity is the scale-free endpoint.
+other.  Similarity is the scale-free notion of equivalence used in the uniqueness theorems.
 
 Do not identify lattices solely up to translation: a lattice is an additive subgroup through zero.
 Packing uniqueness may first translate a center to zero and then produce an isometry of the
@@ -136,7 +136,7 @@ There are two deliberately different representations.
 
 ### Real topological lattice
 
-At the packing/Poisson boundary:
+Where packings meet Poisson summation:
 
 ```lean
 Λ : Submodule ℤ (V d)
@@ -226,7 +226,7 @@ For an even integral lattice, use natural half-norm coefficients:
 shell n = {x | ‖x‖² = 2n}.
 ```
 
-Canonical data:
+Standard data:
 
 - E8: minimum squared norm `2`; shell `n = 1` has cardinality `240`.
 - Leech: minimum squared norm `4`; shell `n = 1` is empty; shell `n = 2` has cardinality `196560`.
@@ -324,11 +324,13 @@ same convention as the packing definition.
 Equality data are separate from the inequality certificate.  They include exact zero sets and,
 for a periodic finite pattern, the direct and Fourier structure-factor terms that must vanish.
 
-Construction adapters are transparent applications of their declared constructors whenever the
-required data are already available.  In particular, the E8 and Leech certificates are literal
-applications of `Certificate.ofRadial`, so their `f` projection equations follow from that
-constructor.  An opaque bootstrap adapter is accompanied by a characteristic equation in the
-structured target type; do not postulate an unrelated object and a plausible pointwise equation.
+When the data for a construction are already available, the target is defined as a direct
+application of its constructor, so that its defining equations hold by unfolding the definition.
+In particular, the E8 and Leech certificates are literally `Certificate.ofRadial` applied to their
+data, and the equations for their `f` components follow from that constructor.  A construction
+whose body is not given explicitly (a `sorry`-bodied, hence opaque, definition) must come with a
+theorem stating its defining equation in its structured type; do not postulate an unrelated
+object together with a plausible pointwise equation.
 
 ## 14. Theta series and q-expansions
 
@@ -364,7 +366,7 @@ with the power expressed in the integral-weight language available for even rank
 statement must avoid an ambiguous complex square-root branch.  In ranks 8 and 24 the weights are 4
 and 12, so ordinary natural powers suffice after the general Poisson identity is specialized.
 
-Canonical level-one identities:
+Standard level-one identities:
 
 ```text
 Θ_E8 = E₄

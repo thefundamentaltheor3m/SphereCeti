@@ -1466,15 +1466,15 @@ theorem scalar_sq (sign : FourierSign) : sign.scalar ^ 2 = 1 := by
 
 end FourierSign
 
-/- The signed transformation laws are consumed directly by the Layer 8 transport theorems.  No
-bundled kernel datum, opaque constructor, or free complex eigenvalue is part of the target
-surface: the finite Fourier sign occurs in the transformation law that determines it, and the
-concrete components connect to the contour machinery through explicit characteristic
-equations. -/
+/- The Fourier sign of each component is determined by the transformation law of its kernels
+under `z ↦ -1/z`, which the Layer 8 contour theorems take as a hypothesis.  The eigenvalue is
+therefore not a free parameter, and no structure packaging kernel data and no unspecified
+(`sorry`-bodied) construction of a component appears among the targets: each component is given
+by an explicit defining formula in terms of its kernels. -/
 
 end MagicFunction
 
-/-! ## Layer 8: contour deformation and magic-integral transport
+/-! ## Layer 8: contour deformation for the magic-function integrals
 
 All required finite deformations use straight segments and their images under the Möbius
 inversion `z ↦ -1/z`; all required unbounded deformations use axis-aligned rectangles.  The
@@ -1520,7 +1520,7 @@ theorem tendsto_top_edge_of_uniform_decay
     Tendsto (fun m : ℝ => ∫ x in x₁..x₂, f (x + m * Complex.I)) atTop (𝓝 0) := by
   sorry
 
-/-! ### Finite branch: curve-integral transport -/
+/-! ### Finite branch: curve integrals and change of variables -/
 
 /-- The scalar one-form `v ↦ F z * v` of a function `F : ℂ → ℂ`. -/
 @[expose]
@@ -1696,11 +1696,10 @@ noncomputable def sixPieceComponent (k : ℕ) (gL gR gC gRay : ℂ → ℂ) (x :
   leftLegs (expKernel gL (‖x‖ ^ 2)) + rightLegs (expKernel gR (‖x‖ ^ 2))
     + centralLeg (expKernel gC (‖x‖ ^ 2)) + verticalRay (expKernel gRay (‖x‖ ^ 2))
 
-/-- Transparent six-piece assembly: when each piece is integrable and the four piecewise Fourier
-identities exchange left with right and central with ray at the common sign, the assembled
-component is a Fourier eigenfunction with that sign.  The E8 and Leech components instantiate
-this theorem through their characteristic equations; no bundled kernel record and no opaque
-constructor stands between them and the contour machinery. -/
+/-- Six-piece assembly: when each piece is integrable and the four piecewise Fourier identities
+exchange left with right and central with ray at a common sign, the assembled component is a
+Fourier eigenfunction with that sign.  The E8 and Leech components are special cases, through
+their defining formulas as six-piece contour integrals. -/
 theorem fourier_sixPieceComponent {k : ℕ} (hk : 0 < k)
     (sign : MagicFunction.FourierSign) {gL gR gC gRay : ℂ → ℂ}
     (hintL : Integrable (fun x : V (2 * k) => leftLegs (expKernel gL (‖x‖ ^ 2))))
@@ -1776,16 +1775,16 @@ noncomputable def minusKernelCentral : ℂ → ℂ := by
 noncomputable def minusKernelRay : ℂ → ℂ := by
   sorry
 
-/-- Characteristic equation of the `+1` component: the profile is the six-piece contour
-component of its kernels.  This connects `fourier_magicPlus` to the generic Layer 8 Fourier
-identities and forbids an unconnected implementation of the profile. -/
+/-- Defining formula for the `+1` component: it is the six-piece contour integral of its four
+kernels.  Through this formula `fourier_magicPlus` follows from the general Fourier identities of
+Layer 8, so the profile cannot be implemented independently of the contour integrals. -/
 theorem magicPlus_eq_sixPieceComponent (x : V 8) :
     magicPlus x =
       Contour.sixPieceComponent 4 plusKernelLeft plusKernelRight
         plusKernelCentral plusKernelRay x := by
   sorry
 
-/-- Characteristic equation of the `-1` component. -/
+/-- Defining formula for the `-1` component as a six-piece contour integral. -/
 theorem magicMinus_eq_sixPieceComponent (x : V 8) :
     magicMinus x =
       Contour.sixPieceComponent 4 minusKernelLeft minusKernelRight
@@ -1918,8 +1917,9 @@ theorem fourier_sixPiece_minus :
   have hRayC := Contour.fourier_reverse .minus hC hRay (fun x => by simp) hCRay
   exact Contour.fourier_sixPieceComponent (by norm_num) .minus hL hR hC hRay hLR hRL hCRay hRayC
 
-/-- The Fourier eigenfunction identity for the `+1` component is glue: the characteristic
-equation, the Schwartz/function Fourier bridge, and the contour Fourier identity. -/
+/-- The `+1` component is a Fourier eigenfunction with eigenvalue `1`.  The proof only combines
+the defining formula, the agreement of the Fourier transform of a Schwartz function with the
+Fourier integral of the underlying function, and the contour Fourier identity. -/
 theorem fourier_magicPlus :
     𝓕 (magicPlus : 𝓢(V 8, ℂ)) = (magicPlus : 𝓢(V 8, ℂ)) := by
   have hchar : ⇑((magicPlus : 𝓢(V 8, ℂ))) =
@@ -1938,7 +1938,7 @@ theorem fourier_magicPlus :
     _ = (magicPlus : 𝓢(V 8, ℂ)) ξ := by
         simp only [MagicFunction.FourierSign.scalar_plus, one_mul, ← hchar]
 
-/-- The Fourier eigenfunction identity for the `-1` component, by the same glue. -/
+/-- The `-1` component is a Fourier eigenfunction with eigenvalue `-1`, by the same argument. -/
 theorem fourier_magicMinus :
     𝓕 (magicMinus : 𝓢(V 8, ℂ)) = -(magicMinus : 𝓢(V 8, ℂ)) := by
   have hchar : ⇑((magicMinus : 𝓢(V 8, ℂ))) =
@@ -2126,14 +2126,14 @@ noncomputable def minusKernelCentral : ℂ → ℂ := by
 noncomputable def minusKernelRay : ℂ → ℂ := by
   sorry
 
-/-- Characteristic equation of the dimension-24 `+1` component. -/
+/-- Defining formula for the dimension-24 `+1` component as a six-piece contour integral. -/
 theorem magicPlus_eq_sixPieceComponent (x : V 24) :
     magicPlus x =
       Contour.sixPieceComponent 12 plusKernelLeft plusKernelRight
         plusKernelCentral plusKernelRay x := by
   sorry
 
-/-- Characteristic equation of the dimension-24 `-1` component. -/
+/-- Defining formula for the dimension-24 `-1` component as a six-piece contour integral. -/
 theorem magicMinus_eq_sixPieceComponent (x : V 24) :
     magicMinus x =
       Contour.sixPieceComponent 12 minusKernelLeft minusKernelRight
@@ -2265,8 +2265,8 @@ theorem fourier_sixPiece_minus :
   have hRayC := Contour.fourier_reverse .minus hC hRay (fun x => by simp) hCRay
   exact Contour.fourier_sixPieceComponent (by norm_num) .minus hL hR hC hRay hLR hRL hCRay hRayC
 
-/-- The dimension-24 `+1` eigenfunction identity is glue over the characteristic equation and
-the contour Fourier identity. -/
+/-- The dimension-24 `+1` component is a Fourier eigenfunction with eigenvalue `1`.  The proof
+only combines the defining formula and the contour Fourier identity. -/
 theorem fourier_magicPlus :
     𝓕 (magicPlus : 𝓢(V 24, ℂ)) = (magicPlus : 𝓢(V 24, ℂ)) := by
   have hchar : ((magicPlus : 𝓢(V 24, ℂ)) : V 24 → ℂ) =
@@ -2285,7 +2285,8 @@ theorem fourier_magicPlus :
     _ = (magicPlus : 𝓢(V 24, ℂ)) ξ := by
         simp only [MagicFunction.FourierSign.scalar_plus, one_mul, ← hchar]
 
-/-- The dimension-24 `-1` eigenfunction identity, by the same glue. -/
+/-- The dimension-24 `-1` component is a Fourier eigenfunction with eigenvalue `-1`, by the same
+argument. -/
 theorem fourier_magicMinus :
     𝓕 (magicMinus : 𝓢(V 24, ℂ)) = -(magicMinus : 𝓢(V 24, ℂ)) := by
   have hchar : ((magicMinus : 𝓢(V 24, ℂ)) : V 24 → ℂ) =
@@ -2509,7 +2510,7 @@ noncomputable def orbitEmbeddingGeneratedQuotient {d : ℕ}
     P.Orbit ↪ RelativeQuotient P.lattice (generatedIntegralLattice P x₀) := by
   sorry
 
-/-- Characteristic equation for the orbit-to-relative-quotient embedding. -/
+/-- The orbit-to-relative-quotient embedding sends the orbit of `s` to the coset of `s - x₀`. -/
 theorem orbitEmbeddingGeneratedQuotient_mk {d : ℕ}
     (P : PeriodicSpherePacking d) (x₀ : V d) (hx₀ : x₀ ∈ P.centers)
     (s : P.centers) :
