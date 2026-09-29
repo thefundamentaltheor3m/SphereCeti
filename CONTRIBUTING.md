@@ -41,8 +41,8 @@ honestly.
 - Import existing pinned TauCeti declarations directly instead of restating them.
 - The temporary declarations in `SphereCetiRoadmap/Pinned.lean` model only the public statements
   of the older production release; do not add new mathematics there.
-- Prefer `example` for final statements whose namespace is not settled, and named definitions
-  only for objects whose definition is fixed.
+- Prefer `example` for final statements whose namespace is not settled, and named declarations
+  only for objects whose name and type are settled.
 
 ## Pin updates
 

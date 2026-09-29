@@ -174,8 +174,8 @@ Do not:
 
 - use `gauss2` as the base branch for new production work;
 - assume every namespace or helper abstraction on the branch is the desired public API;
-- combine reconstructing the branch's history, toolchain migration, directory movement, and a hard
-  proof in one PR.
+- combine digging through the branch's history, toolchain migration, directory movement, and a
+  hard proof in one PR.
 
 ## 5. PR #420
 

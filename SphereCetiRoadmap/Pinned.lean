@@ -16,15 +16,16 @@ public import TauCeti.LinearAlgebra.IntegralLattice.Unimodular
 /-!
 # Temporary copy of the Sphere-Packing-Lean definitions
 
-This file reproduces the public definitions of
-`thefundamentaltheor3m/Sphere-Packing-Lean@bad3de916074748eb88b7d1ee6dbf9494361ad17`.
+This file restates the public definitions of
+`thefundamentaltheor3m/Sphere-Packing-Lean@bad3de916074748eb88b7d1ee6dbf9494361ad17`; a few,
+such as `E8Lattice` and `E8Packing`, are placeholders whose bodies are `sorry`.
 It exists only because that version of Sphere-Packing-Lean uses Lean/Mathlib `v4.32.0`, while
 SphereCeti uses Lean `v4.35.0-rc3` together with a recent TauCeti version, so the library cannot
 yet be imported directly.
 
 The structures and density definitions below fix the starting definitions.  They are not a
 separate version of the library: once Sphere-Packing-Lean is built on the same Lean and Mathlib
-versions (the first step of `MIGRATION.md`), every use of this namespace is replaced by a direct
+versions (PR A1 in `MIGRATION.md`), every use of this namespace is replaced by a direct
 import of the corresponding Sphere-Packing-Lean declaration.  No theorem may rely on how a
 definition here unfolds, since that detail may differ from Sphere-Packing-Lean; only the stated
 properties may be used.

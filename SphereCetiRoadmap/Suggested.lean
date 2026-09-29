@@ -28,13 +28,13 @@ public import Mathlib.NumberTheory.ModularForms.EisensteinSeries.QExpansion
 /-!
 # Suggested SphereCeti target statements
 
-This file states the definitions and theorems that the roadmap asks to be formalized, with
-`sorry` in place of the proofs: sphere packings and their densities, lattices and their duals,
-the Cohn--Elkies bound, lattice theta series, the E8 and Leech lattices, the contour integrals
-defining the magic functions, the equality case, and the main theorems on optimality and periodic
-uniqueness in dimensions 8 and 24.  The accompanying `README.md` is the definitive roadmap.  The
-statements here are suggestions and deliberately nonexhaustive; names and argument order may
-change when implementation reveals a form closer to Mathlib's conventions.
+This file states the definitions and theorems that the roadmap asks to be formalized, with `sorry`
+in place of the proofs and of some definitions: sphere packings and their densities, lattices and
+their duals, the Cohn--Elkies bound, lattice theta series, the E8 and Leech lattices, the contour
+integrals defining the magic functions, the equality case, and the main theorems on optimality and
+periodic uniqueness in dimensions 8 and 24.  The accompanying `README.md` is the definitive
+roadmap.  The statements here are suggestions and deliberately nonexhaustive; names and argument
+order may change when implementation reveals a form closer to Mathlib's conventions.
 
 Unlike an ordinary TauCetiRoadmap target file, this package imports a fixed version of TauCeti,
 the one named in `lakefile.toml`.  The temporary namespace `SphereCeti.Pinned` reproduces the
@@ -702,8 +702,8 @@ namespace ThetaSeries
 variable {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E] [FiniteDimensional ℝ E]
   [MeasurableSpace E] [BorelSpace E]
 
-/-- Temporary local copy of the roadmap's `dual`, to be replaced by the TauCeti import: literally
-Mathlib's `BilinForm.dualSubmodule` for the inner product, and definitionally
+/-- Temporary local copy of the roadmap's `dual`, to be replaced by the TauCeti import.  It is
+literally Mathlib's `BilinForm.dualSubmodule` for the inner product, and definitionally
 `EuclideanLattice.dual` in the ambient packing space. -/
 @[expose] def dual (L : Submodule ℤ E) : Submodule ℤ E :=
   LinearMap.BilinForm.dualSubmodule (innerₗ E) L
@@ -1194,15 +1194,15 @@ noncomputable def integralLattice : TauCeti.IntegralLattice (Fin 24 → ℚ) := 
   sorry
 
 /-- Assumed theorem, that is, an unproved roadmap target on which the Leech uniqueness proof
-relies: every positive-definite even unimodular lattice of rank 24 without roots (vectors of norm
-`2`) is isometric to the Leech lattice.  Its intended home is an extension of TauCeti's Integral
-Lattices roadmap proving that Niemeier's list is complete: that roadmap defines the twenty-four
-Niemeier lattices but does not prove completeness, so this statement remains a required
+relies: every positive-definite even unimodular lattice of rank 24 without roots (vectors of
+squared norm `2`) is isometric to the Leech lattice.  Its intended home is an extension of TauCeti's
+Integral Lattices roadmap proving that Niemeier's list is complete: that roadmap defines the
+twenty-four Niemeier lattices but does not prove completeness, so this statement remains a required
 dependency here.  SphereCeti uses only this statement and does not restate the list of Niemeier
 lattices or the case analysis.  If TauCeti has not provided the result when the production
 uniqueness proof needs it, production proves it locally with exactly this statement and replaces
-the local proof by an import once TauCeti provides the result.
-Positive-definiteness supplies nondegeneracy internally. -/
+the local proof by an import once TauCeti provides the result.  Positive-definiteness supplies
+nondegeneracy internally. -/
 theorem rootless_even_unimodular_rank_twentyFour_unique
     {W : Type u} [AddCommGroup W] [Module ℚ W]
     (L : TauCeti.IntegralLattice W) (hrank : Module.finrank ℚ W = 24)
@@ -1483,9 +1483,10 @@ end FourierSign
 
 /- The Fourier sign of each component is determined by the transformation law of its kernels
 under `z ↦ -1/z`, which the Layer 8 contour theorems take as a hypothesis.  The eigenvalue is
-therefore not a free parameter, and neither a structure packaging kernel data nor a construction
-of a component whose output is left unspecified appears among the targets: each component is
-given by an explicit defining formula in terms of its kernels. -/
+therefore not a free parameter, and no structure packaging kernel data appears among the
+targets.  Each component is built from a radial profile whose body is `sorry`, and comes with a
+theorem, its defining formula, identifying it with the six-piece contour integral of its
+kernels. -/
 
 end MagicFunction
 
@@ -1499,7 +1500,7 @@ the production `SpherePacking.Contour` and `SpherePacking.Integration` namespace
 
 namespace Contour
 
-/-! ### Mathlib results used by the two contour tools -/
+/-! ### Mathlib declarations used by the two kinds of contour deformation -/
 
 #check @Complex.integral_boundary_rect_eq_zero_of_differentiable_on_off_countable
 #check @curveIntegral
@@ -1560,17 +1561,17 @@ theorem curveIntegral_segment_change_of_variables
       = ∫ᶜ z in (Path.segment a b).map' hf, scalarOneForm G z := by
   sorry
 
-/-- Closedness of a one-form on a set, combined in one structure: differentiability with
-continuity up to the closure, and symmetry of the within-derivative on tangent vectors.  This local
-structure packages the hypotheses of Mathlib's curve-integral Poincaré lemma, which takes them
+/-- Closedness of a one-form on a set, as one structure combining two hypotheses: differentiability
+with continuity up to the closure, and symmetry of the within-derivative on tangent vectors.  This
+local structure packages the hypotheses of Mathlib's curve-integral Poincaré lemma, which takes them
 separately. -/
 structure ClosedOneFormOn (ω : ℂ → ℂ →L[ℂ] ℂ) (s : Set ℂ) : Prop where
   diffContOnCl : DiffContOnCl ℝ ω s
   symm : ∀ x ∈ s, ∀ u ∈ tangentConeAt ℝ s x, ∀ v ∈ tangentConeAt ℝ s x,
     fderivWithin ℝ ω s x u v = fderivWithin ℝ ω s x v u
 
-/-- Sufficient condition: differentiability with closure continuity of `F` makes its scalar
-one-form closed.  The converse is not a target. -/
+/-- Sufficient condition: complex differentiability (holomorphy) of `F` on `s` with continuity on
+the closure makes its scalar one-form closed.  The converse is not a target. -/
 theorem ClosedOneFormOn.of_diffContOnCl {F : ℂ → ℂ} {s : Set ℂ}
     (hF : DiffContOnCl ℂ F s) : ClosedOneFormOn (scalarOneForm F) s := by
   sorry
@@ -1615,7 +1616,7 @@ noncomputable def rightLegs (Ψ : ℂ → ℂ) : ℂ :=
     + ∫ᶜ z in Path.segment (1 + Complex.I) Complex.I, scalarOneForm Ψ z
 
 /-- Signed contour permutation for a single pair of kernels: under the signed transformation law
-under `z ↦ -1/z` on the upper half-plane, with `Ψ` continuous on the left legs and the
+for `z ↦ -1/z` on the upper half-plane, with `Ψ` continuous on the left legs and the
 transported one-form closed on the wedge, the sum of the two left-leg integrals equals the
 correspondingly signed sum of the two right-leg integrals.  Radial families are special cases of
 this statement. -/

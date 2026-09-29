@@ -21,32 +21,35 @@ Readers who do not use Lean may find the following conventions helpful.
 
 - **Mathlib, TauCeti, Sphere-Packing-Lean.**  Mathlib is Lean's general mathematics library;
   TauCeti is a library built on Mathlib and developed from coordinated roadmaps like this one;
-  Sphere-Packing-Lean is the existing formalization of the dimension-8 proof, called the
+  Sphere-Packing-Lean is the existing project formalizing the dimension-8 proof, called the
   *production* repository because the mathematics of this roadmap is to be implemented there.
 - **Upstream.**  Mathlib and TauCeti, the libraries this project builds on.  A result goes
   upstream when it is contributed there; [`UPSTREAM.md`](UPSTREAM.md) lists the candidates.
 - **Layers, phases, and PRs.**  The roadmap is organized in *layers*, stages of the mathematics,
   each building on the earlier ones.  [`MIGRATION.md`](MIGRATION.md) divides the implementation
   into *phases* of planned *pull requests* (PRs), each a single reviewed contribution of code.
-- **Targets and `sorry`.**  A target is a definition or theorem the roadmap asks to be
-  formalized.  In `Suggested.lean` each target is stated precisely and its proof, or the body of
-  a definition, is `sorry`, Lean's placeholder for missing work.  Lean checks that each statement
-  is well-formed and type-correct, not that it is true or that it is the intended one; that is for
+- **Targets and `sorry`.**  A target is a definition or theorem the roadmap asks to be formalized.
+  In `Suggested.lean` each target is stated precisely and its proof, or the body of a definition, is
+  usually `sorry`, Lean's placeholder for missing work.  Lean checks that each statement is
+  well-formed and type-correct, not that it is true or that it is the intended one; that is for
   human review.  A proof that relies on other targets is complete only once those are proved.  A
   definition whose body is `sorry` unfolds only to that placeholder, so it determines nothing, and
   any property it must have is stated as a separate theorem.
 - **Assumed theorem.**  An unproved roadmap target on which another proof relies, such as the
   classification of even unimodular lattices of rank 8.  It is a statement still to be proved,
   here or in the library named as its intended home; it is never introduced as a named axiom, and
-  Lean reports every proof depending on it as incomplete until it is proved.
+  until it is proved, `#print axioms` and the compiled audit list `sorryAx` among the axioms of
+  every proof depending on it.
 - **`#check` lines.**  A `#check` line makes the build fail unless the named declaration exists,
   and displays its type for comparison with the intended statement.
-- **Fixed ("pinned") versions.**  Lean, Mathlib, TauCeti and Sphere-Packing-Lean are used at
-  specific commits, listed below, so that every statement is checked against exactly the same
-  libraries.
+- **Fixed ("pinned") versions.**  The Lean toolchain, TauCeti, and the Mathlib commit TauCeti
+  resolves to are fixed at the versions listed below, so that every statement is checked against
+  exactly the same libraries.  The Sphere-Packing-Lean baseline is likewise a fixed commit, whose
+  definitions `Pinned.lean` restates.
 - **Structures, fields, constructors.**  A *structure* bundles data with required properties; its
   components are called *fields* (unrelated to algebraic fields), and a *constructor* builds an
-  element of the structure from its fields.
+  element of the structure: the basic one from the fields themselves, and derived constructors,
+  such as `Certificate.ofRadial`, from other data.
 - **Cohn--Elkies certificate.**  `CohnElkies.Certificate d r` consists of a Schwartz function `f`
   on `ℝ^d` together with the properties the Cohn--Elkies bound requires of it: `r > 0`; `f` and its
   Fourier transform `f̂` are real-valued; `f(x) ≤ 0` whenever `‖x‖ ≥ r`; `f̂ ≥ 0` everywhere; and
@@ -54,16 +57,17 @@ Readers who do not use Lean may find the following conventions helpful.
 - **Direct side, Fourier side, shells.**  Statements about `f` are on the *direct side* and
   statements about `f̂` on the *Fourier side*.  A *shell* of a lattice is the set of its vectors of
   a given squared norm; for E8 and Leech the nonzero shells have squared norms `2n`.
-- **Kernels.**  Besides the Fourier kernel, *kernel* refers to the modular-form expressions `g`
-  in the contour integrals `∫ g(z) exp(πi‖x‖²z) dz` defining the magic functions.
+- **Kernels.**  Besides the Fourier kernel, *kernel* refers to the expressions `g`, built from
+  quasimodular and weakly holomorphic modular forms, in the contour integrals
+  `∫ g(z) exp(πi‖x‖²z) dz` defining the magic functions.
 - **Chosen representatives.**  Where an argument needs one center from each orbit of the period
   lattice, it uses a chosen representative.  The quotient of the centers by the period lattice is
   the canonical object, and every stated result is independent of the choice.
 - **Values outside the domain.**  Lean's functions are defined everywhere: division by zero, the
   integral of a non-integrable function, and the derivative at a point of non-differentiability
   are given conventional values (usually `0`).  Statements therefore carry explicit integrability
-  and differentiability hypotheses, so that they are not satisfied vacuously through these
-  conventions.
+  and differentiability hypotheses, so that they do not become true, or false, merely because of
+  these conventions.
 - **Automation attributes.**  `@[simp]`, `@[grind]` and `@[fun_prop]` register a lemma with Lean's
   automatic rewriting and proof-search tools.  They change how proofs are found, not what is true.
 - **Coercions and `ℝ≥0∞`.**  A coercion is an implicit map, such as `ℕ → ℝ` or the inclusion of a
@@ -473,10 +477,10 @@ Deliverables:
 
 - `PeriodicSpherePacking.ofZLattice`;
 - the existing finite quotient `Quotient P.addAction.orbitRel`, exposed as `P.Orbit`, with the
-  chosen representative `P.orbitRep` (through `Quotient.out`), with every statement that uses it
-  choice-independent at dual frequencies; production's
-  basis-relative fundamental-domain representatives realize the same quotient through
-  `addActionOrbitRelEquiv'`, and no separate pattern structure exists;
+  chosen representative `P.orbitRep` (through `Quotient.out`); every statement using it is
+  independent of the choice at dual frequencies.  Production's basis-relative fundamental-domain
+  representatives realize the same quotient through `addActionOrbitRelEquiv'`, and no separate
+  pattern structure exists;
 - `P.numOrbits = Fintype.card P.Orbit`;
 - the canonical center intensity
   `P.centerIntensity = P.numOrbits / ZLattice.covolume P.lattice`;
@@ -619,9 +623,9 @@ Common definitions and lemmas:
 - q-expansion Big-O estimates for cusp decay.
 
 The concrete `+1` and `-1` components expose their exact signed kernel transformation laws, and
-Layer 8 uses those laws directly.  No structure packaging kernel data, no constructor whose
-output is left unspecified, and no free complex `eigenvalue` field is among the targets: the
-finite Fourier sign occurs in the transformation law that determines it.
+Layer 8 uses those laws directly.  No structure packaging kernel data, no component left as
+`sorry` without a defining formula, and no free complex `eigenvalue` field is among the targets:
+the finite Fourier sign occurs in the transformation law that determines it.
 
 ## Layer 8 — contour deformation for the magic-function integrals
 
@@ -630,8 +634,9 @@ integrals, stated once for a single pair of kernels.
 
 All required finite deformations use straight segments and their images under the inversion
 `z ↦ -1/z`; all required unbounded deformations use half-infinite axis-aligned rectangles.  The
-images of segments under `z ↦ -1/z` are circular arcs, but they occur only inside proofs; no
-circular-arc contour is a target.  Each kind of deformation is proved in exactly one place:
+images of the left and right legs under `z ↦ -1/z` are circular arcs, but they occur only inside
+proofs; no circular-arc contour is a target.  Each kind of deformation is proved in exactly one
+place:
 
 - unbounded vertical deformations use this layer's theorems on half-infinite rectangles;
 - finite deformations under `z ↦ -1/z` use this layer's results on the wedge, which rely on
@@ -691,10 +696,11 @@ their Fourier behavior in even dimension `2k` from explicit hypotheses:
   left with right and central with ray at a common sign, the assembled component is a Fourier
   eigenfunction with that sign.
 
-The E8 and Leech components of Layer 9 are given by explicit **defining formulas** identifying
-each component with the six-piece assembly of its four named kernels, so the identities above
-apply to them directly.  No structure packaging kernel data and no unspecified construction of a
-component appears among the targets.
+Each E8 and Leech component of Layer 9 comes with a theorem, its **defining formula**,
+identifying it with the six-piece assembly of its four named kernels, so the identities above
+apply to it directly.  In `Suggested.lean` each component is built from a radial profile whose
+body is `sorry`, so the defining formula is what determines it.  No structure packaging kernel
+data appears among the targets, and no component lacks a defining formula.
 
 ## Layer 9 — E8 and Leech magic functions
 
@@ -844,9 +850,9 @@ The detailed main-first sequence is in [`MIGRATION.md`](MIGRATION.md).  Every pr
 | `MIGRATION.md` | Main-first targeted PR sequence |
 | `PROVENANCE.md` | Source and dependency record |
 | `UPSTREAM.md` | Issue-ready list of Mathlib/TauCeti upstream candidates |
-| `VALIDATION.md` | Static contract and Lean-elaboration validation record |
-| `scripts/check_roadmap.py` | Deterministic pin, link, and target-shape contract check |
-| `.github/workflows/ci.yml` | Static contract check followed by Lean elaboration |
+| `VALIDATION.md` | Static consistency check and Lean-elaboration validation record |
+| `scripts/check_roadmap.py` | Deterministic check of pins, links, and required declarations |
+| `.github/workflows/ci.yml` | Static consistency check followed by Lean elaboration |
 | `lakefile.toml` | Exact TauCeti dependency |
 | `lake-manifest.json` | Full resolved pin set |
 | `lean-toolchain` | Lean `v4.35.0-rc3` |
