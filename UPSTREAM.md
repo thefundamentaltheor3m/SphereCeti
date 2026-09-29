@@ -3,13 +3,15 @@
 This file lists results and topics intended for Mathlib or TauCeti, each described so that it
 can be filed as an issue.  It deliberately does **not** create a parallel directory tree of
 upstream roadmaps.  Each item records the intended home, a precise statement or scope, and the
-local version SphereCeti uses until the item lands upstream; the items are not ordered.  Filing an
-item as an issue does not commit Mathlib or TauCeti to accepting it.
+fallback used if the item has not landed upstream when it is needed (a local version, or an
+existing TauCeti import); the items are not ordered.  Filing an item as an issue does not commit
+Mathlib or TauCeti to accepting it.
 
 The list follows two rules:
 
-1. SphereCeti never waits for upstream work.  When a general theorem is needed, prove it locally,
-   stated in the form intended for its upstream home, and keep the proof usable.
+1. SphereCeti never waits for upstream work.  When the production development needs a general
+   theorem, it proves it locally, stated in the form intended for its upstream home, and keeps the
+   proof usable.
 2. Contributing a result upstream lets the local proof be replaced by an import; it is not part of
    the proof of the sphere-packing main theorems.
 
@@ -175,7 +177,7 @@ inner-product space
 
 - [ ] **Destination:** the TauCeti ThetaSeries roadmap, where general real-lattice duality,
   Poisson summation, theta series, transformation laws, the modular theta form, and the
-  rank-8/rank-24 classifications are developed.
+  rank-8/rank-24 classifications are to be developed.
 - [ ] **SphereCeti use:** the provisional local statements in the `ThetaSeries` namespace of
   `Suggested.lean` are stated to match that roadmap's targets; the presentation bridges and
   E8/Leech corollaries use them.
@@ -256,9 +258,10 @@ SphereCeti.
   - isometry from equality of Gram data;
   - invariance of evenness, unimodularity, and rank.
 - [ ] **Why TauCeti:** the statement mentions no real packing, density, or Fourier analysis.
-- [ ] **SphereCeti fallback:** prove the theorem locally, with its conclusion stated as an
-  `IntegralLattice.Isometry` exactly as upstream, and delete the local version once TauCeti
-  provides it.
+- [ ] **Fallback:** if TauCeti has not provided it when the production uniqueness proof needs
+  it, production proves it locally, with its conclusion stated as an `IntegralLattice.Isometry`
+  exactly as intended upstream, and replaces the local proof by an import once TauCeti provides
+  it.
 - [ ] **Not the preferred proof:** a mass-formula proof would require much more infrastructure and
   yields less explicit data for transporting packings.
 
@@ -271,12 +274,13 @@ SphereCeti.
   with no norm-`2` vectors is isometric to the Leech lattice.
 - [ ] **Implementation route:** Niemeier classification with the exact 24-case root-system list,
   canonical lattices constructed from their glue codes, and an integral-lattice classification
-  isometry; the enumeration of the cases and the selection of the matching case are developed
-  upstream, not in SphereCeti.
+  isometry; the enumeration of the cases and the selection of the matching case are to be
+  developed upstream, not in SphereCeti.
 - [ ] **Required isolation theorem:** the norm-`2` root set is empty if and only if the classified
   Niemeier type is Leech.
-- [ ] **SphereCeti fallback:** a local theorem, stated and namespaced in the form intended for
-  upstream, never an axiom.
+- [ ] **Fallback:** if TauCeti has not provided it when the production uniqueness proof needs
+  it, production proves it locally, stated and namespaced in the form intended upstream, never as
+  an axiom, and replaces the local proof by an import once TauCeti provides it.
 
 ### B3. Canonical E8 integral lattice from root-system data
 

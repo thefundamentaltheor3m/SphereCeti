@@ -519,15 +519,15 @@ Collect:
 
 ### PR J4 — segment integrals, scalar one-forms, and change of variables
 
-Prove the curve-integral change-of-variables results:
+Add the following curve-integral definitions and results:
 
 - the scalar one-form `F(z) dz` of a complex function;
 - the identification of Mathlib curve integrals along a segment with parametrized interval
   integrals;
 - change of variables along a segment, with a genuine derivative (chain-rule) hypothesis;
 - the structure recording that a one-form is closed, and the implication that a function
-  differentiable on a set and continuous on its closure has a closed scalar one-form there (the
-  converse is not a target).
+  complex-differentiable (holomorphic) on a set and continuous on its closure has a closed scalar
+  one-form there (the converse is not a target).
 
 ### PR J5 — the inversion `z ↦ -1/z`, the wedge, and the signed permutations
 
@@ -816,7 +816,7 @@ After A1:
 Every nontrivial PR must state:
 
 ```text
-Mathematical statement:
+Mathematical topic:
 Dependency/stacking:
 Public declarations added or changed:
 Compatibility aliases:
