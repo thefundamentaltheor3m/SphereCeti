@@ -274,7 +274,8 @@ SphereCeti.
 
 ### B1. E8 as the unique positive-definite even unimodular rank-eight lattice
 
-- [ ] **Destination:** extension of `TauCetiRoadmap/IntegralLattices`.
+- [ ] **Destination:** `TauCetiRoadmap/IntegralLattices`, milestone 6C, which plans a
+  theta-independent proof and is unfinished (watchlist G).
 - [ ] **Target statement:** every positive-definite even unimodular integral lattice of rank `8` is
   integrally isometric to a canonical E8 integral lattice.
 - [ ] **Required supporting results:**
@@ -340,7 +341,8 @@ SphereCeti.
 - [ ] **Remaining candidate: the kissing number.**  `leechLattice.kissingNumber = 196560`, for
   TauCeti's `IntegralLattice.kissingNumber`.  The minimum and the absence of roots are upstream; the
   count is not.  SphereCeti states it as an algebraic target, with the real-shell count as a
-  corollary, and does not need it for optimality.
+  corollary, and does not need it for optimality.  ThetaSeries 8D, `repNum_four_rank_24_rootless`,
+  would give the real count for `Leech.lattice` directly (watchlist G).
 
 ### B5. Integral-presentation bridge to the ThetaSeries roadmap
 
@@ -353,9 +355,9 @@ SphereCeti.
   namespace.
 - [ ] **Status:** the real predicates `ZLattice.IsIntegral`, `ZLattice.IsEven`, and
   `ZLattice.IsUnimodular` are in TauCeti at the pin.  TauCeti PR #20950 (open) proposes the
-  rational model `ratModel` of a real integral lattice with comparisons of its invariants; when it
-  lands, SphereCeti's `IntegralPresentation` is compared with it rather than kept as a competing
-  conversion.
+  rational model `ratModel` of a real integral lattice with comparisons of its invariants.  It
+  supplies part of the bridge, not all of it: when it lands, SphereCeti reuses its construction and
+  comparisons, and keeps the parts of `IntegralPresentation` that it does not cover (watchlist G).
 
 ## C. TauCeti coding-theory and code-lattice roadmap
 
@@ -380,7 +382,8 @@ SphereCeti.
   `eight_le_hammingNorm`, and `weightEnumerator_code`
   (`Binary/Golay/Basic.lean`).  It was already present at the previous pin `1308f31`.
   SphereCeti adopts it as the canonical code and states that its cyclic-generator description is
-  permutation equivalent to it, with TauCeti's `IsPermutationEquivalent` (`Coding/Equivalence.lean`).
+  permutation equivalent to it, with TauCeti's `IsPermutationEquivalent`
+  (`Coding/Equivalence.lean`).
 
 ### C3. Code-lattice constructions
 
@@ -486,3 +489,71 @@ Deletion/import payoff after landing:
 
 Mark an item complete here only after SphereCeti has switched to the upstream declaration or has
 explicitly decided that the local version is permanent.
+
+## G. Resync watchlist
+
+Upstream work that would let a local target be replaced by an import, or would change what
+SphereCeti imports.  As checked at TauCeti `8384538` (`main`, 2026-10-25) and TauCetiRoadmap
+`6493273`.  Between the pin `271e1af` and `8384538`, no TauCeti lattice, theta, Golay, or Leech
+file changed, so the pin stands.  Open PRs make a watchlist, not a forecast of what will merge.
+Re-pin when an entry below lands and SphereCeti is ready to use it; a landed prerequisite does not
+complete the milestone it serves.  Each entry gives the upstream milestone or PR, its exact
+declarations, the local targets it affects, and what remains to be bridged.
+
+- **ThetaSeries 1F, TauCeti PR #19284 (open).**  `SchwartzMap.gaussian`,
+  `SchwartzMap.gaussian_apply`, `TauCeti.fourier_gaussian_of_im_pos`, and
+  `TauCeti.fourier_gaussian_of_im_pos_of_finrank_eq_two_mul`.  Affects no local target directly:
+  it is the Gaussian input to 4B, not 4B.
+- **ThetaSeries 4B (no PR).**  Roadmap `thetaSeries_neg_inv`.  Replaces the local
+  `ThetaSeries.thetaSeries_neg_inv`.  The roadmap writes the argument as `⟨-1 / τ, _⟩`, the local
+  target as `ModularGroup.S • τ`; restate against whichever form lands.
+- **ThetaSeries 5B and 5C (no PR).**  Roadmap `thetaForm`, `qExpansion_thetaForm_coeff`, and
+  `thetaForm_ne_zero`.  Replace the local `thetaForm`, `coe_thetaForm`, and
+  `qExpansion_thetaForm_coeff`.
+- **ThetaSeries 5D, TauCeti PR #21080 (open, marked partial).**
+  `ModularForm.existsUnique_finsupp_E₄_discriminant` and
+  `ModularForm.linearIndepOn_E₄_pow_mul_discriminant_pow`, for level-one forms of weight divisible
+  by `4`.  Affects no local target directly.  The theta application, roadmap
+  `existsUnique_finsupp_thetaForm`, still needs 5B.
+- **ThetaSeries 8A to 8D (no PR).**  Roadmap `thetaForm_eq_E₄`, `repNum_two_rank_eight`,
+  `thetaForm_rank_24`, `coe_thetaForm_rank_24_rootless`, and `repNum_four_rank_24_rootless`.  These
+  are stated for every even unimodular (and, for 8D, rootless) real lattice of the given rank, so
+  they apply to `Leech.lattice` directly; no comparison with another Leech model is needed.  They
+  replace the local `thetaForm_eq_E₄`, `representationNumber_two_rank_eight`, `thetaForm_rank_24`,
+  and `coe_thetaForm_rank_24_rootless`, and give `Leech.shellCard_four`.  Remaining bridge: the
+  hypotheses for `Leech.lattice` (evenness and unimodularity through `integralPresentation`, and no
+  norm-`2` vectors through `representationNumber_lattice` and `vectorsOfNorm_two_leechLattice`), and
+  `Leech.kissingNumber_integralLattice` from the real count through `representationNumber_lattice`
+  and `minimum_leechLattice`.
+- **ThetaSeries 2D, TauCeti PR #20950 (open).**  `TauCeti.ThetaSeries.ratModel`,
+  `ratModelCarrierEquiv`, `isPosDef_ratModel`, `isEven_ratModel_iff`, `isUnimodular_ratModel_iff`,
+  `finrank_ratModel`, `determinant_ratModel`, and `discriminant_ratModel`.  Supplies part of the
+  bridge, on a different carrier: `IntegralPresentation.toIntegralLattice` lives on `Fin d → ℚ`
+  (from the Gram matrix), while `ratModel` lives on `ℚ ⊗[ℤ] Λ`.  Before its invariant comparisons
+  can serve `isEven_real`, `isUnimodular_real`, and `covolume_sq_eq_discriminant`, SphereCeti needs
+  an `IntegralLattice.Isometry` from `P.toIntegralLattice` to `ratModel`, induced by `P.basis`.  It
+  does not replace `IntegralPresentation`.  The PR leaves the converse `realModel`, the inverse and
+  isometry results, dual transport, and shell comparisons for later, so `carrierEquiv`,
+  `dualCarrierEquiv`, `shellEquiv`, and `realIsometryOfIsometry` stay local, as do the explicit
+  basis and Gram matrix of `IntegralPresentation.ofBasis`.
+- **IntegralLattices 6C (planned; no PR, no declaration named in its `Suggested.lean`).**  The
+  milestone plans a proof that a positive definite unimodular lattice of rank at most `9` is `Iₙ`,
+  `E₈`, or `E₈ ⊕ I₁`, hence that `E₈` is the unique even unimodular lattice of rank `8`; there is
+  no theorem to import yet.  It would replace `E8.even_unimodular_rank_eight_unique` (B1).  Its
+  planned route, O'Meara's or the root-system one, is theta-independent: the IntegralLattices
+  roadmap excludes ThetaSeries as a dependency.  Importing it would remove the theta identities
+  from the E8 classification chain, since the `240` roots of an arbitrary even unimodular
+  rank-`8` lattice would then follow from the isometry and `kissingNumber_typeE₈RootLattice`.
+  Remaining bridge: its `E₈` must be `typeE₈RootLattice` or be connected to it (IntegralLattices
+  6F).
+- **Root lattices, TauCeti PR #21251 (open).**  New: the uniform root equivalence
+  `TauCeti.DynkinType.rootLatticeRootEquiv` and count `representationNumber_rootLattice_two`.  The
+  bridge `rootLattice_E8 : E8.rootLattice ht = typeE₈RootLattice` already exists at the pin
+  (`RootLattice/Dynkin.lean`).  Additive; after it lands, check that `typeE₈RootEquiv` and
+  `kissingNumber_typeE₈RootLattice` keep their names and statements.
+- **Additive theta and lattice API, no local target affected:** TauCeti PRs #19380 (orthogonal
+  direct sum), #20860 (scaling), #20694 (level), #20834 (rank-one theta series), and #20976 (Gauss
+  sums of an even lattice).
+- **Neither cited roadmap supplies rank-`24` completeness:** the rootless rank-`24` classification
+  `Leech.rootless_even_unimodular_rank_twentyFour_unique` (B2).  IntegralLattices 6E and the
+  Rank24LatticeConstructions roadmap both state that they prove no completeness theorem.
