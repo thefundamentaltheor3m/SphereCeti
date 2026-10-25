@@ -399,11 +399,6 @@
     },
     {
       "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.E8.integralLattice",
-      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
-    },
-    {
-      "moduleName": "SphereCetiRoadmap.Suggested",
       "name": "SphereCeti.Suggested.E8.integralLatticeIsometry",
       "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
     },
@@ -734,12 +729,17 @@
     },
     {
       "moduleName": "SphereCetiRoadmap.Suggested",
+      "name": "SphereCeti.Suggested.EuclideanLattice.IntegralPresentation.isEven_real",
+      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
+    },
+    {
+      "moduleName": "SphereCetiRoadmap.Suggested",
       "name": "SphereCeti.Suggested.EuclideanLattice.IntegralPresentation.isPosDef",
       "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
     },
     {
       "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.EuclideanLattice.IntegralPresentation.isRootless_iff_normSqShell_two_empty",
+      "name": "SphereCeti.Suggested.EuclideanLattice.IntegralPresentation.isRootless_iff_shell_two_eq_empty",
       "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
     },
     {
@@ -749,12 +749,12 @@
     },
     {
       "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.EuclideanLattice.IntegralPresentation.mem_dual_iff_exists_dualCarrier_coordinates",
+      "name": "SphereCeti.Suggested.EuclideanLattice.IntegralPresentation.isUnimodular_real",
       "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
     },
     {
       "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.EuclideanLattice.IntegralPresentation.normSqShellEquiv",
+      "name": "SphereCeti.Suggested.EuclideanLattice.IntegralPresentation.mem_dual_iff_exists_dualCarrier_coordinates",
       "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
     },
     {
@@ -784,52 +784,12 @@
     },
     {
       "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.EuclideanLattice.covolume_dual",
-      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
-    },
-    {
-      "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.EuclideanLattice.dualDiscrete",
-      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
-    },
-    {
-      "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.EuclideanLattice.dualIsZLattice",
-      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
-    },
-    {
-      "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.EuclideanLattice.dual_dual",
+      "name": "SphereCeti.Suggested.EuclideanLattice.IntegralPresentation.shellEquiv",
       "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
     },
     {
       "moduleName": "SphereCetiRoadmap.Suggested",
       "name": "SphereCeti.Suggested.EuclideanLattice.generatedSubmodule_evenIntegral_full",
-      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
-    },
-    {
-      "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.EuclideanLattice.mem_normSqShell",
-      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
-    },
-    {
-      "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.EuclideanLattice.mem_normSqShell._simp_1",
-      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
-    },
-    {
-      "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.EuclideanLattice.normSqShell",
-      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
-    },
-    {
-      "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.EuclideanLattice.thetaEvenCoeff",
-      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
-    },
-    {
-      "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.EuclideanLattice.thetaNormCoeff",
       "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
     },
     {
@@ -1554,6 +1514,16 @@
     },
     {
       "moduleName": "SphereCetiRoadmap.Suggested",
+      "name": "SphereCeti.Suggested.Poisson.summable_left",
+      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
+    },
+    {
+      "moduleName": "SphereCetiRoadmap.Suggested",
+      "name": "SphereCeti.Suggested.Poisson.summable_right",
+      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
+    },
+    {
+      "moduleName": "SphereCetiRoadmap.Suggested",
       "name": "SphereCeti.Suggested.Rigidity.HasUnitCenterDensity",
       "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
     },
@@ -1739,21 +1709,6 @@
     },
     {
       "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.Theta.isEven_real_of_presentation",
-      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
-    },
-    {
-      "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.Theta.isUnimodular_real_of_presentation",
-      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
-    },
-    {
-      "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.Theta.rootCard_eq_thetaEvenCoeff",
-      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
-    },
-    {
-      "moduleName": "SphereCetiRoadmap.Suggested",
       "name": "SphereCeti.Suggested.Theta.theta_eq_E4_of_even_unimodular",
       "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
     },
@@ -1779,27 +1734,12 @@
     },
     {
       "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.ThetaSeries.poissonSummation",
-      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
-    },
-    {
-      "moduleName": "SphereCetiRoadmap.Suggested",
       "name": "SphereCeti.Suggested.ThetaSeries.qExpansion_thetaForm_coeff",
       "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
     },
     {
       "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.ThetaSeries.repNum_two_rank_eight",
-      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
-    },
-    {
-      "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.ThetaSeries.summable_poisson_left",
-      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
-    },
-    {
-      "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.ThetaSeries.summable_poisson_right",
+      "name": "SphereCeti.Suggested.ThetaSeries.representationNumber_two_rank_eight",
       "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
     },
     {
