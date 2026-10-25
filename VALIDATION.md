@@ -30,7 +30,7 @@ weaken them merely to satisfy the parser or typechecker.
 ## Compiled admission policy
 
 The separate `SphereCetiRoadmap` library contains the target modules; the `SphereCeti` library
-remains admission-free. The integration audit inventories 595 compiled declarations, including
+remains admission-free. The integration audit inventories 594 compiled declarations, including
 341 with transitive `sorryAx` dependencies, and no lint findings. The 268 textual `sorry`
 commands above are a different count: generated declarations and dependents also enter the
 compiled admission ledger.

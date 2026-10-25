@@ -1342,10 +1342,6 @@ theorem mem_lattice_iff_isLeechIntegralCoordinate (x : V 24) :
       x = WithLp.toLp 2 fun i => (a i : ℝ) / Real.sqrt 8 := by
   sorry
 
-/-- Hamming weight of a binary word. -/
-def binaryHammingWeight (x : Fin 24 → ZMod 2) : ℕ :=
-  (Finset.univ.filter fun i => x i ≠ 0).card
-
 /-- Generator matrix of the cyclic description of the extended binary Golay code.  Its first 23
 columns are the first 12 shifts of `1 + X + X^5 + X^6 + X^7 + X^9 + X^11`; column 23 is the parity
 extension. -/
@@ -1370,7 +1366,7 @@ theorem golayPivotMinor_unitriangular :
 
 /-- Executable check that every parity-extended generator row has weight eight. -/
 theorem golayGeneratorMatrix_rowWeight :
-    ∀ i : Fin 12, binaryHammingWeight (golayGeneratorMatrix i) = 8 := by
+    ∀ i : Fin 12, hammingNorm (golayGeneratorMatrix i) = 8 := by
   intro i
   fin_cases i <;> decide
 
