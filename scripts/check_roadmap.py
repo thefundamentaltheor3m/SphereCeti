@@ -9,9 +9,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED = {
-    "lean": "leanprover/lean4:v4.34.0-rc1",
-    "tauceti": "8671bee98125933c56b9b00a08ded873b77dd23b",
-    "mathlib": "618f225e1ff4a6b2790a944e01b806b7c68bdc56",
+    "lean": "leanprover/lean4:v4.36.0-rc1",
+    "tauceti": "271e1af4dd54c50b9192cf3e213b7686843a0b3a",
+    "mathlib": "2cabef97b63d3275776b8b060d802de6a6fa1055",
     "sphere_packing": "bad3de916074748eb88b7d1ee6dbf9494361ad17",
 }
 
@@ -38,8 +38,8 @@ require(packages.get("TauCeti", {}).get("inputRev") == EXPECTED["tauceti"],
         "TauCeti manifest inputRev is not the exact commit pin")
 require(packages.get("mathlib", {}).get("rev") == EXPECTED["mathlib"],
         "Mathlib manifest revision does not match the TauCeti snapshot")
-require(packages.get("Cli", {}).get("inputRev") == "v4.34.0-rc1",
-        "Lean CLI dependency is not on the v4.34.0-rc1 release line")
+require(packages.get("Cli", {}).get("inputRev") == "v4.36.0-rc1",
+        "Lean CLI dependency is not on the v4.36.0-rc1 release line")
 
 readme = (ROOT / "README.md").read_text()
 provenance = (ROOT / "PROVENANCE.md").read_text()

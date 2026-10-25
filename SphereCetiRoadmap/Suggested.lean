@@ -11,7 +11,7 @@ public import SphereCetiRoadmap.Pinned
 public import TauCeti.Analysis.Complex.UpperHalfPlane.ResToImagAxis
 public import TauCeti.Analysis.Fourier.Continuous
 public import TauCeti.LinearAlgebra.IntegralLattice.Even
-public import TauCeti.LinearAlgebra.IntegralLattice.Isometry
+public import TauCeti.LinearAlgebra.IntegralLattice.Isometry.Basic
 public import TauCeti.LinearAlgebra.IntegralLattice.Signature
 public import TauCeti.LinearAlgebra.IntegralLattice.StandardCoordinates
 public import TauCeti.LinearAlgebra.IntegralLattice.Unimodular
