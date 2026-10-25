@@ -16,8 +16,12 @@ public import TauCeti.Algebra.Module.ZLattice.Shell
 public import TauCeti.Analysis.Complex.UpperHalfPlane.ResToImagAxis
 public import TauCeti.Analysis.Fourier.Continuous
 public import TauCeti.Analysis.Fourier.PoissonSummation
+public import TauCeti.InformationTheory.Coding.Binary.Golay.Basic
 public import TauCeti.LinearAlgebra.IntegralLattice.Even
 public import TauCeti.LinearAlgebra.IntegralLattice.Isometry.Basic
+public import TauCeti.LinearAlgebra.IntegralLattice.PosDef.Minimum
+public import TauCeti.LinearAlgebra.IntegralLattice.PosDef.RepresentationNumber
+public import TauCeti.LinearAlgebra.IntegralLattice.Rank24.Leech.Minimum
 public import TauCeti.LinearAlgebra.IntegralLattice.RootLattice.TypeE.Roots
 public import TauCeti.LinearAlgebra.IntegralLattice.Signature
 public import TauCeti.LinearAlgebra.IntegralLattice.StandardCoordinates
@@ -101,6 +105,21 @@ abbrev RadialSchwartzMap := SphereCeti.Pinned.RadialSchwartzMap
 #check TauCeti.IntegralLattice.typeE₈RootLattice
 #check TauCeti.IntegralLattice.typeE₈RootEquiv
 #check TauCeti.IntegralLattice.kissingNumber_typeE₈RootLattice
+#check TauCeti.IntegralLattice.kissingNumber
+#check TauCeti.IntegralLattice.representationNumber
+#check TauCeti.BinaryGolay.code
+#check TauCeti.BinaryGolay.finrank_code
+#check TauCeti.BinaryGolay.isSelfDual_code
+#check TauCeti.BinaryGolay.isDoublyEven_code
+#check TauCeti.BinaryGolay.eight_le_hammingNorm
+#check TauCeti.BinaryGolay.weightEnumerator_code
+#check TauCeti.leechLattice
+#check TauCeti.isEven_leechLattice
+#check TauCeti.isUnimodular_leechLattice
+#check TauCeti.isPosDef_leechLattice
+#check TauCeti.mem_leechLattice_carrier_iff_exists
+#check TauCeti.minimum_leechLattice
+#check TauCeti.vectorsOfNorm_two_leechLattice
 
 #check SphereCeti.Pinned.SpherePacking
 #check SphereCeti.Pinned.PeriodicSpherePacking
@@ -1149,9 +1168,15 @@ end E8
 
 namespace Leech
 
-/-- Canonical algebraic Leech reference object. -/
-noncomputable def integralLattice : TauCeti.IntegralLattice (Fin 24 → ℚ) := by
-  sorry
+/-- Canonical algebraic Leech reference object: TauCeti's Leech lattice in `ℚ^24`, whose points are
+`a / 2` for integral `a` and whose form is half the dot product. -/
+noncomputable abbrev integralLattice : TauCeti.IntegralLattice (Fin 24 → ℚ) :=
+  TauCeti.leechLattice
+
+/-- Check that the form of the canonical Leech lattice is half the dot product. -/
+example (x y : Fin 24 → ℚ) : integralLattice.form x y = (x ⬝ᵥ y) / 2 := by
+  rw [TauCeti.leechLattice_form, TauCeti.ConstructionA.form_apply]
+  norm_num
 
 /-- Assumed theorem, that is, an unproved roadmap target on which the Leech uniqueness proof
 relies: every positive-definite even unimodular lattice of rank 24 without roots (vectors of
@@ -1171,12 +1196,157 @@ theorem rootless_even_unimodular_rank_twentyFour_unique
     Nonempty (TauCeti.IntegralLattice.Isometry L integralLattice) := by
   sorry
 
+/-! ### The transported Euclidean lattice -/
+
+/-- The isometric embedding `x ↦ x / √2` of TauCeti's rational Leech coordinates into the packing
+space.  It carries the form of `integralLattice` to the inner product and `a / 2` to `a / √8`.  It
+is an isometric embedding of the rational lattice, not a real-linear equivalence. -/
+noncomputable def embedding : (Fin 24 → ℚ) →+ V 24 where
+  toFun x := WithLp.toLp 2 fun i => (x i : ℝ) / Real.sqrt 2
+  map_zero' := by ext i; simp
+  map_add' x y := by ext i; simp [add_div]
+
+/-- The Euclidean Leech lattice: the image of TauCeti's Leech lattice under `embedding`.  It is not
+the naive unshifted Construction-A lattice of the Golay code. -/
+noncomputable def lattice : Submodule ℤ (V 24) :=
+  integralLattice.carrier.map embedding.toIntLinearMap
+
+theorem mem_lattice_iff (x : V 24) :
+    x ∈ lattice ↔ ∃ y ∈ integralLattice.carrier, embedding y = x :=
+  Iff.rfl
+
+/-- The embedding carries the form of the canonical Leech lattice to the inner product. -/
+theorem inner_embedding (x y : Fin 24 → ℚ) :
+    ⟪embedding x, embedding y⟫_ℝ = (integralLattice.form x y : ℝ) := by
+  sorry
+
+/-- The point `a / 2` of TauCeti's coordinates is the point `a / √8` of the packing space. -/
+theorem embedding_div_two (a : Fin 24 → ℤ) :
+    embedding (fun i => (a i : ℚ) / 2) = WithLp.toLp 2 fun i => (a i : ℝ) / Real.sqrt 8 := by
+  sorry
+
+noncomputable instance lattice_discrete : DiscreteTopology lattice := by
+  sorry
+
+noncomputable instance lattice_isZLattice : IsZLattice ℝ lattice := by
+  sorry
+
+/-- The Euclidean Leech lattice has covolume one. -/
+theorem covolume_lattice : ZLattice.covolume lattice = 1 := by
+  sorry
+
+/-- Every real shell is the transported shell of the canonical Leech lattice. -/
+theorem representationNumber_lattice (n : ℕ) :
+    ZLattice.representationNumber lattice n = integralLattice.representationNumber n := by
+  sorry
+
+/-- TauCeti's congruence model of the Leech lattice, transported to the packing space. -/
+theorem mem_lattice_iff_exists (x : V 24) :
+    x ∈ lattice ↔ ∃ m : ℤ, (m = 0 ∨ m = 1) ∧ ∃ b : Fin 24 → ℤ,
+      (fun i => (b i : ZMod 2)) ∈ TauCeti.BinaryGolay.code ∧
+      ∑ i, (2 * b i + m) ≡ 4 * m [ZMOD 8] ∧
+      x = WithLp.toLp 2 fun i => ((2 * b i + m : ℤ) : ℝ) / Real.sqrt 8 := by
+  sorry
+
+/-- An explicit basis/Gram presentation, for instance transported from a `ℤ`-basis of
+`integralLattice`. -/
+noncomputable def integralPresentation : EuclideanLattice.IntegralPresentation lattice := by
+  sorry
+
+/-- Identification with the canonical algebraic Leech reference object. -/
+noncomputable def integralLatticeIsometry :
+    TauCeti.IntegralLattice.Isometry integralPresentation.toIntegralLattice integralLattice := by
+  sorry
+
+@[simp]
+theorem integralPresentation_even : integralPresentation.IsEven := by
+  sorry
+
+@[simp]
+theorem integralPresentation_unimodular : integralPresentation.IsUnimodular := by
+  sorry
+
+/-- Minimum squared norm four, from TauCeti's `minimum_leechLattice`; in particular the lattice is
+rootless. -/
+theorem hasMinNormSq : EuclideanLattice.HasMinNormSq lattice 4 := by
+  sorry
+
+@[simp]
+theorem rootCard : Theta.rootCard lattice = 0 := by
+  sorry
+
+/-- Canonical lattice packing with separation two. -/
+noncomputable def packing : PeriodicSpherePacking 24 := by
+  sorry
+
+@[simp]
+theorem packing_centers : packing.centers = lattice := by
+  sorry
+
+@[simp]
+theorem packing_lattice : packing.lattice = lattice := by
+  sorry
+
+@[simp]
+theorem packing_separation : packing.separation = 2 := by
+  sorry
+
+/-- Density of unit balls centered at the Leech lattice. -/
+theorem packing_density :
+    packing.density = ENNReal.ofReal (Real.pi ^ 12 / Nat.factorial 12) := by
+  sorry
+
+/-! ### Algebraic structure beyond optimality
+
+These results are not inputs to the optimality theorem. -/
+
+/-- The kissing number of the canonical Leech lattice, an algebraic statement intended for
+TauCeti. -/
+theorem kissingNumber_integralLattice : integralLattice.kissingNumber = 196560 := by
+  sorry
+
+/-- The real shell of squared norm four, from `kissingNumber_integralLattice` and
+`representationNumber_lattice`. -/
+theorem shellCard_four : ZLattice.representationNumber lattice 4 = 196560 := by
+  sorry
+
+/-- The Leech theta identity. -/
+theorem theta_eq_E4_cubed_sub_720_Delta :
+    Theta.latticeTheta lattice = fun τ =>
+      (Theta.E4 τ) ^ 3 - 720 * ModularForm.discriminant τ := by
+  sorry
+
+/-! ### Secondary comparisons
+
+The residue-class coordinate condition, the cyclic-generator Golay code, and the published 24-row
+basis are other descriptions of the same lattice.  They are not prerequisites for optimality.  The
+cyclic code and the published basis use other coordinate orders than TauCeti's code, so they are
+compared with the canonical lattice only through a named coordinate permutation. -/
+
+/-- Binary word selecting coordinates in one residue class modulo four. -/
+def residueWord (a : Fin 24 → ℤ) (r : ZMod 4) : Fin 24 → ZMod 2 := fun i =>
+  if (a i : ZMod 4) = r then 1 else 0
+
+/-- Integral coordinate condition, relative to a binary code `C`, whose `1 / √8` scaling is the
+Leech lattice built from `C`. -/
+def IsLeechIntegralCoordinate (C : Submodule (ZMod 2) (Fin 24 → ZMod 2)) (a : Fin 24 → ℤ) :
+    Prop :=
+  (∀ i, ((∑ j, a j : ℤ) : ZMod 8) = 4 * (a i : ZMod 8)) ∧
+    ∀ r : ZMod 4, residueWord a r ∈ C
+
+/-- The residue-class description with TauCeti's code is exact, with no permutation. -/
+theorem mem_lattice_iff_isLeechIntegralCoordinate (x : V 24) :
+    x ∈ lattice ↔ ∃ a : Fin 24 → ℤ, IsLeechIntegralCoordinate TauCeti.BinaryGolay.code a ∧
+      x = WithLp.toLp 2 fun i => (a i : ℝ) / Real.sqrt 8 := by
+  sorry
+
 /-- Hamming weight of a binary word. -/
 def binaryHammingWeight (x : Fin 24 → ZMod 2) : ℕ :=
   (Finset.univ.filter fun i => x i ≠ 0).card
 
-/-- Exact generator matrix for the extended binary Golay code.  Its first 23 columns are the first
-12 shifts of `1 + X + X^5 + X^6 + X^7 + X^9 + X^11`; column 23 is the parity extension. -/
+/-- Generator matrix of the cyclic description of the extended binary Golay code.  Its first 23
+columns are the first 12 shifts of `1 + X + X^5 + X^6 + X^7 + X^9 + X^11`; column 23 is the parity
+extension. -/
 def golayGeneratorMatrix : Matrix (Fin 12) (Fin 24) (ZMod 2) := fun i j =>
   if j.val = 23 then 1
   else if (j.val + 23 - i.val) % 23 ∈ ({0, 1, 5, 6, 7, 9, 11} : Finset ℕ) then 1
@@ -1202,88 +1372,24 @@ theorem golayGeneratorMatrix_rowWeight :
   intro i
   fin_cases i <;> decide
 
-/-- The extended binary Golay code is the row span of the pinned generator matrix. -/
-noncomputable def extendedBinaryGolay : Submodule (ZMod 2) (Fin 24 → ZMod 2) :=
+/-- The cyclic description of the extended binary Golay code: the row span of the cyclic
+generator matrix.  It is not TauCeti's `BinaryGolay.code`, which uses other coordinates. -/
+noncomputable def cyclicGolayCode : Submodule (ZMod 2) (Fin 24 → ZMod 2) :=
   Submodule.span (ZMod 2) (Set.range fun i => golayGeneratorMatrix i)
 
-/-- Orthogonal code for the standard binary dot product. -/
-noncomputable def binaryDualCode
-    (C : Submodule (ZMod 2) (Fin 24 → ZMod 2)) :
-    Submodule (ZMod 2) (Fin 24 → ZMod 2) := by
+/-- The cyclic code is TauCeti's code after a coordinate permutation. -/
+theorem exists_perm_cyclicGolayCode :
+    ∃ σ : Equiv.Perm (Fin 24), ∀ c : Fin 24 → ZMod 2,
+      c ∈ cyclicGolayCode ↔ (c ∘ σ) ∈ TauCeti.BinaryGolay.code := by
   sorry
 
-@[simp]
-theorem mem_binaryDualCode (C : Submodule (ZMod 2) (Fin 24 → ZMod 2))
-    (x : Fin 24 → ZMod 2) :
-    x ∈ binaryDualCode C ↔ ∀ c ∈ C, ∑ i, x i * c i = 0 := by
-  sorry
+/-- A permutation of the coordinates of `V 24`, as a linear isometry. -/
+noncomputable def coordPerm (σ : Equiv.Perm (Fin 24)) : V 24 ≃ₗᵢ[ℝ] V 24 :=
+  LinearIsometryEquiv.piLpCongrLeft 2 ℝ ℝ σ
 
-/-- Weight enumerator of a finite binary code. -/
-noncomputable def binaryWeightEnumerator
-    (C : Submodule (ZMod 2) (Fin 24 → ZMod 2)) : Polynomial ℤ := by
-  classical
-  exact ∑ c : (Fin 24 → ZMod 2),
-    if c ∈ C then Polynomial.X ^ binaryHammingWeight c else 0
-
-theorem extendedBinaryGolay_finrank :
-    Module.finrank (ZMod 2) extendedBinaryGolay = 12 := by
-  sorry
-
-theorem extendedBinaryGolay_card : Nat.card extendedBinaryGolay = 2 ^ 12 := by
-  sorry
-
-theorem extendedBinaryGolay_selfDual :
-    binaryDualCode extendedBinaryGolay = extendedBinaryGolay := by
-  sorry
-
-theorem extendedBinaryGolay_doublyEven (c : extendedBinaryGolay) :
-    4 ∣ binaryHammingWeight (c : Fin 24 → ZMod 2) := by
-  sorry
-
-theorem extendedBinaryGolay_minWeight (c : extendedBinaryGolay) (hc : c ≠ 0) :
-    8 ≤ binaryHammingWeight (c : Fin 24 → ZMod 2) := by
-  sorry
-
-theorem extendedBinaryGolay_exists_weight_eight :
-    ∃ c : extendedBinaryGolay, binaryHammingWeight (c : Fin 24 → ZMod 2) = 8 := by
-  sorry
-
-theorem extendedBinaryGolay_weightEnumerator :
-    binaryWeightEnumerator extendedBinaryGolay =
-      1 + 759 * Polynomial.X ^ 8 + 2576 * Polynomial.X ^ 12 +
-        759 * Polynomial.X ^ 16 + Polynomial.X ^ 24 := by
-  sorry
-
-def allOneWord : Fin 24 → ZMod 2 := fun _ => 1
-
-theorem allOneWord_mem_extendedBinaryGolay : allOneWord ∈ extendedBinaryGolay := by
-  sorry
-
-theorem extendedBinaryGolay_weight_even (c : extendedBinaryGolay) :
-    Even (binaryHammingWeight (c : Fin 24 → ZMod 2)) := by
-  sorry
-
-/-- Binary word selecting coordinates in one residue class modulo four. -/
-def residueWord (a : Fin 24 → ℤ) (r : ZMod 4) : Fin 24 → ZMod 2 := fun i =>
-  if (a i : ZMod 4) = r then 1 else 0
-
-/-- Integral coordinate condition whose `1 / sqrt 8` scaling is the Leech lattice. -/
-def IsLeechIntegralCoordinate (a : Fin 24 → ℤ) : Prop :=
-  (∀ i, ((∑ j, a j : ℤ) : ZMod 8) = 4 * (a i : ZMod 8)) ∧
-    ∀ r : ZMod 4, residueWord a r ∈ extendedBinaryGolay
-
-/-- Public coordinate/glue construction of the Leech lattice.  It is not the naive unshifted
-Construction-A lattice. -/
-noncomputable def lattice : Submodule ℤ (V 24) := by
-  sorry
-
-/-- Exact scaled-coordinate membership theorem for the Leech lattice. -/
-theorem mem_lattice_iff_scaled_golay_coordinates (x : V 24) :
-    x ∈ lattice ↔ ∃ a : Fin 24 → ℤ, IsLeechIntegralCoordinate a ∧
-      x = WithLp.toLp 2 fun i => (a i : ℝ) / Real.sqrt 8 := by
-  sorry
-
-/-- Published row-basis matrix; the actual basis vectors are these rows divided by `sqrt 8`. -/
+/-- Published row-basis matrix; the actual basis vectors are these rows divided by `√8`.  Its
+coordinates are those of a third realization of the Golay code: eleven of its rows fail the
+residue-class condition both for `cyclicGolayCode` and for TauCeti's code. -/
 def basisCoordinateMatrix : Matrix (Fin 24) (Fin 24) ℤ := ![
   ![8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
   ![4, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -1319,74 +1425,11 @@ theorem basisCoordinateMatrix_det : basisCoordinateMatrix.det = 8 ^ 12 := by
 noncomputable def basisVector (i : Fin 24) : V 24 :=
   WithLp.toLp 2 fun j => (basisCoordinateMatrix i j : ℝ) / Real.sqrt 8
 
-theorem basisVector_mem (i : Fin 24) : basisVector i ∈ lattice := by
-  sorry
-
-/-- The explicit rows span exactly the coordinate/glue lattice. -/
-theorem span_basisVectors_eq_lattice :
-    Submodule.span ℤ (Set.range basisVector) = lattice := by
-  sorry
-
-noncomputable instance lattice_discrete : DiscreteTopology lattice := by
-  sorry
-
-noncomputable instance lattice_isZLattice : IsZLattice ℝ lattice := by
-  sorry
-
-/-- Explicit computational basis/Gram presentation. -/
-noncomputable def integralPresentation : EuclideanLattice.IntegralPresentation lattice := by
-  sorry
-
-/-- Identification with the canonical algebraic Leech reference object. -/
-noncomputable def integralLatticeIsometry :
-    TauCeti.IntegralLattice.Isometry integralPresentation.toIntegralLattice integralLattice := by
-  sorry
-
-@[simp]
-theorem integralPresentation_even : integralPresentation.IsEven := by
-  sorry
-
-@[simp]
-theorem integralPresentation_unimodular : integralPresentation.IsUnimodular := by
-  sorry
-
-/-- Minimum squared norm four; in particular the lattice is rootless. -/
-theorem hasMinNormSq : EuclideanLattice.HasMinNormSq lattice 4 := by
-  sorry
-
-@[simp]
-theorem rootCard : Theta.rootCard lattice = 0 := by
-  sorry
-
-/-- First nonzero shell cardinality. -/
-theorem shellCard_four : ZLattice.representationNumber lattice 4 = 196560 := by
-  sorry
-
-/-- The Leech theta identity. -/
-theorem theta_eq_E4_cubed_sub_720_Delta :
-    Theta.latticeTheta lattice = fun τ =>
-      (Theta.E4 τ) ^ 3 - 720 * ModularForm.discriminant τ := by
-  sorry
-
-/-- Canonical lattice packing with separation two. -/
-noncomputable def packing : PeriodicSpherePacking 24 := by
-  sorry
-
-@[simp]
-theorem packing_centers : packing.centers = lattice := by
-  sorry
-
-@[simp]
-theorem packing_lattice : packing.lattice = lattice := by
-  sorry
-
-@[simp]
-theorem packing_separation : packing.separation = 2 := by
-  sorry
-
-/-- Density of unit balls centered at the Leech lattice. -/
-theorem packing_density :
-    packing.density = ENNReal.ofReal (Real.pi ^ 12 / Nat.factorial 12) := by
+/-- After a coordinate permutation, the published rows span exactly the Euclidean Leech
+lattice. -/
+theorem exists_coordPerm_span_basisVectors :
+    ∃ σ : Equiv.Perm (Fin 24), ∀ x : V 24,
+      x ∈ lattice ↔ coordPerm σ x ∈ Submodule.span ℤ (Set.range basisVector) := by
   sorry
 
 end Leech

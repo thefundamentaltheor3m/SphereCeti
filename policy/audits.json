@@ -794,22 +794,7 @@
     },
     {
       "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.Leech.allOneWord_mem_extendedBinaryGolay",
-      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
-    },
-    {
-      "moduleName": "SphereCetiRoadmap.Suggested",
       "name": "SphereCeti.Suggested.Leech.basisCoordinateMatrix_det",
-      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
-    },
-    {
-      "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.Leech.basisVector_mem",
-      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
-    },
-    {
-      "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.Leech.binaryDualCode",
       "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
     },
     {
@@ -854,42 +839,22 @@
     },
     {
       "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.Leech.extendedBinaryGolay_card",
+      "name": "SphereCeti.Suggested.Leech.covolume_lattice",
       "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
     },
     {
       "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.Leech.extendedBinaryGolay_doublyEven",
+      "name": "SphereCeti.Suggested.Leech.embedding_div_two",
       "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
     },
     {
       "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.Leech.extendedBinaryGolay_exists_weight_eight",
+      "name": "SphereCeti.Suggested.Leech.exists_coordPerm_span_basisVectors",
       "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
     },
     {
       "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.Leech.extendedBinaryGolay_finrank",
-      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
-    },
-    {
-      "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.Leech.extendedBinaryGolay_minWeight",
-      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
-    },
-    {
-      "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.Leech.extendedBinaryGolay_selfDual",
-      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
-    },
-    {
-      "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.Leech.extendedBinaryGolay_weightEnumerator",
-      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
-    },
-    {
-      "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.Leech.extendedBinaryGolay_weight_even",
+      "name": "SphereCeti.Suggested.Leech.exists_perm_cyclicGolayCode",
       "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
     },
     {
@@ -959,7 +924,7 @@
     },
     {
       "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.Leech.integralLattice",
+      "name": "SphereCeti.Suggested.Leech.inner_embedding",
       "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
     },
     {
@@ -999,7 +964,7 @@
     },
     {
       "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.Leech.lattice",
+      "name": "SphereCeti.Suggested.Leech.kissingNumber_integralLattice",
       "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
     },
     {
@@ -1099,17 +1064,12 @@
     },
     {
       "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.Leech.mem_binaryDualCode",
+      "name": "SphereCeti.Suggested.Leech.mem_lattice_iff_exists",
       "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
     },
     {
       "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.Leech.mem_binaryDualCode._simp_1",
-      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
-    },
-    {
-      "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.Leech.mem_lattice_iff_scaled_golay_coordinates",
+      "name": "SphereCeti.Suggested.Leech.mem_lattice_iff_isLeechIntegralCoordinate",
       "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
     },
     {
@@ -1269,6 +1229,11 @@
     },
     {
       "moduleName": "SphereCetiRoadmap.Suggested",
+      "name": "SphereCeti.Suggested.Leech.representationNumber_lattice",
+      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
+    },
+    {
+      "moduleName": "SphereCetiRoadmap.Suggested",
       "name": "SphereCeti.Suggested.Leech.rootCard",
       "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
     },
@@ -1280,11 +1245,6 @@
     {
       "moduleName": "SphereCetiRoadmap.Suggested",
       "name": "SphereCeti.Suggested.Leech.shellCard_four",
-      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
-    },
-    {
-      "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.Leech.span_basisVectors_eq_lattice",
       "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
     },
     {
