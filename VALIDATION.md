@@ -30,15 +30,17 @@ weaken them merely to satisfy the parser or typechecker.
 ## Compiled admission policy
 
 The separate `SphereCetiRoadmap` library contains the target modules; the `SphereCeti` library
-remains admission-free. The integration audit inventories 624 compiled declarations, including
+remains admission-free. The integration audit inventories 622 compiled declarations, including
 363 with transitive `sorryAx` dependencies, and no lint findings. The 286 textual `sorry`
 commands above are a different count: generated declarations and dependents also enter the
 compiled admission ledger.
 
-The Lean 4.36.0-rc1 upgrade adds one compiler-generated proof declaration without a `sorryAx`
-dependency; all previously inventoried declarations retain the same axiom dependencies, and
-the upgrade leaves the admission list unchanged. The audit configuration also includes Mathlib's
-new default `tacticAlt` linter, which checks the marking of alternative tactic syntax.
+The Lean 4.36.0-rc1 upgrade changes only compiler-generated declarations, none with a `sorryAx`
+dependency: the three private match-equation declarations of `MagicFunction.FourierSign.scalar`
+are no longer generated, and `MagicFunction.FourierSign.ctorIdx._impl` is new.  Every other
+inventoried declaration retains the same axiom dependencies, and the upgrade leaves the admission
+list unchanged. The audit configuration also includes Mathlib's default `tacticAlt` linter, which
+checks the marking of alternative tactic syntax.
 
 `policy/audits.json` proposes the exact 363-entry ledger for human review with this roadmap.
 The profile’s `phase = "roadmap"` and `roadmap_approved = true` describe the state proposed
