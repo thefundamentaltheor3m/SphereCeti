@@ -18,6 +18,7 @@ TRUSTED = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(TRUSTED / 'scripts'))
 from check_modules import BoundaryError, Module, check, source_dependencies
 
+BUILD_TIMEOUT = 3600
 ALLOWED_AXIOMS = {'propext', 'Classical.choice', 'Quot.sound'}
 POLICY_FIELDS = {'schema_version', 'linters', 'empty_modules', 'axiom_exceptions',
                  'roadmap_admissions', 'lint_baseline', 'nolint_allowlist'}
@@ -167,8 +168,10 @@ def run(command, root, *, env=None, timeout=300):
 def build_all(root, modules):
     # Explicit module targets include nested/unimported modules regardless of root imports/globs.
     project = [m for m in modules if m['kind'] in ('library', 'roadmap')]
+    # Without a dependency cache, the first batch also compiles every imported TauCeti module.
     for start in range(0, len(project), 64):
-        run(['lake', 'build', *('+' + m['name'] + ':olean' for m in project[start:start + 64])], root)
+        run(['lake', 'build', *('+' + m['name'] + ':olean' for m in project[start:start + 64])], root,
+            timeout=BUILD_TIMEOUT)
     # Lake does not declare libraries for audit tools or committed fixtures. Elaborate these
     # too, in import order, into the same generated search path; never execute their main.
     remaining = {m['name']: m for m in modules if m['kind'] not in ('library', 'roadmap')}
@@ -182,7 +185,7 @@ def build_all(root, modules):
                             if path.is_relative_to(packages))
     dependencies = sorted(dependencies)
     for start in range(0, len(dependencies), 64):
-        run(['lake', 'build', *dependencies[start:start + 64]], root)
+        run(['lake', 'build', *dependencies[start:start + 64]], root, timeout=BUILD_TIMEOUT)
     while remaining:
         ready = [m for m in remaining.values() if not any(i in remaining for i in m['imports'])]
         if not ready:
