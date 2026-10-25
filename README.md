@@ -207,8 +207,9 @@ set, not restrictions on the roots of the Fourier transform.
 3. **Do not force unlike dimension-specific modular formulas into a typeclass.**  Explicit data
    records passed to common constructors are acceptable; a global `MagicDimension` instance is
    not.
-4. **Use TauCeti's integral-lattice layer rather than creating duplicate algebraic predicates.**
-   The bridge to Mathlib's real topological `ZLattice` representation is developed in SphereCeti.
+4. **Use TauCeti's lattice layers rather than creating duplicate predicates.**  TauCeti supplies
+   both the rational integral-lattice theory and the real `ZLattice` duality, integrality, and
+   shell theory; SphereCeti develops only the comparison of its explicit presentations with them.
 5. **Pin every hidden normalization.**  Fourier sign, Haar measure, theta exponent, q parameter,
    separation versus sphere radius, covolume, and modular slash conventions are permanent API
    decisions.
@@ -252,8 +253,8 @@ Required cleanup:
 - remove `@[simp]` from the large basis-free periodic density expansion;
 - replace duplicate Fourier involution arguments in `a/Eigenfunction` and `b/Eigenfunction` by the
   radial Schwartz lemmas;
-- retire the temporary Cohn--Elkies prerequisites file after the real Poisson summation results
-  land;
+- retire the temporary Cohn--Elkies prerequisites file once its uses rely on TauCeti's Poisson
+  summation;
 - extract generic q-series and analytic lemmas from the E8-specific files.
 
 ### From the `gauss2` branch
@@ -272,12 +273,11 @@ lemmas at a time onto the upgraded production `main`.
 
 ### From PR #420
 
-Adapt proofs from this PR, split into separate pieces:
+TauCeti now supplies dual lattices, Poisson summation, and the basis-independent covolume
+statements, so those parts of this PR are not ported.  Adapt from it, split into separate pieces:
 
-- general lattice summability for Schwartz functions;
-- dual-lattice infrastructure;
-- Poisson summation;
-- basis-independent covolume statements;
+- lattice summability for Schwartz functions, where the production proofs need it in a public form
+  that TauCeti's Poisson module does not export;
 - general periodic Cohn--Elkies counting.
 
 ### From the pinned TauCeti snapshot
@@ -300,6 +300,74 @@ space.  SphereCeti therefore introduces an explicit `IntegralPresentation` consi
 `ℤ`-basis and integer Gram matrix.  It produces a TauCeti integral lattice while recording the
 comparison with the real lattice.  This bridge is central; defining another unrelated notion of
 “integral real lattice” would create two permanently incompatible notions.
+
+#### Real lattices, Poisson summation, and theta series
+
+TauCeti also develops the real side, in the `ZLattice` namespace, and SphereCeti uses it rather
+than a local copy:
+
+- the inner-product dual `ZLattice.dual`, identified with Mathlib's
+  `LinearMap.BilinForm.dualSubmodule` by `ZLattice.dual_def`, with its discreteness and full-rank
+  instances, `ZLattice.dual_dual`, and `ZLattice.covolume_dual`;
+- the predicates `ZLattice.IsIntegral`, `ZLattice.IsEven`, and `ZLattice.IsUnimodular`, the
+  determinant `ZLattice.det`, `ZLattice.covolume_sq_eq_det_gram`, and
+  `ZLattice.IsIntegral.isUnimodular_iff_covolume_eq_one`;
+- shells `ZLattice.shell`, their finiteness `ZLattice.finite_shell`, and representation numbers
+  `ZLattice.representationNumber`;
+- Poisson summation over a full lattice, `SchwartzMap.tsum_eq_tsum_dual_fourier`, with the
+  reflected and even-function forms `SchwartzMap.tsum_eq_tsum_dual_fourier_neg` and
+  `SchwartzMap.tsum_eq_tsum_dual_fourier_of_even`;
+- the theta series `ZLattice.thetaSeries` and coset theta series `ZLattice.thetaCoset`, their
+  convergence and holomorphy, their q-expansions with representation-number coefficients
+  (`ZLattice.IsEven.qExpansion_thetaSeries_coeff`), and the translation law
+  `ZLattice.IsEven.thetaSeries_slash_T`.
+
+#### E8, the Golay code, and the Leech lattice
+
+- `TauCeti.IntegralLattice.typeE₈RootLattice`, its evenness, positive-definiteness, and
+  determinant, and the explicit enumeration of its roots `typeE₈RootEquiv : Fin 240 ≃ _` with
+  `kissingNumber_typeE₈RootLattice`;
+- the extended binary Golay code `TauCeti.BinaryGolay.code` in the coordinates of its systematic
+  generator, with `finrank_code`, `natCard_code`, `isSelfDual_code`, `isDoublyEven_code`,
+  `eight_le_hammingNorm`, and `weightEnumerator_code`;
+- Construction B and the Leech lattice `TauCeti.leechLattice`, with `isEven_leechLattice`,
+  `isUnimodular_leechLattice`, `isPosDef_leechLattice`, `finrank_leechLattice`, the congruence model
+  `mem_leechLattice_carrier_iff_exists`, `minimum_leechLattice`, and the absence of roots
+  `vectorsOfNorm_two_leechLattice`;
+- the minimum, kissing number, and representation numbers of a positive-definite integral lattice,
+  `IntegralLattice.minimum`, `IntegralLattice.kissingNumber`, and
+  `IntegralLattice.representationNumber`.
+
+#### Modular forms
+
+- the graded-ring isomorphism `TauCeti.ModularForm.mvPolynomialEquivModularForms` between
+  `ℂ[E₄, E₆]` and the level-one modular forms, which turns the theta identities of Layer 5 into
+  coefficient comparisons once the theta series is known to be a modular form.
+
+#### Still pending upstream
+
+These remain dependencies rather than results available to SphereCeti:
+
+- the theta `S`-transformation and the theta series of an even unimodular lattice as a level-one
+  modular form (Layers 3--8 of the TauCeti ThetaSeries roadmap);
+- the comparison between a real integral lattice and its rational model (TauCeti PR #20950,
+  `ratModel`, open), which SphereCeti's `IntegralPresentation` is designed to interoperate with
+  rather than replace;
+- the classification of positive-definite even unimodular lattices of rank 8;
+- the classification of rootless positive-definite even unimodular lattices of rank 24;
+- the kissing number `196560` of the Leech lattice.
+
+The following table records, for each area, what TauCeti supplies at the pin and what SphereCeti
+must still prove.
+
+| Area | Available at the pin | Remaining SphereCeti obligation |
+|---|---|---|
+| Real/rational bridge (Layer 2) | `ZLattice` duality, integrality, determinant, shells | Compare an `IntegralPresentation` with these predicates and with TauCeti's dual carrier |
+| Poisson summation (Layer 4) | `SchwartzMap.tsum_eq_tsum_dual_fourier` and its variants | The finite-orbit periodic identity and the Cohn--Elkies theory |
+| Theta series (Layer 5) | Definitions, holomorphy, q-expansions, `T`-translation | Nothing beyond the presentation bridges; the `S`-law and modularity are pending upstream |
+| E8 (Layer 6) | `typeE₈RootLattice` and its 240 roots | A Gram-preserving isometry from the production E8 presentation |
+| Leech (Layer 6) | `leechLattice`, minimum `4`, no roots, the Golay code | The transported Euclidean lattice, its covolume and shells, and the secondary comparisons |
+| Classification (Layer 10) | Neither rank-8 nor rootless rank-24 uniqueness | Retained as required dependencies |
 
 #### Complex and modular analysis
 
@@ -446,8 +514,13 @@ Acceptance tests:
 
 ## Layer 2 — one real/algebraic lattice bridge
 
-**Goal:** make TauCeti's rational integral-lattice library and Mathlib's Euclidean `ZLattice`
-representation two views of the same concrete lattice data.
+**Goal:** make TauCeti's rational integral-lattice library and its real `ZLattice` theory two views
+of the same concrete lattice data.
+
+TauCeti supplies the real side: the dual `ZLattice.dual`, the predicates `ZLattice.IsIntegral`,
+`ZLattice.IsEven`, and `ZLattice.IsUnimodular`, shells and representation numbers, the
+Gram-determinant formula `ZLattice.covolume_sq_eq_det_gram`, and the unimodular/covolume-one
+criterion.  This layer adds only the comparison of an explicit presentation with that theory.
 
 Deliverables:
 
@@ -456,17 +529,24 @@ Deliverables:
 - Gram compatibility with the real inner product;
 - integral equivalences between the real carrier/dual and TauCeti's carrier/dual carrier;
 - an explicit real-dual membership theorem in TauCeti dual-carrier coordinates;
-- discriminant/covolume and unimodular/covolume-one comparisons;
-- finite norm shells and minimum-norm predicates;
-- shell equivalences and transport of evenness, unimodularity, and rootlessness;
+- the discriminant of the presentation lattice as the squared real covolume, and unimodularity of
+  the presentation as covolume one;
+- evenness and unimodularity of a presentation as the real predicates `ZLattice.IsEven` and
+  `ZLattice.IsUnimodular`;
+- minimum-norm predicates, and shell equivalences between `ZLattice.shell` and TauCeti's
+  `vectorsOfNorm`, transporting rootlessness;
 - extension of a TauCeti classification isometry to a real linear isometry, then to an affine
   isometry carrying one lattice coset to another.
 
-Do not introduce a second global `IsIntegral` predicate on real lattices.  Integrality is witnessed
-by the presentation and discharged through TauCeti.
-Positive-definiteness is derived from the full Euclidean presentation rather than carried as a
-separate hypothesis.  The E8 and Leech reference objects and classifications remain in their
-dimension-specific layers.
+Do not introduce another integrality predicate on real lattices: TauCeti's `ZLattice.IsIntegral`
+is the one.  Positive-definiteness is derived from the full Euclidean presentation rather than
+carried as a separate hypothesis.  The E8 and Leech reference objects and classifications remain in
+their dimension-specific layers.
+
+TauCeti PR #20950 (open) proposes `ratModel`, the rational model of a real integral lattice, and
+several invariant comparisons.  When it lands, `IntegralPresentation` is connected to it by a
+comparison theorem; the explicit basis-and-Gram data remain, since the E8 and Leech arguments need
+concrete coordinates, but no competing abstract real-to-rational conversion is introduced.
 
 ## Layer 3 — periodic orbits and the density formula
 
@@ -507,12 +587,23 @@ The large density formula must not be a simp lemma.
 
 **Goal:** isolate the linear-programming theorem from the dimension-specific magic functions.
 
+Poisson summation is imported, not developed here.  TauCeti's
+`SchwartzMap.tsum_eq_tsum_dual_fourier` is the theorem of record:
+
+\[
+  \sum_{\ell\in\Lambda} f(v+\ell)
+  = \frac{1}{\operatorname{covol}(\Lambda)}
+    \sum_{m\in\Lambda^\vee} \widehat f(m)\, e^{2\pi i\langle v,m\rangle},
+\]
+
+with exactly the positive phase and inverse-covolume factor that the Cohn--Elkies bound needs.  The
+dual `ZLattice.dual` carries its own discreteness and full-rank instances, and TauCeti proves
+`ZLattice.dual_dual` and `ZLattice.covolume_dual`.
+
 Deliverables:
 
-- Schwartz summability on lattice translates;
-- shifted and unshifted Poisson summation with the exact positive phase and inverse-covolume
-  factor;
-- automatic discreteness, full-rank, double-dual, and reciprocal-covolume lemmas for the real dual;
+- Schwartz summability on lattice translates and on the dual side, in a public form (TauCeti's
+  Poisson module proves both but does not export them);
 - a unit-Gaussian normalization test and the exact finite-pattern squared-amplitude formula;
 - `CohnElkies.Certificate d r`, with no radiality requirement;
 - certificate bound and scaling lemmas;
@@ -538,24 +629,24 @@ zero density, whereas every certificate bound is positive.
 **Goal:** use the general theory of lattice theta series, keeping in SphereCeti only the
 comparison with integral presentations and the consequences for the candidate lattices.
 
-Duality of real lattices, Poisson summation, the theta series and its transformation laws, the
-theta series of an even unimodular lattice as a level-one modular form, and the classifications in
-ranks 8 and 24 are to be developed in the TauCeti ThetaSeries roadmap.  Until the corresponding
-TauCeti implementation lands, SphereCeti carries temporary copies of that roadmap's target
-statements, stated exactly as there.  They are deleted and replaced by imports from TauCeti, and
-they are not to be developed into a second general theory.
+The general theory belongs to the TauCeti ThetaSeries roadmap, and part of it has landed: the
+theta series `ZLattice.thetaSeries` and coset theta series, their convergence and holomorphy,
+their q-expansions with representation-number coefficients, the decomposition over a sublattice,
+and the `T`-translation law.  SphereCeti imports these.  The `S`-transformation
+`thetaSeries_neg_inv`, the theta series of an even unimodular lattice as a level-one modular form
+`thetaForm`, and the identities in ranks 8 and 24 have not landed.  SphereCeti states only those
+pending targets, in the form of that roadmap and over TauCeti's implemented definitions; they are
+deleted and replaced by imports when TauCeti provides them, and they are not to be developed into a
+second general theory.
 
 Deliverables:
 
-- provisional local statements of the `ThetaSeries` targets, to be replaced by TauCeti imports:
-  `dual`, `poissonSummation` with its summability lemmas, `shell`/`repNum`, real-lattice evenness
-  and unimodularity, `thetaSeries`, `thetaSeries_neg_inv`, `thetaForm` with its coercion and
-  q-expansion coefficients, and the rank-8/rank-24/rootless classifications;
+- provisional local statements of the pending `ThetaSeries` targets: `thetaSeries_neg_inv`,
+  `thetaForm` with its coercion and q-expansion coefficients, and the rank-8, rank-24, and rootless
+  identities;
 - the presentation bridges: an even (respectively unimodular) integral presentation makes the
-  real lattice even (unimodular) in the roadmap's sense, the dual compatibility
-  `EuclideanLattice.dual = ThetaSeries.dual`, and the shell-coefficient identification
-  `rootCard = repNum 2 = thetaEvenCoeff 1`, with shells as `Finset`s and no `Set.ncard`
-  fallback semantics;
+  real lattice `ZLattice.IsEven` (`ZLattice.IsUnimodular`), and the root count is the
+  representation number `ZLattice.representationNumber Λ 2`;
 - the E8/Leech-facing corollaries through the bridges:
 
 \[
@@ -565,43 +656,82 @@ Deliverables:
 \]
 
 The theta theory is not merely decorative.  It checks all lattice normalizations, gives shell
-cardinalities, and supplies the modular classification used in the E8/Leech infrastructure.
+cardinalities, and supplies the modular classification used in the E8/Leech infrastructure.  It is
+not, however, on the path to the optimality theorems: those need only an explicit lattice, its
+minimum and covolume, and a sharp Cohn--Elkies certificate (Layers 4, 6, and 9).  The rank-8 theta
+identity remains an input to E8 periodic uniqueness, through the rank-8 classification of Layer 10.
 
 ## Layer 6 — E8 and Leech lattice packages
 
 ### E8
 
-Retain the existing coordinate and basis descriptions, then package:
+The canonical algebraic object is TauCeti's `IntegralLattice.typeE₈RootLattice`, the Gram lattice
+of the E8 Cartan matrix in simple-root coordinates.  Retain the existing production coordinate and
+basis descriptions, then package:
 
 - an `IntegralPresentation`;
+- a Gram-preserving isometry from that presentation to `typeE₈RootLattice`, since the two use
+  different bases rather than a common coordinate system;
 - positive-definiteness, evenness, and unimodularity;
 - minimum squared norm `2`;
-- theta identity;
-- root count `240`;
+- root count `240`, transported through the isometry from TauCeti's explicit enumeration
+  `typeE₈RootEquiv` and `kissingNumber_typeE₈RootLattice`;
 - valid ADE component indices for the root-system classification;
-- canonical lattice packing and density.
+- canonical lattice packing and density;
+- theta identity.
 
-The direct minimum-norm proof remains independent of the theta identity.
+The direct minimum-norm proof and the root count are independent of the theta identity.
 
 ### Leech
 
-Pin the extended Golay code by its exact polynomial generator matrix and prove its dimension,
-cardinality, self-duality, doubly-evenness, minimum weight, all-one word, and full weight enumerator.
-Check the matrix transcription in Lean through a unitriangular row-reduction certificate and exact
-generator-row weights.
-Define Leech by the exact modulo-eight/residue-code coordinate conditions with `1 / sqrt 8`
-scaling.  The 24 published integer basis rows divided by `sqrt 8` must lie in and span exactly that
-single coordinate lattice; its integer matrix has determinant `8^12`.  These finite matrix claims
-must use explicit Lean-checked certificates rather than relying on an unverified transcription.  No
-second opaque lattice submodule is introduced.
+The canonical algebraic object is TauCeti's `leechLattice`: the integral lattice in `ℚ^24` obtained
+by adjoining the odd shift `(-3/2, 1/2, …, 1/2)` to the Construction B lattice of TauCeti's Golay
+code, in coordinates `x = a / 2` with the form
+
+\[
+  B(x,y) = \tfrac12 \sum_{i=1}^{24} x_i y_i .
+\]
+
+TauCeti proves that it is even, unimodular, and positive definite, characterizes its carrier by
+congruence conditions on `a`, and proves minimum `4` and the absence of roots.  SphereCeti does not
+construct a second Leech lattice.  The Euclidean Leech lattice used for packings is the image of
+`leechLattice` under
+
+\[
+  T : \mathbb Q^{24} \to \mathbb R^{24}, \qquad T(x) = x / \sqrt 2,
+\]
+
+which satisfies `⟪T x, T y⟫ = B(x, y)` and `T(a / 2) = a / √8`.  `T` is an isometric embedding of
+the rational lattice, not a real-linear equivalence between `ℚ^24` and `ℝ^24`.
 
 Required results:
 
-- even, unimodular, positive-definite;
-- minimum squared norm `4`;
-- theta identity;
-- shell cardinality `196560`;
+- discreteness and full rank of the transported lattice, and covolume one;
+- transport of the inner product, of every norm shell, and of the minimum, so that the minimum
+  squared norm is `4` and there are no roots;
+- an integral presentation and an isometry to `leechLattice`, hence evenness and unimodularity;
 - unit-ball packing density `π^12 / 12!`.
+
+Secondary comparisons, which are not prerequisites for optimality:
+
+- the residue-class coordinate description: `x / √8` with `x` integral lies in the lattice exactly
+  when the coordinate sum satisfies the modulo-eight condition and, for every residue `r` modulo
+  four, the word of coordinates congruent to `r` lies in TauCeti's code;
+- the code generated by the parity extension of the first twelve shifts of
+  `1 + X + X^5 + X^6 + X^7 + X^9 + X^11` equals TauCeti's code after a coordinate permutation, its
+  transcription checked by a unitriangular row-reduction certificate and exact row weights;
+- the 24 published integer basis rows, divided by `√8`, span the lattice after a coordinate
+  permutation, and their integer matrix has determinant `8^12`.
+
+The published rows are in the octad coordinates of a third realization of the Golay code: eleven of
+them fail the residue-class condition for the cyclic code, and also for TauCeti's code, without a
+permutation.  None of these descriptions may be identified with another by definition.
+
+Algebraic structure beyond optimality:
+
+- kissing number `leechLattice.kissingNumber = 196560`, with the corollary that the real shell of
+  squared norm `4` has `196560` vectors;
+- theta identity.
 
 The naive unshifted Construction-A lattice of the extended binary Golay code must not be called the
 Leech lattice.
@@ -773,6 +903,12 @@ roadmap, recorded in `UPSTREAM.md`.  If TauCeti has not provided it when the pro
 uniqueness proof needs it, the production development proves it locally, with exactly the intended
 statement, and replaces the local proof by an import once TauCeti provides the result.  Acceptance
 upstream is never a prerequisite.
+
+The intended proof of the classification (PR M1 in `MIGRATION.md`) obtains the 240 roots of an
+arbitrary positive-definite even unimodular rank-eight lattice from the rank-8 theta identity.
+TauCeti's enumeration of the roots of `typeE₈RootLattice` does not supply that count, which concerns
+one specific lattice, so E8 periodic uniqueness keeps its dependency on the pending theta theory even
+though the optimality theorem does not have it.
 
 ### Leech rigidity
 

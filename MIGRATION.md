@@ -167,18 +167,15 @@ if any of these change.
 
 This phase can begin in parallel with the periodic refactors after A1.
 
-### PR C1 — Euclidean norm shells
+### PR C1 — minimum norms over TauCeti's shells
 
-Add a generic Euclidean lattice namespace with:
+Shells, their finiteness, representation numbers, and their invariance under linear isometries are
+TauCeti's (`ZLattice.shell`, `ZLattice.finite_shell`, `ZLattice.representationNumber`,
+`ZLattice.representationNumber_comap`).  Add only:
 
-- `normSqShell`;
-- `minNormSq` or a predicate expressing a lower bound;
-- finiteness of bounded shells;
-- shell transport under linear isometries;
-- membership simp lemmas;
+- a predicate expressing a lower bound on nonzero squared norms, and its attainment;
+- membership simp lemmas where TauCeti does not already provide them;
 - minimum-norm grind rules.
-
-No TauCeti dependency is needed yet beyond the project-wide pin.
 
 ### PR C2 — integral presentations
 
@@ -205,19 +202,21 @@ callers do not prove a separate `gram_isSymm` field.
 
 Compare:
 
-- Mathlib's real inner-product dual lattice;
+- the real inner-product dual `ZLattice.dual` (TauCeti);
 - TauCeti's rational dual carrier.
 
 Construct integral equivalences between the real carrier/dual and TauCeti's carrier/dual carrier.
 Prove real-dual membership equivalence through the rational dual-carrier coordinates and transport
-unimodularity, rootlessness, and exact norm shells.
+evenness and unimodularity to `ZLattice.IsEven` and `ZLattice.IsUnimodular`, rootlessness, and
+exact norm shells between `ZLattice.shell` and `vectorsOfNorm`.
 
 ### PR C4 — discriminant/covolume compatibility
 
-Prove:
+TauCeti proves that the squared covolume is the Gram determinant of any `ℤ`-basis
+(`ZLattice.covolume_sq_eq_det_gram`) and that an integral real lattice is unimodular exactly when it
+has covolume one (`ZLattice.IsIntegral.isUnimodular_iff_covolume_eq_one`).  Prove:
 
-- Gram determinant equals TauCeti determinant/discriminant;
-- real covolume squared equals the nonnegative Gram determinant;
+- TauCeti's discriminant of the presentation lattice is the squared real covolume;
 - positive-definite unimodular presentations have covolume one;
 - isometry invariance;
 - every TauCeti classification isometry extends to a real linear isometry mapping carriers, and
@@ -226,7 +225,9 @@ Prove:
 Derive positive-definiteness from a full Euclidean presentation.  The determinant lower bound and
 classification statements do not carry redundant positivity or nondegeneracy hypotheses.
 
-Avoid global coercion instances between rational and real lattice types.
+Avoid global coercion instances between rational and real lattice types.  When TauCeti PR #20950
+(`ratModel`, open) lands, add a comparison between an `IntegralPresentation` and the rational model
+of the real lattice rather than a second conversion.
 
 ## 6. Phase D — periodic packings and density
 
@@ -300,38 +301,27 @@ as its own theorem/file.  The proof does not depend on E8 or dimension-specific 
 
 ## 7. Phase E — Poisson summation
 
-Adapt proofs from PR #420, but split it.
-
-### PR E1 — Schwartz lattice summability
-
-Add generic theorems for:
-
-- summability over a full lattice;
-- translated Schwartz functions;
-- uniform/local estimates needed by Poisson;
-- finite-dimensional Euclidean specialization.
-
-### PR E2 — real dual-lattice lemmas
-
-Add only the missing real-topological dual facts required by Poisson.  Reuse Mathlib's bilinear-form
-dual submodule where possible, and keep the comparison to TauCeti in the bridge layer.  Provide
-automatic `DiscreteTopology` and `IsZLattice` instances for the dual, together with `dual_dual` and
-`covolume_dual`.
-
-### PR E3 — unshifted Poisson summation
-
-Prove the exact inverse-covolume formula and normalization.  Test it on the unit Gaussian and on
-the self-dual covolume-one case.
-
-### PR E4 — shifted Poisson and structure factors
-
-Prove the translated formula
+TauCeti supplies Poisson summation over a full lattice, the dual lattice with its instances, and
+`dual_dual` and `covolume_dual`.  The translated formula
 
 ```text
 Σ_{x∈Λ} f(x+a) = covol(Λ)⁻¹ Σ_{y∈Λᵛ} f̂(y) exp(2πi⟪y,a⟫)
 ```
 
-and derive the finite-pattern amplitude and structure factor:
+is `SchwartzMap.tsum_eq_tsum_dual_fourier`.  PR #420's summability, duality, and Poisson pieces are
+therefore not ported; only its periodic counting is adapted, in Phase F.
+
+### PR E1 — adopt TauCeti's Poisson summation
+
+Replace the uses of the temporary Cohn--Elkies prerequisites by
+`SchwartzMap.tsum_eq_tsum_dual_fourier` over `ZLattice.dual`.  Add, in a public form, the
+lattice-side and dual-side summability statements that TauCeti's Poisson module proves but does
+not export, stated for upstream (`UPSTREAM.md` A11).  Test the normalization on the unit Gaussian
+and on the self-dual covolume-one case.
+
+### PR E2 — structure factors
+
+From the translated formula, derive the finite-pattern amplitude and structure factor:
 
 ```text
 A_P(y) = Σ_{s∈pattern} exp(2πi⟪y,s⟫),
@@ -362,7 +352,7 @@ until nonnegativity is applied.
 ### PR F3 — unrestricted bound
 
 Combine the periodic theorem with D5.  Retire `CohnElkies/Prereqs.lean` once every result that uses
-it relies instead on the real Poisson summation theorems.
+it relies instead on TauCeti's Poisson summation (E1).
 
 ### PR F4 — equality relation
 
@@ -389,28 +379,27 @@ Do not yet prove dimension-specific rigidity.
 
 ## 9. Phase G — theta series from the TauCeti ThetaSeries roadmap
 
-This phase can run in parallel with the magic-function port after E3/C4.  Duality of real
-lattices, Poisson summation, lattice theta series with their transformation laws, and the
-classifications in ranks 8 and 24 are to be developed in the TauCeti ThetaSeries roadmap;
-SphereCeti uses them.
+This phase can run in parallel with the magic-function port after E1/C4.  Lattice theta series
+with their transformation laws, the theta series of an even unimodular lattice as a modular form,
+and the identities in ranks 8 and 24 belong to the TauCeti ThetaSeries roadmap; SphereCeti uses
+them.  TauCeti has implemented the theta series, its convergence, holomorphy, and q-expansion, and
+its `T`-translation law (`ZLattice.thetaSeries` and related declarations); the `S`-transformation
+and modularity have not landed.  Nothing in this phase is needed for the optimality theorems.
 
-### PR G1 — temporary ThetaSeries statements
+### PR G1 — temporary statements of the pending ThetaSeries targets
 
-Add temporary copies of the ThetaSeries roadmap's target statements, stated exactly as there:
-`dual`, `poissonSummation` with its two summability lemmas, `shell`/`repNum`, real-lattice
-`IsEven`/`IsUnimodular`, `thetaSeries`, `thetaSeries_neg_inv`, `thetaForm` with its coercion and
-q-expansion coefficients, `thetaForm_eq_E₄`, `repNum_two_rank_eight`, `thetaForm_rank_24`, and
-`coe_thetaForm_rank_24_rootless`.  These copies are deleted and replaced by imports from TauCeti
-when the corresponding TauCeti implementation lands; they are not to be developed into a second
-general theory.
+Add temporary statements of the pending targets only, in the form of the ThetaSeries roadmap over
+TauCeti's implemented definitions (`ZLattice.thetaSeries`, `ZLattice.dual`, `ZLattice.IsEven`,
+`ZLattice.IsUnimodular`, `ZLattice.representationNumber`): `thetaSeries_neg_inv`, `thetaForm` with
+its coercion and q-expansion coefficients, `thetaForm_eq_E₄`, `representationNumber_two_rank_eight`,
+`thetaForm_rank_24`, and `coe_thetaForm_rank_24_rootless`.  They are deleted and replaced by imports
+from TauCeti when it provides them; they are not to be developed into a second general theory.
 
 ### PR G2 — comparison with integral presentations
 
-Relate integral presentations to the roadmap's vocabulary for real lattices: evenness,
-unimodularity, the equality of duals `EuclideanLattice.dual = ThetaSeries.dual`, and the
-identification of the root count with a shell coefficient,
-`rootCard = repNum 2 = thetaEvenCoeff 1`.  Construct shells as `Finset`s after supplying
-discreteness; do not use the zero-on-infinite-sets behavior of `Set.ncard`.
+Relate integral presentations to TauCeti's real predicates: an even (unimodular) presentation makes
+the real lattice `ZLattice.IsEven` (`ZLattice.IsUnimodular`), and the root count is the
+representation number `ZLattice.representationNumber Λ 2`.
 
 ### PR G3 — E8/Leech theta corollaries
 
@@ -423,6 +412,9 @@ rank 24 even unimodular: Θ = E₄³ + (N₂ - 720) Δ
 rootless rank 24: Θ = E₄³ - 720 Δ
 ```
 
+TauCeti's graded-ring isomorphism `TauCeti.ModularForm.mvPolynomialEquivModularForms` reduces each
+identity to a comparison of finitely many q-expansion coefficients once `thetaForm` exists.
+
 ## 10. Phase H — E8 as a fully bridged object
 
 ### PR H1 — bridge results without splitting the E8 file
@@ -430,67 +422,73 @@ rootless rank 24: Θ = E₄³ - 720 Δ
 Without moving the large existing E8 file, add:
 
 - integral presentation;
-- associated TauCeti integral lattice;
+- a Gram-preserving isometry from that presentation to TauCeti's
+  `IntegralLattice.typeE₈RootLattice`;
 - positive-definite/even/unimodular proofs;
 - covolume-one bridge;
 - shell compatibility.
 
-### PR H2 — theta identity and shell checksum
+### PR H2 — root count
 
-Prove `Theta_E8 = E₄` and the cardinality `240`.  Keep the direct minimum-norm proof as the packing
-input; theta is a second characterization and regression test.
+Prove the cardinality `240` of the real shell of squared norm `2`, by transporting TauCeti's
+enumeration `typeE₈RootEquiv` (equivalently `kissingNumber_typeE₈RootLattice`) through H1's
+isometry.  This count is independent of theta theory.  Keep the direct minimum-norm proof as the
+packing input.
 
-### PR H3 — file split
+### PR H3 — theta identity
+
+After G3, prove `Theta_E8 = E₄` as a second characterization and regression test.  It is not an
+input to E8 optimality.
+
+### PR H4 — file split
 
 Only after H1/H2, split the E8 development into basic, Gram/integral, packing, and theta modules,
 with compatibility import shims.
 
 ## 11. Phase I — Golay and Leech
 
-### PR I1 — binary-code prerequisites
+TauCeti supplies the coding theory, the extended binary Golay code `TauCeti.BinaryGolay.code`, and
+the canonical Leech lattice `TauCeti.leechLattice` with its evenness, unimodularity, congruence
+model, minimum `4`, and absence of roots.  This phase constructs no second Golay code or Leech
+lattice; it transports TauCeti's lattice into the packing space and compares the other
+descriptions with it.
 
-Develop only the coding theory needed by the extended binary Golay code:
+### PR I1 — transported Euclidean Leech lattice
 
-- Hamming weight and distance;
-- dual code and self-duality;
-- doubly-evenness;
-- generator/parity-check matrices;
-- weight enumerator facts actually used by the lattice proof.
+Define the Euclidean Leech lattice as the image of `leechLattice.carrier` under
+`T(x) = x / √2`, so that `T(a / 2) = a / √8`.  Prove:
 
-This material is a leading candidate for a TauCeti coding-theory roadmap; choose names in the form
-intended for upstream.
+- `⟪T x, T y⟫ = B(x, y)`, where `B` is the form of `leechLattice`;
+- discreteness and full rank of the image, and covolume one;
+- transport of every norm shell, hence minimum squared norm `4` and no roots, from
+  `minimum_leechLattice` and `vectorsOfNorm_two_leechLattice`;
+- an integral presentation with an isometry to `leechLattice`, hence evenness and unimodularity.
 
-### PR I2 — extended Golay code
+### PR I2 — canonical packing
 
-Construct it as the row span of the parity extension of the first 12 shifts of
-`1 + X + X^5 + X^6 + X^7 + X^9 + X^11`.  Verify dimension `12`, cardinality `2^12`, self-duality,
-doubly-evenness, minimum weight `8`, the all-one word, and weight enumerator
-`1 + 759 X^8 + 2576 X^12 + 759 X^16 + X^24`.  Check the cyclic indexing and independence through
-explicit executable row-weight and unitriangular-pivot certificates.
+Construct the canonical unit-ball packing of separation `2` and prove its density `π^12 / 12!`.
+PR I1 and this PR are the only Leech inputs to optimality.
 
-### PR I3 — Leech coordinate/glue construction
+### PR I3 — secondary comparisons
 
-Define the actual Leech lattice as the `1 / sqrt 8` scaling of integral vectors whose coordinate
-sum and residue-class words satisfy the pinned modulo-eight/Golay conditions.  Prove the exact
-membership theorem, closure, integrality, evenness, rootlessness, and the minimum-norm lower bound
-from that coordinate description.  This is not naive unshifted Construction A.
+Prove, with explicit finite certificates where the statement is computational:
 
-### PR I4 — Leech Gram presentation
+- the residue-class coordinate description with TauCeti's code: `x / √8`, for integral `x`, lies in
+  the lattice exactly when the coordinate-sum condition modulo eight holds and every residue-class
+  word lies in `BinaryGolay.code`;
+- the code generated by the parity extension of the first twelve shifts of
+  `1 + X + X^5 + X^6 + X^7 + X^9 + X^11` equals `BinaryGolay.code` after a coordinate permutation;
+- the 24 published basis rows, divided by `√8`, span the lattice after a coordinate permutation, and
+  their integer matrix has determinant `8^12`.
 
-Use the pinned 24-row integer matrix divided by `sqrt 8`.  Prove that every row lies in the
-coordinate lattice and that their integer span is exactly that lattice, then construct the integral
-presentation directly from those rows.  Check its determinant `8^12` with an explicit finite
-certificate suitable for kernel verification.  Do not introduce a second opaque lattice submodule.
+The published rows are not in the cyclic code's coordinates: eleven of them fail its residue-class
+condition.  Each comparison names its permutation; none is an identification by definition.
 
-### PR I5 — unimodularity, theta, and packing
+### PR I4 — kissing number and theta identity
 
-Prove:
-
-- positive-definite, even, unimodular;
-- minimum squared norm `4`;
-- theta identity and first shell `196560`;
-- covolume one;
-- canonical unit-ball packing and density.
+Prove `leechLattice.kissingNumber = 196560`, an algebraic statement intended for TauCeti
+(`UPSTREAM.md` B4), and its corollary for the real shell of squared norm `4`.  After G3, prove the
+theta identity.  Neither is an input to optimality.
 
 ## 12. Phase J — common analytic tools for the magic functions
 
@@ -665,7 +663,8 @@ Every positive-definite even unimodular integral lattice of rank 8 is isometric 
 
 Use the following constructive route rather than a mass-formula argument:
 
-- theta identity supplies 240 roots;
+- the rank-8 theta identity (G3) supplies 240 roots of the arbitrary lattice; TauCeti's count of
+  the roots of `typeE₈RootLattice` concerns one specific lattice and cannot replace this step;
 - prove the norm-two roots are a finite crystallographic root system and span rank eight;
 - decompose the root system into valid irreducible ADE components, with the `A` and `D` index
   ranges represented explicitly;
@@ -781,7 +780,7 @@ Analogous.
 
 Remove the deprecated `numReps` and `numReps'` aliases and the duplicate representative
 construction after D3 migrates the declarations that use them.  Delete `CohnElkies/Prereqs.lean`
-after E3--E4 and F1 supply its replacements.  Remove every other compatibility alias only when an
+after E1--E2 and F1 supply its replacements.  Remove every other compatibility alias only when an
 earlier PR names both its canonical replacement and every migrated use.
 
 ### PR O4 — upstream issue creation
@@ -797,17 +796,18 @@ After A1:
 - B1--B3 can proceed independently of C1--C4.
 - C1/C2 can proceed in parallel with D1/D2, but C4 is needed before lattice theta classification.
 - E1/E2 can proceed in parallel with D3/D4.
-- G1/G2 can begin once E3 and C2 exist.
-- H1 can begin immediately after C2; H2 waits for G3.
-- I1/I2 can run in parallel with E/F/G and the E8 magic-function port.
+- G1/G2 can begin once E1 and C2 exist.
+- H1 can begin immediately after C2, and H2 immediately after H1; only H3 waits for G3.
+- I1--I3 can run in parallel with E/F/G and the E8 magic-function port; only I4's theta identity
+  waits for G3.
 - J1--J6 can run in parallel with G and Leech lattice construction; J6 is independent of J4--J5.
-- K can start after J foundations and F1; K5 waits for F2/F3.
-- L1--L7 can start after J foundations and F1, in parallel with the Golay/Leech lattice package;
-  L8 waits for I5 and the generic lattice/periodic bound.
-- M1 can proceed once TauCeti lattice bridges and E8 root data are available; it does not wait for
-  the magic function.
-- M2 can proceed once Leech/Golay and the required classification results exist; it does not
-  wait for the magic function.
+- K can start after J foundations and F1; K5 waits for F2/F3.  K6 does not wait for H3.
+- L1--L7 can start after J foundations and F1, in parallel with the Leech lattice package;
+  L8 waits for I1/I2 and the generic lattice/periodic bound, not for I3, I4, or G.
+- M1 can proceed once TauCeti lattice bridges and G3's rank-8 theta identity are available; it does
+  not wait for the magic function.
+- M2 can proceed once the transported Leech lattice and the required classification results exist;
+  it does not wait for the magic function.
 - N1--N3 wait for F4 plus the dimension-specific exact zero results, and do not wait for M1/M2;
   N4 additionally waits for M1, N5 for M2, and N6 follows from N4/N5.
 

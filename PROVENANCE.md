@@ -76,8 +76,48 @@ Relevant existing declarations include:
 - `IntegralLattice.dualCarrier` and discriminant group;
 - `IntegralLattice.IsUnimodular` and determinant criteria.
 
-SphereCeti adds the bridge from this rational algebraic presentation to Mathlib's real topological
+SphereCeti adds the bridge from this rational algebraic presentation to the real topological
 `ZLattice` representation.  It does not copy the TauCeti lattice definitions.
+
+### Real lattices, Poisson summation, and theta series
+
+Used directly:
+
+```text
+TauCeti/Algebra/Module/ZLattice/Dual.lean
+TauCeti/Algebra/Module/ZLattice/Integral.lean
+TauCeti/Algebra/Module/ZLattice/Determinant.lean
+TauCeti/Algebra/Module/ZLattice/Covolume.lean
+TauCeti/Algebra/Module/ZLattice/Shell.lean
+TauCeti/Analysis/Fourier/PoissonSummation.lean
+TauCeti/NumberTheory/ModularForms/ThetaSeries/Basic.lean
+TauCeti/NumberTheory/ModularForms/ThetaSeries/QExpansion.lean
+```
+
+These supply `ZLattice.dual`, the real predicates `ZLattice.IsIntegral`, `ZLattice.IsEven`, and
+`ZLattice.IsUnimodular`, shells and representation numbers, Poisson summation
+`SchwartzMap.tsum_eq_tsum_dual_fourier`, and the theta series `ZLattice.thetaSeries` with its
+q-expansion.  The theta `S`-transformation and modularity are not yet in TauCeti.
+
+### E8, the Golay code, and the Leech lattice
+
+Used directly:
+
+```text
+TauCeti/LinearAlgebra/IntegralLattice/RootLattice/TypeE/Basic.lean
+TauCeti/LinearAlgebra/IntegralLattice/RootLattice/TypeE/Roots.lean
+TauCeti/LinearAlgebra/IntegralLattice/PosDef/Minimum.lean
+TauCeti/LinearAlgebra/IntegralLattice/PosDef/RepresentationNumber.lean
+TauCeti/InformationTheory/Coding/Binary/Golay/Basic.lean
+TauCeti/LinearAlgebra/IntegralLattice/ConstructionB/Golay.lean
+TauCeti/LinearAlgebra/IntegralLattice/Rank24/Leech/Basic.lean
+TauCeti/LinearAlgebra/IntegralLattice/Rank24/Leech/Minimum.lean
+```
+
+The canonical algebraic E8 and Leech lattices are `IntegralLattice.typeE₈RootLattice` and
+`leechLattice`; the canonical Golay code is `BinaryGolay.code`, in the coordinates of its systematic
+generator.  SphereCeti compares its Euclidean lattices and its other code and basis descriptions
+with these objects and does not construct them again.
 
 ### Contour and complex analysis
 
@@ -99,7 +139,12 @@ TauCeti/NumberTheory/ModularForms/QExpansion/Basic.lean
 TauCeti/NumberTheory/ModularForms/QExpansion/BigO.lean
 TauCeti/NumberTheory/ModularForms/QExpansion/Order.lean
 TauCeti/NumberTheory/ModularForms/SturmBound.lean
+TauCeti/NumberTheory/ModularForms/LevelOne/GradedRing.lean
 ```
+
+`LevelOne/GradedRing.lean` supplies `TauCeti.ModularForm.mvPolynomialEquivModularForms`, the
+isomorphism between `ℂ[E₄, E₆]` and the level-one modular forms, for the theta identities of ranks 8
+and 24 once the theta series is a modular form.
 
 SphereCeti keeps dimension-specific E8 and Leech modular forms in the sphere-packing production
 repository.  The TauCeti material supplies the general results on restriction, transformation,

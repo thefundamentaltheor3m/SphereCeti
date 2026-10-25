@@ -146,6 +146,8 @@ Where packings meet Poisson summation:
 
 This is Mathlib's real full-rank discrete lattice representation.  Covolume, fundamental regions,
 lattice sums, and the action on periodic center sets are developed for this representation.
+TauCeti's `ZLattice` namespace supplies its duality, its predicates `ZLattice.IsIntegral`,
+`ZLattice.IsEven`, and `ZLattice.IsUnimodular`, its determinant, and its shells.
 
 ### Rational integral lattice
 
@@ -169,16 +171,23 @@ A real Euclidean lattice is connected to the rational theory through an explicit
 - the associated TauCeti Gram lattice;
 - a real/rational comparison map.
 
-Do not create a second global predicate called `IsIntegral` on real lattices.  Integrality is a
-property of a presentation and then a theorem about the associated TauCeti lattice.
+Do not create another integrality predicate on real lattices; TauCeti's `ZLattice.IsIntegral` is
+the one.  Integrality of a presentation is then a theorem relating the associated TauCeti lattice to
+the real predicates.
 
 The bridge must compare:
 
 - real and rational Gram matrices;
-- real dual lattice and TauCeti dual carrier;
-- determinant, discriminant, and real covolume;
+- the real dual `ZLattice.dual` and TauCeti's dual carrier;
+- TauCeti's discriminant and the real covolume;
+- `IntegralLattice.IsEven` and `IntegralLattice.IsUnimodular` of the presentation lattice with
+  `ZLattice.IsEven` and `ZLattice.IsUnimodular` of the real lattice;
 - real isometry and integral-lattice isometry;
-- minimum norm and finite shells.
+- minimum norm, and `ZLattice.shell` with TauCeti's `vectorsOfNorm`.
+
+TauCeti PR #20950 (open) proposes the rational model `ratModel` of a real integral lattice.  Once it
+lands, the presentation is compared with it; the presentation is not a competing abstract
+conversion.
 
 ## 7. Dual lattices
 
@@ -187,6 +196,10 @@ For a real lattice in `V d`, use the inner-product dual:
 ```text
 Λ* = {y | ∀ x ∈ Λ, ⟪y, x⟫_ℝ ∈ ℤ}.
 ```
+
+This is TauCeti's `ZLattice.dual`, equal to Mathlib's `LinearMap.BilinForm.dualSubmodule` for the
+inner product by `ZLattice.dual_def`; its discreteness and full-rank instances are TauCeti's.  Do
+not define a local dual.
 
 For a TauCeti integral lattice, use `L.dualCarrier`, defined from the rational bilinear form.
 
@@ -208,28 +221,32 @@ For an integral presentation with Gram matrix `G`:
 covol(Λ)^2 = |det G|.
 ```
 
-For a positive-definite integral lattice, unimodularity gives `|det G| = 1` and hence covolume `1`.
+TauCeti proves this as `ZLattice.covolume_sq_eq_det_gram`, for every `ℤ`-basis.  For a
+positive-definite integral lattice, unimodularity gives `|det G| = 1` and hence covolume `1`; the
+real form of that criterion is `ZLattice.IsIntegral.isUnimodular_iff_covolume_eq_one`.
 The square-root and positivity steps must be named theorems; avoid relying on `nlinarith` to infer a
 choice of square root through hidden nonnegativity.
 
 ## 9. Minimum norms and shells
 
-Use squared norms for algebraic shell indexing:
+Use squared norms for shell indexing, with TauCeti's definitions:
 
 ```lean
-EuclideanLattice.normSqShell Λ a := {x : Λ | ‖(x : V d)‖ ^ 2 = a}
+ZLattice.shell Λ t := {v | v ∈ Λ ∧ ‖v‖ ^ 2 = t}
+ZLattice.representationNumber Λ t := (ZLattice.shell Λ t).ncard
 ```
 
-For an even integral lattice, use natural half-norm coefficients:
-
-```text
-shell n = {x | ‖x‖² = 2n}.
-```
+The shell is a `Set` with the finiteness theorem `ZLattice.finite_shell` for a discrete lattice,
+so the representation number is a genuine count; it is never used for a lattice that is not known
+to be discrete.  On the rational side the corresponding objects are TauCeti's `vectorsOfNorm` and
+`IntegralLattice.representationNumber`.  For an even lattice, the q-expansion coefficient `n` of the
+theta series is `representationNumber Λ (2 * n)`.
 
 Standard data:
 
-- E8: minimum squared norm `2`; shell `n = 1` has cardinality `240`.
-- Leech: minimum squared norm `4`; shell `n = 1` is empty; shell `n = 2` has cardinality `196560`.
+- E8: minimum squared norm `2`; `240` vectors of squared norm `2`.
+- Leech: minimum squared norm `4`; no vectors of squared norm `2`; `196560` vectors of squared norm
+  `4`, which is TauCeti's `kissingNumber` of `leechLattice`.
 
 Membership simp lemmas are appropriate; full shell-classification or cardinality theorems are not
 simp rules.
@@ -299,6 +316,11 @@ The target normalization is:
 The unshifted formula is the `u = 0` specialization.  Periodic multi-coset Cohn--Elkies arguments
 need the shifted formula or an equivalent finite structure-factor formula.
 
+The theorem of record is TauCeti's `SchwartzMap.tsum_eq_tsum_dual_fourier`, which is this formula
+over `ZLattice.dual`; `SchwartzMap.tsum_eq_tsum_dual_fourier_neg` and
+`SchwartzMap.tsum_eq_tsum_dual_fourier_of_even` give the reflected phase.  SphereCeti does not
+restate Poisson summation.
+
 Poisson summation is never a simp rule.  Name it explicitly, with lattice, measure, and Fourier
 conventions visible in its type or imports.
 
@@ -352,9 +374,9 @@ and obtain
 Θ_Λ(τ) = Σ_{n≥0} #(x : ‖x‖² = 2n) q^n.
 ```
 
-This is distinct from the existing Jacobi theta functions `Θ₂`, `Θ₃`, and `Θ₄`.  Put lattice theta
-in a lattice namespace such as `EuclideanLattice.theta` or `IntegralLattice.theta`, never in the
-Jacobi namespace.
+This is TauCeti's `ZLattice.thetaSeries`, with exactly this exponent, and its q-expansion is
+`ZLattice.IsEven.qExpansion_thetaSeries_coeff`.  It is distinct from the existing Jacobi theta
+functions `Θ₂`, `Θ₃`, and `Θ₄`; lattice theta series are never placed in the Jacobi namespace.
 
 For a rank-`d` real lattice:
 
@@ -364,7 +386,8 @@ For a rank-`d` real lattice:
 
 with the power expressed in the integral-weight language available for even rank.  The exact Lean
 statement must avoid an ambiguous complex square-root branch.  In ranks 8 and 24 the weights are 4
-and 12, so ordinary natural powers suffice after the general Poisson identity is specialized.
+and 12, so ordinary natural powers suffice after the general Poisson identity is specialized.  This
+transformation law is not yet in TauCeti; see `UPSTREAM.md` A11.
 
 Standard level-one identities:
 
@@ -407,15 +430,39 @@ Keep both:
 
 Prove them equal.  The direct minimum-norm proof remains independent of theta theory.
 
+The canonical algebraic E8 lattice is TauCeti's `IntegralLattice.typeE₈RootLattice`, the Gram lattice
+of the Cartan matrix in simple-root coordinates.  Its basis is not the production basis, so the
+comparison is an explicit Gram-preserving `IntegralLattice.Isometry` from the production
+presentation, never an equality of coordinates.
+
 ### Leech
 
-Keep both:
+The canonical algebraic Leech lattice is TauCeti's `leechLattice` in `ℚ^24`.  Its points are
+`x = a / 2` with `a` integral, and its form is half the dot product:
 
-- a standard Golay/glue coordinate description;
-- an explicit basis/Gram description.
+```text
+B(x, y) = (1/2) Σᵢ xᵢ yᵢ.
+```
 
-Prove them equal.  The naive unshifted Construction-A lattice of the extended binary Golay code has
-roots and is not the Leech lattice; naming must reflect the actual glue/shift construction.
+The Euclidean Leech lattice in `V 24` is its image under
+
+```text
+T : ℚ^24 → V 24,   T(x) = x / √2,
+```
+
+so `⟪T x, T y⟫ = B(x, y)`, `‖T x‖² = B(x, x)`, and `T(a / 2) = a / √8`.  `T` is an isometric
+embedding of the rational lattice into the real ambient space, not a real-linear equivalence between
+`ℚ^24` and `ℝ^24`; discreteness, full rank, and covolume of the image are theorems, not consequences
+of the definition.
+
+The canonical coordinate order is that of TauCeti's Golay code `BinaryGolay.code`, the order of its
+systematic generator `[I₁₂ | B]`.  The cyclic-generator code and the published 24-row basis use
+other coordinate orders.  They are related to the canonical lattice only by theorems that name a
+coordinate permutation, and never identified with it by definition.  The residue-class coordinate
+condition, stated with TauCeti's code, describes the canonical lattice without a permutation.
+
+The naive unshifted Construction-A lattice of the extended binary Golay code has roots and is not
+the Leech lattice; naming must reflect the actual glue/shift construction.
 
 ## 17. Uniqueness scopes
 

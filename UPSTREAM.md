@@ -154,7 +154,10 @@ inner-product space
 
   and transport under linear isometries.
 - [ ] **SphereCeti use:** theta coefficients, minimum norms, equality spectra.
-- [ ] **Fallback:** local `SpherePacking/Lattice/Euclidean/Shell.lean`.
+- [x] **Available in TauCeti at the pin:** `ZLattice.shell`, `ZLattice.finite_shell`,
+  `ZLattice.representationNumber`, and `ZLattice.representationNumber_comap`
+  (`TauCeti/Algebra/Module/ZLattice/Shell.lean`).  SphereCeti uses these; a later move to Mathlib
+  would change only the import.
 
 ### A9. Real inner-product dual lattice versus the bilinear-form dual
 
@@ -162,7 +165,10 @@ inner-product space
 - [ ] **Candidate statement:** identify the inner-product dual of a full Euclidean `ℤ`-lattice with
   `LinearMap.BilinForm.dualSubmodule`, and establish discreteness/full rank.
 - [ ] **SphereCeti use:** Poisson summation and self-duality.
-- [ ] **Fallback:** local bridge, explicitly connected to TauCeti's rational dual carrier.
+- [x] **Available in TauCeti at the pin:** `ZLattice.dual` with `ZLattice.dual_def`, its
+  `DiscreteTopology` and `IsZLattice` instances, and `ZLattice.dual_dual`
+  (`TauCeti/Algebra/Module/ZLattice/Dual.lean`).  SphereCeti uses these.  The comparison with
+  TauCeti's rational dual carrier remains SphereCeti's (Layer 2).
 
 ### A10. Covolume squared versus Gram determinant
 
@@ -171,18 +177,42 @@ inner-product space
   determinant of its Gram matrix; include basis independence and positive-definite square-root
   corollaries.
 - [ ] **SphereCeti use:** compare real covolume with TauCeti discriminant/unimodularity.
-- [ ] **Fallback:** SphereCeti real/rational bridge.
+- [x] **Available in TauCeti at the pin:** `ZLattice.covolume_sq_eq_det_gram`,
+  `ZLattice.covolume_dual`, `ZLattice.det_eq_det_gram`, and
+  `ZLattice.IsIntegral.isUnimodular_iff_covolume_eq_one`
+  (`TauCeti/Algebra/Module/ZLattice/{Covolume,Determinant}.lean`).  SphereCeti uses these.
 
 ### A11. Lattice Poisson summation and theta series
 
 - [ ] **Destination:** the TauCeti ThetaSeries roadmap, where general real-lattice duality,
   Poisson summation, theta series, transformation laws, the modular theta form, and the
   rank-8/rank-24 classifications are to be developed.
-- [ ] **SphereCeti use:** the provisional local statements in the `ThetaSeries` namespace of
-  `Suggested.lean` are stated to match that roadmap's targets; the presentation bridges and
-  E8/Leech corollaries use them.
-- [ ] **Fallback:** those provisional local statements, to be deleted and replaced by imports; they
-  must not grow into a second general implementation.
+- [x] **Available in TauCeti at the pin:** Poisson summation over a full lattice,
+  `SchwartzMap.tsum_eq_tsum_dual_fourier`, with `SchwartzMap.tsum_eq_tsum_dual_fourier_neg` and
+  `SchwartzMap.tsum_eq_tsum_dual_fourier_of_even`
+  (`TauCeti/Analysis/Fourier/PoissonSummation.lean`); the theta series `ZLattice.thetaSeries` and
+  `ZLattice.thetaCoset`, their convergence, holomorphy, q-expansions, and `T`-translation law
+  (`TauCeti/NumberTheory/ModularForms/ThetaSeries/`).  SphereCeti uses these and keeps no copy.
+- [ ] **Remaining candidate: public Poisson summability.**  TauCeti's Poisson module proves the
+  lattice-side and dual-side summability it needs but keeps them private.  SphereCeti needs them in
+  a public form; until TauCeti exports them, SphereCeti states them locally in the form intended
+  for that module.
+- [ ] **Remaining candidate: the theta `S`-transformation.**  For a full lattice of even rank `2k`,
+
+  ```text
+  Θ_L(-1/τ) = covol(L)⁻¹ (-i)^k τ^k Θ_{L^∨}(τ),
+  ```
+
+  obtained by applying `SchwartzMap.tsum_eq_tsum_dual_fourier` to the Gaussian
+  `x ↦ exp(π i ‖x‖² τ)`.  Acceptance conditions: the Fourier transform of the complex Gaussian is
+  proved for every `τ` in the upper half-plane in Mathlib's `exp(-2πi⟪x,ξ⟫)` normalization; the
+  factor `(-iτ)^(d/2)` is stated through natural powers `(-i)^k τ^k` in even rank, so that no
+  complex square-root branch occurs; and the statement uses TauCeti's `ZLattice.dual` and
+  `ZLattice.covolume` with no extra hypotheses.  The theta series of an even unimodular lattice as a
+  level-one modular form, and the rank-8 and rank-24 identities, follow in the ThetaSeries roadmap.
+- [ ] **Fallback:** provisional local statements of the pending targets only, over TauCeti's
+  implemented definitions, deleted and replaced by imports when TauCeti provides them; they must not
+  grow into a second general implementation.
 - [ ] **Upstream test:** the provisional `ThetaSeries` namespace is deleted and replaced by direct
   TauCeti imports.
 
@@ -289,6 +319,12 @@ SphereCeti.
   definiteness, evenness, unimodularity, determinant one, and identify its 240 roots.
 - [ ] **SphereCeti use:** compare the existing Euclidean E8 definition with the canonical algebraic
   E8 object.
+- [x] **Available in TauCeti at the pin:** `IntegralLattice.typeE₈RootLattice` with
+  `isEven_typeE₈RootLattice`, `isPosDef_typeE₈RootLattice`, and `determinant_typeE₈RootLattice`
+  (`RootLattice/TypeE/Basic.lean`), and its roots `typeE₈RootEquiv : Fin 240 ≃ _`,
+  `representationNumber_typeE₈RootLattice_two`, and `kissingNumber_typeE₈RootLattice`
+  (`RootLattice/TypeE/Roots.lean`).  SphereCeti adopts `typeE₈RootLattice` as its canonical E8
+  object; the Gram-preserving isometry from the production presentation remains SphereCeti's.
 
 ### B4. Explicit Leech integral lattice
 
@@ -296,6 +332,17 @@ SphereCeti.
 - [ ] **Target:** a canonical rational integral-lattice object with coordinate/glue and Gram
   presentations, equality between them, evenness, unimodularity, rootlessness, and minimum norm.
 - [ ] **SphereCeti use:** the algebraic object behind the real packing.
+- [x] **Available in TauCeti at the pin:** `leechLattice`, built from Construction B of
+  `BinaryGolay.code` and the odd shift, with `isEven_leechLattice`, `isUnimodular_leechLattice`,
+  `isPosDef_leechLattice`, `finrank_leechLattice` (`Rank24/Leech/Basic.lean`), the congruence model
+  `mem_leechLattice_carrier_iff_exists`, `minimum_leechLattice`, and
+  `vectorsOfNorm_two_leechLattice` (`Rank24/Leech/Minimum.lean`).  SphereCeti adopts `leechLattice`
+  as its canonical Leech object and transports it into the packing space; no Gram presentation is
+  needed upstream for that.
+- [ ] **Remaining candidate: the kissing number.**  `leechLattice.kissingNumber = 196560`, for
+  TauCeti's `IntegralLattice.kissingNumber`.  The minimum and the absence of roots are upstream; the
+  count is not.  SphereCeti states it as an algebraic target, with the real-shell count as a
+  corollary, and does not need it for optimality.
 
 ### B5. Integral-presentation bridge to the ThetaSeries roadmap
 
@@ -306,6 +353,11 @@ SphereCeti.
   evenness, unimodularity, and shell coefficients.
 - [ ] **SphereCeti use:** the Layer 5 presentation bridges; avoid a sphere-packing-specific theta
   namespace.
+- [ ] **Status:** the real predicates `ZLattice.IsIntegral`, `ZLattice.IsEven`, and
+  `ZLattice.IsUnimodular` are in TauCeti at the pin.  TauCeti PR #20950 (open) proposes the
+  rational model `ratModel` of a real integral lattice with comparisons of its invariants; when it
+  lands, SphereCeti's `IntegralPresentation` is compared with it rather than kept as a competing
+  conversion.
 
 ## C. TauCeti coding-theory and code-lattice roadmap
 
@@ -315,6 +367,9 @@ SphereCeti.
 - [ ] **Scope:** linear codes, duality, Hamming weight/distance, weight enumerators, self-dual and
   doubly-even binary codes, equivalence under coordinate permutations.
 - [ ] **Scope limit:** reusable algebraic coding theory, not a one-off Golay matrix verification.
+- [x] **Available in TauCeti at the pin:** `LinearCode`, Euclidean duality, Hamming weights,
+  weight enumerators, and doubly-even and Type II binary codes
+  (`TauCeti/InformationTheory/Coding/`).
 
 ### C2. Extended binary Golay code
 
@@ -322,12 +377,20 @@ SphereCeti.
 - [ ] **Targets:** explicit construction; dimension `12`; self-duality; doubly-evenness; minimum
   distance `8`; relevant weight enumerator and automorphism facts.
 - [ ] **SphereCeti use:** Leech coordinate/glue construction and rootlessness.
+- [x] **Available in TauCeti at the pin:** `BinaryGolay.code`, generated by the systematic matrix
+  `[I₁₂ | B]`, with `finrank_code`, `natCard_code`, `isSelfDual_code`, `isDoublyEven_code`,
+  `eight_le_hammingNorm`, and `weightEnumerator_code`
+  (`Binary/Golay/Basic.lean`).  It was already present at the previous pin `1308f31`.
+  SphereCeti adopts it as the canonical code and compares its cyclic-generator description with it
+  through a coordinate permutation.
 
 ### C3. Code-lattice constructions
 
 - [ ] **Destination:** code-lattice roadmap connected to IntegralLattices.
 - [ ] **Targets:** Construction A and its dual/even/unimodular criteria, shifted/glue variants, and
   explicit E8/Leech comparisons.
+- [x] **Available in TauCeti at the pin:** Construction A and Construction B, and the Leech lattice
+  as the odd-shift glue of Construction B of the Golay code (B4).
 - [ ] **Critical naming rule:** naive Construction A from the extended Golay code is not itself the
   Leech lattice.
 
