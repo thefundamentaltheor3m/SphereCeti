@@ -43,7 +43,7 @@ public import Mathlib.NumberTheory.ModularForms.EisensteinSeries.QExpansion
 
 This file states the definitions and theorems that the roadmap asks to be formalized, with `sorry`
 in place of the proofs and of some definitions: sphere packings and their densities, lattices and
-their duals, the Cohn--Elkies bound, lattice theta series, the E8 and Leech lattices, the contour
+their duals, the Cohn–Elkies bound, lattice theta series, the E8 and Leech lattices, the contour
 integrals defining the magic functions, the equality case, and the main theorems on optimality and
 periodic uniqueness in dimensions 8 and 24.  The accompanying `README.md` is the definitive
 roadmap.  The statements here are suggestions and deliberately nonexhaustive; names and argument
@@ -356,7 +356,7 @@ theorem IntegralPresentation.isUnimodular_real {d : ℕ} {Λ : Submodule ℤ (V 
     ZLattice.IsUnimodular Λ := by
   sorry
 
-/-- Cohn--Elkies Lemma 8.2 for an arbitrary point set.  A full-dimensional set containing zero whose
+/-- Cohn–Elkies Lemma 8.2 for an arbitrary point set.  A full-dimensional set containing zero whose
 pairwise squared distances are even integers generates a discrete full-rank even integral lattice.
 The conclusion is expressed through the real/TauCeti presentation bridge used throughout this
 roadmap. -/
@@ -705,13 +705,13 @@ theorem constant_eq_general (d : ℕ) :
 
 end PeriodicSpherePacking
 
-/-! ## Layer 4: Poisson summation and the Cohn--Elkies certificate -/
+/-! ## Layer 4: Poisson summation and the Cohn–Elkies certificate -/
 
 /-! Poisson summation is TauCeti's `SchwartzMap.tsum_eq_tsum_dual_fourier`, over the dual
 `ZLattice.dual`, which carries its own discreteness and full-rank instances; TauCeti also proves
 `ZLattice.dual_dual` and `ZLattice.covolume_dual`, and the summability of both sides,
 `ZLattice.summable_poisson_left` and `ZLattice.summable_poisson_right`.  SphereCeti keeps the
-Poisson identity over center orbits and the theory of Cohn--Elkies certificates. -/
+Poisson identity over center orbits and the theory of Cohn–Elkies certificates. -/
 
 namespace Poisson
 
@@ -814,7 +814,7 @@ theorem Certificate.bound_pos {d : ℕ} {r : ℝ} (C : Certificate d r) :
     0 < C.bound := by
   sorry
 
-/-- The unrestricted Cohn--Elkies upper bound. -/
+/-- The unrestricted Cohn–Elkies upper bound. -/
 theorem bound {d : ℕ} {r : ℝ} (hd : 0 < d) (C : Certificate d r) :
     SpherePackingConstant d ≤ C.bound := by
   sorry
@@ -922,7 +922,7 @@ theorem fourierDefect_nonneg {d : ℕ} {r : ℝ} (C : Certificate d r)
     0 ≤ fourierDefect C P := by
   sorry
 
-/-- Exact real-valued equality behind the periodic Cohn--Elkies bound. -/
+/-- Exact real-valued equality behind the periodic Cohn–Elkies bound. -/
 theorem defect_identity {d : ℕ} {r : ℝ} (C : Certificate d r)
     (P : PeriodicSpherePacking d) :
     (P.numOrbits : ℝ) * (C.f 0).re -
@@ -1746,7 +1746,7 @@ end Contour
 
 namespace E8
 
-/- The final Cohn--Elkies auxiliary function is not a Fourier eigenfunction.  It is the
+/- The final Cohn–Elkies auxiliary function is not a Fourier eigenfunction.  It is the
 dimension-specific linear combination below of a `+1` and a `-1` eigenfunction. -/
 noncomputable def magicPlusProfile : 𝓢(ℝ, ℂ) := by
   sorry
@@ -2098,7 +2098,7 @@ theorem fourierMagicProfile_exactZeroOrder (n : ℕ) (hn : 1 ≤ n) :
     MagicFunction.HasExactZeroOrder fourierMagicProfile (2 * n) 2 := by
   sorry
 
-/-- Normalized Cohn--Elkies certificate. -/
+/-- Normalized Cohn–Elkies certificate. -/
 @[expose] noncomputable def certificate : CohnElkies.Certificate 8 (Real.sqrt 2) :=
   CohnElkies.Certificate.ofRadial (Real.sqrt_pos.2 (by norm_num)) magic
     magic_im_eq_zero fourier_magic_im_eq_zero
@@ -2133,7 +2133,7 @@ end E8
 namespace Leech
 
 /- The final Leech auxiliary function is the exact linear combination of the two Fourier
-eigencomponents constructed in Sections 2 and 3 of Cohn--Kumar--Miller--Radchenko--Viazovska. -/
+eigencomponents constructed in Sections 2 and 3 of Cohn–Kumar–Miller–Radchenko–Viazovska. -/
 noncomputable def magicPlusProfile : 𝓢(ℝ, ℂ) := by
   sorry
 
@@ -2522,7 +2522,7 @@ def HasLeechDistanceSpectrum (P : SpherePacking 24) : Prop :=
   ∀ x ∈ P.centers, ∀ y ∈ P.centers, x ≠ y →
     ∃ n : ℕ, 2 ≤ n ∧ ‖x - y‖ ^ 2 = 2 * n
 
-/-- Equality in the E8 Cohn--Elkies bound forces the full distance spectrum. -/
+/-- Equality in the E8 Cohn–Elkies bound forces the full distance spectrum. -/
 theorem e8_distanceSpectrum_of_optimalPeriodic
     (P : PeriodicSpherePacking 8)
     (hsep : P.separation = Real.sqrt 2)
@@ -2558,7 +2558,7 @@ theorem translated_centers_subset_generatedIntegralLattice {d : ℕ}
     (fun x => x - x₀) '' P.centers ⊆ generatedIntegralLattice P x₀ := by
   sorry
 
-/-- Cohn--Elkies Lemma 8.2 for a translated periodic center set.  A full-dimensional set
+/-- Cohn–Elkies Lemma 8.2 for a translated periodic center set.  A full-dimensional set
 containing zero whose pairwise squared distances are even integers generates a discrete full-rank
 even integral lattice.  The period lattice of a periodic packing supplies the full-dimensionality
 hypothesis. -/
@@ -2666,7 +2666,7 @@ theorem leech_hasUnitCenterDensity_of_optimal
     HasUnitCenterDensity P := by
   sorry
 
-/-- Cohn--Elkies' covolume/index squeeze.  An optimal unit-center-density pattern contained in a
+/-- Cohn–Elkies' covolume/index squeeze.  An optimal unit-center-density pattern contained in a
 full integral generated lattice has generated covolume one, and the quotient index is exactly the
 number of pattern representatives. -/
 theorem generated_covolume_eq_one_and_index_eq_numOrbits {d : ℕ}

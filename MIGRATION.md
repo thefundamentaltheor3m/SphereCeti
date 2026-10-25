@@ -47,7 +47,7 @@ Every PR must preserve the following unless its title explicitly changes one of 
 | heterogeneous `NNReal`/`ENNReal` global instances | Remove in a focused PR |
 | full periodic density formula marked `@[simp]` | Remove attribute; retain named theorem |
 | `gauss2` completed theorem | Port theorem-by-theorem after foundations |
-| PR #420 | Split into summability, duality, Poisson, and Cohn--Elkies PRs |
+| PR #420 | Split into summability, duality, Poisson, and Cohn–Elkies PRs |
 
 ## 3. Phase A — establish the exact dependency line
 
@@ -313,7 +313,7 @@ therefore not ported; only its periodic counting is adapted, in Phase F.
 
 ### PR E1 — adopt TauCeti's Poisson summation
 
-Replace the uses of the temporary Cohn--Elkies prerequisites by
+Replace the uses of the temporary Cohn–Elkies prerequisites by
 `SchwartzMap.tsum_eq_tsum_dual_fourier` over `ZLattice.dual`, with the summability of both sides
 from `ZLattice.summable_poisson_left` and `ZLattice.summable_poisson_right`.  Test the
 normalization on the unit Gaussian and on the self-dual covolume-one case.
@@ -331,7 +331,7 @@ Prove that the phase at a dual frequency is independent of the representative of
 Record `0 ≤ S_P(y)`, `S_P(y) = 0 ↔ A_P(y) = 0`, and the exact vanishing alternative required
 by periodic equality cases.
 
-## 8. Phase F — Cohn--Elkies as a reusable theorem
+## 8. Phase F — Cohn–Elkies as a reusable theorem
 
 ### PR F1 — certificate structure
 
@@ -546,9 +546,9 @@ are proof devices, not public declarations.
 Prove the main result for unbounded contours: deformation of a horizontal edge into the two
 vertical half-lines above its endpoints, with explicit integrability on the half-lines and the top
 edge controlled by uniform decay or by convergence of the top-edge integrals.  This PR is
-independent of J4--J5.
+independent of J4–J5.
 
-Across J4--J6, keep the two kinds of contour deformation separate:
+Across J4–J6, keep the two kinds of contour deformation separate:
 
 - deformation of half-infinite rectangles at infinity;
 - finite deformation inside the wedge, via the Poincaré lemma.
@@ -671,8 +671,8 @@ Use the following constructive route rather than a mass-formula argument:
 - prove the E8 root sublattice has index one in the unimodular lattice;
 - construct the integral-lattice isometry.
 
-The source conventions are Bourbaki, *Lie Groups and Lie Algebras, Chapters 4--6*, Chapter VI,
-§4 and Plates I--IX, together with Conway--Sloane, *Sphere Packings, Lattices and Groups*,
+The source conventions are Bourbaki, *Lie Groups and Lie Algebras, Chapters 4–6*, Chapter VI,
+§4 and Plates I–IX, together with Conway–Sloane, *Sphere Packings, Lattices and Groups*,
 Chapter 4, §8.1.  The theorem does not mention sphere packings.
 
 ### PR M2 — rootless rank-24 uniqueness
@@ -691,9 +691,9 @@ canonical lattice from its root system and glue code and produces an integral-la
 Prove the criterion that the norm-two root set is empty if and only if the classified case is
 Leech, then derive the rootless uniqueness target.
 
-The classification sources are Niemeier, *Journal of Number Theory* 5 (1973), 142--178, and
-Conway--Sloane, Chapter 16, §1 and Table 16.1 plus §3.  The root-system proof and the rootless
-characterization follow Conway--Sloane, Chapter 18, §§2--5, especially §5.
+The classification sources are Niemeier, *Journal of Number Theory* 5 (1973), 142–178, and
+Conway–Sloane, Chapter 16, §1 and Table 16.1 plus §3.  The root-system proof and the rootless
+characterization follow Conway–Sloane, Chapter 18, §§2–5, especially §5.
 
 Do not postulate the theorem as an opaque axiom in production.
 
@@ -709,7 +709,7 @@ For a canonical-separation optimal periodic packing:
 - form the generated additive subgroup;
 - prove discreteness and full rank.
 
-### PR N2 — Cohn--Elkies quotient and covolume squeeze
+### PR N2 — Cohn–Elkies quotient and covolume squeeze
 
 Do **not** argue that evenness by itself makes the generated lattice a valid Leech-scale
 superpacking.  Instead formalize the exact Section-8 argument:
@@ -746,7 +746,7 @@ the minimum squared norm is at least `2` in the E8 normalization and at least `4
 normalization.  The latter is the rootlessness input needed by M2.
 
 The Fourier structure-factor conditions from F4 remain available as an independent equality
-description, but Cohn--Elkies' exact periodic uniqueness argument does not need restrictions on the
+description, but Cohn–Elkies' exact periodic uniqueness argument does not need restrictions on the
 Fourier-side root set.
 
 ### PR N4 — E8 periodic uniqueness
@@ -779,7 +779,7 @@ Analogous.
 
 Remove the deprecated `numReps` and `numReps'` aliases and the duplicate representative
 construction after D3 migrates the declarations that use them.  Delete `CohnElkies/Prereqs.lean`
-after E1--E2 and F1 supply its replacements.  Remove every other compatibility alias only when an
+after E1–E2 and F1 supply its replacements.  Remove every other compatibility alias only when an
 earlier PR names both its canonical replacement and every migrated use.
 
 ### PR O4 — upstream issue creation
@@ -792,22 +792,22 @@ production mathematics.
 
 After A1:
 
-- B1--B3 can proceed independently of C1--C4.
+- B1–B3 can proceed independently of C1–C4.
 - C1/C2 can proceed in parallel with D1/D2, but C4 is needed before lattice theta classification.
 - E1/E2 can proceed in parallel with D3/D4.
 - G1/G2 can begin once E1 and C2 exist.
 - H1 can begin immediately after C2, and H2 immediately after H1; only H3 waits for G3.
-- I1--I3 can run in parallel with E/F/G and the E8 magic-function port; only I4's theta identity
+- I1–I3 can run in parallel with E/F/G and the E8 magic-function port; only I4's theta identity
   waits for G3.
-- J1--J6 can run in parallel with G and Leech lattice construction; J6 is independent of J4--J5.
+- J1–J6 can run in parallel with G and Leech lattice construction; J6 is independent of J4–J5.
 - K can start after J foundations and F1; K5 waits for F2/F3.  K6 does not wait for H3.
-- L1--L7 can start after J foundations and F1, in parallel with the Leech lattice package;
+- L1–L7 can start after J foundations and F1, in parallel with the Leech lattice package;
   L8 waits for I1/I2 and the generic lattice/periodic bound, not for I3, I4, or G.
 - M1 can proceed once TauCeti lattice bridges and G3's rank-8 theta identity are available; it does
   not wait for the magic function.
 - M2 can proceed once the transported Leech lattice and the required classification results exist;
   it does not wait for the magic function.
-- N1--N3 wait for F4 plus the dimension-specific exact zero results, and do not wait for M1/M2;
+- N1–N3 wait for F4 plus the dimension-specific exact zero results, and do not wait for M1/M2;
   N4 additionally waits for M1, N5 for M2, and N6 follows from N4/N5.
 
 ## 19. PR description template

@@ -104,7 +104,7 @@ SpherePacking.density       : SpherePacking d → ℝ≥0∞
 ```
 
 The infinite density is the limsup of finite densities.  Keep this definition.  Do not replace it
-with a real-valued density merely to shorten the Cohn--Elkies algebra.
+with a real-valued density merely to shorten the Cohn–Elkies algebra.
 
 Use named coercion lemmas for finite real formulas, for example:
 
@@ -313,7 +313,7 @@ The target normalization is:
   = covol(Λ)⁻¹ Σ_{y∈Λ*} f̂(y) exp(2π i ⟪y,u⟫).
 ```
 
-The unshifted formula is the `u = 0` specialization.  Periodic multi-coset Cohn--Elkies arguments
+The unshifted formula is the `u = 0` specialization.  Periodic multi-coset Cohn–Elkies arguments
 need the shifted formula or an equivalent finite structure-factor formula.
 
 The theorem of record is TauCeti's `SchwartzMap.tsum_eq_tsum_dual_fourier`, which is this formula
@@ -324,7 +324,7 @@ restate Poisson summation.
 Poisson summation is never a simp rule.  Name it explicitly, with lattice, measure, and Fourier
 conventions visible in its type or imports.
 
-## 13. Cohn--Elkies certificates
+## 13. Cohn–Elkies certificates
 
 The generic certificate is not radial.  It contains a Schwartz function and the real/sign
 hypotheses needed for the linear-programming bound.  Radiality is a constructor convenience for the
@@ -483,13 +483,13 @@ classification or a narrower rootless theorem).
 ### Lattice packing uniqueness
 
 An optimal lattice packing in dimension 8 or 24 is similar to the E8 or Leech lattice packing.  This
-is a SphereCeti consequence combining the Cohn--Elkies equality case with algebraic classification.
+is a SphereCeti consequence combining the Cohn–Elkies equality case with algebraic classification.
 
 ### Periodic packing uniqueness
 
 An optimal periodic packing is similar to the canonical packing.  The general equality theory for
 periodic packings must retain the Fourier structure factor, but the E8/Leech uniqueness deduction
-follows the more specific Cohn--Elkies Section-8 route:
+follows the more specific Cohn–Elkies Section-8 route:
 
 1. exact direct-side roots force even integral pairwise squared distances;
 2. the translated centers generate a full even integral lattice;
@@ -520,7 +520,7 @@ Do not use for:
 
 - Poisson summation;
 - density expansions;
-- Cohn--Elkies bounds;
+- Cohn–Elkies bounds;
 - theta transformations or classifications;
 - contour deformations;
 - exact zero-set theorems.
@@ -562,7 +562,7 @@ Do not use typeclasses for data with multiple reasonable choices:
 - an integral presentation;
 - a fundamental pattern;
 - a magic modular kernel;
-- a Cohn--Elkies certificate;
+- a Cohn–Elkies certificate;
 - an equality witness;
 - a chosen E8 or Leech identification.
 

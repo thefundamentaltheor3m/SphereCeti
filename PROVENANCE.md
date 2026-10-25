@@ -188,7 +188,7 @@ source commit and path recorded in the destination file or PR description.
 
 High-value material includes:
 
-- the completed E8 Cohn--Elkies upper bound;
+- the completed E8 Cohn–Elkies upper bound;
 - the final E8 main theorem assembly;
 - completed Fourier permutations of the `a` integral pieces;
 - the contour development in the convex wedge under the inversion `z ↦ -1/z`;
@@ -212,7 +212,7 @@ SpherePacking/MagicFunction/b/Eigenfunction.lean       -- six-piece assembly, -1
 The corresponding design documents are the blueprint sections
 `blueprint/src/subsections/contour-integration.tex` and
 `blueprint/src/subsections/integration-infrastructure.tex` of Sphere-Packing-Lean PR #435 at
-commit `5df95c5124ba691f0d377dbe8a54d6972276b0ef`, and Chapters 4--5 of Sidharth Hariharan's M4R
+commit `5df95c5124ba691f0d377dbe8a54d6972276b0ef`, and Chapters 4–5 of Sidharth Hariharan's M4R
 thesis (`thefundamentaltheor3m/M4R_Thesis`, commit
 `5c478f0193104a70f070bfcfece283767ba17304`), which record the dependency structure of the
 eigenfunction and double-zero arguments.
@@ -232,7 +232,7 @@ PR #420 is a source of proofs to adapt, containing several separable contributio
 2. comparison of the real inner-product dual lattice with the bilinear-form dual;
 3. Poisson summation;
 4. basis-independent covolume facts;
-5. general periodic Cohn--Elkies counting.
+5. general periodic Cohn–Elkies counting.
 
 Each item is ported in a focused PR onto production `main` after A1.  A claim that PR #420 is “merged
 by replacement” must list the replacement declarations; broad textual similarity is not enough.
@@ -242,9 +242,9 @@ by replacement” must list the replacement declarations; broad textual similari
 ### Optimality and periodic uniqueness
 
 - Maryna S. Viazovska, *The sphere packing problem in dimension 8*, Annals of Mathematics 185
-  (2017), 991--1015.
+  (2017), 991–1015.
 - Henry Cohn, Abhinav Kumar, Stephen D. Miller, Danylo Radchenko, and Maryna Viazovska,
-  *The sphere packing problem in dimension 24*, Annals of Mathematics 185 (2017), 1017--1033.
+  *The sphere packing problem in dimension 24*, Annals of Mathematics 185 (2017), 1017–1033.
 
 The roadmap uses their exact sphere-packing optimality and **periodic uniqueness** scopes.  It does
 not silently strengthen them to literal uniqueness among all limsup-density packings.
@@ -252,7 +252,7 @@ not silently strengthen them to literal uniqueness among all limsup-density pack
 ### Linear-programming bound and exact periodic rigidity
 
 - Henry Cohn and Noam Elkies, *New upper bounds on sphere packings I*, Annals of Mathematics 157
-  (2003), 689--714.
+  (2003), 689–714.
 
 The exact periodic-uniqueness route is specifically Section 8:
 
@@ -272,7 +272,7 @@ argument, and the 24-dimensional paper supplies its Leech analogue.
 ### Lattice uniqueness
 
 - Henry Cohn and Abhinav Kumar, *Optimality and uniqueness of the Leech lattice among lattices*,
-  Annals of Mathematics 170 (2009), 1003--1050.
+  Annals of Mathematics 170 (2009), 1003–1050.
 
 The rank-eight theorem also uses the classical characterization of E8 as the unique
 positive-definite even unimodular lattice of rank eight.  The intended formal statement is generic
@@ -282,24 +282,24 @@ integral-lattice mathematics whose intended home is TauCeti.
 
 - Károly J. Böröczky, Danylo Radchenko, and João P. G. Ramos,
   *A quantitative stability result for the sphere packing problem in dimensions 8 and 24*, Journal
-  für die reine und angewandte Mathematik 2024 (808), 241--270.
+  für die reine und angewandte Mathematik 2024 (808), 241–270.
 
 The exact uniqueness statements belong in SphereCeti.  Quantitative lattice and periodic local-frame
 stability require a separate roadmap and additional metric/quantitative infrastructure.
 
 ### Lattice and code references
 
-- N. Bourbaki, *Lie Groups and Lie Algebras, Chapters 4--6*, Springer (2002), Chapter VI,
-  §4 and Plates I--IX.  These supply the ADE classification, ranks, root counts, and Bourbaki
+- N. Bourbaki, *Lie Groups and Lie Algebras, Chapters 4–6*, Springer (2002), Chapter VI,
+  §4 and Plates I–IX.  These supply the ADE classification, ranks, root counts, and Bourbaki
   numbering used by the rank-eight route.
 - H.-V. Niemeier, “Definite quadratische Formen der Dimension 24 und Diskriminante 1,” *Journal of
-  Number Theory* **5** (1973), 142--178,
+  Number Theory* **5** (1973), 142–178,
   [DOI](https://doi.org/10.1016/0022-314X(73)90068-1).  Its main classification theorem gives the
   24 positive-definite even unimodular rank-24 lattices.
 - J. H. Conway and N. J. A. Sloane, *Sphere Packings, Lattices and Groups*, 3rd ed., Springer
   (1999), [DOI](https://doi.org/10.1007/978-1-4757-6568-7).  Chapter 4, §8.1 fixes the E8 model;
   Chapter 16, §1 and Table 16.1 enumerate the Niemeier lattices and §3 verifies the list; Chapter
-  18, §§2--5 gives the root-system proof and constructions, with §5 characterizing the rootless
+  18, §§2–5 gives the root-system proof and constructions, with §5 characterizing the rootless
   case as the Leech lattice.
 - V. V. Nikulin, “Integral symmetric bilinear forms and some of their applications,” *Math.
   USSR-Izv.* **14** (1980).  Section 1.1 fixes discriminant-form conventions; §1.4,
@@ -307,7 +307,7 @@ stability require a separate roadmap and additional metric/quantitative infrastr
 - W. Ebeling, *Lattices and Codes*, 3rd ed., Springer (2013).  Chapter 1 supplies lattice, dual,
   discriminant, and glue calculations; Chapter 3 supplies the even unimodular examples.
 
-The Leech construction targets pin the Conway--Sloane normalization: the extended Golay generator
+The Leech construction targets pin the Conway–Sloane normalization: the extended Golay generator
 polynomial, the modulo-eight/residue-code coordinate description scaled by `1 / sqrt 8`, and the
 24-row integer basis matrix in that same scaling.
 

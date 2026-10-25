@@ -50,8 +50,8 @@ Readers who do not use Lean may find the following conventions helpful.
   components are called *fields* (unrelated to algebraic fields), and a *constructor* builds an
   element of the structure: the basic one from the fields themselves, and derived constructors,
   such as `Certificate.ofRadial`, from other data.
-- **Cohn--Elkies certificate.**  `CohnElkies.Certificate d r` consists of a Schwartz function `f`
-  on `ℝ^d` together with the properties the Cohn--Elkies bound requires of it: `r > 0`; `f` and its
+- **Cohn–Elkies certificate.**  `CohnElkies.Certificate d r` consists of a Schwartz function `f`
+  on `ℝ^d` together with the properties the Cohn–Elkies bound requires of it: `r > 0`; `f` and its
   Fourier transform `f̂` are real-valued; `f(x) ≤ 0` whenever `‖x‖ ≥ r`; `f̂ ≥ 0` everywhere; and
   `f̂(0) > 0`.  The Fourier transform is normalized with the kernel `exp(-2πi⟨x, ξ⟩)`.
 - **Direct side, Fourier side, shells.**  Statements about `f` are on the *direct side* and
@@ -168,13 +168,13 @@ The equality case naturally splits across repositories.
 
 | Result | Natural home | Reason |
 |---|---|---|
-| Equality in the periodic Cohn--Elkies sum forces all pairwise differences onto the magic-function zero shells | Sphere-Packing/SphereCeti | It depends on packing density, finite periodic patterns, and the specific certificate |
+| Equality in the periodic Cohn–Elkies sum forces all pairwise differences onto the magic-function zero shells | Sphere-Packing/SphereCeti | It depends on packing density, finite periodic patterns, and the specific certificate |
 | The translated center set generates a full even integral lattice, and optimal density forces the packing to equal one coset of it | Sphere-Packing/SphereCeti | This is the geometric rigidity step from a packing to a lattice |
 | Every positive-definite even unimodular rank-eight integral lattice is isometric to E8 | TauCeti IntegralLattices extension | Pure integral-lattice classification, independent of sphere packing |
 | Every rootless positive-definite even unimodular rank-24 integral lattice is isometric to Leech | TauCeti IntegralLattices/Niemeier extension | Niemeier classification, with Leech isolated as the unique empty-root case |
 | Universal optimality, Fourier interpolation, and quantitative stability | Separate TauCeti roadmaps | They require energy, interpolation, and quantitative metric infrastructure beyond packing density |
 
-The most economical exact-uniqueness route is the one isolated by Cohn--Elkies, Section 8.  It
+The most economical exact-uniqueness route is the one isolated by Cohn–Elkies, Section 8.  It
 does **not** require a full abstract classification of equality cases for arbitrary linear-programming
 bounds.  In dimensions 8 and 24, strict direct-side signs put every nonzero center difference at a
 squared norm occurring in the candidate even unimodular lattice.  After translating one center to
@@ -193,7 +193,7 @@ of `L`.  Only then does the original packing separation imply minimum squared no
 classification above.
 
 Fourier structure factors remain part of the general equality theory and are useful checks, but
-Cohn--Elkies explicitly note that the uniqueness deduction needs only the exact direct-side root
+Cohn–Elkies explicitly note that the uniqueness deduction needs only the exact direct-side root
 set, not restrictions on the roots of the Fourier transform.
 
 ## Governing principles
@@ -202,7 +202,7 @@ set, not restrictions on the roots of the Fourier transform.
    `PeriodicSpherePacking`, `balls`, `finiteDensity`, `density`, and packing constants are the
    starting definitions.
 2. **Build one common 8+24 library, not two copied proofs.**  Common structure includes lattices,
-   Poisson summation, Cohn--Elkies certificates, theta series, radial Schwartz Fourier eigenspaces,
+   Poisson summation, Cohn–Elkies certificates, theta series, radial Schwartz Fourier eigenspaces,
    equality conditions, and periodic rigidity.
 3. **Do not force unlike dimension-specific modular formulas into a typeclass.**  Explicit data
    records passed to common constructors are acceptable; a global `MagicDimension` instance is
@@ -253,7 +253,7 @@ Required cleanup:
 - remove `@[simp]` from the large basis-free periodic density expansion;
 - replace duplicate Fourier involution arguments in `a/Eigenfunction` and `b/Eigenfunction` by the
   radial Schwartz lemmas;
-- retire the temporary Cohn--Elkies prerequisites file once its uses rely on TauCeti's Poisson
+- retire the temporary Cohn–Elkies prerequisites file once its uses rely on TauCeti's Poisson
   summation;
 - extract generic q-series and analytic lemmas from the E8-specific files.
 
@@ -275,7 +275,7 @@ lemmas at a time onto the upgraded production `main`.
 
 TauCeti now supplies Schwartz lattice summability, dual lattices, Poisson summation, and the
 basis-independent covolume statements, so those parts of this PR are not ported.  Adapt from it
-only the general periodic Cohn--Elkies counting.
+only the general periodic Cohn–Elkies counting.
 
 ### From the pinned TauCeti snapshot
 
@@ -347,7 +347,7 @@ than a local copy:
 These remain dependencies rather than results available to SphereCeti:
 
 - the theta `S`-transformation and the theta series of an even unimodular lattice as a level-one
-  modular form (Layers 3--8 of the TauCeti ThetaSeries roadmap);
+  modular form (Layers 3–8 of the TauCeti ThetaSeries roadmap);
 - the comparison between a real integral lattice and its rational model (TauCeti PR #20950,
   `ratModel`, open), which SphereCeti's `IntegralPresentation` is designed to interoperate with
   rather than replace;
@@ -361,7 +361,7 @@ must still prove.
 | Area | Available at the pin | Remaining SphereCeti obligation |
 |---|---|---|
 | Real/rational bridge (Layer 2) | `ZLattice` duality, integrality, determinant, shells | Compare an `IntegralPresentation` with these predicates and with TauCeti's dual carrier |
-| Poisson summation (Layer 4) | `SchwartzMap.tsum_eq_tsum_dual_fourier` and its variants | The finite-orbit periodic identity and the Cohn--Elkies theory |
+| Poisson summation (Layer 4) | `SchwartzMap.tsum_eq_tsum_dual_fourier` and its variants | The finite-orbit periodic identity and the Cohn–Elkies theory |
 | Theta series (Layer 5) | Definitions, holomorphy, q-expansions, `T`-translation | Nothing beyond the presentation bridges; the `S`-law and modularity are pending upstream |
 | E8 (Layer 6) | `typeE₈RootLattice` and its 240 roots | A Gram-preserving isometry from the production E8 presentation |
 | Leech (Layer 6) | `leechLattice`, minimum `4`, no roots, the Golay code | The transported Euclidean lattice, its covolume and shells, and the secondary comparisons |
@@ -405,9 +405,9 @@ intermediate theorems use congruence.
 
 Use Mathlib's real inner-product Fourier transform with kernel
 
-\[
+```math
   e^{-2\pi i\langle x,\xi\rangle}.
-\]
+```
 
 Every Gaussian, Poisson, dual-lattice, and theta transformation theorem must be tested against this
 normalization.
@@ -452,7 +452,7 @@ Good `@[simp]` declarations are canonical projections and evaluations:
 Large semantic transformations are explicit, not simp rules:
 
 - Poisson summation;
-- the Cohn--Elkies bound;
+- the Cohn–Elkies bound;
 - periodic density expansion;
 - theta `S`-transformation;
 - theta classification identities;
@@ -564,11 +564,11 @@ Deliverables:
   `P.centerIntensity = P.numOrbits / ZLattice.covolume P.lattice`;
 - basis-free density formula
 
-\[
+```math
   \operatorname{density}(P)
   = \operatorname{numOrbits}(P)\,
     \operatorname{vol}(B(0,r/2))/\operatorname{covol}(\Lambda);
-\]
+```
 
 - translated coordinate boxes and their finite center patterns;
 - a Fubini/Følner averaging theorem that finds an arbitrarily large translated box whose
@@ -581,20 +581,20 @@ Deliverables:
 
 The large density formula must not be a simp lemma.
 
-## Layer 4 — Poisson summation and Cohn--Elkies
+## Layer 4 — Poisson summation and Cohn–Elkies
 
 **Goal:** isolate the linear-programming theorem from the dimension-specific magic functions.
 
 Poisson summation is imported, not developed here.  TauCeti's
 `SchwartzMap.tsum_eq_tsum_dual_fourier` is the theorem of record:
 
-\[
+```math
   \sum_{\ell\in\Lambda} f(v+\ell)
   = \frac{1}{\operatorname{covol}(\Lambda)}
     \sum_{m\in\Lambda^\vee} \widehat f(m)\, e^{2\pi i\langle v,m\rangle},
-\]
+```
 
-with exactly the positive phase and inverse-covolume factor that the Cohn--Elkies bound needs.  The
+with exactly the positive phase and inverse-covolume factor that the Cohn–Elkies bound needs.  The
 dual `ZLattice.dual` carries its own discreteness and full-rank instances, and TauCeti proves
 `ZLattice.dual_dual`, `ZLattice.covolume_dual`, and the summability of both sides,
 `ZLattice.summable_poisson_left` and `ZLattice.summable_poisson_right`.
@@ -646,16 +646,16 @@ Deliverables:
   representation number `ZLattice.representationNumber Λ 2`;
 - the E8/Leech-facing corollaries through the bridges:
 
-\[
+```math
   \Theta_\Lambda = E_4, \qquad
   \Theta_\Lambda = E_4^3 + (N_2(\Lambda)-720)\Delta, \qquad
   \Theta_\Lambda = E_4^3-720\Delta \text{ (rootless)}.
-\]
+```
 
 The theta theory is not merely decorative.  It checks all lattice normalizations, gives shell
 cardinalities, and supplies the modular classification used in the E8/Leech infrastructure.  It is
 not, however, on the path to the optimality theorems: those need only an explicit lattice, its
-minimum and covolume, and a sharp Cohn--Elkies certificate (Layers 4, 6, and 9).  The rank-8 theta
+minimum and covolume, and a sharp Cohn–Elkies certificate (Layers 4, 6, and 9).  The rank-8 theta
 identity remains an input to E8 periodic uniqueness, through the rank-8 classification of Layer 10.
 
 ## Layer 6 — E8 and Leech lattice packages
@@ -685,18 +685,18 @@ The canonical algebraic object is TauCeti's `leechLattice`: the integral lattice
 by adjoining the odd shift `(-3/2, 1/2, …, 1/2)` to the Construction B lattice of TauCeti's Golay
 code, in coordinates `x = a / 2` with the form
 
-\[
+```math
   B(x,y) = \tfrac12 \sum_{i=1}^{24} x_i y_i .
-\]
+```
 
 TauCeti proves that it is even, unimodular, and positive definite, characterizes its carrier by
 congruence conditions on `a`, and proves minimum `4` and the absence of roots.  SphereCeti does not
 construct a second Leech lattice.  The Euclidean Leech lattice used for packings is the image of
 `leechLattice` under
 
-\[
+```math
   T : \mathbb Q^{24} \to \mathbb R^{24}, \qquad T(x) = x / \sqrt 2,
-\]
+```
 
 which satisfies `⟪T x, T y⟫ = B(x, y)` and `T(a / 2) = a / √8`.  `T` is an isometric embedding of
 the rational lattice, not a real-linear equivalence between `ℚ^24` and `ℝ^24`.
@@ -776,7 +776,7 @@ The layer has two independent main results, one for each kind of deformation.
 ### Unbounded branch: half-infinite rectangles
 
 - boundary vanishing on a bounded rectangle, taken from Mathlib's rectangular
-  Cauchy--Goursat theorem;
+  Cauchy–Goursat theorem;
 - deformation of a horizontal edge into the two vertical half-lines above its endpoints, with
   explicit integrability hypotheses on the half-lines and the top edge controlled either by
   uniform decay or by convergence of the top-edge integrals to zero.
@@ -847,7 +847,7 @@ For each dimension, prove:
 - exact local zero orders through nonvanishing cofactors, which imply reusable quantitative lower
   bounds near every shell;
 - separate strict direct- and Fourier-side signs away from the shell zeros;
-- the Cohn--Elkies certificate, packaged as a structure, with `certificate.f = magic`;
+- the Cohn–Elkies certificate, packaged as a structure, with `certificate.f = magic`;
 - candidate-lattice sharpness and equality of the bound with the candidate lattice density.
 
 The exact zero set is itself a required result.  Density optimality only needs weak inequalities,
@@ -867,7 +867,7 @@ bound.
 
 Given an optimal periodic packing and a fundamental pattern:
 
-1. the periodic Cohn--Elkies inequality is an equality;
+1. the periodic Cohn–Elkies inequality is an equality;
 2. every direct-side summand with strict negative sign must vanish;
 3. every nonzero periodic difference lies in the exact shell zero set;
 4. Fourier-side terms satisfy the `f̂`/structure-factor alternative;
@@ -881,7 +881,7 @@ Given an optimal periodic packing and a fundamental pattern:
    coset is occupied, and the original center set is exactly one lattice coset;
 8. the original separation now supplies minimum squared norm `2` for E8 or `4` for Leech.
 
-This is the formal counterpart of Cohn--Elkies, Lemma 8.2 and the argument immediately following
+This is the formal counterpart of Cohn–Elkies, Lemma 8.2 and the argument immediately following
 it.  Expose the covolume/discriminant bridge and quotient-cardinality argument through
 reusable intermediate theorems, not hidden in two enormous proofs of the main theorems.
 The quotient cardinal inequality is stated only after discreteness and full rank of the generated
@@ -943,7 +943,7 @@ that a supporting layer is missing.
 # Uniqueness, universal optimality, and stability
 
 The roadmap includes **exact periodic uniqueness** because it is a direct equality-case continuation
-of the same Cohn--Elkies certificates used for density optimality.
+of the same Cohn–Elkies certificates used for density optimality.
 
 Universal optimality and Fourier interpolation are independent projects and are not dependencies
 of the optimality or periodic-uniqueness main theorems.  The roadmap does not attempt to absorb the
@@ -996,16 +996,16 @@ The detailed main-first sequence is in [`MIGRATION.md`](MIGRATION.md).  Every pr
 Core papers:
 
 - H. Cohn and N. Elkies, *New upper bounds on sphere packings I*, Annals of Mathematics 157
-  (2003), 689--714.
+  (2003), 689–714.
 - M. Viazovska, *The sphere packing problem in dimension 8*, Annals of Mathematics 185 (2017),
-  991--1015.
+  991–1015.
 - H. Cohn, A. Kumar, S. Miller, D. Radchenko, and M. Viazovska,
-  *The sphere packing problem in dimension 24*, Annals of Mathematics 185 (2017), 1017--1033.
+  *The sphere packing problem in dimension 24*, Annals of Mathematics 185 (2017), 1017–1033.
 - H. Cohn and A. Kumar, *Optimality and uniqueness of the Leech lattice among lattices*, Annals of
-  Mathematics 170 (2009), 1003--1050.
+  Mathematics 170 (2009), 1003–1050.
 - H. Cohn, A. Kumar, S. Miller, D. Radchenko, and M. Viazovska,
   *Universal optimality of the E8 and Leech lattices and interpolation formulas*, Annals of
-  Mathematics 196 (2022), 983--1082.
+  Mathematics 196 (2022), 983–1082.
 - K. J. Böröczky, D. Radchenko, and J. P. G. Ramos,
   *A quantitative stability result for the sphere packing problem in dimensions 8 and 24*, 2023.
 
