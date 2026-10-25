@@ -2584,11 +2584,14 @@ theorem periodLattice_le_generatedIntegralLattice {d : ℕ}
 abbrev RelativeQuotient {d : ℕ} (Λ Γ : Submodule ℤ (V d)) :=
   Γ.toAddSubgroup ⧸ Λ.toAddSubgroup.addSubgroupOf Γ.toAddSubgroup
 
-/-- Relative quotients of full Euclidean lattices are finite. -/
-noncomputable instance relativeQuotientFinite {d : ℕ}
-    (Λ Γ : Submodule ℤ (V d))
+/-- The quotient of a full Euclidean lattice by a full sublattice is finite.  The inclusion is
+necessary: `ℤ` and `√2 ℤ` are full lattices in `ℝ` with trivial intersection, and their relative
+quotient is infinite.  The uniqueness proof supplies it by
+`periodLattice_le_generatedIntegralLattice`. -/
+theorem finite_relativeQuotient {d : ℕ}
+    {Λ Γ : Submodule ℤ (V d)}
     [DiscreteTopology Λ] [IsZLattice ℝ Λ]
-    [DiscreteTopology Γ] [IsZLattice ℝ Γ] : Finite (RelativeQuotient Λ Γ) := by
+    [DiscreteTopology Γ] [IsZLattice ℝ Γ] (hle : Λ ≤ Γ) : Finite (RelativeQuotient Λ Γ) := by
   sorry
 
 /-- A center orbit maps to the coset of its translate in the generated lattice. -/

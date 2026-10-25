@@ -1494,6 +1494,11 @@
     },
     {
       "moduleName": "SphereCetiRoadmap.Suggested",
+      "name": "SphereCeti.Suggested.Rigidity.finite_relativeQuotient",
+      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
+    },
+    {
+      "moduleName": "SphereCetiRoadmap.Suggested",
       "name": "SphereCeti.Suggested.Rigidity.generatedIntegralLattice_evenIntegral_full",
       "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
     },
@@ -1555,11 +1560,6 @@
     {
       "moduleName": "SphereCetiRoadmap.Suggested",
       "name": "SphereCeti.Suggested.Rigidity.periodLattice_le_generatedIntegralLattice",
-      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
-    },
-    {
-      "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.Rigidity.relativeQuotientFinite",
       "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
     },
     {

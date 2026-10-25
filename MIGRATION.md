@@ -729,8 +729,9 @@ superpacking.  Instead formalize the exact Section-8 argument:
 
 This PR must expose the quotient injection, determinant lower bound, and numerical squeeze as
 separate reusable lemmas.
-The cardinal inequality must carry the generated-lattice discreteness/full-rank hypotheses: without
-them the relative quotient can be infinite and Mathlib's `relIndex` is zero.
+The cardinal inequality must carry the generated-lattice discreteness/full-rank hypotheses and use
+the inclusion `periodLattice_le_generatedIntegralLattice`: without them the relative quotient can be
+infinite and Mathlib's `relIndex` is zero.
 
 ### PR N3 — every generated-lattice coset is occupied
 

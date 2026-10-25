@@ -885,7 +885,9 @@ This is the formal counterpart of Cohn–Elkies, Lemma 8.2 and the argument imme
 it.  Expose the covolume/discriminant bridge and quotient-cardinality argument through
 reusable intermediate theorems, not hidden in two enormous proofs of the main theorems.
 The quotient cardinal inequality is stated only after discreteness and full rank of the generated
-lattice have made the relative quotient finite; Mathlib's `relIndex` is zero at infinite index.
+lattice, together with its containing the period lattice, have made the relative quotient finite.
+Full rank alone does not suffice (`ℤ` and `√2 ℤ` in `ℝ`), and Mathlib's `relIndex` is zero at
+infinite index.
 
 ### E8 rigidity
 
