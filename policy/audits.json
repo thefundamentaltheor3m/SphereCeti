@@ -854,11 +854,6 @@
     },
     {
       "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.Leech.exists_perm_cyclicGolayCode",
-      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
-    },
-    {
-      "moduleName": "SphereCetiRoadmap.Suggested",
       "name": "SphereCeti.Suggested.Leech.fourierMagicProfile",
       "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
     },
@@ -960,6 +955,11 @@
     {
       "moduleName": "SphereCetiRoadmap.Suggested",
       "name": "SphereCeti.Suggested.Leech.isOptimal",
+      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
+    },
+    {
+      "moduleName": "SphereCetiRoadmap.Suggested",
+      "name": "SphereCeti.Suggested.Leech.isPermutationEquivalent_cyclicGolayCode",
       "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
     },
     {

@@ -379,8 +379,8 @@ SphereCeti.
   `[I₁₂ | B]`, with `finrank_code`, `natCard_code`, `isSelfDual_code`, `isDoublyEven_code`,
   `eight_le_hammingNorm`, and `weightEnumerator_code`
   (`Binary/Golay/Basic.lean`).  It was already present at the previous pin `1308f31`.
-  SphereCeti adopts it as the canonical code and compares its cyclic-generator description with it
-  through a coordinate permutation.
+  SphereCeti adopts it as the canonical code and states that its cyclic-generator description is
+  permutation equivalent to it, with TauCeti's `IsPermutationEquivalent` (`Coding/Equivalence.lean`).
 
 ### C3. Code-lattice constructions
 

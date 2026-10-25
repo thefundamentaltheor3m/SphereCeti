@@ -18,6 +18,7 @@ public import TauCeti.Analysis.Distribution.SchwartzSpace.ZLattice
 public import TauCeti.Analysis.Fourier.Continuous
 public import TauCeti.Analysis.Fourier.PoissonSummation
 public import TauCeti.InformationTheory.Coding.Binary.Golay.Basic
+public import TauCeti.InformationTheory.Coding.Equivalence
 public import TauCeti.LinearAlgebra.IntegralLattice.Even
 public import TauCeti.LinearAlgebra.IntegralLattice.Isometry.Basic
 public import TauCeti.LinearAlgebra.IntegralLattice.PosDef.Minimum
@@ -111,6 +112,7 @@ abbrev RadialSchwartzMap := SphereCeti.Pinned.RadialSchwartzMap
 #check TauCeti.IntegralLattice.kissingNumber
 #check TauCeti.IntegralLattice.representationNumber
 #check TauCeti.BinaryGolay.code
+#check TauCeti.IsPermutationEquivalent
 #check TauCeti.BinaryGolay.finrank_code
 #check TauCeti.BinaryGolay.isSelfDual_code
 #check TauCeti.BinaryGolay.isDoublyEven_code
@@ -1377,10 +1379,10 @@ generator matrix.  It is not TauCeti's `BinaryGolay.code`, which uses other coor
 noncomputable def cyclicGolayCode : Submodule (ZMod 2) (Fin 24 → ZMod 2) :=
   Submodule.span (ZMod 2) (Set.range fun i => golayGeneratorMatrix i)
 
-/-- The cyclic code is TauCeti's code after a coordinate permutation. -/
-theorem exists_perm_cyclicGolayCode :
-    ∃ σ : Equiv.Perm (Fin 24), ∀ c : Fin 24 → ZMod 2,
-      c ∈ cyclicGolayCode ↔ (c ∘ σ) ∈ TauCeti.BinaryGolay.code := by
+/-- The cyclic code is TauCeti's code after a coordinate permutation, in TauCeti's sense of
+permutation equivalence. -/
+theorem isPermutationEquivalent_cyclicGolayCode :
+    TauCeti.IsPermutationEquivalent cyclicGolayCode TauCeti.BinaryGolay.code := by
   sorry
 
 /-- A permutation of the coordinates of `V 24`, as a linear isometry. -/

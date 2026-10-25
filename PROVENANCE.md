@@ -111,6 +111,7 @@ TauCeti/LinearAlgebra/IntegralLattice/RootLattice/TypeE/Roots.lean
 TauCeti/LinearAlgebra/IntegralLattice/PosDef/Minimum.lean
 TauCeti/LinearAlgebra/IntegralLattice/PosDef/RepresentationNumber.lean
 TauCeti/InformationTheory/Coding/Binary/Golay/Basic.lean
+TauCeti/InformationTheory/Coding/Equivalence.lean
 TauCeti/LinearAlgebra/IntegralLattice/ConstructionB/Golay.lean
 TauCeti/LinearAlgebra/IntegralLattice/Rank24/Leech/Basic.lean
 TauCeti/LinearAlgebra/IntegralLattice/Rank24/Leech/Minimum.lean
