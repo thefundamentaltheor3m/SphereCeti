@@ -14,6 +14,7 @@ public import TauCeti.Algebra.Module.ZLattice.Dual
 public import TauCeti.Algebra.Module.ZLattice.Integral
 public import TauCeti.Algebra.Module.ZLattice.Shell
 public import TauCeti.Analysis.Complex.UpperHalfPlane.ResToImagAxis
+public import TauCeti.Analysis.Distribution.SchwartzSpace.ZLattice
 public import TauCeti.Analysis.Fourier.Continuous
 public import TauCeti.Analysis.Fourier.PoissonSummation
 public import TauCeti.InformationTheory.Coding.Binary.Golay.Basic
@@ -100,6 +101,8 @@ abbrev RadialSchwartzMap := SphereCeti.Pinned.RadialSchwartzMap
 #check ZLattice.finite_shell
 #check ZLattice.representationNumber
 #check SchwartzMap.tsum_eq_tsum_dual_fourier
+#check ZLattice.summable_poisson_left
+#check ZLattice.summable_poisson_right
 #check ZLattice.thetaSeries
 #check ZLattice.IsEven.qExpansion_thetaSeries_coeff
 #check TauCeti.IntegralLattice.typeE₈RootLattice
@@ -706,9 +709,9 @@ end PeriodicSpherePacking
 
 /-! Poisson summation is TauCeti's `SchwartzMap.tsum_eq_tsum_dual_fourier`, over the dual
 `ZLattice.dual`, which carries its own discreteness and full-rank instances; TauCeti also proves
-`ZLattice.dual_dual` and `ZLattice.covolume_dual`.  SphereCeti keeps the Poisson identity over
-center orbits, the theory of Cohn--Elkies certificates, and the two summability statements that
-TauCeti's Poisson module proves but does not export. -/
+`ZLattice.dual_dual` and `ZLattice.covolume_dual`, and the summability of both sides,
+`ZLattice.summable_poisson_left` and `ZLattice.summable_poisson_right`.  SphereCeti keeps the
+Poisson identity over center orbits and the theory of Cohn--Elkies certificates. -/
 
 namespace Poisson
 
@@ -729,19 +732,16 @@ example (L : Submodule ℤ E) :
     ZLattice.dual L = LinearMap.BilinForm.dualSubmodule (innerₗ E) L :=
   ZLattice.dual_def L
 
-/-- Lattice-side summability of a translated Schwartz function, stated for TauCeti's Poisson
-module, which proves it without exporting it. -/
-theorem summable_left (L : Submodule ℤ E) [DiscreteTopology L] [IsZLattice ℝ L]
-    (f : 𝓢(E, ℂ)) (v : E) :
-    Summable fun ℓ : L => f (v + (ℓ : E)) := by
-  sorry
+/-- Check of the imported lattice-side summability of a translated Schwartz function. -/
+example (L : Submodule ℤ E) [DiscreteTopology L] (f : 𝓢(E, ℂ)) (v : E) :
+    Summable fun ℓ : L => f (v + (ℓ : E)) :=
+  ZLattice.summable_poisson_left L f v
 
-/-- Dual-side summability in Poisson summation, stated for TauCeti's Poisson module. -/
-theorem summable_right (L : Submodule ℤ E) [DiscreteTopology L] [IsZLattice ℝ L]
-    (f : 𝓢(E, ℂ)) (v : E) :
+/-- Check of the imported dual-side summability, with the phase of Poisson summation. -/
+example (L : Submodule ℤ E) [DiscreteTopology L] [IsZLattice ℝ L] (f : 𝓢(E, ℂ)) (v : E) :
     Summable fun m : ZLattice.dual L => 𝓕 (fun x : E => f x) (m : E) *
-      Complex.exp (2 * Real.pi * Complex.I * ⟪v, (m : E)⟫_ℝ) := by
-  sorry
+      Complex.exp (2 * Real.pi * Complex.I * ⟪v, (m : E)⟫_ℝ) :=
+  ZLattice.summable_poisson_right L f v
 
 /-- Unit-Gaussian check of the Fourier and covolume normalizations, a consequence of TauCeti's
 Poisson summation. -/

@@ -314,10 +314,9 @@ therefore not ported; only its periodic counting is adapted, in Phase F.
 ### PR E1 — adopt TauCeti's Poisson summation
 
 Replace the uses of the temporary Cohn--Elkies prerequisites by
-`SchwartzMap.tsum_eq_tsum_dual_fourier` over `ZLattice.dual`.  Add, in a public form, the
-lattice-side and dual-side summability statements that TauCeti's Poisson module proves but does
-not export, stated for upstream (`UPSTREAM.md` A11).  Test the normalization on the unit Gaussian
-and on the self-dual covolume-one case.
+`SchwartzMap.tsum_eq_tsum_dual_fourier` over `ZLattice.dual`, with the summability of both sides
+from `ZLattice.summable_poisson_left` and `ZLattice.summable_poisson_right`.  Test the
+normalization on the unit Gaussian and on the self-dual covolume-one case.
 
 ### PR E2 — structure factors
 

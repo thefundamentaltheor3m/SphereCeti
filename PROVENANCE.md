@@ -89,13 +89,15 @@ TauCeti/Algebra/Module/ZLattice/Integral.lean
 TauCeti/Algebra/Module/ZLattice/Determinant.lean
 TauCeti/Algebra/Module/ZLattice/Covolume.lean
 TauCeti/Algebra/Module/ZLattice/Shell.lean
+TauCeti/Analysis/Distribution/SchwartzSpace/ZLattice.lean
 TauCeti/Analysis/Fourier/PoissonSummation.lean
 TauCeti/NumberTheory/ModularForms/ThetaSeries/Basic.lean
 TauCeti/NumberTheory/ModularForms/ThetaSeries/QExpansion.lean
 ```
 
 These supply `ZLattice.dual`, the real predicates `ZLattice.IsIntegral`, `ZLattice.IsEven`, and
-`ZLattice.IsUnimodular`, shells and representation numbers, Poisson summation
+`ZLattice.IsUnimodular`, shells and representation numbers, the summability of Schwartz functions over a lattice and its
+dual, Poisson summation
 `SchwartzMap.tsum_eq_tsum_dual_fourier`, and the theta series `ZLattice.thetaSeries` with its
 q-expansion.  The theta `S`-transformation and modularity are not yet in TauCeti.
 

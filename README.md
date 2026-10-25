@@ -273,12 +273,9 @@ lemmas at a time onto the upgraded production `main`.
 
 ### From PR #420
 
-TauCeti now supplies dual lattices, Poisson summation, and the basis-independent covolume
-statements, so those parts of this PR are not ported.  Adapt from it, split into separate pieces:
-
-- lattice summability for Schwartz functions, where the production proofs need it in a public form
-  that TauCeti's Poisson module does not export;
-- general periodic Cohn--Elkies counting.
+TauCeti now supplies Schwartz lattice summability, dual lattices, Poisson summation, and the
+basis-independent covolume statements, so those parts of this PR are not ported.  Adapt from it
+only the general periodic Cohn--Elkies counting.
 
 ### From the pinned TauCeti snapshot
 
@@ -316,7 +313,8 @@ than a local copy:
   `ZLattice.representationNumber`;
 - Poisson summation over a full lattice, `SchwartzMap.tsum_eq_tsum_dual_fourier`, with the
   reflected and even-function forms `SchwartzMap.tsum_eq_tsum_dual_fourier_neg` and
-  `SchwartzMap.tsum_eq_tsum_dual_fourier_of_even`;
+  `SchwartzMap.tsum_eq_tsum_dual_fourier_of_even`, and the summability of both sides,
+  `ZLattice.summable_poisson_left` and `ZLattice.summable_poisson_right`;
 - the theta series `ZLattice.thetaSeries` and coset theta series `ZLattice.thetaCoset`, their
   convergence and holomorphy, their q-expansions with representation-number coefficients
   (`ZLattice.IsEven.qExpansion_thetaSeries_coeff`), and the translation law
@@ -598,12 +596,11 @@ Poisson summation is imported, not developed here.  TauCeti's
 
 with exactly the positive phase and inverse-covolume factor that the Cohn--Elkies bound needs.  The
 dual `ZLattice.dual` carries its own discreteness and full-rank instances, and TauCeti proves
-`ZLattice.dual_dual` and `ZLattice.covolume_dual`.
+`ZLattice.dual_dual`, `ZLattice.covolume_dual`, and the summability of both sides,
+`ZLattice.summable_poisson_left` and `ZLattice.summable_poisson_right`.
 
 Deliverables:
 
-- Schwartz summability on lattice translates and on the dual side, in a public form (TauCeti's
-  Poisson module proves both but does not export them);
 - a unit-Gaussian normalization test and the exact finite-pattern squared-amplitude formula;
 - `CohnElkies.Certificate d r`, with no radiality requirement;
 - certificate bound and scaling lemmas;

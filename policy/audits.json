@@ -1474,16 +1474,6 @@
     },
     {
       "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.Poisson.summable_left",
-      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
-    },
-    {
-      "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.Poisson.summable_right",
-      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
-    },
-    {
-      "moduleName": "SphereCetiRoadmap.Suggested",
       "name": "SphereCeti.Suggested.Rigidity.HasUnitCenterDensity",
       "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
     },

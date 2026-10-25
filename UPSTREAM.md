@@ -190,13 +190,11 @@ inner-product space
 - [x] **Available in TauCeti at the pin:** Poisson summation over a full lattice,
   `SchwartzMap.tsum_eq_tsum_dual_fourier`, with `SchwartzMap.tsum_eq_tsum_dual_fourier_neg` and
   `SchwartzMap.tsum_eq_tsum_dual_fourier_of_even`
-  (`TauCeti/Analysis/Fourier/PoissonSummation.lean`); the theta series `ZLattice.thetaSeries` and
+  (`TauCeti/Analysis/Fourier/PoissonSummation.lean`); the summability of both sides,
+  `ZLattice.summable_poisson_left` and `ZLattice.summable_poisson_right`
+  (`TauCeti/Analysis/Distribution/SchwartzSpace/ZLattice.lean`); the theta series `ZLattice.thetaSeries` and
   `ZLattice.thetaCoset`, their convergence, holomorphy, q-expansions, and `T`-translation law
   (`TauCeti/NumberTheory/ModularForms/ThetaSeries/`).  SphereCeti uses these and keeps no copy.
-- [ ] **Remaining candidate: public Poisson summability.**  TauCeti's Poisson module proves the
-  lattice-side and dual-side summability it needs but keeps them private.  SphereCeti needs them in
-  a public form; until TauCeti exports them, SphereCeti states them locally in the form intended
-  for that module.
 - [ ] **Remaining candidate: the theta `S`-transformation.**  For a full lattice of even rank `2k`,
 
   ```text

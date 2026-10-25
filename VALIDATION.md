@@ -14,7 +14,7 @@ What has been checked in this repository:
 - every local link in the roadmap's own Markdown documents resolves;
 - the target files contain no theorem whose stated conclusion is merely `True`, and end with final
   newlines;
-- the target-signature files contain 270 intentional `sorry` commands;
+- the target-signature files contain 268 intentional `sorry` commands;
 - the full Lean elaboration passes locally:
 
 ```bash
@@ -30,8 +30,8 @@ weaken them merely to satisfy the parser or typechecker.
 ## Compiled admission policy
 
 The separate `SphereCetiRoadmap` library contains the target modules; the `SphereCeti` library
-remains admission-free. The integration audit inventories 597 compiled declarations, including
-343 with transitive `sorryAx` dependencies, and no lint findings. The 270 textual `sorry`
+remains admission-free. The integration audit inventories 595 compiled declarations, including
+341 with transitive `sorryAx` dependencies, and no lint findings. The 268 textual `sorry`
 commands above are a different count: generated declarations and dependents also enter the
 compiled admission ledger.
 
@@ -42,7 +42,7 @@ inventoried declaration retains the same axiom dependencies, and the upgrade lea
 list unchanged. The audit configuration also includes Mathlib's default `tacticAlt` linter, which
 checks the marking of alternative tactic syntax.
 
-`policy/audits.json` proposes the exact 343-entry ledger for human review with this roadmap.
+`policy/audits.json` proposes the exact 341-entry ledger for human review with this roadmap.
 The profile’s `phase = "roadmap"` and `roadmap_approved = true` describe the state proposed
 for landing; checking out the PR does not approve that policy. The authoritative gate continues
 to use its already-approved tooling and policy. Initial adoption of the admission policy requires
