@@ -23,6 +23,10 @@ It exists only because that version of Sphere-Packing-Lean uses Lean/Mathlib `v4
 SphereCeti uses Lean `v4.36.0-rc1` together with a recent TauCeti version, so the library cannot
 yet be imported directly.
 
+Sphere-Packing-Lean at that commit covers only dimension 8 and states no uniqueness result.  The
+dimension-24 objects and all uniqueness statements are new targets and are stated in
+`SphereCetiRoadmap/Suggested.lean`, not here.
+
 The structures and density definitions below fix the starting definitions.  They are not a
 separate version of the library: once Sphere-Packing-Lean is built on the same Lean and Mathlib
 versions (PR A1 in `MIGRATION.md`), every use of this namespace is replaced by a direct
