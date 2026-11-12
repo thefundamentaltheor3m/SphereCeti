@@ -47,7 +47,7 @@ Every PR must preserve the following unless its title explicitly changes one of 
 | heterogeneous `NNReal`/`ENNReal` global instances | Remove in a focused PR |
 | full periodic density formula marked `@[simp]` | Remove attribute; retain named theorem |
 | `gauss2` completed theorem | Port theorem-by-theorem after foundations |
-| PR #420 | Split into summability, duality, Poisson, and Cohn–Elkies PRs |
+| PR #420 | Import TauCeti summability, duality, Poisson, and covolume APIs; adapt periodic Cohn–Elkies counting only |
 
 ## 3. Phase A — establish the exact dependency line
 
@@ -78,9 +78,9 @@ Acceptance:
 Bump production to:
 
 ```text
-Lean       v4.36.0-rc1
-TauCeti    271e1af4dd54c50b9192cf3e213b7686843a0b3a
-Mathlib    2cabef97b63d3275776b8b060d802de6a6fa1055
+Lean       v4.36.0-rc2
+TauCeti    83769e442d55cda9d85b3927a93b286831c595ff
+Mathlib    1b1ccf4b088b32fa3f23f2de1127433254a81e1e
 ```
 
 Scope:
@@ -225,9 +225,11 @@ has covolume one (`ZLattice.IsIntegral.isUnimodular_iff_covolume_eq_one`).  Prov
 Derive positive-definiteness from a full Euclidean presentation.  The determinant lower bound and
 classification statements do not carry redundant positivity or nondegeneracy hypotheses.
 
-Avoid global coercion instances between rational and real lattice types.  When TauCeti PR #20950
-(`ratModel`, open) lands, add a comparison between an `IntegralPresentation` and the rational model
-of the real lattice rather than a second conversion.
+Avoid global coercion instances between rational and real lattice types.  Compare
+`IntegralPresentation` with TauCeti's rational model `ZLattice.ratModel` (#21332, superseding
+#20950) through the basis-induced isometry `IntegralPresentation.ratModelIsometry` rather than
+creating a second conversion, and obtain the real-side adapters by transporting TauCeti's model
+comparisons along it; see the [resync watchlist](UPSTREAM.md#g-resync-watchlist).
 
 ## 6. Phase D — periodic packings and density
 
@@ -382,17 +384,16 @@ This phase can run in parallel with the magic-function port after E1/C4.  Lattic
 with their transformation laws, the theta series of an even unimodular lattice as a modular form,
 and the identities in ranks 8 and 24 belong to the TauCeti ThetaSeries roadmap; SphereCeti uses
 them.  TauCeti has implemented the theta series, its convergence, holomorphy, and q-expansion, and
-its `T`-translation law (`ZLattice.thetaSeries` and related declarations); the `S`-transformation
-and modularity have not landed.  Nothing in this phase is needed for the optimality theorems.
+its `T`-translation law (`ZLattice.thetaSeries` and related declarations), the `S`-transformation
+`ZLattice.thetaSeries_S_smul`, the level-one form `ZLattice.thetaForm`, and the rank-8/24
+identities; the [resync watchlist](UPSTREAM.md#g-resync-watchlist) records their sources.
+Nothing in this phase is needed for the optimality theorems.
 
-### PR G1 — temporary statements of the pending ThetaSeries targets
+### PR G1 — import the ThetaSeries results
 
-Add temporary statements of the pending targets only, in the form of the ThetaSeries roadmap over
-TauCeti's implemented definitions (`ZLattice.thetaSeries`, `ZLattice.dual`, `ZLattice.IsEven`,
-`ZLattice.IsUnimodular`, `ZLattice.representationNumber`): `thetaSeries_neg_inv`, `thetaForm` with
-its coercion and q-expansion coefficients, `thetaForm_eq_E₄`, `representationNumber_two_rank_eight`,
-`thetaForm_rank_24`, and `coe_thetaForm_rank_24_rootless`.  They are deleted and replaced by imports
-from TauCeti when it provides them; they are not to be developed into a second general theory.
+Import TauCeti's theta inversion, theta form, and rank-8/24 identities and keep typed checks of
+their normalizations, as `Suggested.lean` Layer 5 does.  SphereCeti states no general theta
+targets of its own and does not develop a second general theory.
 
 ### PR G2 — comparison with integral presentations
 
@@ -411,8 +412,8 @@ rank 24 even unimodular: Θ = E₄³ + (N₂ - 720) Δ
 rootless rank 24: Θ = E₄³ - 720 Δ
 ```
 
-TauCeti's graded-ring isomorphism `TauCeti.ModularForm.mvPolynomialEquivModularForms` reduces each
-identity to a comparison of finitely many q-expansion coefficients once `thetaForm` exists.
+Each is a specialization of TauCeti's identity (`ZLattice.IsEven.thetaForm_eq_E₄`,
+`ZLattice.IsEven.thetaSeries_eq_E₄_cube_add_mul_discriminant`) through G2.
 
 ## 10. Phase H — E8 as a fully bridged object
 
@@ -485,9 +486,11 @@ condition.  Each comparison names its permutation; none is an identification by 
 
 ### PR I4 — kissing number and theta identity
 
-Prove `leechLattice.kissingNumber = 196560`, an algebraic statement intended for TauCeti
-(`UPSTREAM.md` B4), and its corollary for the real shell of squared norm `4`.  After G3, prove the
-theta identity.  Neither is an input to optimality.
+Import `TauCeti.kissingNumber_leechLattice` and `TauCeti.ncard_vectorsOfNorm_four_leechLattice`
+from `Rank24/Leech/MinimalVectors.lean`, which count by direct enumeration independently of theta
+theory, and transport the count to the real shell of squared norm `4` through
+`Leech.representationNumber_lattice`.  After G3, derive the theta identity.  Neither result is an
+input to optimality.
 
 ## 12. Phase J — common analytic tools for the magic functions
 
@@ -660,20 +663,12 @@ Target:
 Every positive-definite even unimodular integral lattice of rank 8 is isometric to E8.
 ```
 
-Use the following constructive route rather than a mass-formula argument:
-
-- the rank-8 theta identity (G3) supplies 240 roots of the arbitrary lattice; TauCeti's count of
-  the roots of `typeE₈RootLattice` concerns one specific lattice and cannot replace this step;
-- prove the norm-two roots are a finite crystallographic root system and span rank eight;
-- decompose the root system into valid irreducible ADE components, with the `A` and `D` index
-  ranges represented explicitly;
-- use total rank `8` and root count `240` to identify the unique component as `E8`;
-- prove the E8 root sublattice has index one in the unimodular lattice;
-- construct the integral-lattice isometry.
-
-The source conventions are Bourbaki, *Lie Groups and Lie Algebras, Chapters 4–6*, Chapter VI,
-§4 and Plates I–IX, together with Conway–Sloane, *Sphere Packings, Lattices and Groups*,
-Chapter 4, §8.1.  The theorem does not mention sphere packings.
+TauCeti proves this, theta-independently and for the same `typeE₈RootLattice`, as
+`TauCeti.IntegralLattice.IsPosDef.nonempty_isometry_typeE₈RootLattice_of_isEven`
+(`PosDef/SmallRankUnimodular.lean`).  SphereCeti's `E8.even_unimodular_rank_eight_unique` is that
+theorem with the isometry reversed and the rank converted by `IntegralLattice.finrank_carrier`; no
+local classification proof is needed, and M1 does not depend on G3.  The theorem does not mention
+sphere packings.
 
 ### PR M2 — rootless rank-24 uniqueness
 
@@ -804,8 +799,8 @@ After A1:
 - K can start after J foundations and F1; K5 waits for F2/F3.  K6 does not wait for H3.
 - L1–L7 can start after J foundations and F1, in parallel with the Leech lattice package;
   L8 waits for I1/I2 and the generic lattice/periodic bound, not for I3, I4, or G.
-- M1 can proceed once TauCeti lattice bridges and G3's rank-8 theta identity are available; it does
-  not wait for the magic function.
+- M1 is supplied by TauCeti's classifier; the E8 uniqueness argument that uses it needs only the
+  lattice bridges, not G3 or the magic function.
 - M2 can proceed once the transported Leech lattice and the required classification results exist;
   it does not wait for the magic function.
 - N1–N3 wait for F4 plus the dimension-specific exact zero results, and do not wait for M1/M2;

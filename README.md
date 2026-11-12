@@ -93,12 +93,12 @@ changes.
 
 | Component | Pin |
 |---|---|
-| Lean toolchain line | `leanprover/lean4:v4.36.0-rc1` |
-| TauCeti | `271e1af4dd54c50b9192cf3e213b7686843a0b3a` |
-| Exact Mathlib commit resolved by that TauCeti snapshot | `2cabef97b63d3275776b8b060d802de6a6fa1055` |
+| Lean toolchain line | `leanprover/lean4:v4.36.0-rc2` |
+| TauCeti | `83769e442d55cda9d85b3927a93b286831c595ff` |
+| Exact Mathlib commit resolved by that TauCeti snapshot | `1b1ccf4b088b32fa3f23f2de1127433254a81e1e` |
 | Sphere-Packing semantic baseline | `bad3de916074748eb88b7d1ee6dbf9494361ad17` |
 
-Here “the 4.36.0-rc1 Mathlib pin” means the **Lean/Mathlib release line** selected by the toolchain,
+Here “the 4.36.0-rc2 Mathlib pin” means the **Lean/Mathlib release line** selected by the toolchain,
 while source reproducibility is supplied by the exact Mathlib commit in `lake-manifest.json`.  We do
 not add an independent floating Mathlib requirement beside TauCeti: SphereCeti must use the same
 resolved Mathlib graph as its pinned TauCeti dependency.
@@ -115,6 +115,12 @@ implementation.
 
 The committed `lake-manifest.json` records the entire resolved dependency graph from the TauCeti
 snapshot, not merely the user-facing TauCeti SHA.
+
+The pin above was adopted on 2026-11-10 after the [upstream audit](UPSTREAM.md#g-resync-watchlist)
+of the previous pin `271e1af` (Lean 4.36.0-rc1, Mathlib `2cabef9`).  It brings theta inversion,
+modularity, the rank-8/rank-24 identities, the real/rational lattice models, the rank-eight
+lattice classification, and the Leech kissing number into the dependency graph; the local targets
+they supply were replaced by imports and short specializations in the same update.
 
 ## Main theorems
 
@@ -342,30 +348,31 @@ than a local copy:
   `ℂ[E₄, E₆]` and the level-one modular forms, which turns the theta identities of Layer 5 into
   coefficient comparisons once the theta series is known to be a modular form.
 
-#### Still pending upstream
+#### Beyond the current pin
 
-These remain dependencies rather than results available to SphereCeti:
+The theta `S`-transformation, modular theta form, rank-8/rank-24 identities, real/rational
+lattice models, and rank-eight even-unimodular classification have landed in later TauCeti
+commits.  The canonical Leech kissing number `196560` has also landed, by direct enumeration;
+the rootless rank-24 representation-number theorem supplies a separate route to the real shell count.
+The [resync watchlist](UPSTREAM.md#g-resync-watchlist) records exact imports and the remaining
+presentation and shell comparisons.  In particular, the landed lattice models do not identify
+SphereCeti's explicit basis and Gram matrix with their tensor-product coordinates automatically.
 
-- the theta `S`-transformation and the theta series of an even unimodular lattice as a level-one
-  modular form (Layers 3–8 of the TauCeti ThetaSeries roadmap);
-- the comparison between a real integral lattice and its rational model (TauCeti PR #20950,
-  `ratModel`, open), which SphereCeti's `IntegralPresentation` is designed to interoperate with
-  rather than replace;
-- the classification of positive-definite even unimodular lattices of rank 8;
-- the classification of rootless positive-definite even unimodular lattices of rank 24;
-- the kissing number `196560` of the Leech lattice.
+The classification of rootless positive-definite even unimodular lattices of rank 24 remains
+unavailable in the audited upstream snapshot.  A theta identity and a shell count do not prove
+that classification.
 
 The following table records, for each area, what TauCeti supplies at the pin and what SphereCeti
 must still prove.
 
 | Area | Available at the pin | Remaining SphereCeti obligation |
 |---|---|---|
-| Real/rational bridge (Layer 2) | `ZLattice` duality, integrality, determinant, shells | Compare an `IntegralPresentation` with these predicates and with TauCeti's dual carrier |
+| Real/rational bridge (Layer 2) | `ZLattice` duality, integrality, determinant, shells; the rational and real models `ZLattice.ratModel` and `IntegralLattice.realModel` with their invariant, dual, and shell comparisons | The basis-induced isometry from an `IntegralPresentation` to `ratModel`, and the application adapters transported along it |
 | Poisson summation (Layer 4) | `SchwartzMap.tsum_eq_tsum_dual_fourier` and its variants | The finite-orbit periodic identity and the Cohn–Elkies theory |
-| Theta series (Layer 5) | Definitions, holomorphy, q-expansions, `T`-translation | Nothing beyond the presentation bridges; the `S`-law and modularity are pending upstream |
+| Theta series (Layer 5) | Definitions, holomorphy, q-expansions, `T`- and `S`-transformations, the level-one theta form, the rank-8 and rank-24 identities | The presentation bridges through which the identities specialize to E8 and Leech |
 | E8 (Layer 6) | `typeE₈RootLattice` and its 240 roots | A Gram-preserving isometry from the production E8 presentation |
-| Leech (Layer 6) | `leechLattice`, minimum `4`, no roots, the Golay code | The transported Euclidean lattice, its covolume and shells, and the secondary comparisons |
-| Classification (Layer 10) | Neither rank-8 nor rootless rank-24 uniqueness | Retained as required dependencies |
+| Leech (Layer 6) | `leechLattice`, minimum `4`, no roots, kissing number `196560`, the Golay code | The transported Euclidean lattice, its covolume and shells, and the secondary comparisons |
+| Classification (Layer 10) | Rank-8 uniqueness (`IsPosDef.nonempty_isometry_typeE₈RootLattice_of_isEven`), theta-independent; no rootless rank-24 uniqueness | Rootless rank-24 uniqueness remains a required development |
 
 #### Complex and modular analysis
 
@@ -378,8 +385,10 @@ must still prove.
 - the small Fourier-continuity lemma.
 
 These do not replace Sphere-Packing's half-infinite rectangular contour deformation or the
-specialized convex-wedge argument under `z ↦ -1/z`.  Closed circles, unbounded rectangles, and
-finite path homotopies solve different problems.
+specialized convex-wedge argument under `z ↦ -1/z`.  Later Mathlib supplies unbounded rectangles
+under uniform strip decay, but SphereCeti's more general top-edge-integral limit target remains;
+see [A12](UPSTREAM.md#a12-contour-deformation-for-half-infinite-rectangles).  Closed circles,
+unbounded rectangles, and finite path homotopies solve different problems.
 
 ## Permanent mathematical conventions
 
@@ -473,14 +482,17 @@ differentiability, and algebraic closure properties.
 
 ## Layer 0 — synchronized toolchain migration and direct imports
 
-**Goal:** move production `Sphere-Packing-Lean/main` from Lean/Mathlib `v4.32.0` to the exact
-4.36/TauCeti dependency graph of SphereCeti, with no mathematical redesign in the same PR.
+**Goal:** move production `Sphere-Packing-Lean/main` to SphereCeti's exact 4.36/TauCeti
+dependency graph, with no mathematical redesign in the same PR.  The frozen semantic baseline
+uses `v4.32.0`; the [audited production head](UPSTREAM.md#g-resync-watchlist) uses `v4.35.0`
+and still needs synchronization.  The versions below are SphereCeti's current pin; any later
+roadmap resync updates this list atomically.
 
 Deliverables:
 
-1. bump `lean-toolchain` to `v4.36.0-rc1`;
-2. pin TauCeti to `271e1af4dd54c50b9192cf3e213b7686843a0b3a`;
-3. resolve Mathlib to `2cabef97b63d3275776b8b060d802de6a6fa1055`;
+1. bump `lean-toolchain` to `v4.36.0-rc2`;
+2. pin TauCeti to `83769e442d55cda9d85b3927a93b286831c595ff`;
+3. resolve Mathlib to `1b1ccf4b088b32fa3f23f2de1127433254a81e1e`;
 4. repair source incompatibilities without opportunistic refactors;
 5. add [checks of required declarations and Fourier conventions](CONVENTIONS.md#declaration-and-convention-checks):
    preserve the expected types, Fourier sign, measure, and normalization constants;
@@ -541,10 +553,11 @@ is the one.  Positive-definiteness is derived from the full Euclidean presentati
 carried as a separate hypothesis.  The E8 and Leech reference objects and classifications remain in
 their dimension-specific layers.
 
-TauCeti PR #20950 (open) proposes `ratModel`, the rational model of a real integral lattice, and
-several invariant comparisons.  When it lands, `IntegralPresentation` is connected to it by a
-comparison theorem; the explicit basis-and-Gram data remain, since the E8 and Leech arguments need
-concrete coordinates, but no competing abstract real-to-rational conversion is introduced.
+TauCeti supplies `ZLattice.ratModel`, the converse `IntegralLattice.realModel`, inverse
+isometries, dual transport, and shell comparisons.  `IntegralPresentation.ratModelIsometry` is the
+isometry induced by a presentation's basis; `isEven_real` and `isUnimodular_real` are TauCeti's
+comparisons transported along it, and the remaining adapters are to be obtained the same way.  The explicit basis-and-Gram data remain, since the E8 and Leech arguments need concrete
+coordinates.  Exact declarations and sources are in the [watchlist](UPSTREAM.md#g-resync-watchlist).
 
 ## Layer 3 — periodic orbits and the density formula
 
@@ -629,18 +642,15 @@ comparison with integral presentations and the consequences for the candidate la
 The general theory belongs to the TauCeti ThetaSeries roadmap, and part of it has landed: the
 theta series `ZLattice.thetaSeries` and coset theta series, their convergence and holomorphy,
 their q-expansions with representation-number coefficients, the decomposition over a sublattice,
-and the `T`-translation law.  SphereCeti imports these.  The `S`-transformation
-`thetaSeries_neg_inv`, the theta series of an even unimodular lattice as a level-one modular form
-`thetaForm`, and the identities in ranks 8 and 24 have not landed.  SphereCeti states only those
-pending targets, in the form of that roadmap and over TauCeti's implemented definitions; they are
-deleted and replaced by imports when TauCeti provides them, and they are not to be developed into a
-second general theory.
+and the `T`-translation law.  SphereCeti imports these.  The `S`-transformation, the theta series
+of an even unimodular lattice as a level-one modular form, and the identities in ranks 8 and 24
+have also landed (`ZLattice.thetaSeries_S_smul`, `ZLattice.thetaForm`,
+`ZLattice.IsEven.thetaForm_eq_E₄`, `ZLattice.IsEven.thetaSeries_eq_E₄_cube_add_mul_discriminant`,
+`ZLattice.IsEven.representationNumber_four_of_rootless`).  SphereCeti imports them and keeps only
+typed checks of their normalizations; it states no general theta targets of its own.
 
 Deliverables:
 
-- provisional local statements of the pending `ThetaSeries` targets: `thetaSeries_neg_inv`,
-  `thetaForm` with its coercion and q-expansion coefficients, and the rank-8, rank-24, and rootless
-  identities;
 - the presentation bridges: an even (respectively unimodular) integral presentation makes the
   real lattice `ZLattice.IsEven` (`ZLattice.IsUnimodular`), and the root count is the
   representation number `ZLattice.representationNumber Λ 2`;
@@ -655,8 +665,10 @@ Deliverables:
 The theta theory is not merely decorative.  It checks all lattice normalizations, gives shell
 cardinalities, and supplies the modular classification used in the E8/Leech infrastructure.  It is
 not, however, on the path to the optimality theorems: those need only an explicit lattice, its
-minimum and covolume, and a sharp Cohn–Elkies certificate (Layers 4, 6, and 9).  The rank-8 theta
-identity remains an input to E8 periodic uniqueness, through the rank-8 classification of Layer 10.
+minimum and covolume, and a sharp Cohn–Elkies certificate (Layers 4, 6, and 9).  After adopting
+TauCeti's theta-independent rank-eight lattice classification, E8 periodic uniqueness also no
+longer needs the rank-8 theta identity.  The older local classification route uses it only as a
+fallback before that import.
 
 ## Layer 6 — E8 and Leech lattice packages
 
@@ -726,8 +738,8 @@ permutation.  None of these descriptions may be identified with another by defin
 
 Algebraic structure beyond optimality:
 
-- kissing number `leechLattice.kissingNumber = 196560`, with the corollary that the real shell of
-  squared norm `4` has `196560` vectors;
+- TauCeti's `TauCeti.kissingNumber_leechLattice`, transported to the real shell of squared norm
+  `4`, which has `196560` vectors;
 - theta identity.
 
 The naive unshifted Construction-A lattice of the extended binary Golay code must not be called the
@@ -780,6 +792,12 @@ The layer has two independent main results, one for each kind of deformation.
 - deformation of a horizontal edge into the two vertical half-lines above its endpoints, with
   explicit integrability hypotheses on the half-lines and the top edge controlled either by
   uniform decay or by convergence of the top-edge integrals to zero.
+
+Mathlib's unbounded-rectangle theorem
+`Complex.integral_boundary_unbounded_rect_eq_zero_of_differentiable_on_off_countable_of_integrable_on`,
+in the pinned graph, covers the uniform-decay case.  Preserve the
+top-edge-integral limit target: its hypothesis is weaker, so replacing it wholesale with that
+theorem would weaken the roadmap's generality.
 
 These identities feed the vertical-line rewrites, Laplace representations, and double-zero
 arguments of Layer 9.
@@ -895,19 +913,17 @@ The E8 shell spectrum gives a positive-definite even unimodular rank-eight latti
 classification theorem that such a lattice is isometric to E8, then transport the center coset to
 obtain periodic congruence.
 
-The classification theorem is general integral-lattice mathematics.  In this roadmap it is a
-required dependency stated as an assumed theorem, that is, an unproved roadmap target on which the
-uniqueness proof relies.  Its intended home is an extension of the TauCeti Integral Lattices
-roadmap, recorded in `UPSTREAM.md`.  If TauCeti has not provided it when the production
-uniqueness proof needs it, the production development proves it locally, with exactly the intended
-statement, and replaces the local proof by an import once TauCeti provides the result.  Acceptance
-upstream is never a prerequisite.
+The classification theorem is general integral-lattice mathematics and has landed in later
+TauCeti as `IntegralLattice.IsPosDef.nonempty_isometry_typeE₈RootLattice_of_isEven`.  After
+resync, PR M1 imports it, converts ambient rational rank to carrier integer rank, and reverses its
+isometry to match SphereCeti's statement.  It uses the same canonical `typeE₈RootLattice` and has
+no theta dependency; the real-isometry and packing-coset bridges remain SphereCeti's work.
 
-The intended proof of the classification (PR M1 in `MIGRATION.md`) obtains the 240 roots of an
-arbitrary positive-definite even unimodular rank-eight lattice from the rank-8 theta identity.
-TauCeti's enumeration of the roots of `typeE₈RootLattice` does not supply that count, which concerns
-one specific lattice, so E8 periodic uniqueness keeps its dependency on the pending theta theory even
-though the optimality theorem does not have it.
+At the current pin the classification remains an unproved target.  The fallback local proof in
+`MIGRATION.md` obtains the 240 roots of an arbitrary positive-definite even unimodular rank-eight
+lattice from the rank-8 theta identity.  TauCeti's enumeration for the one specific
+`typeE₈RootLattice` does not alone supply that arbitrary-lattice count.  The landed classification
+removes the need for this fallback once imported.
 
 ### Leech rigidity
 
@@ -991,7 +1007,7 @@ The detailed main-first sequence is in [`MIGRATION.md`](MIGRATION.md).  Every pr
 | `.github/workflows/ci.yml` | Static consistency check followed by Lean elaboration |
 | `lakefile.toml` | Exact TauCeti dependency |
 | `lake-manifest.json` | Full resolved pin set |
-| `lean-toolchain` | Lean `v4.36.0-rc1` |
+| `lean-toolchain` | Lean `v4.36.0-rc2` |
 
 # References
 

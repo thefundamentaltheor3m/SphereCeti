@@ -52,8 +52,20 @@ A pin update must be one atomic PR updating:
 - the TauCeti revision in `lakefile.toml`;
 - `lake-manifest.json`;
 - the pin table in `README.md`;
-- the dependency record in `PROVENANCE.md`;
-- any `#check` lines or imports affected by API changes.
+- the dependency record in `PROVENANCE.md`, and the matching entries in `CONVENTIONS.md` and
+  `MIGRATION.md`;
+- `sphereceti.toml` dependency pins and `scripts/check_roadmap.py` expected pins/CLI release line;
+- publication toolchain references in `scripts/publication.py` and
+  `.github/workflows/docs-cache.yml`, affected test fixtures, and `INFRASTRUCTURE-PLAN.md`;
+- any `#check` lines or imports affected by API changes, and the explanatory toolchain text in
+  `Pinned.lean` while preserving its frozen production semantics;
+- `VALIDATION.md` and the reviewed admission ledger when compiled declarations or axiom
+  dependencies change.
+
+Build both `SphereCeti` and `SphereCetiRoadmap`, check module boundaries, and run
+`lake env python3 -I scripts/check_audits.py` for the full classified-source build and compiled
+audit.  Run the infrastructure/Python regression suite for affected configuration and publication
+code.  A bare `#check` verifies name resolution; use typed checks for newly adopted interfaces.
 
 The PR must state the old and new TauCeti and resolved Mathlib SHAs.  Never change the effective
 Mathlib revision only by deleting or ignoring the manifest.

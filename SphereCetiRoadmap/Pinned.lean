@@ -20,7 +20,7 @@ This file restates the public definitions of
 `thefundamentaltheor3m/Sphere-Packing-Lean@bad3de916074748eb88b7d1ee6dbf9494361ad17`; a few,
 such as `E8Lattice` and `E8Packing`, are placeholders whose bodies are `sorry`.
 It exists only because that version of Sphere-Packing-Lean uses Lean/Mathlib `v4.32.0`, while
-SphereCeti uses Lean `v4.36.0-rc1` together with a recent TauCeti version, so the library cannot
+SphereCeti uses Lean `v4.36.0-rc2` together with a recent TauCeti version, so the library cannot
 yet be imported directly.
 
 Sphere-Packing-Lean at that commit covers only dimension 8 and states no uniqueness result.  The

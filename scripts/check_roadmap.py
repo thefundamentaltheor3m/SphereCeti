@@ -9,9 +9,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED = {
-    "lean": "leanprover/lean4:v4.36.0-rc1",
-    "tauceti": "271e1af4dd54c50b9192cf3e213b7686843a0b3a",
-    "mathlib": "2cabef97b63d3275776b8b060d802de6a6fa1055",
+    "lean": "leanprover/lean4:v4.36.0-rc2",
+    "tauceti": "83769e442d55cda9d85b3927a93b286831c595ff",
+    "mathlib": "1b1ccf4b088b32fa3f23f2de1127433254a81e1e",
     "sphere_packing": "bad3de916074748eb88b7d1ee6dbf9494361ad17",
 }
 
@@ -38,8 +38,8 @@ require(packages.get("TauCeti", {}).get("inputRev") == EXPECTED["tauceti"],
         "TauCeti manifest inputRev is not the exact commit pin")
 require(packages.get("mathlib", {}).get("rev") == EXPECTED["mathlib"],
         "Mathlib manifest revision does not match the TauCeti snapshot")
-require(packages.get("Cli", {}).get("inputRev") == "v4.36.0-rc1",
-        "Lean CLI dependency is not on the v4.36.0-rc1 release line")
+require(packages.get("Cli", {}).get("inputRev") == "v4.36.0-rc2",
+        "Lean CLI dependency is not on the v4.36.0-rc2 release line")
 
 readme = (ROOT / "README.md").read_text()
 provenance = (ROOT / "PROVENANCE.md").read_text()
@@ -77,8 +77,57 @@ require("Quotient P.addAction.orbitRel" in suggested,
         "Orbit must reuse the pinned production additive-action quotient")
 require("def orbitSetoid" not in suggested,
         "Suggested.lean must not define a duplicate periodic orbit setoid")
-require("thetaForm_eq_E₄" in suggested and "coe_thetaForm_rank_24_rootless" in suggested,
-        "the ThetaSeries stand-ins must carry the rank-8 and rootless rank-24 classifications")
+# Split the source into top-level chunks (declarations, doc comments, commands) so that a name
+# mentioned in a `#check` line or a docstring does not count as a use inside a proof.
+TOP_LEVEL = re.compile(
+    r"^(?:/--|/-!|@\[|#\w+|(?:private |protected )?(?:noncomputable )?"
+    r"(?:theorem|lemma|def|abbrev|example|instance|structure|class|inductive|section|namespace|"
+    r"end|variable|open|universe)\b)", re.M)
+
+def top_level_chunks(text: str) -> list[str]:
+    starts = [m.start() for m in TOP_LEVEL.finditer(text)] + [len(text)]
+    return [text[a:b] for a, b in zip(starts, starts[1:])]
+
+def declaration_chunk(text: str, keyword: str, name: str) -> str:
+    pattern = re.compile(rf"^(?:noncomputable )?{keyword} {re.escape(name)}\b")
+    found = [chunk for chunk in top_level_chunks(text) if pattern.match(chunk)]
+    return found[0] if len(found) == 1 else ""
+
+require("namespace ThetaSeries" not in suggested,
+        "TauCeti supplies the theta theory; do not restate it in a local ThetaSeries namespace")
+theta_section = re.search(r"^section ThetaSeries\n(.*?)^end ThetaSeries$", suggested, re.M | re.S)
+require(theta_section is not None, "missing section ThetaSeries of typed TauCeti theta checks")
+theta_examples = [chunk for chunk in top_level_chunks(theta_section.group(1) if theta_section else "")
+                  if chunk.startswith("example") and "sorry" not in chunk]
+# Each API must be applied in the proof of a sorry-free `example` (dot notation is accepted for the
+# `IsEven` lemmas, whose receiver is the evenness hypothesis).
+for theta_api in (
+    "ZLattice.thetaSeries_S_smul",
+    "ZLattice.coe_thetaForm",
+    "ZLattice.qExpansion_thetaForm_coeff",
+    "thetaForm_eq_E₄",
+    "representationNumber_two_of_finrank_eq_eight",
+    "thetaSeries_eq_E₄_cube_add_mul_discriminant",
+    "representationNumber_four_of_rootless",
+):
+    require(any(re.search(rf"(?<![\w.]){re.escape(theta_api)}\b|\.{re.escape(theta_api)}\b",
+                          chunk.split(":=", 1)[-1]) for chunk in theta_examples),
+            f"no sorry-free typed example in section ThetaSeries applies the TauCeti theta API {theta_api}")
+
+# The presentation bridge: an isometry into TauCeti's rational model, and the real evenness and
+# unimodularity proved by transporting TauCeti's ratModel comparisons along it.
+bridge = declaration_chunk(suggested, "def", "IntegralPresentation.ratModelIsometry")
+require("TauCeti.IntegralLattice.Isometry P.toIntegralLattice (ZLattice.ratModel" in bridge,
+        "IntegralPresentation.ratModelIsometry must be an isometry into TauCeti's ZLattice.ratModel")
+for name, comparison, transport in (
+    ("IntegralPresentation.isEven_real", "ZLattice.isEven_ratModel_iff", "isEven_iff"),
+    ("IntegralPresentation.isUnimodular_real", "ZLattice.isUnimodular_ratModel_iff",
+     "isUnimodular_iff"),
+):
+    proof = declaration_chunk(suggested, "theorem", name).split(":=", 1)
+    require(len(proof) == 2 and "sorry" not in proof[1] and comparison in proof[1]
+            and f"P.ratModelIsometry.{transport}" in proof[1],
+            f"{name} must be proved from {comparison} transported along P.ratModelIsometry")
 require("ADEType" not in suggested and "NiemeierType" not in suggested,
         "ADE and Niemeier machinery is owned upstream; only the classification endpoints remain")
 require("% 23 ∈ ({0, 1, 5, 6, 7, 9, 11}" in suggested,

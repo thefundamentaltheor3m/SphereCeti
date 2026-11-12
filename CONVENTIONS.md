@@ -12,9 +12,9 @@ which the roadmap is to be implemented.
 The roadmap package uses:
 
 ```text
-Lean       leanprover/lean4:v4.36.0-rc1
-TauCeti    271e1af4dd54c50b9192cf3e213b7686843a0b3a
-Mathlib    2cabef97b63d3275776b8b060d802de6a6fa1055
+Lean       leanprover/lean4:v4.36.0-rc2
+TauCeti    83769e442d55cda9d85b3927a93b286831c595ff
+Mathlib    1b1ccf4b088b32fa3f23f2de1127433254a81e1e
 ```
 
 The Mathlib commit is not an independent choice: it is the resolved Mathlib revision in the pinned
@@ -26,9 +26,11 @@ Every dependency update is atomic:
 2. update the TauCeti SHA;
 3. regenerate the manifest;
 4. record the resolved Mathlib SHA;
-5. build every `SphereCeti.*` module;
+5. build both `SphereCeti` and `SphereCetiRoadmap` libraries and run the compiled audit;
 6. check required declarations and mathematical conventions as described below;
-7. record any semantic changes in this file.
+7. synchronize the project configuration, publication toolchain, workflow and test fixtures,
+   and validation/admission records listed in [CONTRIBUTING.md](CONTRIBUTING.md#pin-updates);
+8. record any semantic changes in this file.
 
 Never use `main`, a tag that can move, or an unrecorded local checkout as the effective TauCeti pin.
 
@@ -185,9 +187,10 @@ The bridge must compare:
 - real isometry and integral-lattice isometry;
 - minimum norm, and `ZLattice.shell` with TauCeti's `vectorsOfNorm`.
 
-TauCeti PR #20950 (open) proposes the rational model `ratModel` of a real integral lattice.  Once it
-lands, the presentation is compared with it; the presentation is not a competing abstract
-conversion.
+The presentation is compared with TauCeti's rational model `ZLattice.ratModel` (#21332, which
+superseded #20950) through the basis-induced isometry `IntegralPresentation.ratModelIsometry`; the
+presentation is not a competing abstract conversion.  See the
+[resync watchlist](UPSTREAM.md#g-resync-watchlist) for exact declarations and provenance.
 
 ## 7. Dual lattices
 
@@ -387,7 +390,8 @@ For a rank-`d` real lattice:
 with the power expressed in the integral-weight language available for even rank.  The exact Lean
 statement must avoid an ambiguous complex square-root branch.  In ranks 8 and 24 the weights are 4
 and 12, so ordinary natural powers suffice after the general Poisson identity is specialized.  This
-transformation law is not yet in TauCeti; see `UPSTREAM.md` A11.
+transformation law is TauCeti's `ZLattice.thetaSeries_S_smul`, which uses `ModularGroup.S • τ`
+and the natural powers `(-i)^k τ^k` in rank `2k`.
 
 Standard level-one identities:
 

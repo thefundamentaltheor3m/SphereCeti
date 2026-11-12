@@ -329,11 +329,6 @@
     },
     {
       "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.E8.even_unimodular_rank_eight_unique",
-      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
-    },
-    {
-      "moduleName": "SphereCetiRoadmap.Suggested",
       "name": "SphereCeti.Suggested.E8.fourierMagicProfile",
       "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
     },
@@ -734,6 +729,11 @@
     },
     {
       "moduleName": "SphereCetiRoadmap.Suggested",
+      "name": "SphereCeti.Suggested.EuclideanLattice.IntegralPresentation.isIntegral_real",
+      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
+    },
+    {
+      "moduleName": "SphereCetiRoadmap.Suggested",
       "name": "SphereCeti.Suggested.EuclideanLattice.IntegralPresentation.isPosDef",
       "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
     },
@@ -770,6 +770,16 @@
     {
       "moduleName": "SphereCetiRoadmap.Suggested",
       "name": "SphereCeti.Suggested.EuclideanLattice.IntegralPresentation.ofBasis_gram",
+      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
+    },
+    {
+      "moduleName": "SphereCetiRoadmap.Suggested",
+      "name": "SphereCeti.Suggested.EuclideanLattice.IntegralPresentation.ratModelIsometry",
+      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
+    },
+    {
+      "moduleName": "SphereCetiRoadmap.Suggested",
+      "name": "SphereCeti.Suggested.EuclideanLattice.IntegralPresentation.ratModelIsometry_single",
       "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
     },
     {
@@ -960,11 +970,6 @@
     {
       "moduleName": "SphereCetiRoadmap.Suggested",
       "name": "SphereCeti.Suggested.Leech.isPermutationEquivalent_cyclicGolayCode",
-      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
-    },
-    {
-      "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.Leech.kissingNumber_integralLattice",
       "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
     },
     {
@@ -1670,46 +1675,6 @@
     {
       "moduleName": "SphereCetiRoadmap.Suggested",
       "name": "SphereCeti.Suggested.Theta.theta_rank24_rootless_eq_E4_cubed_sub_720_Delta",
-      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
-    },
-    {
-      "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.ThetaSeries.coe_thetaForm",
-      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
-    },
-    {
-      "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.ThetaSeries.coe_thetaForm_rank_24_rootless",
-      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
-    },
-    {
-      "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.ThetaSeries.qExpansion_thetaForm_coeff",
-      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
-    },
-    {
-      "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.ThetaSeries.representationNumber_two_rank_eight",
-      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
-    },
-    {
-      "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.ThetaSeries.thetaForm",
-      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
-    },
-    {
-      "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.ThetaSeries.thetaForm_eq_E\u2084",
-      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
-    },
-    {
-      "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.ThetaSeries.thetaForm_rank_24",
-      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
-    },
-    {
-      "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.ThetaSeries.thetaSeries_neg_inv",
       "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
     },
     {

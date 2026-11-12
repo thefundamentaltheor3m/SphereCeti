@@ -8,14 +8,14 @@ adapted.  It is a record of provenance, not an instruction to copy an entire bra
 ### SphereCeti toolchain
 
 ```text
-leanprover/lean4:v4.36.0-rc1
+leanprover/lean4:v4.36.0-rc2
 ```
 
 ### TauCeti
 
 ```text
 repository  https://github.com/TauCetiProject/TauCeti
-commit      271e1af4dd54c50b9192cf3e213b7686843a0b3a
+commit      83769e442d55cda9d85b3927a93b286831c595ff
 ```
 
 The commit is the complete sibling-library snapshot imported by SphereCeti.  It is not described as
@@ -27,7 +27,7 @@ The pinned TauCeti manifest resolves Mathlib to:
 
 ```text
 repository  https://github.com/leanprover-community/mathlib4
-commit      2cabef97b63d3275776b8b060d802de6a6fa1055
+commit      1b1ccf4b088b32fa3f23f2de1127433254a81e1e
 ```
 
 SphereCeti follows that resolved revision.  It does not independently request `master` or a release
@@ -44,6 +44,12 @@ This baseline contains the radial Schwartz submodule and uses Lean and Mathlib `
 `SphereCetiRoadmap/Pinned.lean` models its public statements until PR A2 replaces the model with
 direct imports from the synchronized production dependency.  The model is never a source of
 independent mathematical truth.
+
+The current production head observed on 2026-11-10 is
+[`803f1623539ece84a19b2b6805764b8dea9ea6e6`](https://github.com/thefundamentaltheor3m/Sphere-Packing-Lean/commit/803f1623539ece84a19b2b6805764b8dea9ea6e6),
+dated 2026-11-05, on Lean `v4.35.0`.  The 4.32 baseline above is frozen provenance, not the current
+production toolchain.  Production still differs from this package's 4.36.0-rc2 line; A1/A2 remain
+necessary before replacing `Pinned.lean` with imports.
 
 ## 2. Pinned TauCeti modules used directly
 
@@ -89,17 +95,28 @@ TauCeti/Algebra/Module/ZLattice/Integral.lean
 TauCeti/Algebra/Module/ZLattice/Determinant.lean
 TauCeti/Algebra/Module/ZLattice/Covolume.lean
 TauCeti/Algebra/Module/ZLattice/Shell.lean
+TauCeti/Algebra/Module/ZLattice/RationalModel.lean
+TauCeti/Algebra/Module/ZLattice/RealModel.lean
+TauCeti/Algebra/Module/ZLattice/ModelShell.lean
 TauCeti/Analysis/Distribution/SchwartzSpace/ZLattice.lean
 TauCeti/Analysis/Fourier/PoissonSummation.lean
 TauCeti/NumberTheory/ModularForms/ThetaSeries/Basic.lean
 TauCeti/NumberTheory/ModularForms/ThetaSeries/QExpansion.lean
+TauCeti/NumberTheory/ModularForms/ThetaSeries/Inversion.lean
+TauCeti/NumberTheory/ModularForms/ThetaSeries/LevelOne.lean
+TauCeti/NumberTheory/ModularForms/ThetaSeries/Eisenstein.lean
+TauCeti/NumberTheory/ModularForms/ThetaSeries/RankTwentyFour.lean
 ```
 
 These supply `ZLattice.dual`, the real predicates `ZLattice.IsIntegral`, `ZLattice.IsEven`, and
 `ZLattice.IsUnimodular`, shells and representation numbers, the summability of Schwartz functions over a lattice and its
 dual, Poisson summation
 `SchwartzMap.tsum_eq_tsum_dual_fourier`, and the theta series `ZLattice.thetaSeries` with its
-q-expansion.  The theta `S`-transformation and modularity are not yet in TauCeti.
+q-expansion, the `S`-transformation `ZLattice.thetaSeries_S_smul`, the level-one theta form
+`ZLattice.thetaForm`, and the rank-8 and rank-24 identities.  The rational and real models
+`ZLattice.ratModel` and `IntegralLattice.realModel`, with their invariant, dual, and shell
+comparisons, are the target of SphereCeti's presentation bridge.  The
+[resync watchlist](UPSTREAM.md#g-resync-watchlist) records the commits that introduced them.
 
 ### E8, the Golay code, and the Leech lattice
 
@@ -110,14 +127,18 @@ TauCeti/LinearAlgebra/IntegralLattice/RootLattice/TypeE/Basic.lean
 TauCeti/LinearAlgebra/IntegralLattice/RootLattice/TypeE/Roots.lean
 TauCeti/LinearAlgebra/IntegralLattice/PosDef/Minimum.lean
 TauCeti/LinearAlgebra/IntegralLattice/PosDef/RepresentationNumber.lean
+TauCeti/LinearAlgebra/IntegralLattice/PosDef/SmallRankUnimodular.lean
 TauCeti/InformationTheory/Coding/Binary/Golay/Basic.lean
 TauCeti/InformationTheory/Coding/Equivalence.lean
 TauCeti/LinearAlgebra/IntegralLattice/ConstructionB/Golay.lean
 TauCeti/LinearAlgebra/IntegralLattice/Rank24/Leech/Basic.lean
 TauCeti/LinearAlgebra/IntegralLattice/Rank24/Leech/Minimum.lean
+TauCeti/LinearAlgebra/IntegralLattice/Rank24/Leech/MinimalVectors.lean
 ```
 
-The canonical algebraic E8 and Leech lattices are `IntegralLattice.typeE₈RootLattice` and
+`SmallRankUnimodular.lean` supplies the theta-independent classification of even unimodular
+lattices of rank eight, and `MinimalVectors.lean` the Leech kissing number `196560` by direct
+enumeration.  The canonical algebraic E8 and Leech lattices are `IntegralLattice.typeE₈RootLattice` and
 `leechLattice`; the canonical Golay code is `BinaryGolay.code`, in the coordinates of its systematic
 generator.  SphereCeti compares its Euclidean lattices and its other code and basis descriptions
 with these objects and does not construct them again.
@@ -235,8 +256,12 @@ PR #420 is a source of proofs to adapt, containing several separable contributio
 4. basis-independent covolume facts;
 5. general periodic Cohn–Elkies counting.
 
-Each item is ported in a focused PR onto production `main` after A1.  A claim that PR #420 is “merged
-by replacement” must list the replacement declarations; broad textual similarity is not enough.
+Items 1–4 are already supplied by the pinned TauCeti snapshot: Schwartz lattice summability,
+`ZLattice.dual_def`, `SchwartzMap.tsum_eq_tsum_dual_fourier`, and the basis-independent covolume
+API listed in §2.  Import these declarations rather than porting those proofs.  Only the general
+periodic Cohn–Elkies counting is adapted onto production `main` after A1, with the exact source
+commit and path recorded.  A claim that PR #420 is “merged by replacement” must list the replacement
+declarations; broad textual similarity is not enough.
 
 ## 6. Mathematical source papers and theorem scopes
 

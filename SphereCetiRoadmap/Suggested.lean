@@ -12,6 +12,9 @@ public import TauCeti.Algebra.Module.ZLattice.Covolume
 public import TauCeti.Algebra.Module.ZLattice.Determinant
 public import TauCeti.Algebra.Module.ZLattice.Dual
 public import TauCeti.Algebra.Module.ZLattice.Integral
+public import TauCeti.Algebra.Module.ZLattice.ModelShell
+public import TauCeti.Algebra.Module.ZLattice.RationalModel
+public import TauCeti.Algebra.Module.ZLattice.RealModel
 public import TauCeti.Algebra.Module.ZLattice.Shell
 public import TauCeti.Analysis.Complex.UpperHalfPlane.ResToImagAxis
 public import TauCeti.Analysis.Distribution.SchwartzSpace.ZLattice
@@ -23,6 +26,8 @@ public import TauCeti.LinearAlgebra.IntegralLattice.Even
 public import TauCeti.LinearAlgebra.IntegralLattice.Isometry.Basic
 public import TauCeti.LinearAlgebra.IntegralLattice.PosDef.Minimum
 public import TauCeti.LinearAlgebra.IntegralLattice.PosDef.RepresentationNumber
+public import TauCeti.LinearAlgebra.IntegralLattice.PosDef.SmallRankUnimodular
+public import TauCeti.LinearAlgebra.IntegralLattice.Rank24.Leech.MinimalVectors
 public import TauCeti.LinearAlgebra.IntegralLattice.Rank24.Leech.Minimum
 public import TauCeti.LinearAlgebra.IntegralLattice.RootLattice.TypeE.Roots
 public import TauCeti.LinearAlgebra.IntegralLattice.Signature
@@ -32,7 +37,11 @@ public import TauCeti.NumberTheory.ModularForms.QExpansion.BigO
 public import TauCeti.NumberTheory.ModularForms.ResToImagAxis
 public import TauCeti.NumberTheory.ModularForms.STransform
 public import TauCeti.NumberTheory.ModularForms.SturmBound
+public import TauCeti.NumberTheory.ModularForms.ThetaSeries.Eisenstein
+public import TauCeti.NumberTheory.ModularForms.ThetaSeries.Inversion
+public import TauCeti.NumberTheory.ModularForms.ThetaSeries.LevelOne
 public import TauCeti.NumberTheory.ModularForms.ThetaSeries.QExpansion
+public import TauCeti.NumberTheory.ModularForms.ThetaSeries.RankTwentyFour
 
 public import Mathlib.MeasureTheory.Integral.CurveIntegral.Basic
 public import Mathlib.MeasureTheory.Integral.CurveIntegral.Poincare
@@ -86,9 +95,9 @@ abbrev RadialSchwartzMap := SphereCeti.Pinned.RadialSchwartzMap
 #check TauCeti.IntegralLattice.ofGramMatrix
 #check UpperHalfPlane.resToImagAxis
 #check UpperHalfPlane.resToImagAxis_slash_S
-#check TauCeti.UpperHalfPlane.cuspFunction_isBigO_pow_of_qExpansion_coeff_eq_zero
-#check TauCeti.ModularForm.sturm_bound_finiteIndex
-#check TauCeti.continuous_fourier_of_integrable
+#check TauCeti.UpperHalfPlane.cuspFunction_isBigO_pow_iff_qExpansion_coeff_eq_zero
+#check ModularForm.sturm_bound_finiteIndex
+#check MeasureTheory.Integrable.continuous_fourier
 
 #check ZLattice.dual
 #check ZLattice.dual_def
@@ -104,8 +113,26 @@ abbrev RadialSchwartzMap := SphereCeti.Pinned.RadialSchwartzMap
 #check SchwartzMap.tsum_eq_tsum_dual_fourier
 #check ZLattice.summable_poisson_left
 #check ZLattice.summable_poisson_right
+#check ZLattice.ratModel
+#check ZLattice.ratModelCarrierEquiv
+#check ZLattice.isEven_ratModel_iff
+#check ZLattice.isUnimodular_ratModel_iff
+#check ZLattice.discriminant_ratModel
+#check ZLattice.ratModelDualEquiv
+#check ZLattice.shell_eq_image_vectorsOfNorm_ratModel
+#check ZLattice.realModelRatModelIsometry
+#check TauCeti.IntegralLattice.realModel
 #check ZLattice.thetaSeries
 #check ZLattice.IsEven.qExpansion_thetaSeries_coeff
+#check ZLattice.thetaSeries_S_smul
+#check ZLattice.thetaForm
+#check ZLattice.coe_thetaForm
+#check ZLattice.qExpansion_thetaForm_coeff
+#check ZLattice.IsEven.thetaForm_eq_E₄
+#check ZLattice.IsEven.representationNumber_two_of_finrank_eq_eight
+#check ZLattice.IsEven.thetaSeries_eq_E₄_cube_add_mul_discriminant
+#check ZLattice.IsEven.representationNumber_four_of_rootless
+#check TauCeti.IntegralLattice.IsPosDef.nonempty_isometry_typeE₈RootLattice_of_isEven
 #check TauCeti.IntegralLattice.typeE₈RootLattice
 #check TauCeti.IntegralLattice.typeE₈RootEquiv
 #check TauCeti.IntegralLattice.kissingNumber_typeE₈RootLattice
@@ -125,6 +152,8 @@ abbrev RadialSchwartzMap := SphereCeti.Pinned.RadialSchwartzMap
 #check TauCeti.mem_leechLattice_carrier_iff_exists
 #check TauCeti.minimum_leechLattice
 #check TauCeti.vectorsOfNorm_two_leechLattice
+#check TauCeti.kissingNumber_leechLattice
+#check TauCeti.ncard_vectorsOfNorm_four_leechLattice
 
 #check SphereCeti.Pinned.SpherePacking
 #check SphereCeti.Pinned.PeriodicSpherePacking
@@ -266,8 +295,12 @@ end PeriodicSpherePacking
 
 /-! The dual `ZLattice.dual`, the predicates `ZLattice.IsIntegral`, `ZLattice.IsEven`, and
 `ZLattice.IsUnimodular`, the shells `ZLattice.shell`, and the representation numbers
-`ZLattice.representationNumber` are TauCeti's.  This layer adds only minimum-norm predicates and the
-comparison of explicit integral presentations with TauCeti's two lattice theories. -/
+`ZLattice.representationNumber` are TauCeti's, as is the rational model `ZLattice.ratModel` of an
+integral real lattice with its invariant, dual, and shell comparisons.  This layer adds only
+minimum-norm predicates and the comparison of explicit integral presentations with that rational
+model: a presentation is a basis with its Gram matrix, and `IntegralPresentation.ratModelIsometry`
+is the isometry its basis induces.  The real-side consequences are then TauCeti's comparisons
+transported along that isometry. -/
 
 namespace EuclideanLattice
 
@@ -343,20 +376,51 @@ theorem IntegralPresentation.isPosDef {d : ℕ} {Λ : Submodule ℤ (V d)}
     P.IsPosDef := by
   sorry
 
-/-- An even integral presentation makes the real lattice even in TauCeti's real sense. -/
+/-- A presented lattice is integral in TauCeti's real sense: the inner products of the basis
+vectors are the integer Gram entries. -/
+theorem IntegralPresentation.isIntegral_real {d : ℕ} {Λ : Submodule ℤ (V d)}
+    [DiscreteTopology Λ] [IsZLattice ℝ Λ] (P : IntegralPresentation Λ) :
+    ZLattice.IsIntegral Λ := by
+  sorry
+
+/-- The isometry from the Gram-coordinate lattice to TauCeti's rational model of the real lattice
+induced by the presentation basis: it sends the `i`-th coordinate vector to `1 ⊗ P.basis i`
+(`ratModelIsometry_single`).  The Gram equation `gram_spec` is what makes it an isometry; TauCeti's
+comparisons for `ZLattice.ratModel` then transport along it. -/
+noncomputable def IntegralPresentation.ratModelIsometry {d : ℕ} {Λ : Submodule ℤ (V d)}
+    [DiscreteTopology Λ] [IsZLattice ℝ Λ] (P : IntegralPresentation Λ) :
+    TauCeti.IntegralLattice.Isometry P.toIntegralLattice (ZLattice.ratModel P.isIntegral_real) := by
+  sorry
+
+@[simp]
+theorem IntegralPresentation.ratModelIsometry_single {d : ℕ} {Λ : Submodule ℤ (V d)}
+    [DiscreteTopology Λ] [IsZLattice ℝ Λ] (P : IntegralPresentation Λ) (i : Fin d) :
+    P.ratModelIsometry (Pi.single i 1) = (1 : ℚ) ⊗ₜ[ℤ] P.basis i := by
+  sorry
+
+/-- Check that `simp` evaluates the bridge on coordinate vectors, including inside a sum. -/
+example {d : ℕ} {Λ : Submodule ℤ (V d)} [DiscreteTopology Λ] [IsZLattice ℝ Λ]
+    (P : IntegralPresentation Λ) (i j : Fin d) :
+    P.ratModelIsometry (Pi.single i 1) + P.ratModelIsometry (Pi.single j 1) =
+      (1 : ℚ) ⊗ₜ[ℤ] P.basis i + (1 : ℚ) ⊗ₜ[ℤ] P.basis j := by
+  simp
+
+/-- An even integral presentation makes the real lattice even in TauCeti's real sense:
+`ZLattice.isEven_ratModel_iff` transported along `ratModelIsometry`. -/
 theorem IntegralPresentation.isEven_real {d : ℕ} {Λ : Submodule ℤ (V d)}
     [DiscreteTopology Λ] [IsZLattice ℝ Λ]
     (P : IntegralPresentation Λ) (heven : P.IsEven) :
-    ZLattice.IsEven Λ := by
-  sorry
+    ZLattice.IsEven Λ :=
+  (ZLattice.isEven_ratModel_iff P.isIntegral_real).mp (P.ratModelIsometry.isEven_iff.mp heven)
 
 /-- A unimodular integral presentation makes the real lattice unimodular in TauCeti's real
-sense. -/
+sense: `ZLattice.isUnimodular_ratModel_iff` transported along `ratModelIsometry`. -/
 theorem IntegralPresentation.isUnimodular_real {d : ℕ} {Λ : Submodule ℤ (V d)}
     [DiscreteTopology Λ] [IsZLattice ℝ Λ]
     (P : IntegralPresentation Λ) (hunimodular : P.IsUnimodular) :
-    ZLattice.IsUnimodular Λ := by
-  sorry
+    ZLattice.IsUnimodular Λ :=
+  (ZLattice.isUnimodular_ratModel_iff P.isIntegral_real).mp
+    (P.ratModelIsometry.isUnimodular_iff.mp hunimodular)
 
 /-- Cohn–Elkies Lemma 8.2 for an arbitrary point set.  A full-dimensional set containing zero whose
 pairwise squared distances are even integers generates a discrete full-rank even integral lattice.
@@ -372,13 +436,16 @@ theorem generatedSubmodule_evenIntegral_full {d : ℕ}
       G.IsEven := by
   sorry
 
-/-- The real carrier and TauCeti's Gram-coordinate carrier are integrally equivalent. -/
+/-- The real carrier and TauCeti's Gram-coordinate carrier are integrally equivalent: TauCeti's
+`ZLattice.ratModelCarrierEquiv` followed by the carrier equivalence of
+`ratModelIsometry.symm`. -/
 noncomputable def IntegralPresentation.carrierEquiv {d : ℕ}
     {Λ : Submodule ℤ (V d)} (P : IntegralPresentation Λ) :
     Λ ≃ₗ[ℤ] P.toIntegralLattice.carrier := by
   sorry
 
-/-- The real dual and TauCeti's rational dual carrier have the same integral coordinates. -/
+/-- The real dual and TauCeti's rational dual carrier have the same integral coordinates:
+TauCeti's `ZLattice.ratModelDualEquiv` transported along `ratModelIsometry`. -/
 noncomputable def IntegralPresentation.dualCarrierEquiv {d : ℕ}
     {Λ : Submodule ℤ (V d)} [DiscreteTopology Λ] [IsZLattice ℝ Λ]
     (P : IntegralPresentation Λ) :
@@ -395,7 +462,8 @@ theorem IntegralPresentation.mem_dual_iff_exists_dualCarrier_coordinates {d : �
   sorry
 
 /-- The determinant/covolume bridge used to move between TauCeti's Gram discriminant and Mathlib's
-real Haar covolume.  The real half is TauCeti's `ZLattice.covolume_sq_eq_det_gram`. -/
+real Haar covolume: TauCeti's `ZLattice.discriminant_ratModel` and
+`ZLattice.covolume_sq_eq_det_gram`, with the discriminant transported along `ratModelIsometry`. -/
 theorem IntegralPresentation.covolume_sq_eq_discriminant {d : ℕ}
     {Λ : Submodule ℤ (V d)} [DiscreteTopology Λ] [IsZLattice ℝ Λ]
     (P : IntegralPresentation Λ) :
@@ -421,7 +489,8 @@ def IsRootless {W : Type*} [AddCommGroup W] [Module ℚ W]
     (L : TauCeti.IntegralLattice W) : Prop := L.vectorsOfNorm 2 = ∅
 
 /-- Presentation coordinates identify each real shell `ZLattice.shell Λ n` with the corresponding
-TauCeti shell. -/
+TauCeti shell: TauCeti's `ZLattice.shell_eq_image_vectorsOfNorm_ratModel` transported along
+`ratModelIsometry`. -/
 noncomputable def IntegralPresentation.shellEquiv {d : ℕ}
     {Λ : Submodule ℤ (V d)} [DiscreteTopology Λ] [IsZLattice ℝ Λ]
     (P : IntegralPresentation Λ) (n : ℕ) :
@@ -435,7 +504,9 @@ theorem IntegralPresentation.isRootless_iff_shell_two_eq_empty {d : ℕ}
     IsRootless P.toIntegralLattice ↔ ZLattice.shell Λ 2 = ∅ := by
   sorry
 
-/-- Extend an algebraic classification isometry to the ambient real Euclidean space. -/
+/-- Extend an algebraic classification isometry to the ambient real Euclidean space.  TauCeti's
+`ZLattice.realModelRatModelIsometry` identifies `V d` with the real model of each rational model;
+TauCeti supplies no rational-to-real extension of an isometry, so this adapter remains local. -/
 noncomputable def IntegralPresentation.realIsometryOfIsometry {d : ℕ}
     {Λ Μ : Submodule ℤ (V d)} (P : IntegralPresentation Λ)
     (Q : IntegralPresentation Μ)
@@ -971,13 +1042,14 @@ end CohnElkies
 
 /-! ## Layer 5: lattice theta series
 
-The theta series `ZLattice.thetaSeries`, its convergence, holomorphy, q-expansion, and
-`T`-translation law are TauCeti's.  The `ThetaSeries` namespace states only the targets of the
-TauCeti ThetaSeries roadmap that have not landed, over TauCeti's implemented definitions.  They are
-deleted and replaced by imports when TauCeti provides them, and they are not to be developed into a
-second general theory.  None of them is needed for the optimality theorems. -/
+The theta series `ZLattice.thetaSeries` with its convergence, holomorphy, q-expansion, and
+`T`-translation law, the `S`-transformation `ZLattice.thetaSeries_S_smul`, the level-one modular
+form `ZLattice.thetaForm` of an even unimodular lattice, and the identities in ranks 8 and 24 are
+TauCeti's.  The typed checks below record the normalizations this roadmap relies on; the `Theta`
+namespace specializes them to packing lattices through the presentation bridge.  None of them is
+needed for the optimality theorems. -/
 
-namespace ThetaSeries
+section ThetaSeries
 
 variable {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E] [FiniteDimensional ℝ E]
 
@@ -991,59 +1063,45 @@ example (τ : UpperHalfPlane) :
 
 variable [MeasurableSpace E] [BorelSpace E]
 
-/-- Pending upstream: theta inversion, Poisson summation at the Gaussian. -/
-theorem thetaSeries_neg_inv (k : ℕ) (hn : Module.finrank ℝ E = 2 * k) (τ : UpperHalfPlane) :
+/-- Check the normalization of theta inversion: the argument `ModularGroup.S • τ`, the inverse
+covolume, and the natural powers `(-i)^k τ^k` in rank `2k`. -/
+example (k : ℕ) (hn : Module.finrank ℝ E = 2 * k) (τ : UpperHalfPlane) :
     ZLattice.thetaSeries L (ModularGroup.S • τ) =
       ((ZLattice.covolume L : ℂ)⁻¹) * (-Complex.I) ^ k * (τ : ℂ) ^ k *
         ZLattice.thetaSeries (ZLattice.dual L) τ := by
-  sorry
+  rw [ZLattice.thetaSeries_S_smul L hn τ]
+  ring
 
-/-- Pending upstream: the theta modular form of an even unimodular lattice. -/
-noncomputable def thetaForm (k : ℕ) (hn : Module.finrank ℝ E = 2 * k)
-    (he : ZLattice.IsEven L) (hu : ZLattice.IsUnimodular L) : ModularForm 𝒮ℒ (k : ℤ) := by
-  sorry
-
-@[simp]
-theorem coe_thetaForm (k : ℕ) (hn : Module.finrank ℝ E = 2 * k)
-    (he : ZLattice.IsEven L) (hu : ZLattice.IsUnimodular L) :
-    ⇑(thetaForm L k hn he hu) = ZLattice.thetaSeries L := by
-  sorry
-
-/-- Pending upstream: the q-expansion coefficients of the theta form.  Given `coe_thetaForm`, this
-is TauCeti's `ZLattice.IsEven.qExpansion_thetaSeries_coeff`. -/
-theorem qExpansion_thetaForm_coeff (k : ℕ) (hn : Module.finrank ℝ E = 2 * k)
+/-- Check that the theta form of an even unimodular lattice is a level-one form whose coercion is
+the theta series and whose `m`-th q-expansion coefficient counts the vectors of squared norm
+`2m`. -/
+example (k : ℕ) (hn : Module.finrank ℝ E = 2 * k)
     (he : ZLattice.IsEven L) (hu : ZLattice.IsUnimodular L) (m : ℕ) :
-    (UpperHalfPlane.qExpansion 1 (thetaForm L k hn he hu)).coeff m =
-      (ZLattice.representationNumber L (2 * m) : ℂ) := by
-  sorry
+    ⇑(ZLattice.thetaForm he hu hn : ModularForm 𝒮ℒ (k : ℤ)) = ZLattice.thetaSeries L ∧
+      (UpperHalfPlane.qExpansion 1 (ZLattice.thetaForm he hu hn)).coeff m =
+        (ZLattice.representationNumber L (2 * m) : ℂ) :=
+  ⟨ZLattice.coe_thetaForm he hu hn, ZLattice.qExpansion_thetaForm_coeff he hu hn m⟩
 
-/-- Pending upstream: the rank-eight identity. -/
-theorem thetaForm_eq_E₄ (hn : Module.finrank ℝ E = 8)
+/-- Check the rank-eight identity and root count for every even unimodular lattice. -/
+example (hn : Module.finrank ℝ E = 8)
     (he : ZLattice.IsEven L) (hu : ZLattice.IsUnimodular L) :
-    thetaForm L 4 (by omega) he hu = ModularForm.E₄ := by
-  sorry
+    ZLattice.thetaForm he hu (k := 4) hn = ModularForm.E₄ ∧
+      ZLattice.representationNumber L 2 = 240 :=
+  ⟨he.thetaForm_eq_E₄ hu hn, he.representationNumber_two_of_finrank_eq_eight hu hn⟩
 
-/-- Pending upstream: the root count of an arbitrary even unimodular lattice of rank eight. -/
-theorem representationNumber_two_rank_eight (hn : Module.finrank ℝ E = 8)
-    (he : ZLattice.IsEven L) (hu : ZLattice.IsUnimodular L) :
-    ZLattice.representationNumber L 2 = 240 := by
-  sorry
+/-- Check the rank-24 identity in terms of the root count. -/
+example (hn : Module.finrank ℝ E = 24)
+    (he : ZLattice.IsEven L) (hu : ZLattice.IsUnimodular L) (τ : UpperHalfPlane) :
+    ZLattice.thetaSeries L τ = (ModularForm.E₄ τ) ^ 3 +
+      ((ZLattice.representationNumber L 2 : ℂ) - 720) * ModularForm.discriminant τ :=
+  he.thetaSeries_eq_E₄_cube_add_mul_discriminant hu hn τ
 
-/-- Pending upstream: the rank-24 identity in terms of the root count. -/
-theorem thetaForm_rank_24 (hn : Module.finrank ℝ E = 24)
-    (he : ZLattice.IsEven L) (hu : ZLattice.IsUnimodular L) :
-    (thetaForm L 12 (by omega) he hu : UpperHalfPlane → ℂ) =
-      fun τ => (ModularForm.E₄ τ) ^ 3 +
-        ((ZLattice.representationNumber L 2 : ℂ) - 720) * ModularForm.discriminant τ := by
-  sorry
-
-/-- Pending upstream: the rootless rank-24 identity. -/
-theorem coe_thetaForm_rank_24_rootless (hn : Module.finrank ℝ E = 24)
+/-- Check the rootless rank-24 shell count. -/
+example (hn : Module.finrank ℝ E = 24)
     (he : ZLattice.IsEven L) (hu : ZLattice.IsUnimodular L)
     (hr : ZLattice.representationNumber L 2 = 0) :
-    (thetaForm L 12 (by omega) he hu : UpperHalfPlane → ℂ) =
-      fun τ => (ModularForm.E₄ τ) ^ 3 - 720 * ModularForm.discriminant τ := by
-  sorry
+    ZLattice.representationNumber L 4 = 196560 :=
+  he.representationNumber_four_of_rootless hu hn hr
 
 end ThetaSeries
 
@@ -1060,25 +1118,33 @@ noncomputable def E4 : ModularForm 𝒮ℒ 4 := ModularForm.E₄
 noncomputable def rootCard {d : ℕ} (Λ : Submodule ℤ (V d)) : ℕ :=
   ZLattice.representationNumber Λ 2
 
-/-- SphereCeti corollary of the roadmap's rank-eight classification, through the presentation
-bridge, in the form used by the E8 results. -/
+/-- TauCeti's rank-eight identity `ZLattice.IsEven.thetaForm_eq_E₄`, specialized through the
+presentation bridge. -/
 theorem theta_eq_E4_of_even_unimodular
     (Λ : Submodule ℤ (V 8)) [DiscreteTopology Λ] [IsZLattice ℝ Λ]
     (P : EuclideanLattice.IntegralPresentation Λ)
     (heven : P.IsEven) (hunimodular : P.IsUnimodular) :
     latticeTheta Λ = fun τ => E4 τ := by
-  sorry
+  have hn : Module.finrank ℝ (V 8) = 8 := finrank_euclideanSpace_fin
+  have he := P.isEven_real heven
+  rw [latticeTheta, ← ZLattice.coe_thetaForm he (P.isUnimodular_real hunimodular) (k := 4) hn,
+    he.thetaForm_eq_E₄ _ hn]
+  rfl
 
-/-- SphereCeti corollary of the roadmap's rank-24 classification. -/
+/-- TauCeti's rank-24 identity `ZLattice.IsEven.thetaSeries_eq_E₄_cube_add_mul_discriminant`,
+specialized through the presentation bridge. -/
 theorem theta_rank24_eq_E4_cubed_add_rootCard_sub_720_Delta
     (Λ : Submodule ℤ (V 24)) [DiscreteTopology Λ] [IsZLattice ℝ Λ]
     (P : EuclideanLattice.IntegralPresentation Λ)
     (heven : P.IsEven) (hunimodular : P.IsUnimodular) :
     latticeTheta Λ = fun τ =>
       (E4 τ) ^ 3 + ((rootCard Λ : ℤ) - 720) * ModularForm.discriminant τ := by
-  sorry
+  funext τ
+  rw [latticeTheta, (P.isEven_real heven).thetaSeries_eq_E₄_cube_add_mul_discriminant
+    (P.isUnimodular_real hunimodular) finrank_euclideanSpace_fin τ]
+  simp [E4, rootCard]
 
-/-- SphereCeti corollary of the roadmap's rootless rank-24 Leech identity. -/
+/-- The rootless case of `theta_rank24_eq_E4_cubed_add_rootCard_sub_720_Delta`. -/
 theorem theta_rank24_rootless_eq_E4_cubed_sub_720_Delta
     (Λ : Submodule ℤ (V 24)) [DiscreteTopology Λ] [IsZLattice ℝ Λ]
     (P : EuclideanLattice.IntegralPresentation Λ)
@@ -1086,7 +1152,10 @@ theorem theta_rank24_rootless_eq_E4_cubed_sub_720_Delta
     (hrootless : rootCard Λ = 0) :
     latticeTheta Λ = fun τ =>
       (E4 τ) ^ 3 - 720 * ModularForm.discriminant τ := by
-  sorry
+  rw [theta_rank24_eq_E4_cubed_add_rootCard_sub_720_Delta Λ P heven hunimodular, hrootless]
+  funext τ
+  push_cast
+  ring
 
 end Theta
 
@@ -1102,20 +1171,19 @@ simple-root coordinates. -/
 noncomputable abbrev integralLattice : TauCeti.IntegralLattice (Fin 8 → ℚ) :=
   TauCeti.IntegralLattice.typeE₈RootLattice
 
-/-- Assumed theorem, that is, an unproved roadmap target on which the E8 uniqueness proof relies:
-every positive-definite even unimodular lattice of rank eight is isometric to E8.  Its intended
-home is TauCeti's Integral Lattices and Root Systems development, where it follows from the ADE
-decomposition of the root system and the root count; SphereCeti uses only this statement and does
-not restate the theory of root systems.  If TauCeti has not provided the result when the
-production uniqueness proof needs it, production proves it locally with exactly this statement
-and replaces the local proof by an import once TauCeti provides the result.
-Positive-definiteness supplies nondegeneracy internally. -/
+/-- Every positive-definite even unimodular lattice of rank eight is isometric to E8, in the
+orientation and ambient-rank form used by the E8 uniqueness proof.  This is TauCeti's
+theta-independent classification
+`TauCeti.IntegralLattice.IsPosDef.nonempty_isometry_typeE₈RootLattice_of_isEven`, reversed, with
+the rank converted by `TauCeti.IntegralLattice.finrank_carrier`. -/
 theorem even_unimodular_rank_eight_unique
     {W : Type u} [AddCommGroup W] [Module ℚ W]
     (L : TauCeti.IntegralLattice W) (hrank : Module.finrank ℚ W = 8)
     (hpos : L.IsPosDef) (heven : L.IsEven) (hunimodular : L.IsUnimodular) :
-    Nonempty (TauCeti.IntegralLattice.Isometry L integralLattice) := by
-  sorry
+    Nonempty (TauCeti.IntegralLattice.Isometry L integralLattice) :=
+  let ⟨e⟩ := hpos.nonempty_isometry_typeE₈RootLattice_of_isEven hunimodular heven
+    (L.finrank_carrier.trans hrank)
+  ⟨e.symm⟩
 
 /-- The explicit production basis and integer Gram matrix packaged for TauCeti. -/
 noncomputable def integralPresentation : EuclideanLattice.IntegralPresentation lattice := by
@@ -1145,9 +1213,10 @@ theorem hasMinNormSq : EuclideanLattice.HasMinNormSq lattice 2 := by
 theorem rootCard : Theta.rootCard lattice = 240 := by
   sorry
 
-/-- The analytic theta identity. -/
-theorem theta_eq_E4 : Theta.latticeTheta lattice = fun τ => Theta.E4 τ := by
-  sorry
+/-- The analytic theta identity, from `Theta.theta_eq_E4_of_even_unimodular`. -/
+theorem theta_eq_E4 : Theta.latticeTheta lattice = fun τ => Theta.E4 τ :=
+  Theta.theta_eq_E4_of_even_unimodular lattice integralPresentation integralPresentation_even
+    integralPresentation_unimodular
 
 @[simp]
 theorem packing_centers : packing.centers = lattice := by
@@ -1302,21 +1371,23 @@ theorem packing_density :
 
 These results are not inputs to the optimality theorem. -/
 
-/-- The kissing number of the canonical Leech lattice, an algebraic statement intended for
-TauCeti. -/
-theorem kissingNumber_integralLattice : integralLattice.kissingNumber = 196560 := by
-  sorry
+/-- The kissing number of the canonical Leech lattice is TauCeti's
+`TauCeti.kissingNumber_leechLattice`, proved by direct enumeration. -/
+example : integralLattice.kissingNumber = 196560 := TauCeti.kissingNumber_leechLattice
 
-/-- The real shell of squared norm four, from `kissingNumber_integralLattice` and
-`representationNumber_lattice`. -/
+/-- The real shell of squared norm four: TauCeti's count
+`TauCeti.ncard_vectorsOfNorm_four_leechLattice` of the norm-four vectors of the canonical lattice,
+transported by `representationNumber_lattice`. -/
 theorem shellCard_four : ZLattice.representationNumber lattice 4 = 196560 := by
-  sorry
+  simpa [TauCeti.IntegralLattice.representationNumber_def,
+    TauCeti.ncard_vectorsOfNorm_four_leechLattice] using representationNumber_lattice 4
 
-/-- The Leech theta identity. -/
+/-- The Leech theta identity, from `Theta.theta_rank24_rootless_eq_E4_cubed_sub_720_Delta`. -/
 theorem theta_eq_E4_cubed_sub_720_Delta :
     Theta.latticeTheta lattice = fun τ =>
-      (Theta.E4 τ) ^ 3 - 720 * ModularForm.discriminant τ := by
-  sorry
+      (Theta.E4 τ) ^ 3 - 720 * ModularForm.discriminant τ :=
+  Theta.theta_rank24_rootless_eq_E4_cubed_sub_720_Delta lattice integralPresentation
+    integralPresentation_even integralPresentation_unimodular rootCard
 
 /-! ### Secondary comparisons
 

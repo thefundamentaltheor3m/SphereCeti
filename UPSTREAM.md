@@ -7,6 +7,12 @@ fallback used if the item has not landed upstream when it is needed (a local ver
 existing TauCeti import); the items are not ordered.  Filing an item as an issue does not commit
 Mathlib or TauCeti to accepting it.
 
+Availability in sections A–C refers to the committed dependency pin, TauCeti
+`83769e442d55cda9d85b3927a93b286831c595ff`, adopted on 2026-11-10.  The
+[resync watchlist](#g-resync-watchlist) records what that update brought in, with exact sources.
+A result that lands upstream after the pin still needs a dependency update and interface
+validation before this package can import it.
+
 The list follows two rules:
 
 1. SphereCeti never waits for upstream work.  When the production development needs a general
@@ -31,8 +37,8 @@ inner-product space
 - [ ] **Candidate declarations:**
 
   ```lean
-  continuous_fourier_of_integrable
-  continuous_fourierInv_of_integrable
+  MeasureTheory.Integrable.continuous_fourier
+  MeasureTheory.Integrable.continuous_fourierInv
   ```
 
 - [ ] **Why general:** these are specializations of Mathlib's vector Fourier theorem.
@@ -82,10 +88,12 @@ inner-product space
 - [ ] **Candidate declarations:**
 
   ```lean
-  ModularForm.comp_ofComplex_S_transform
-  ModularForm.differentiableAt_comp_ofComplex_S_transform
-  ModularForm.logDeriv_comp_ofComplex_S_transform
+  TauCeti.ModularForm.comp_ofComplex_S_transform
+  TauCeti.ModularForm.differentiableAt_comp_ofComplex_S_transform_iff
+  TauCeti.ModularForm.logDeriv_comp_ofComplex_S_transform
   ```
+
+  These are stated for subgroups `Γ` of `GL (Fin 2) ℝ` containing `S`.
 
 - [ ] **SphereCeti use:** contour pairing and zero-counting arguments.
 - [ ] **Fallback:** exact TauCeti import.
@@ -98,10 +106,14 @@ inner-product space
 - [ ] **Candidate declarations:**
 
   ```lean
-  cuspFunction_isBigO_pow_of_qExpansion_coeff_eq_zero
-  qExpansion_coeff_eq_zero_of_cuspFunction_isBigO_pow
-  tendsto_valueAtInfty
+  TauCeti.UpperHalfPlane.cuspFunction_isBigO_pow_iff_qExpansion_coeff_eq_zero
+  TauCeti.UpperHalfPlane.tendsto_valueAtInfty
   ```
+
+  The equivalence assumes analyticity of the cusp function of a raw function `f : ℍ → ℂ`; the
+  former one-directional lemmas are its two directions.  Mathlib's
+  `UpperHalfPlane.orderAtInfty` and `orderAtInfty_eq_qExpansion_order` cover part of this
+  dictionary but do not replace it.
 
 - [ ] **Why general:** the main layer is about periodic functions with analytic cusp functions,
   with modular-form corollaries.
@@ -126,7 +138,6 @@ inner-product space
 - [ ] **Candidate declarations:**
 
   ```lean
-  Function.IsRadial
   RadialSchwartzMap
   RadialSchwartzMap.fourierTransformCLM
   RadialSchwartzMap.fourier_apply_apply
@@ -141,6 +152,11 @@ inner-product space
   version there.
 - [ ] **Design note:** intrinsic radiality factors through `‖x‖`; `ofNormSq` is a separate
   constructor, not the definition of radiality.
+- [x] **Already in Mathlib:** `Function.IsRadial`, defined as factoring through `‖·‖`, with
+  `Function.isRadial_def` giving the pointwise form used by production
+  (`Mathlib/Analysis/Normed/Group/RadialFunction.lean`, mathlib4#44305).  The frozen
+  `SphereCeti.Pinned.Function.IsRadial` mirrors production and is not changed; production should
+  adopt Mathlib's definition.
 
 ### A8. Euclidean `ZLattice` norm-shell finiteness
 
@@ -195,7 +211,8 @@ inner-product space
   (`TauCeti/Analysis/Distribution/SchwartzSpace/ZLattice.lean`); the theta series `ZLattice.thetaSeries` and
   `ZLattice.thetaCoset`, their convergence, holomorphy, q-expansions, and `T`-translation law
   (`TauCeti/NumberTheory/ModularForms/ThetaSeries/`).  SphereCeti uses these and keeps no copy.
-- [ ] **Remaining candidate: the theta `S`-transformation.**  For a full lattice of even rank `2k`,
+- [x] **Available in TauCeti at the pin: the theta `S`-transformation.**  For a full lattice of even
+  rank `2k`,
 
   ```text
   Θ_L(-1/τ) = covol(L)⁻¹ (-i)^k τ^k Θ_{L^∨}(τ),
@@ -206,13 +223,12 @@ inner-product space
   proved for every `τ` in the upper half-plane in Mathlib's `exp(-2πi⟪x,ξ⟫)` normalization; the
   factor `(-iτ)^(d/2)` is stated through natural powers `(-i)^k τ^k` in even rank, so that no
   complex square-root branch occurs; and the statement uses TauCeti's `ZLattice.dual` and
-  `ZLattice.covolume` with no extra hypotheses.  The theta series of an even unimodular lattice as a
-  level-one modular form, and the rank-8 and rank-24 identities, follow in the ThetaSeries roadmap.
-- [ ] **Fallback:** provisional local statements of the pending targets only, over TauCeti's
-  implemented definitions, deleted and replaced by imports when TauCeti provides them; they must not
-  grow into a second general implementation.
-- [ ] **Upstream test:** the provisional `ThetaSeries` namespace is deleted and replaced by direct
-  TauCeti imports.
+  `ZLattice.covolume` with no extra hypotheses.  TauCeti's `ZLattice.thetaSeries_S_smul`
+  (`ThetaSeries/Inversion.lean`) meets these conditions.  The theta series of an even unimodular
+  lattice as a level-one modular form, `ZLattice.thetaForm`, and the rank-8 and rank-24 identities
+  are also at the pin; watchlist G lists them.
+- [x] **Upstream test:** the provisional `ThetaSeries` namespace is deleted; `Suggested.lean`
+  imports these declarations and keeps only typed checks of their normalizations.
 
 ### A12. Contour deformation for half-infinite rectangles
 
@@ -229,6 +245,12 @@ inner-product space
   arguments for the magic functions.
 - [ ] **Fallback:** the Layer 8 target in `Suggested.lean`.
 - [ ] **Upstream test:** no project import remains in a minimal reproduction.
+
+**Partial upstream coverage at the pin:** Mathlib's unbounded-rectangle theorem is in the pinned
+dependency graph; see watchlist G.  It assumes uniform decay of the function
+throughout the strip.  The local `horizontal_add_vertical_eq_vertical_of_tendsto_top` assumes
+only that the top-edge integrals tend to zero.  Keep that more general target and use the landed
+theorem for the uniform-decay specialization; do not strengthen the local hypothesis to remove it.
 
 ### A13. Segment change of variables for curve integrals
 
@@ -274,11 +296,11 @@ SphereCeti.
 
 ### B1. E8 as the unique positive-definite even unimodular rank-eight lattice
 
-- [ ] **Destination:** `TauCetiRoadmap/IntegralLattices`, milestone 6C, which plans a
-  theta-independent proof and is unfinished (watchlist G).
+- [x] **Destination:** `TauCetiRoadmap/IntegralLattices`, milestone 6C, implemented at the pin by
+  a theta-independent classification (watchlist G).
 - [ ] **Target statement:** every positive-definite even unimodular integral lattice of rank `8` is
   integrally isometric to a canonical E8 integral lattice.
-- [ ] **Required supporting results:**
+- [ ] **Supporting results for the former local fallback route:**
   - canonical E8 Gram/integral lattice built from TauCeti root data;
   - roots/vectors of norm `2`;
   - finite crystallographic root system, spanning, and ADE decomposition;
@@ -287,10 +309,11 @@ SphereCeti.
   - isometry from equality of Gram data;
   - invariance of evenness, unimodularity, and rank.
 - [ ] **Why TauCeti:** the statement mentions no real packing, density, or Fourier analysis.
-- [ ] **Fallback:** if TauCeti has not provided it when the production uniqueness proof needs
-  it, production proves it locally, with its conclusion stated as an `IntegralLattice.Isometry`
-  exactly as intended upstream, and replaces the local proof by an import once TauCeti provides
-  it.
+- [x] **Adopted:** `E8.even_unimodular_rank_eight_unique` is TauCeti's
+  `IntegralLattice.IsPosDef.nonempty_isometry_typeE₈RootLattice_of_isEven` with the rank converted
+  by `IntegralLattice.finrank_carrier` and the isometry reversed.  It already uses the canonical
+  `typeE₈RootLattice`; no new classification proof or theta identity is needed.  The explicit
+  production E8 presentation and extension to real isometries remain separate bridges.
 - [ ] **Not the preferred proof:** a mass-formula proof would require much more infrastructure and
   yields less explicit data for transporting packings.
 
@@ -338,11 +361,12 @@ SphereCeti.
   `vectorsOfNorm_two_leechLattice` (`Rank24/Leech/Minimum.lean`).  SphereCeti adopts `leechLattice`
   as its canonical Leech object and transports it into the packing space; no Gram presentation is
   needed upstream for that.
-- [ ] **Remaining candidate: the kissing number.**  `leechLattice.kissingNumber = 196560`, for
-  TauCeti's `IntegralLattice.kissingNumber`.  The minimum and the absence of roots are upstream; the
-  count is not.  SphereCeti states it as an algebraic target, with the real-shell count as a
-  corollary, and does not need it for optimality.  ThetaSeries 8D, `repNum_four_rank_24_rootless`,
-  would give the real count for `Leech.lattice` directly (watchlist G).
+- [x] **Available in TauCeti at the pin: the kissing number.**  `TauCeti.kissingNumber_leechLattice`
+  proves `leechLattice.kissingNumber = 196560` by direct enumeration in
+  `Rank24/Leech/MinimalVectors.lean`.  SphereCeti imports it in place of its former local target;
+  `Leech.shellCard_four` follows from `TauCeti.ncard_vectorsOfNorm_four_leechLattice` and
+  `Leech.representationNumber_lattice`.  The later `ZLattice.IsEven.representationNumber_four_of_rootless` gives another
+  route to the real count once the real lattice hypotheses are established (watchlist G).
 
 ### B5. Integral-presentation bridge to the ThetaSeries roadmap
 
@@ -354,10 +378,12 @@ SphereCeti.
 - [ ] **SphereCeti use:** the Layer 5 presentation bridges; avoid a sphere-packing-specific theta
   namespace.
 - [ ] **Status:** the real predicates `ZLattice.IsIntegral`, `ZLattice.IsEven`, and
-  `ZLattice.IsUnimodular` are in TauCeti at the pin.  TauCeti PR #20950 (open) proposes the
-  rational model `ratModel` of a real integral lattice with comparisons of its invariants.  It
-  supplies part of the bridge, not all of it: when it lands, SphereCeti reuses its construction and
-  comparisons, and keeps the parts of `IntegralPresentation` that it does not cover (watchlist G).
+  `ZLattice.IsUnimodular` are in TauCeti at the pin, as are `ZLattice.ratModel`,
+  `IntegralLattice.realModel`, inverse isometries, dual transport, and shell comparisons.
+  PR #20950 closed unmerged; #21332 supplied the rational model.  SphereCeti reuses these APIs
+  through `IntegralPresentation.ratModelIsometry`, the basis-induced isometry from the Gram
+  presentation to `ratModel`, and keeps the explicit presentation and application-specific
+  transport results (watchlist G).
 
 ## C. TauCeti coding-theory and code-lattice roadmap
 
@@ -492,68 +518,177 @@ explicitly decided that the local version is permanent.
 
 ## G. Resync watchlist
 
-Upstream work that would let a local target be replaced by an import, or would change what
-SphereCeti imports.  As checked at TauCeti `8384538` (`main`, 2026-10-25) and TauCetiRoadmap
-`6493273`.  Between the pin `271e1af` and `8384538`, no TauCeti lattice, theta, Golay, or Leech
-file changed, so the pin stands.  Open PRs make a watchlist, not a forecast of what will merge.
-Re-pin when an entry below lands and SphereCeti is ready to use it; a landed prerequisite does not
-complete the milestone it serves.  Each entry gives the upstream milestone or PR, its exact
-declarations, the local targets it affects, and what remains to be bridged.
+Checked on **2026-11-10** against exact public Git snapshots, including source statements and
+mainline history, and adopted the same day: the package pin moved from TauCeti
+`271e1af4dd54c50b9192cf3e213b7686843a0b3a` (Lean `v4.36.0-rc1`, Mathlib
+`2cabef97b63d3275776b8b060d802de6a6fa1055`) to the snapshot below, and both Lean libraries and the
+compiled admission audit pass on it (see `VALIDATION.md`).  This supersedes the 2026-10-25
+watchlist, against TauCeti `8384538` and TauCetiRoadmap `6493273`: the former open items have
+landed.  TauCetiRoadmap was rechecked at upstream `20833089`.
 
-- **ThetaSeries 1F, TauCeti PR #19284 (open).**  `SchwartzMap.gaussian`,
-  `SchwartzMap.gaussian_apply`, `TauCeti.fourier_gaussian_of_im_pos`, and
-  `TauCeti.fourier_gaussian_of_im_pos_of_finrank_eq_two_mul`.  Affects no local target directly:
-  it is the Gaussian input to 4B, not 4B.
-- **ThetaSeries 4B (no PR).**  Roadmap `thetaSeries_neg_inv`.  Replaces the local
-  `ThetaSeries.thetaSeries_neg_inv`.  The roadmap writes the argument as `⟨-1 / τ, _⟩`, the local
-  target as `ModularGroup.S • τ`; restate against whichever form lands.
-- **ThetaSeries 5B and 5C (no PR).**  Roadmap `thetaForm`, `qExpansion_thetaForm_coeff`, and
-  `thetaForm_ne_zero`.  Replace the local `thetaForm`, `coe_thetaForm`, and
-  `qExpansion_thetaForm_coeff`.
-- **ThetaSeries 5D, TauCeti PR #21080 (open, marked partial).**
-  `ModularForm.existsUnique_finsupp_E₄_discriminant` and
-  `ModularForm.linearIndepOn_E₄_pow_mul_discriminant_pow`, for level-one forms of weight divisible
-  by `4`.  Affects no local target directly.  The theta application, roadmap
-  `existsUnique_finsupp_thetaForm`, still needs 5B.
-- **ThetaSeries 8A to 8D (no PR).**  Roadmap `thetaForm_eq_E₄`, `repNum_two_rank_eight`,
-  `thetaForm_rank_24`, `coe_thetaForm_rank_24_rootless`, and `repNum_four_rank_24_rootless`.  These
-  are stated for every even unimodular (and, for 8D, rootless) real lattice of the given rank, so
-  they apply to `Leech.lattice` directly; no comparison with another Leech model is needed.  They
-  replace the local `thetaForm_eq_E₄`, `representationNumber_two_rank_eight`, `thetaForm_rank_24`,
-  and `coe_thetaForm_rank_24_rootless`, and give `Leech.shellCard_four`.  Remaining bridge: the
-  hypotheses for `Leech.lattice` (evenness and unimodularity through `integralPresentation`, and no
-  norm-`2` vectors through `representationNumber_lattice` and `vectorsOfNorm_two_leechLattice`), and
-  `Leech.kissingNumber_integralLattice` from the real count through `representationNumber_lattice`
-  and `minimum_leechLattice`.
-- **ThetaSeries 2D, TauCeti PR #20950 (open).**  `TauCeti.ThetaSeries.ratModel`,
-  `ratModelCarrierEquiv`, `isPosDef_ratModel`, `isEven_ratModel_iff`, `isUnimodular_ratModel_iff`,
-  `finrank_ratModel`, `determinant_ratModel`, and `discriminant_ratModel`.  Supplies part of the
-  bridge, on a different carrier: `IntegralPresentation.toIntegralLattice` lives on `Fin d → ℚ`
-  (from the Gram matrix), while `ratModel` lives on `ℚ ⊗[ℤ] Λ`.  Before its invariant comparisons
-  can serve `isEven_real`, `isUnimodular_real`, and `covolume_sq_eq_discriminant`, SphereCeti needs
-  an `IntegralLattice.Isometry` from `P.toIntegralLattice` to `ratModel`, induced by `P.basis`.  It
-  does not replace `IntegralPresentation`.  The PR leaves the converse `realModel`, the inverse and
-  isometry results, dual transport, and shell comparisons for later, so `carrierEquiv`,
-  `dualCarrierEquiv`, `shellEquiv`, and `realIsometryOfIsometry` stay local, as do the explicit
-  basis and Gram matrix of `IntegralPresentation.ofBasis`.
-- **IntegralLattices 6C (planned; no PR, no declaration named in its `Suggested.lean`).**  The
-  milestone plans a proof that a positive definite unimodular lattice of rank at most `9` is `Iₙ`,
-  `E₈`, or `E₈ ⊕ I₁`, hence that `E₈` is the unique even unimodular lattice of rank `8`; there is
-  no theorem to import yet.  It would replace `E8.even_unimodular_rank_eight_unique` (B1).  Its
-  planned route, O'Meara's or the root-system one, is theta-independent: the IntegralLattices
-  roadmap excludes ThetaSeries as a dependency.  Importing it would remove the theta identities
-  from the E8 classification chain, since the `240` roots of an arbitrary even unimodular
-  rank-`8` lattice would then follow from the isometry and `kissingNumber_typeE₈RootLattice`.
-  Remaining bridge: its `E₈` must be `typeE₈RootLattice` or be connected to it (IntegralLattices
-  6F).
-- **Root lattices, TauCeti PR #21251 (open).**  New: the uniform root equivalence
-  `TauCeti.DynkinType.rootLatticeRootEquiv` and count `representationNumber_rootLattice_two`.  The
-  bridge `rootLattice_E8 : E8.rootLattice ht = typeE₈RootLattice` already exists at the pin
-  (`RootLattice/Dynkin.lean`).  Additive; after it lands, check that `typeE₈RootEquiv` and
-  `kissingNumber_typeE₈RootLattice` keep their names and statements.
-- **Additive theta and lattice API, no local target affected:** TauCeti PRs #19380 (orthogonal
-  direct sum), #20860 (scaling), #20694 (level), #20834 (rank-one theta series), and #20976 (Gauss
-  sums of an even lattice).
-- **Neither cited roadmap supplies rank-`24` completeness:** the rootless rank-`24` classification
-  `Leech.rootless_even_unimodular_rank_twentyFour_unique` (B2).  IntegralLattices 6E and the
-  Rank24LatticeConstructions roadmap both state that they prove no completeness theorem.
+| Audited component | Exact revision / toolchain |
+|---|---|
+| TauCeti | [`83769e442d55cda9d85b3927a93b286831c595ff`][tc-snapshot] |
+| Its Lean toolchain | `leanprover/lean4:v4.36.0-rc2` |
+| Its resolved Mathlib | [`1b1ccf4b088b32fa3f23f2de1127433254a81e1e`][tc-manifest] |
+| Mathlib master, checked separately | [`21fc68be3752a8b64e4829512cdb95a8917e4d7f`][mathlib-snapshot] |
+| Sphere-Packing-Lean main | [`803f1623539ece84a19b2b6805764b8dea9ea6e6`][production-toolchain], Lean `v4.35.0` |
+
+Mathlib master is not an independent upgrade candidate: SphereCeti follows the exact graph in
+TauCeti's manifest.  Production has advanced beyond the frozen 4.32 semantic baseline, but still
+needs the synchronized migration before `Pinned.lean` can be removed.
+
+### Landed targets adopted in the dependency update
+
+| Former local target / use | Landed declaration and exact source |
+|---|---|
+| `ThetaSeries.thetaSeries_neg_inv` | `ZLattice.thetaSeries_S_smul`, [Inversion.lean][theta-inversion] |
+| `ThetaSeries.thetaForm`, `coe_thetaForm`, `qExpansion_thetaForm_coeff` | `ZLattice.thetaForm`, `ZLattice.coe_thetaForm`, `ZLattice.qExpansion_thetaForm_coeff`, [LevelOne.lean][theta-levelone] |
+| `ThetaSeries.thetaForm_eq_E₄`, `representationNumber_two_rank_eight` | `ZLattice.IsEven.thetaForm_eq_E₄`, `ZLattice.IsEven.representationNumber_two_of_finrank_eq_eight`, [Eisenstein.lean][theta-eisenstein] |
+| `ThetaSeries.thetaForm_rank_24`, `coe_thetaForm_rank_24_rootless` | `ZLattice.IsEven.thetaForm_eq_E₄_cube_add_smul_discriminant` and pointwise `thetaSeries_eq_E₄_cube_add_mul_discriminant`, [RankTwentyFour.lean][theta-rank24]; specialize the root count to zero for the rootless identity |
+| `E8.even_unimodular_rank_eight_unique` | `TauCeti.IntegralLattice.IsPosDef.nonempty_isometry_typeE₈RootLattice_of_isEven`, [SmallRankUnimodular.lean][e8-classification] |
+| `Leech.kissingNumber_integralLattice` | `TauCeti.kissingNumber_leechLattice`, [MinimalVectors.lean][leech-minimal] |
+| Alternative route to `Leech.shellCard_four` | `ZLattice.IsEven.representationNumber_four_of_rootless`, [RankTwentyFour.lean][theta-rank24] |
+
+The theta inversion theorem uses the same `ModularGroup.S • τ`, positive Poisson phase, inverse
+covolume, and natural powers as the local target; only multiplication is grouped differently.
+The modular-form constructor takes evenness, unimodularity, then rank, instead of the local
+argument order.  `Suggested.lean` imports these APIs in place of the former `ThetaSeries`
+stand-ins, records the normalizations as typed `example`s, and keeps the application-facing
+`Theta` corollaries with their presentation hypotheses as short specializations.
+
+The rank-eight classification is **theta-independent** and uses the same canonical
+`typeE₈RootLattice`.  Its conclusion is `Nonempty (Isometry typeE₈RootLattice L)`, so the local
+orientation uses `Isometry.symm`.  Its rank hypothesis is `Module.finrank ℤ L = 8`; convert the
+local ambient rational rank with `IntegralLattice.finrank_carrier`.  This removes the theta
+identity from the E8 periodic-uniqueness dependency chain.  The production E8
+presentation and extension to real isometries still require their own comparisons.
+
+The Leech kissing number is proved by direct enumeration, independently of theta series.  It
+directly supplies the algebraic target; `Leech.shellCard_four` follows from its norm-four count
+`TauCeti.ncard_vectorsOfNorm_four_leechLattice` through `Leech.representationNumber_lattice`,
+which reaches the chosen Euclidean embedding.  Alternatively the general rootless rank-24 theorem applies directly to that
+Euclidean lattice once its evenness, unimodularity, rank, and absence of norm-two vectors have
+been established.  A count in TauCeti's `realModel` is not automatically a count in SphereCeti's
+coordinate image.
+
+### Real/rational models: reuse the generic transport
+
+- [RationalModel.lean][rational-model] supplies `ZLattice.ratModel`, `ratModelCarrierEquiv`,
+  `isPosDef_ratModel`, `finrank_ratModel`, `isEven_ratModel_iff`, `isUnimodular_ratModel_iff`,
+  `determinant_ratModel`, `discriminant_ratModel`, `ratModelDualEquiv`, and
+  `ratModelDiscriminantGroupEquiv`.  The namespace is `ZLattice`, not the old proposal's
+  `TauCeti.ThetaSeries`.
+- [RealModel.lean][real-model] supplies `TauCeti.IntegralLattice.realModel`,
+  `ratModelRealModelIsometry`, `realModelDualEquiv`, `realModelDiscriminantGroupEquiv`,
+  `Isometry.ofRealModel`, and `ZLattice.realModelRatModelIsometry`.  The former watchlist's
+  assertion that the converse, inverses, and dual transport are missing is obsolete.
+- [ModelShell.lean][model-shell] supplies `ZLattice.shell_eq_image_vectorsOfNorm_ratModel`,
+  `ZLattice.ncard_vectorsOfNorm_ratModel`, and
+  `TauCeti.IntegralLattice.representationNumber_realModel`.
+
+The remaining comparison is concrete: `P.toIntegralLattice` has ambient space `Fin d → ℚ`,
+whereas `ZLattice.ratModel` has ambient space `ℚ ⊗[ℤ] Λ`.  The roadmap target
+`IntegralPresentation.ratModelIsometry` is their `IntegralLattice.Isometry`, induced by `P.basis`
+(`ratModelIsometry_single`) and depending on the Gram equation, with `isIntegral_real` supplying
+the integrality hypothesis of `ratModel`.  `isEven_real` and `isUnimodular_real` are now proved by
+transporting `isEven_ratModel_iff` and `isUnimodular_ratModel_iff` along it; the dual, shell, and
+discriminant adapters are to be obtained the same way.  Do not delete `IntegralPresentation`, introduce another
+abstract conversion, or infer that a returned carrier equivalence alone establishes the required
+Gram compatibility.  Audit `carrierEquiv`, `dualCarrierEquiv`, `shellEquiv`, and
+`realIsometryOfIsometry` as application adapters instead of reproving their generic ingredients.
+
+### API changes absorbed in the update
+
+Renames without deprecated aliases between `271e1af` and the pin:
+
+- `TauCeti.continuous_fourier_of_integrable` is replaced by
+  `MeasureTheory.Integrable.continuous_fourier`, with inverse counterpart `continuous_fourierInv`
+  in [Continuous.lean][fourier-continuous] (#23743).  The `#check` in `Suggested.lean` was updated.
+- `TauCeti.UpperHalfPlane.cuspFunction_isBigO_pow_of_qExpansion_coeff_eq_zero` is replaced by
+  `cuspFunction_isBigO_pow_iff_qExpansion_coeff_eq_zero` in [BigO.lean][q-bigo] (#31801).  It
+  assumes analyticity of the raw function's cusp function and gives an equivalence; the old
+  implication uses its `.mpr` direction.  The `#check` was updated.
+- `TauCeti.ModularForm.sturm_bound_finiteIndex` is now `ModularForm.sturm_bound_finiteIndex`, still
+  defined in TauCeti's `SturmBound.lean` but in Mathlib's root `ModularForm` namespace (#24387).
+  The `#check` was updated.
+- `TauCeti.fourier_gaussian_of_im_pos` and `..._of_finrank_eq_two_mul` from the 1F Gaussian PR
+  #19284 were removed as duplicates (#32129); the surviving forms are
+  `TauCeti.fourier_cexp_pi_mul_I_mul_norm_sq_mul` and its `_of_finrank_eq` variant.  SphereCeti
+  imports neither; `SchwartzMap.gaussian` and `gaussian_apply` remain.
+- The differentiability S-transform theorem is now
+  `TauCeti.ModularForm.differentiableAt_comp_ofComplex_S_transform_iff`, for subgroups of
+  `GL (Fin 2) ℝ`, in [STransform.lean][s-transform].  The transformation and logarithmic-derivative
+  names remain; compare hypotheses when porting production uses.
+
+No Mathlib change between `2cabef9` and `1b1ccf4` renames or deprecates a declaration used by
+`Suggested.lean`, `Pinned.lean`, or `scripts/Audit.lean`, and the audit's linter set is unchanged.
+
+The [atomic update checklist](CONTRIBUTING.md#pin-updates) covers both Lean libraries, the
+compiled admission ledger, the exact manifest, configuration/publication pins, and affected tests.
+Delete only targets whose full statements are supplied or whose application adapters have been
+checked.  No imported Poisson, density, or theta transformation becomes a simp rule.
+
+### Mathlib changes in and beyond the pinned graph
+
+- **Unbounded rectangles (A12), in the pinned graph.**  Mathlib
+  [`1a22a591d08f49075418a57625c7c52e2956a169`][mathlib-rectangles] adds
+  `Complex.integral_boundary_unbounded_rect_eq_zero_of_differentiable_on_off_countable_of_integrable_on`
+  and limit variants in `Mathlib/Analysis/Complex/CauchyIntegral.lean`.  The theorem assumes
+  `Tendsto f (comap Complex.im atTop ⊓ 𝓟 strip) (𝓝 0)`, uniform decay of `f` through the strip.
+  Our target assumes only that the top-edge integrals tend to zero, so retain it.  Use the new
+  theorem for uniform-decay applications and preserve the derivative/integrability hypotheses.
+- **Order at infinity, in the pinned graph.**  Mathlib
+  [`e1b16f5f6a696c975ec188a85ed08ba1cc98f3bc`][mathlib-order] adds
+  `Mathlib/NumberTheory/ModularForms/OrderAtInfty.lean`, including
+  `UpperHalfPlane.orderAtInfty`, `orderAtInfty_eq_qExpansion_order`, `isTheta_orderAtInfty`, and
+  `orderAtInfty_mul_of_holo`.  Search these before adding generic order/cusp estimates; they do
+  not replace all of TauCeti's A5 coefficient/Big-O dictionary or Sturm theory.
+- **No new replacement found for A13, A6, or the rest of A7.**  The curve-integral changes
+  preserve the existing API while changing definition transparency; there is still no matching
+  segment substitution theorem.  The inspected Schwartz/Fourier changes do not supply the cocompact
+  constructor or radial Schwartz submodule; `Function.IsRadial` itself predates the range (A7).  No substantive new covolume/index result changes
+  the current rigidity plan.
+- **Mathlib master only, outside the pinned graph.**  The
+  [cusp API change][mathlib-cusps] moves an arithmetic-group cusp instance to `Cusps.lean` and
+  adds cusp/width transport.  The [discriminant derivative change][mathlib-discriminant] supplies
+  `ModularForm.normalizedDerivOfComplex_discriminant` and
+  `ModularForm.serreDerivative_discriminant`.  Record these for the next TauCeti graph update;
+  do not independently advance Mathlib to import them.
+
+### Remaining classification and disposition of the former watch items
+
+`Leech.rootless_even_unimodular_rank_twentyFour_unique` remains a required development.  The
+new [rank-24 reference-lattice file][rank24-reference] constructs and distinguishes the 24
+examples but explicitly does not prove Niemeier completeness.  Neither the theta identities nor
+the kissing number removes this dependency.
+
+The former watched PRs are no longer open work: #19284 (Gaussian), #21080 (E₄/Δ polynomial
+basis), #21251 (uniform root counts), #19380 (orthogonal sums), #20834 (rank-one theta), and
+#20976 (Gauss sums) all landed.  #20950 was superseded by landed #21332 (rational model),
+#20860 by #21484 (scaling), and #20694 by #21601 (level).  This disposition was checked against
+mainline source/history: a Bors-integrated original PR can be closed with its REST `merged` flag
+false even though the code landed.  Additive results are not by themselves reasons to create new
+SphereCeti targets.
+
+[tc-snapshot]: https://github.com/TauCetiProject/TauCeti/commit/83769e442d55cda9d85b3927a93b286831c595ff
+[tc-manifest]: https://github.com/TauCetiProject/TauCeti/blob/83769e442d55cda9d85b3927a93b286831c595ff/lake-manifest.json
+[mathlib-snapshot]: https://github.com/leanprover-community/mathlib4/commit/21fc68be3752a8b64e4829512cdb95a8917e4d7f
+[production-toolchain]: https://github.com/thefundamentaltheor3m/Sphere-Packing-Lean/blob/803f1623539ece84a19b2b6805764b8dea9ea6e6/lean-toolchain
+[theta-inversion]: https://github.com/TauCetiProject/TauCeti/blob/83769e442d55cda9d85b3927a93b286831c595ff/TauCeti/NumberTheory/ModularForms/ThetaSeries/Inversion.lean
+[theta-levelone]: https://github.com/TauCetiProject/TauCeti/blob/83769e442d55cda9d85b3927a93b286831c595ff/TauCeti/NumberTheory/ModularForms/ThetaSeries/LevelOne.lean
+[theta-eisenstein]: https://github.com/TauCetiProject/TauCeti/blob/83769e442d55cda9d85b3927a93b286831c595ff/TauCeti/NumberTheory/ModularForms/ThetaSeries/Eisenstein.lean
+[theta-rank24]: https://github.com/TauCetiProject/TauCeti/blob/83769e442d55cda9d85b3927a93b286831c595ff/TauCeti/NumberTheory/ModularForms/ThetaSeries/RankTwentyFour.lean
+[e8-classification]: https://github.com/TauCetiProject/TauCeti/blob/83769e442d55cda9d85b3927a93b286831c595ff/TauCeti/LinearAlgebra/IntegralLattice/PosDef/SmallRankUnimodular.lean
+[leech-minimal]: https://github.com/TauCetiProject/TauCeti/blob/83769e442d55cda9d85b3927a93b286831c595ff/TauCeti/LinearAlgebra/IntegralLattice/Rank24/Leech/MinimalVectors.lean
+[rational-model]: https://github.com/TauCetiProject/TauCeti/blob/83769e442d55cda9d85b3927a93b286831c595ff/TauCeti/Algebra/Module/ZLattice/RationalModel.lean
+[real-model]: https://github.com/TauCetiProject/TauCeti/blob/83769e442d55cda9d85b3927a93b286831c595ff/TauCeti/Algebra/Module/ZLattice/RealModel.lean
+[model-shell]: https://github.com/TauCetiProject/TauCeti/blob/83769e442d55cda9d85b3927a93b286831c595ff/TauCeti/Algebra/Module/ZLattice/ModelShell.lean
+[fourier-continuous]: https://github.com/TauCetiProject/TauCeti/blob/83769e442d55cda9d85b3927a93b286831c595ff/TauCeti/Analysis/Fourier/Continuous.lean
+[q-bigo]: https://github.com/TauCetiProject/TauCeti/blob/83769e442d55cda9d85b3927a93b286831c595ff/TauCeti/NumberTheory/ModularForms/QExpansion/BigO.lean
+[s-transform]: https://github.com/TauCetiProject/TauCeti/blob/83769e442d55cda9d85b3927a93b286831c595ff/TauCeti/NumberTheory/ModularForms/STransform.lean
+[mathlib-rectangles]: https://github.com/leanprover-community/mathlib4/commit/1a22a591d08f49075418a57625c7c52e2956a169
+[mathlib-order]: https://github.com/leanprover-community/mathlib4/commit/e1b16f5f6a696c975ec188a85ed08ba1cc98f3bc
+[mathlib-cusps]: https://github.com/leanprover-community/mathlib4/commit/0e248bc7cb5345837452035093e94bb36398fc0a
+[mathlib-discriminant]: https://github.com/leanprover-community/mathlib4/commit/34603ccd1f9d2780659eb9749003e4027e76e250
+[rank24-reference]: https://github.com/TauCetiProject/TauCeti/blob/83769e442d55cda9d85b3927a93b286831c595ff/TauCeti/LinearAlgebra/IntegralLattice/Rank24/ReferenceLattices.lean
