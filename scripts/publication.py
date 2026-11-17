@@ -18,7 +18,7 @@ import stat
 import urllib.parse
 
 REPOSITORY = 'thefundamentaltheor3m/SphereCeti'
-TOOLCHAIN = 'leanprover/lean4:v4.34.0-rc1'
+TOOLCHAIN = 'leanprover/lean4:v4.36.0-rc2'
 PLATFORM = 'x86_64-unknown-linux-gnu'
 SHA = re.compile(r'[0-9a-f]{40}\Z')
 HASH = re.compile(r'[0-9a-f]{16}\Z')
