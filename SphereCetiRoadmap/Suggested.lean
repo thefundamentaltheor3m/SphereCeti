@@ -1756,14 +1756,20 @@ def CentralIntegrable (k : ℕ) (g : ℂ → ℂ) : Prop :=
 
 /-- Generic central-pair Fourier identity.  The inversion `z ↦ -1/z` carries the central segment
 onto the vertical ray directly, so no wedge homotopy is required; the transported ray
-integrability is an explicit hypothesis. -/
+integrability is an explicit hypothesis.
+
+Unlike the left legs, whose image `1 → i` has the orientation of `rightLegs`, the central segment
+`0 → i` is carried onto the ray traversed from `i∞` down to `i`, opposite to `verticalRay`.  The
+inversion law therefore carries the negated sign: with `z = it` it reads
+`t^{-k} g(it) = sign · t^{-2} g'(i/t)`, and `u = 1/t` turns the Gaussian transform of the central
+leg into `sign` times the vertical ray of `g'`. -/
 theorem fourier_centralComponent {k : ℕ} (hk : 0 < k)
     (sign : MagicFunction.FourierSign) {g g' : ℂ → ℂ}
     (hint : CentralIntegrable k g)
     (hint' : ∀ r : ℝ, 0 ≤ r → IntegrableOn
       (fun t : ℝ => ‖g' (t * Complex.I)‖ * Real.exp (-Real.pi * r * t)) (Set.Ioi 1))
     (hlaw : ∀ z : ℂ, 0 < z.im →
-      (Complex.I / z) ^ k * g z = sign.scalar * (z ^ 2)⁻¹ * g' (mobiusInv z)) :
+      (Complex.I / z) ^ k * g z = -sign.scalar * (z ^ 2)⁻¹ * g' (mobiusInv z)) :
     𝓕 (fun x : V (2 * k) => centralLeg (expKernel g (‖x‖ ^ 2)))
       = fun ξ : V (2 * k) => sign.scalar * verticalRay (expKernel g' (‖ξ‖ ^ 2)) := by
   sorry
@@ -1853,7 +1859,8 @@ noncomputable def plusKernelRay : ℂ → ℂ := by
   sorry
 
 /-- Kernels of the six-piece contour presentation of the `-1` component.  Production sources are
-the `MagicFunction.b` integrals `J₁`–`J₆`. -/
+the `MagicFunction.b` integrals `J₁`–`J₆`, except that the ray kernel follows Viazovska's (52),
+`-2 ψ_S`: production's `J₆'` at the pin has `+2` (see `MIGRATION.md`, PR K2). -/
 noncomputable def minusKernelLeft : ℂ → ℂ := by
   sorry
 
@@ -1907,9 +1914,11 @@ theorem plusKernels_closed : ∀ r : ℝ, 0 ≤ r →
       Contour.wedgeSet := by
   sorry
 
+/-- The central/ray inversion law carries the negated eigenvalue; see
+`Contour.fourier_centralComponent` for the orientation. -/
 theorem plusKernels_law_centralRay : ∀ z : ℂ, 0 < z.im →
     (Complex.I / z) ^ 4 * plusKernelCentral z =
-      (MagicFunction.FourierSign.plus).scalar * (z ^ 2)⁻¹ *
+      -(MagicFunction.FourierSign.plus).scalar * (z ^ 2)⁻¹ *
         plusKernelRay (Contour.mobiusInv z) := by
   sorry
 
@@ -1986,9 +1995,11 @@ theorem minusKernels_closed : ∀ r : ℝ, 0 ≤ r →
       Contour.wedgeSet := by
   sorry
 
+/-- The central/ray inversion law carries the negated eigenvalue; see
+`Contour.fourier_centralComponent` for the orientation. -/
 theorem minusKernels_law_centralRay : ∀ z : ℂ, 0 < z.im →
     (Complex.I / z) ^ 4 * minusKernelCentral z =
-      (MagicFunction.FourierSign.minus).scalar * (z ^ 2)⁻¹ *
+      -(MagicFunction.FourierSign.minus).scalar * (z ^ 2)⁻¹ *
         minusKernelRay (Contour.mobiusInv z) := by
   sorry
 
@@ -2080,12 +2091,23 @@ theorem fourier_magicMinus :
     _ = (-(magicMinus : 𝓢(V 8, ℂ))) ξ := by
         simp only [MagicFunction.FourierSign.scalar_minus, neg_one_mul, ← hchar, neg_apply]
 
-/-- Viazovska's E8 norm-squared profile with the production normalization. -/
+/-- Viazovska's E8 auxiliary function as a norm-squared profile,
+`g = (πi/8640) a - (i/(240π)) b`, with `a = magicPlus` and `b = magicMinus` defined by the contour
+convention of arXiv:1603.04246, (52).
+
+Sign convention.  Theorem 4 of the paper prints `+` before the `b` term, consistently with its
+(58) but not with (52)–(53).  For `r > √2`, (53) gives the `ψ_I` integral in `b` the prefactor
+`-4i sin²(πr²/2)`; multiplied by `-i/(240π)` this is `-1/(60π) sin²(πr²/2)`, which is exactly the
+`ψ_I` coefficient `(π/2160)(-36/π²)` of `A(t)` in (62).  So `-` is the sign that makes this `g`
+the function of (62), with `g ≤ 0` beyond `√2`.  With `b` fixed, the other sign gives `ĝ`
+instead: the two share the shell zero set, but their sign inequalities and first-shell zero
+orders differ.  Sphere-Packing-Lean #504 makes the same correction (together with the sign of
+`J₆`) and checks it numerically at `‖x‖² = 3`. -/
 noncomputable def magicProfile : 𝓢(ℝ, ℂ) :=
   (((Real.pi : ℂ) * Complex.I) / 8640) • magicPlusProfile -
     (Complex.I / (240 * (Real.pi : ℂ))) • magicMinusProfile
 
-/-- Viazovska's E8 auxiliary function with the production normalization. -/
+/-- Viazovska's E8 auxiliary function `g`, with the sign convention of `magicProfile`. -/
 noncomputable def magic : RadialSchwartzMap ℂ (V 8) ℂ :=
   MagicFunction.ofNormSq magicProfile
 
@@ -2109,8 +2131,11 @@ theorem fourier_magic_apply_profile (x : V 8) :
     𝓕 (magic : 𝓢(V 8, ℂ)) x = fourierMagicProfile (‖x‖ ^ 2) := by
   sorry
 
-/-- Exact direct-side zeros outside the origin.  Absence of extraneous zeros is the input needed for
-periodic uniqueness, not merely for optimal density. -/
+/-- Exact direct-side zeros outside the origin, including inside the threshold `√2`: Viazovska,
+arXiv:1603.04246, Theorems 3 and 4, assert nonvanishing of the auxiliary function `g` away from
+the shell radii (for the sign convention of `g`, see `magicProfile`).  Absence of
+extraneous zeros is the input needed for periodic uniqueness, not merely for optimal density;
+uniqueness itself uses only distances at least the separation. -/
 theorem magic_zero_iff {x : V 8} (hx : x ≠ 0) :
     magic x = 0 ↔ ∃ n : ℕ, 1 ≤ n ∧ ‖x‖ ^ 2 = 2 * n := by
   sorry
@@ -2288,9 +2313,11 @@ theorem plusKernels_closed : ∀ r : ℝ, 0 ≤ r →
       Contour.wedgeSet := by
   sorry
 
+/-- The central/ray inversion law carries the negated eigenvalue; see
+`Contour.fourier_centralComponent` for the orientation. -/
 theorem plusKernels_law_centralRay : ∀ z : ℂ, 0 < z.im →
     (Complex.I / z) ^ 12 * plusKernelCentral z =
-      (MagicFunction.FourierSign.plus).scalar * (z ^ 2)⁻¹ *
+      -(MagicFunction.FourierSign.plus).scalar * (z ^ 2)⁻¹ *
         plusKernelRay (Contour.mobiusInv z) := by
   sorry
 
@@ -2365,9 +2392,11 @@ theorem minusKernels_closed : ∀ r : ℝ, 0 ≤ r →
       Contour.wedgeSet := by
   sorry
 
+/-- The central/ray inversion law carries the negated eigenvalue; see
+`Contour.fourier_centralComponent` for the orientation. -/
 theorem minusKernels_law_centralRay : ∀ z : ℂ, 0 < z.im →
     (Complex.I / z) ^ 12 * minusKernelCentral z =
-      (MagicFunction.FourierSign.minus).scalar * (z ^ 2)⁻¹ *
+      -(MagicFunction.FourierSign.minus).scalar * (z ^ 2)⁻¹ *
         minusKernelRay (Contour.mobiusInv z) := by
   sorry
 
@@ -2489,12 +2518,17 @@ theorem fourier_magic_apply_profile (x : V 24) :
     𝓕 (magic : 𝓢(V 24, ℂ)) x = fourierMagicProfile (‖x‖ ^ 2) := by
   sorry
 
-/-- Exact zero set outside the origin: squared norms `2n` for `n ≥ 2`. -/
-theorem magic_zero_iff {x : V 24} (hx : x ≠ 0) :
+/-- Exact direct-side zero set beyond the packing threshold: squared norms `2n` for `n ≥ 2`.
+Cohn–Kumar–Miller–Radchenko–Viazovska (arXiv:1603.06518, Section 4) prove that the function has
+no roots `r > 2` other than `r = √(2k)`; they do not treat `0 < r < 2`, and the rigidity argument
+uses only distances at least the separation `2`.  This is a scope restriction to the source, not a
+claim that the interior has zeros. -/
+theorem magic_zero_iff_of_two_le_norm {x : V 24} (hx : 2 ≤ ‖x‖) :
     magic x = 0 ↔ ∃ n : ℕ, 2 ≤ n ∧ ‖x‖ ^ 2 = 2 * n := by
   sorry
 
-/-- The Fourier-side zeros outside the origin are exactly the Leech shell radii. -/
+/-- The Fourier-side zeros outside the origin are exactly the Leech shell radii.  This statement
+stays global: dual frequencies need not satisfy the packing separation. -/
 theorem fourier_magic_zero_iff {x : V 24} (hx : x ≠ 0) :
     𝓕 (magic : 𝓢(V 24, ℂ)) x = 0 ↔ ∃ n : ℕ, 2 ≤ n ∧ ‖x‖ ^ 2 = 2 * n := by
   sorry

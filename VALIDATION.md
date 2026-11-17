@@ -67,6 +67,23 @@ The ledger therefore loses ten entries and gains three (341 to 334), and the tex
 from 268 to 253.  The audit's linter set, including Mathlib's default `tacticAlt` linter, is
 unchanged by the update.
 
+Statement corrections after the 2026-11-17 mathematical review on PR #1 keep every count: 253
+textual `sorry` commands, 593 declarations, 334 admissions.  Equal counts do not validate changed
+statements; these corrections need mathematical review in their own right:
+
+- the central-pair Fourier identity `Contour.fourier_centralComponent` now assumes the inversion
+  law with the negated sign, because `z ↦ -1/z` reverses the orientation of the central segment
+  relative to `verticalRay`.  The four `…Kernels_law_centralRay` targets carry the negated
+  eigenvalue, and the six-piece assemblies are unchanged;
+- the review's proposed sign change in `E8.magicProfile` is not adopted.  With `b` defined by the
+  contour convention of Viazovska's (52), `g = (πi/8640) a - (i/(240π)) b` is the function of
+  (62): Theorem 4's printed `+` agrees with (58) but not with (52)–(53).  The docstring of
+  `E8.magicProfile` records the coefficient check, and MIGRATION K5 follows.  The `-1` kernels
+  use the corrected `J₆` sign of (52);
+- `Leech.magic_zero_iff` becomes `Leech.magic_zero_iff_of_two_le_norm`, stated for `‖x‖ ≥ 2`, the
+  scope of the published proof.  The ledger entry is renamed.  `E8.magic_zero_iff` and both
+  Fourier-side zero sets keep their global statements.
+
 `policy/audits.json` proposes the exact 334-entry ledger for human review with this roadmap.
 The profile’s `phase = "roadmap"` and `roadmap_approved = true` describe the state proposed
 for landing; checking out the PR does not approve that policy. The authoritative gate continues

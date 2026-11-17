@@ -1064,7 +1064,7 @@
     },
     {
       "moduleName": "SphereCetiRoadmap.Suggested",
-      "name": "SphereCeti.Suggested.Leech.magic_zero_iff",
+      "name": "SphereCeti.Suggested.Leech.magic_zero_iff_of_two_le_norm",
       "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
     },
     {

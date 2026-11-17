@@ -572,9 +572,18 @@ eigencomponent.  Replace duplicate generic Fourier involution by
 
 Do the analogous migration for the `-1` eigencomponent through the common radial Schwartz lemmas.
 
+The production source has a sign error to correct, not port.  At the pinned commit `bad3de9`
+(and on production `main` as of 2026-11-17), `SpherePacking/MagicFunction/b/Basic.lean` defines
+`J₆' := 2 * ∫ t in Ici 1, Ψ₆ x t`.  Viazovska's (52) and the production blueprint
+(`construct-a-b.tex`) have `-2 ∫_i^{i∞} ψ_S …`.  With `+2`, `𝓕 J₅ = +J₆` and `b(0) ≠ 0`, so the
+function is not a `-1` eigenfunction; production's `perm_J₅ : 𝓕 J₅ = -J₆` and `b_zero` are both
+`sorry` there.  Open Sphere-Packing-Lean #504 changes `J₆'` to `-2 * ∫ …`.  The ray kernel `E8.minusKernelRay` follows the paper.  `Pinned.lean` stays frozen,
+so the migration must account for the production correction explicitly.
+
 ### PR K3 — E8 Schwartz and special values
 
-Port and clean the full Schwartz proof, normalization at zero, and lattice-shell zeros.
+Port and clean the full Schwartz proof, normalization at zero, and lattice-shell zeros.  For `b`,
+use the corrected `J₆` of PR K2: `b(0) = 0` fails for the production definition at `bad3de9`.
 
 ### PR K4 — E8 sign and exact zeros
 
@@ -585,7 +594,11 @@ multiplicity and quantitative estimates needed by the stability roadmaps recorde
 ### PR K5 — E8 certificate and numerical bound
 
 Assemble the final auxiliary function as
-`((π * I) / 8640) • magicPlus - (I / (240 * π)) • magicMinus`, derive its distinct Fourier
+`((π * I) / 8640) • magicPlus - (I / (240 * π)) • magicMinus`, Viazovska's `g` for `b` defined by
+(52).  Theorem 4 of arXiv:1603.04246 prints `+`, consistently with its (58) but not with
+(52)–(53); the `ψ_I` coefficient of (62) forces `-` (see `E8.magicProfile`).  Production
+`MagicFunction.g` at `bad3de9` has `+`, with the uncorrected `J₆`; Sphere-Packing-Lean #504
+corrects both.  Derive its distinct Fourier
 transform from the two component eigenvalue theorems, package the certificate, and prove its bound
 equals `π^4/384`.
 
@@ -612,13 +625,13 @@ laws under `z ↦ -1/z`, closedness of the relevant one-forms on the wedge, the 
 interchanges, and the Gaussian Fourier transforms used by the component constructions below.
 Import TauCeti's contour theorems only where their statement matches the actual geometry.
 
-### PR L3 — direct-side radial function
+### PR L3 — +1 Fourier eigencomponent
 
 Construct the `+1` Fourier eigencomponent through its defining formula as a six-piece contour
 integral, so that the general left/right and central-pair Fourier identities apply to it.
 Keep its normalization and contour decomposition explicit.
 
-### PR L4 — Fourier-side radial function
+### PR L4 — −1 Fourier eigencomponent
 
 Construct the `-1` Fourier eigencomponent in the same way, through its defining formula.  Reverse
 permutations must use the radial Fourier involution rather than duplicate Fourier inversion.

@@ -840,10 +840,15 @@ their Fourier behavior in even dimension `2k` from explicit hypotheses:
   kernel's one-form on the wedge give the transform of the left-leg component as the signed
   right-leg component of `g'`;
 - the **central-pair identity**: the inversion `z ↦ -1/z` carries the central segment directly onto
-  the vertical ray, with explicit integrability on both sides and no wedge homotopy;
+  the vertical ray, with explicit integrability on both sides and no wedge homotopy.  It reverses
+  orientation: the left legs map to `1 → i`, the orientation of the right legs, but the segment
+  `0 → i` maps to the ray traversed from `i∞` down to `i`.  So the central/ray inversion law
+  `(i/z)^k g(z) = ∓ z⁻² g'(-1/z)` carries the negative of the sign that the identity produces;
 - the **six-piece assembly**: with each piece integrable and the piecewise identities exchanging
   left with right and central with ray at a common sign, the assembled component is a Fourier
-  eigenfunction with that sign.
+  eigenfunction with that sign.  For a component with eigenvalue `s`, the left/right kernel law
+  carries `s` and the central/ray law carries `-s`: Viazovska's `a` satisfies its central/ray law
+  with `-1` and `b` with `+1`.
 
 Each E8 and Leech component of Layer 9 comes with a theorem, its **defining formula**,
 identifying it with the six-piece assembly of its four named kernels, so the identities above
@@ -864,7 +869,11 @@ For each dimension, prove:
 - normalization at zero;
 - direct-side nonpositivity beyond the threshold;
 - Fourier-side nonnegativity;
-- separate exact direct- and Fourier-side zero sets, including absence of extraneous zeros;
+- separate exact direct- and Fourier-side zero sets, including absence of extraneous zeros.  In
+  dimension 8 the direct-side set is stated for every nonzero point, as in Viazovska's
+  Theorems 3 and 4; in dimension 24 it is stated beyond the threshold `‖x‖ ≥ 2`, the scope of the
+  published proof (Section 4) and all that rigidity uses.  Fourier-side sets stay global, since
+  dual frequencies need not satisfy the packing separation;
 - exact local zero orders through nonvanishing cofactors, which imply reusable quantitative lower
   bounds near every shell;
 - separate strict direct- and Fourier-side signs away from the shell zeros;
