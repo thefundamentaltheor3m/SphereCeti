@@ -348,18 +348,21 @@ than a local copy:
   `ℂ[E₄, E₆]` and the level-one modular forms, which turns the theta identities of Layer 5 into
   coefficient comparisons once the theta series is known to be a modular form.
 
-#### Beyond the current pin
+#### Theta series, lattice models, and classification
 
-The theta `S`-transformation, modular theta form, rank-8/rank-24 identities, real/rational
-lattice models, and rank-eight even-unimodular classification have landed in later TauCeti
-commits.  The canonical Leech kissing number `196560` has also landed, by direct enumeration;
-the rootless rank-24 representation-number theorem supplies a separate route to the real shell count.
-The [resync watchlist](UPSTREAM.md#g-resync-watchlist) records exact imports and the remaining
-presentation and shell comparisons.  In particular, the landed lattice models do not identify
-SphereCeti's explicit basis and Gram matrix with their tensor-product coordinates automatically.
+The pin also supplies the theta `S`-transformation, the level-one theta form, the rank-8 and
+rank-24 theta identities, the real and rational lattice models, the rank-eight even-unimodular
+classification, and the canonical Leech kissing number `196560` (by direct enumeration).
+SphereCeti imports them: Layer 5 checks the theta API with typed examples, and E8 uniqueness, the
+theta corollaries, and the Leech shell count are proved from them.  The rootless rank-24
+representation-number theorem supplies a separate route to the real shell count.  The
+[resync watchlist](UPSTREAM.md#g-resync-watchlist) records the exact imports and the remaining
+presentation and shell comparisons.  In particular, the lattice models do not identify
+SphereCeti's explicit basis and Gram matrix with their tensor-product coordinates automatically;
+that comparison is the bridge target `IntegralPresentation.ratModelIsometry`.
 
-The classification of rootless positive-definite even unimodular lattices of rank 24 remains
-unavailable in the audited upstream snapshot.  A theta identity and a shell count do not prove
+The classification of rootless positive-definite even unimodular lattices of rank 24 is not at
+the pin, nor in later audited TauCeti snapshots.  A theta identity and a shell count do not prove
 that classification.
 
 The following table records, for each area, what TauCeti supplies at the pin and what SphereCeti
@@ -913,17 +916,12 @@ The E8 shell spectrum gives a positive-definite even unimodular rank-eight latti
 classification theorem that such a lattice is isometric to E8, then transport the center coset to
 obtain periodic congruence.
 
-The classification theorem is general integral-lattice mathematics and has landed in later
-TauCeti as `IntegralLattice.IsPosDef.nonempty_isometry_typeE₈RootLattice_of_isEven`.  After
-resync, PR M1 imports it, converts ambient rational rank to carrier integer rank, and reverses its
-isometry to match SphereCeti's statement.  It uses the same canonical `typeE₈RootLattice` and has
-no theta dependency; the real-isometry and packing-coset bridges remain SphereCeti's work.
-
-At the current pin the classification remains an unproved target.  The fallback local proof in
-`MIGRATION.md` obtains the 240 roots of an arbitrary positive-definite even unimodular rank-eight
-lattice from the rank-8 theta identity.  TauCeti's enumeration for the one specific
-`typeE₈RootLattice` does not alone supply that arbitrary-lattice count.  The landed classification
-removes the need for this fallback once imported.
+The classification theorem is general integral-lattice mathematics, supplied by TauCeti at the
+pin as `IntegralLattice.IsPosDef.nonempty_isometry_typeE₈RootLattice_of_isEven`.
+`E8.even_unimodular_rank_eight_unique` is proved from it: the proof converts ambient rational rank
+to carrier integer rank and reverses the isometry to match SphereCeti's statement.  It uses the
+same canonical `typeE₈RootLattice` and has no theta dependency; the real-isometry and
+packing-coset bridges remain SphereCeti's work.
 
 ### Leech rigidity
 
