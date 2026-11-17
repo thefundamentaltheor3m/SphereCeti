@@ -107,7 +107,8 @@ These are build-hygiene changes; they add no mathematical declarations and chang
 
 ## Limits and evidence
 
-The Lean/TauCeti/Mathlib dependency graph stays on rc1. On this pin, `native_decide`
+The Lean/TauCeti/Mathlib dependency graph uses Lean 4.36.0-rc2 and the exact revisions in
+`lake-manifest.json`. On this pin, `native_decide`
 produces private per-theorem axioms (`…._native.native_decide.ax_…`), which the allowlist
 rejects just like any other nonstandard axiom. The runtime audit imports compiled
 artifacts after source elaboration, at Lean's conventional audit trust level 1024; it checks

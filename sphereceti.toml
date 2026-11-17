@@ -14,9 +14,9 @@ roadmap_targets = "SphereCetiRoadmap/Suggested.lean"
 roadmap_approved = false
 
 [dependencies]
-lean = "leanprover/lean4:v4.34.0-rc1"
-tauceti = "8671bee98125933c56b9b00a08ded873b77dd23b"
-mathlib = "618f225e1ff4a6b2790a944e01b806b7c68bdc56"
+lean = "leanprover/lean4:v4.36.0-rc2"
+tauceti = "83769e442d55cda9d85b3927a93b286831c595ff"
+mathlib = "1b1ccf4b088b32fa3f23f2de1127433254a81e1e"
 sphere_packing_semantics = "bad3de916074748eb88b7d1ee6dbf9494361ad17"
 
 [state]
