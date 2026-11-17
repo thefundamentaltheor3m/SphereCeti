@@ -165,6 +165,9 @@ def sourceStyle (sources : Array Source) : IO (Array Finding) := do
     let errors ← Mathlib.Linter.TextBased.lintModules options #[] modules .humanReadable false
     if errors != 0 then
       throw <| IO.userError s!"Mathlib source-style lint rejected {source.path}"
+    -- Mathlib's text linter left trailing whitespace to pre-commit (mathlib4#44733).
+    if (text.splitOn "\n").any (fun line => line.endsWith " " || line.endsWith "\t") then
+      throw <| IO.userError s!"source-style lint rejected {source.path}: trailing whitespace"
     if !text.endsWith "\n" then
       findings := findings.push {
         moduleName := source.name
