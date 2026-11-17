@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "repository": "TauCetiProject/TauCetiReview",
   "commit": "afb424eda89e8ac96d9eb69f6a88972055a4cd1b",
   "files": [
@@ -274,7 +274,25 @@
       "destination": "runner/reviewers.py",
       "mode": "100644",
       "upstream_sha256": "abc9a219d3923e6deaf2a6cb8d9c46cb51e43ac8363f6d54e115c96a34e2cfc2",
-      "import_sha256": "abc9a219d3923e6deaf2a6cb8d9c46cb51e43ac8363f6d54e115c96a34e2cfc2"
+      "import_sha256": "5d9331ba34a79837286d4e0b27c5ff2a0426c91f8f189d4c54b54196746d99ea",
+      "adapted": [
+        {
+          "pr": 194,
+          "commit": "51149da792cd8b28aba617f118d1ae01aefbe501"
+        },
+        {
+          "pr": 196,
+          "commit": "8cb4374133d429627c31d9835bfe6fc9d71771e9"
+        }
+      ]
+    },
+    {
+      "source": "runner/sandbox_check.py",
+      "destination": "runner/sandbox_check.py",
+      "commit": "8cb4374133d429627c31d9835bfe6fc9d71771e9",
+      "mode": "100644",
+      "upstream_sha256": "48a4ff5c2e0bbbc97090d5eed3fb61d85c2ab41a18ef69c16c04e5dc1f6d2e90",
+      "import_sha256": "48a4ff5c2e0bbbc97090d5eed3fb61d85c2ab41a18ef69c16c04e5dc1f6d2e90"
     },
     {
       "source": "runner/sweep.py",
@@ -314,9 +332,10 @@
     {
       "source": "tests/test_codex_fallback.py",
       "destination": "tests/test_codex_fallback.py",
+      "commit": "8cb4374133d429627c31d9835bfe6fc9d71771e9",
       "mode": "100644",
-      "upstream_sha256": "39fa68ab57f0430188f350df2e5c1fdf1af03a1b70e67e73d2fdfa1e82de6b8a",
-      "import_sha256": "39fa68ab57f0430188f350df2e5c1fdf1af03a1b70e67e73d2fdfa1e82de6b8a"
+      "upstream_sha256": "fbb90b9411fe0b26d69d3c35f7128a93476082f47cae25d587b9dc912b4ab52b",
+      "import_sha256": "fbb90b9411fe0b26d69d3c35f7128a93476082f47cae25d587b9dc912b4ab52b"
     },
     {
       "source": "tests/test_coordinate.py",
@@ -363,9 +382,10 @@
     {
       "source": "tests/test_reviewer_env.py",
       "destination": "tests/test_reviewer_env.py",
+      "commit": "8cb4374133d429627c31d9835bfe6fc9d71771e9",
       "mode": "100644",
-      "upstream_sha256": "4c8940213fe76ce6b2391645534d0167e04e6fe44a5f7586c1a95dbe583f929c",
-      "import_sha256": "4c8940213fe76ce6b2391645534d0167e04e6fe44a5f7586c1a95dbe583f929c"
+      "upstream_sha256": "a99a691b8d7440087bb26bb9d700256433a6fd942c4fff3ddcebf7e67d555aae",
+      "import_sha256": "a99a691b8d7440087bb26bb9d700256433a6fd942c4fff3ddcebf7e67d555aae"
     },
     {
       "source": "tests/test_reviewer_no_shell.py",
@@ -373,6 +393,14 @@
       "mode": "100644",
       "upstream_sha256": "7fcd278270a9595bc9db50d0e0ae01ee8af6f7def39966b96bc1b6f3bca71a5d",
       "import_sha256": "7fcd278270a9595bc9db50d0e0ae01ee8af6f7def39966b96bc1b6f3bca71a5d"
+    },
+    {
+      "source": "tests/test_sandbox_check.py",
+      "destination": "tests/test_sandbox_check.py",
+      "commit": "8cb4374133d429627c31d9835bfe6fc9d71771e9",
+      "mode": "100644",
+      "upstream_sha256": "026d7c0cc48976abbb304fee16572bc6c531acc774914967f01d7547f6fdc4f2",
+      "import_sha256": "79392a4b545f8af6cdb91f8aa710bd0b6a6a525e46e931a92ab42eee9888e921"
     },
     {
       "source": "tests/test_scoreboard_metadata.py",

@@ -10,6 +10,9 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 REVIEW = ROOT / "tools" / "review"
+# Later merged upstream commits adapted onto the afb424e import, by TauCetiReview PR.
+LATER = {194: "51149da792cd8b28aba617f118d1ae01aefbe501",
+         196: "8cb4374133d429627c31d9835bfe6fc9d71771e9"}
 spec = importlib.util.spec_from_file_location("review_test_harness", ROOT / "scripts/run_review_tests.py")
 harness = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(harness)
@@ -26,9 +29,18 @@ class ReviewImportTests(unittest.TestCase):
         manifest = json.loads((REVIEW / "import-manifest.json").read_text())
         self.assertEqual(manifest["repository"], "TauCetiProject/TauCetiReview")
         self.assertEqual(manifest["commit"], "afb424eda89e8ac96d9eb69f6a88972055a4cd1b")
+        self.assertEqual(manifest["schema_version"], 2)
         mapped = set()
         changed = set()
+        adapted = {}
         for item in manifest["files"]:
+            self.assertLessEqual(set(item), {"source", "destination", "commit", "mode",
+                                             "upstream_sha256", "import_sha256", "adapted"})
+            if "commit" in item:
+                self.assertIn(item["commit"], LATER.values(), item["destination"])
+            for port in item.get("adapted", ()):
+                self.assertEqual(LATER[port["pr"]], port["commit"], item["destination"])
+                adapted.setdefault(item["destination"], set()).add(port["pr"])
             path = REVIEW / item["destination"]
             self.assertNotIn(item["destination"], mapped)
             mapped.add(item["destination"])
@@ -36,10 +48,12 @@ class ReviewImportTests(unittest.TestCase):
             self.assertEqual("100755" if path.stat().st_mode & 0o111 else "100644", item["mode"], path)
             if item["upstream_sha256"] != item["import_sha256"]:
                 changed.add(item["destination"])
-        self.assertEqual(len(mapped), 57)
+        self.assertEqual(len(mapped), 59)
         self.assertEqual(changed, {f"runner/{name}.py" for name in (
             "archive", "cli", "costs", "merge_from_scoreboard", "post", "queue_reservation", "review", "sweep",
-        )})
+            "reviewers",
+        )} | {"tests/test_sandbox_check.py"})
+        self.assertEqual(adapted, {"runner/reviewers.py": {194, 196}})
         for directory in ("runner", "rubrics", "tests", "fixtures"):
             actual = {p.relative_to(REVIEW).as_posix() for p in (REVIEW / directory).rglob("*")
                       if p.is_file() and "__pycache__" not in p.parts}

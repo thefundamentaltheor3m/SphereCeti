@@ -109,6 +109,36 @@ supported isolated credentials or API authentication. The Python engine may laun
 selected provider CLIs; GitHub, archive, and merge subprocesses are rejected. Raw provider
 console streams are not retained in the adapter's artifacts.
 
+Codex tool commands keep upstream's `shell_environment_policy.inherit=none`. Following
+TauCetiReview [#196](https://github.com/TauCetiProject/TauCetiReview/pull/196)
+([8cb4374](https://github.com/TauCetiProject/TauCetiReview/commit/8cb4374133d429627c31d9835bfe6fc9d71771e9)),
+the engine then restores exactly two runtime variables for the Linux sandbox launcher: `PATH`,
+so it can find the system `bwrap`, and a private per-attempt `TMPDIR` inside the throwaway
+reviewer home, so its bookkeeping works when the host `/tmp` is read-only. Neither carries a
+credential, and the model's tools stay read-only, including inside that directory.
+
+## Codex sandbox diagnostic
+
+When a Codex review fails before inspecting any source, run the diagnostic adapted from
+TauCetiReview [#194](https://github.com/TauCetiProject/TauCetiReview/pull/194)
+([51149da](https://github.com/TauCetiProject/TauCetiReview/commit/51149da792cd8b28aba617f118d1ae01aefbe501))
+and #196 **in the same host, container, and account that runs reviews**:
+
+```bash
+uv run --locked sphereceti review-check-sandbox --compare-path --compare-tmpdir
+```
+
+It calls the native `codex sandbox` directly in the reviewer's clean environment: no API key,
+no copied subscription login, no model inference, and no GitHub access. The probe checks that a
+known file is readable and a workspace write is denied, then removes its scratch files. By
+default it probes a fresh private directory under the operator's review storage; `--cwd DIR`
+probes an existing workspace instead. The JSON report records the Codex version, relevant
+Linux kernel settings, the system `bwrap`, and the actual launcher or sandbox error.
+`--compare-path` adds an empty-`PATH` probe and `--compare-tmpdir` a system-`TMPDIR` probe;
+`path_restoration_fixed_sandbox` or `private_tmpdir_fixed_sandbox` is true when only the fixed
+environment works. The command exits 0 only for a healthy probe. A failed report never relaxes
+the sandbox; namespace, AppArmor, and Seatbelt denials must be investigated on that host.
+
 This is an operator-run advisory tool, not the build sandbox or a sandbox for hostile Python.
 Provider processes retain their provider-specific authentication and isolation limits. The
 adapter's restrictions do not authenticate review records or make them merge authority.
@@ -146,8 +176,10 @@ Regression fixtures use exact disposable Git commits and a fake provider executa
 exercise approved/proposed evidence, missing context, dirty trees, replacement refs, source
 links, partial/budgeted reviews, contests, shadow accounting, and provider failures. Both fresh
 wheel and source installations run a dry review and all ten rubrics outside the checkout with
-conflicting cwd resources and credential canaries. The 16 original upstream test scripts also
-continue to run without external calls.
+conflicting cwd resources and credential canaries. A fake Codex executable checks the
+subscription-login isolation and restored launcher runtime through the full adapter, and the
+sandbox diagnostic's credential-free probes and cleanup. The 17 imported upstream test scripts
+also continue to run without external calls.
 
 The [record adapter](review-records.md) adds API-authenticated review records and explicit
 policy-gated posting. Shared merge observation will combine those records with #8’s mechanical

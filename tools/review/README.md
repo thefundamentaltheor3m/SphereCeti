@@ -10,24 +10,40 @@ harness, source mapping, and local advisory adapter.
 This directory supplies the engine and resources for the [local review adapter](../../docs/infrastructure/local-review.md). All eight imported script launchers exit before runtime imports or argument handling; the legacy
 `runner/cli.py` main and `archive.sync()` also refuse execution. The SphereCeti CLI provides
 `doctor`, `status`, and `review`, including record inspection and explicit policy-gated
-posting; all shipped automation switches remain off. See [review records](../../docs/infrastructure/review-records.md).
+posting; all shipped automation switches remain off. The later `runner/sandbox_check.py`
+diagnostic needs no credential, model, or GitHub access and is reached through
+`sphereceti review-check-sandbox`, which calls its `diagnose()` in a fresh interpreter. See [review records](../../docs/infrastructure/review-records.md).
 Internal engine functions remain importable for the upstream fake-provider tests. These
 entry-point guards prevent accidental activation; they are not a sandbox for arbitrary Python.
 
 ## Review the import
 
 The first commit in [PR #9](https://github.com/thefundamentaltheor3m/SphereCeti/pull/9) copies the source bytes; the following commit contains SphereCeti's
-changes. [import-manifest.json](import-manifest.json) lists all 57 source/destination pairs,
-the exact upstream revision, Git modes, upstream SHA-256 hashes, and final imported hashes.
-Every upstream test, rubric, reference, and fixture is unchanged. Only the eight launcher
-modules differ from upstream. The root [source lock](../upstream-lock.toml) records this
-component as imported.
+changes. [import-manifest.json](import-manifest.json) (schema 2) lists all source/destination
+pairs, the exact upstream revision, Git modes, upstream SHA-256 hashes, and final imported
+hashes. A row's optional `commit` names a later upstream revision whose bytes it carries; its
+optional `adapted` list names later merged upstream PRs ported onto the afb424e bytes. Every
+upstream rubric, reference, and fixture is unchanged. The root
+[source lock](../upstream-lock.toml) records this component as imported.
+
+Later upstream fixes adapted after the original import (see
+[Codex sandbox diagnostic](../../docs/infrastructure/local-review.md#codex-sandbox-diagnostic)):
+
+| TauCetiReview PR | Merged commit | Local files |
+| --- | --- | --- |
+| [#194](https://github.com/TauCetiProject/TauCetiReview/pull/194) credential-free sandbox diagnostic | [`51149da`](https://github.com/TauCetiProject/TauCetiReview/commit/51149da792cd8b28aba617f118d1ae01aefbe501) | `runner/reviewers.py` (package-relative import), `runner/sandbox_check.py`, `tests/test_sandbox_check.py` |
+| [#196](https://github.com/TauCetiProject/TauCetiReview/pull/196) Codex launcher `PATH` and private `TMPDIR` | [`8cb4374`](https://github.com/TauCetiProject/TauCetiReview/commit/8cb4374133d429627c31d9835bfe6fc9d71771e9) | `runner/reviewers.py`, `runner/sandbox_check.py`, `tests/test_{codex_fallback,reviewer_env,sandbox_check}.py` |
+
+`runner/sandbox_check.py`, `tests/test_codex_fallback.py`, and `tests/test_reviewer_env.py` are
+the 8cb4374 bytes. #196's inspection-failure narrowing is not ported: it amends a detector
+from TauCetiReview #193 that this import does not contain. Its REVIEWING.md text and the
+`tauceti-review-check-sandbox` console script are replaced by `sphereceti review-check-sandbox`.
 
 | Pinned upstream paths | Local destination | Treatment |
 | --- | --- | --- |
 | `runner/` | `runner/` | Internal layout retained; the small changes below are marked `SphereCeti` |
 | `rubrics/`, including references | `rubrics/` | Verbatim |
-| `tests/` | `tests/` | All 16 test scripts, verbatim |
+| `tests/` | `tests/` | All 16 test scripts, verbatim or at the later revisions above, plus `test_sandbox_check.py` |
 | `.github/workflows/{merge-only,merge-sweep,review}.yml` | `fixtures/workflows/` | Verbatim historical fixtures required by `test_sweep.py`; never active workflows |
 | `LICENSE`, `REVIEWING.md`, `SECURITY.md` | Same names | Verbatim upstream license and documentation |
 | `README.md` | `UPSTREAM-README.md` | Historical upstream overview |
@@ -46,6 +62,8 @@ The local changes are:
   identity is SphereCeti's, and no TauCeti App identity is assumed.
 - Fail when publishing identity cannot be read, instead of falling back to TauCeti's bot.
   Clear the queue reservation actor default. The record adapter checks GitHub API user/App IDs; App setup remains separate.
+- Move one test from `tests/test_sandbox_check.py`, which executes `/bin/sh`, to
+  `tests/test_review_sandbox.py` at the repository root, where subprocesses are permitted.
 - Remove the old CLI's mutable `main` fallback for missing engine/rubric resources.
   Exact upstream source links and the historical schema/marker vocabulary retain TauCeti names.
 
@@ -71,7 +89,7 @@ python3 -I scripts/run_review_tests.py
 python3 -m unittest discover -s tests -p test_review_import.py
 ```
 
-The harness runs all 16 upstream scripts, including the prompt-reference tests, in separate
+The harness runs all 17 imported upstream scripts, including the prompt-reference tests, in separate
 interpreters. Each gets a disposable source tree, home, temporary directory, and credential-free
 environment. The historical workflow fixtures are staged under `.github/workflows` only in
 that disposable tree. Python audit hooks reject subprocesses, process execution, and sockets,
