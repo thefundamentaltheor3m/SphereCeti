@@ -172,7 +172,8 @@ on timeout or interruption.
 
 ## Codex model selection and accounting
 
-`--codex-model MODEL` pins the exact Codex model; otherwise the imported default
+`--codex-model MODEL` pins the exact Codex model, for both `review` and
+[`worker run --execute`](worker-execution.md); otherwise the imported default
 `gpt-5.6-sol` applies, with upstream's automatic Terra fallback for accounts without Sol. An
 explicit pin disables that fallback. Every dispatchable model must have a row in
 `runner/prices.json`; an unpriced model is rejected before any inference. The table carries
