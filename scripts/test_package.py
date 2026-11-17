@@ -20,6 +20,7 @@ from evaluation_fixture import installed_evaluation_smoke
 from merge_fixture import installed_merge_smoke
 from controller_fixture import installed_controller_smoke
 from lifecycle_fixture import installed_lifecycle_smoke
+from test_authoring import HandoffTest
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -105,6 +106,28 @@ def main():
             posting_root = scratch / 'posting-fixture'
             posting_root.mkdir()
             installed_post_smoke(environment / 'bin' / 'sphereceti', posting_root)
+            author = HandoffTest()
+            try:
+                author.setUp()
+                handoff = scratch / 'author-handoff'
+                argv = [str(environment / 'bin' / 'sphereceti'), *author.argv('--output', str(handoff))]
+                result = subprocess.run(argv, cwd=foreign, env=env, text=True,
+                                        capture_output=True, check=True)
+                planned_author = json.loads(result.stdout)
+                assert planned_author['authority'] == 'local_unverified'
+                assert planned_author['destination'] == report['project']['implementation_repository']
+                assert not any(planned_author[name] for name in
+                               ('executable', 'publication_allowed', 'merge_eligible',
+                                'source_identity_verified', 'source_approval_verified'))
+                original = (handoff / 'plan.json').read_bytes()
+                original_brief = (handoff / 'brief.md').read_bytes()
+                assert json.loads(original) == planned_author
+                repeated = subprocess.run(argv, cwd=foreign, env=env, text=True, capture_output=True)
+                assert repeated.returncode == 2, repeated.stdout + repeated.stderr
+                assert (handoff / 'plan.json').read_bytes() == original
+                assert (handoff / 'brief.md').read_bytes() == original_brief
+            finally:
+                author.doCleanups()
             survey = foreign / 'survey.json'
             survey.write_text(json.dumps({
                 'schema': 'sphereceti.worker-survey/v1', 'repository': report['project']['repository'],
