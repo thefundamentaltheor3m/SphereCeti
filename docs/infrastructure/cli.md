@@ -19,6 +19,9 @@ The `sphereceti` command supplies project diagnostics and the adapters credited 
 | `maintenance` | [Lifecycle diagnostics and labels](lifecycle.md) |
 | `profile-plan / profile-run` | [Advisory profiling](profiling.md) |
 
+For installation smoke tests, one-PR review rehearsal, and the boundary between contributor
+credentials and official merge workers, see the [rollout guide](rollout.md).
+
 From this checkout:
 
 ```bash
