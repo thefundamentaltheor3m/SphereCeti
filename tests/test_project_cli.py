@@ -31,11 +31,14 @@ class ProjectConfigTest(unittest.TestCase):
 
     def test_invalid_profile_is_rejected(self):
         original = resource_text('sphereceti.toml')
-        cases = [original.replace('roadmap_approved = false', 'roadmap_approved = true'),
+        profile = parse_project(original)
+        approval = str(profile.roadmap_approved).lower()
+        opposite = str(not profile.roadmap_approved).lower()
+        cases = [original.replace(f'roadmap_approved = {approval}', f'roadmap_approved = {opposite}'),
                  original.replace('schema_version = 1', 'schema_version = 2'),
                  original.replace('library_root = "SphereCeti"', 'library_root = "../Elsewhere"'),
                  original.replace('library_root = "SphereCeti"', 'library_root = "./"'),
-                 original.replace('8671bee98125933c56b9b00a08ded873b77dd23b', 'main')]
+                 original.replace(profile.tauceti, 'main')]
         for text in cases:
             with self.subTest(text=text), self.assertRaises(ConfigError):
                 parse_project(text)
