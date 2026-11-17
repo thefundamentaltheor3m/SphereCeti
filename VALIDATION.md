@@ -14,7 +14,7 @@ What has been checked in this repository:
 - every local link in the roadmap's own Markdown documents resolves;
 - the target files contain no theorem whose stated conclusion is merely `True`, and end with final
   newlines;
-- the target-signature files contain 253 intentional `sorry` commands;
+- the target-signature files contain 254 intentional `sorry` commands;
 - the full Lean elaboration passes locally:
 
 ```bash
@@ -30,9 +30,9 @@ weaken them merely to satisfy the parser or typechecker.
 ## Compiled admission policy
 
 The separate `SphereCetiRoadmap` library contains the target modules; the `SphereCeti` library
-remains admission-free. The integration audit inventories 593 compiled declarations (86 in
-`Pinned`, 507 in `Suggested`), including 334 with transitive `sorryAx` dependencies, and no lint
-findings. The 253 textual `sorry` commands above are a different count: generated declarations
+remains admission-free. The integration audit inventories 594 compiled declarations (86 in
+`Pinned`, 508 in `Suggested`), including 335 with transitive `sorryAx` dependencies, and no lint
+findings. The 254 textual `sorry` commands above are a different count: generated declarations
 and dependents also enter the compiled admission ledger.
 
 The 2026-11-10 dependency update moves TauCeti from `271e1af` (Lean 4.36.0-rc1, Mathlib
@@ -84,7 +84,13 @@ statements; these corrections need mathematical review in their own right:
   scope of the published proof.  The ledger entry is renamed.  `E8.magic_zero_iff` and both
   Fourier-side zero sets keep their global statements.
 
-`policy/audits.json` proposes the exact 334-entry ledger for human review with this roadmap.
+The real-isometry adapter gains a pointwise target, `IntegralPresentation.realIsometryOfIsometry_basis`:
+on each basis vector of the source presentation, the real isometry agrees with the given TauCeti
+isometry in the target presentation's coordinates.  `realIsometry_maps_carrier` alone does not
+determine the extension (for `ℤ ⊂ ℝ`, the identity and negation have the same image).  The new
+target adds one textual `sorry`, one declaration, and one admission: 254, 594, and 335.
+
+`policy/audits.json` proposes the exact 335-entry ledger for human review with this roadmap.
 The profile’s `phase = "roadmap"` and `roadmap_approved = true` describe the state proposed
 for landing; checking out the PR does not approve that policy. The authoritative gate continues
 to use its already-approved tooling and policy. Initial adoption of the admission policy requires

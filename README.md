@@ -549,7 +549,9 @@ Deliverables:
 - minimum-norm predicates, and shell equivalences between `ZLattice.shell` and TauCeti's
   `vectorsOfNorm`, transporting rootlessness;
 - extension of a TauCeti classification isometry to a real linear isometry, then to an affine
-  isometry carrying one lattice coset to another.
+  isometry carrying one lattice coset to another.  The extension is stated pointwise: on each
+  presentation basis vector it agrees with the given isometry in the target presentation's
+  coordinates (`realIsometryOfIsometry_basis`), not merely as an equality of lattice images.
 
 Do not introduce another integrality predicate on real lattices: TauCeti's `ZLattice.IsIntegral`
 is the one.  Positive-definiteness is derived from the full Euclidean presentation rather than

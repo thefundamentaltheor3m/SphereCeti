@@ -789,6 +789,11 @@
     },
     {
       "moduleName": "SphereCetiRoadmap.Suggested",
+      "name": "SphereCeti.Suggested.EuclideanLattice.IntegralPresentation.realIsometryOfIsometry_basis",
+      "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
+    },
+    {
+      "moduleName": "SphereCetiRoadmap.Suggested",
       "name": "SphereCeti.Suggested.EuclideanLattice.IntegralPresentation.realIsometry_maps_carrier",
       "reason": "Intentional roadmap target or its generated/transitive dependent; the proof belongs in production."
     },

@@ -522,6 +522,18 @@ theorem IntegralPresentation.realIsometry_maps_carrier {d : ℕ}
     realIsometryOfIsometry P Q e '' (Λ : Set (V d)) = (Μ : Set (V d)) := by
   sorry
 
+/-- The real isometry extends the given rational isometry: on each basis vector of `P` it agrees
+with `e` read in `Q`'s coordinates.  The basis spans `V d` over `ℝ`, so this determines the real
+linear map.  `realIsometry_maps_carrier` is strictly weaker: already for `ℤ ⊂ ℝ` the identity and
+negation have the same image. -/
+theorem IntegralPresentation.realIsometryOfIsometry_basis {d : ℕ}
+    {Λ Μ : Submodule ℤ (V d)} (P : IntegralPresentation Λ)
+    (Q : IntegralPresentation Μ)
+    (e : TauCeti.IntegralLattice.Isometry P.toIntegralLattice Q.toIntegralLattice) (i : Fin d) :
+    realIsometryOfIsometry P Q e ((P.basis i : Λ) : V d) =
+      ∑ j : Fin d, ((e (Pi.single i 1) j : ℚ) : ℝ) • ((Q.basis j : Μ) : V d) := by
+  sorry
+
 /-- Add translations to the real linear extension supplied by a classification isometry. -/
 noncomputable def IntegralPresentation.affineIsometryOfIsometry {d : ℕ}
     {Λ Μ : Submodule ℤ (V d)} (P : IntegralPresentation Λ)
