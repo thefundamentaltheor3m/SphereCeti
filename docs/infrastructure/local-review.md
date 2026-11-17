@@ -170,6 +170,30 @@ use upstream cost estimates; they are not a provider-enforced billing limit. Pro
 are errors, never approvals. Execution has a 30-minute limit and terminates its process group
 on timeout or interruption.
 
+## Codex model selection and accounting
+
+`--codex-model MODEL` pins the exact Codex model; otherwise the imported default
+`gpt-5.6-sol` applies, with upstream's automatic Terra fallback for accounts without Sol. An
+explicit pin disables that fallback. Every dispatchable model must have a row in
+`runner/prices.json`; an unpriced model is rejected before any inference. The table carries
+the gpt-6 family from TauCetiReview [#172](https://github.com/TauCetiProject/TauCetiReview/pull/172)
+([baf2e68](https://github.com/TauCetiProject/TauCetiReview/commit/baf2e680b43369805621e6ff0b6c984cab5e4ccb)),
+so `--codex-model gpt-6.1-sol` (Sol61: 2.00 input, 0.10 cached input, 10.00 output per million
+tokens) is accepted. The corrected rates and cache-write rates of
+[#175](https://github.com/TauCetiProject/TauCetiReview/pull/175)
+([4684a52](https://github.com/TauCetiProject/TauCetiReview/commit/4684a52a03859a5e22ba2af736720426de373e1f))
+also apply, including `gpt-5.6-sol`'s 2026-08-21 window. Unlike #172, SphereCeti does not change
+the default model.
+
+Codex reports no dollar figure, under either authentication mode. A subscription-backed run
+therefore records `cost_estimated: true` and charges the shared daily budget the dated
+list-price estimate of its measured tokens. This is a budget guard, not a statement of
+subscription billing. Following [#148](https://github.com/TauCetiProject/TauCetiReview/pull/148)
+([7f1d288](https://github.com/TauCetiProject/TauCetiReview/commit/7f1d28863dcd914f3bcc2ae1d9e2b7ee42a96441)),
+round token totals use one convention across providers: `input_tokens` is all input traffic,
+with fresh, cache-read and cache-write components. Archived runs keep the provider's raw
+usage and exact model.
+
 ## Validation and next boundary
 
 Regression fixtures use exact disposable Git commits and a fake provider executable. They
@@ -178,7 +202,7 @@ links, partial/budgeted reviews, contests, shadow accounting, and provider failu
 wheel and source installations run a dry review and all ten rubrics outside the checkout with
 conflicting cwd resources and credential canaries. A fake Codex executable checks the
 subscription-login isolation and restored launcher runtime through the full adapter, and the
-sandbox diagnostic's credential-free probes and cleanup. The 17 imported upstream test scripts
+sandbox diagnostic's credential-free probes and cleanup. The 18 imported upstream test scripts
 also continue to run without external calls.
 
 The [record adapter](review-records.md) adds API-authenticated review records and explicit

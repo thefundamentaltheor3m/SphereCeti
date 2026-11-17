@@ -80,6 +80,17 @@ license_status = "recorded"
 adaptation = "Later fixes onto the afb424e review import. TauCetiReview #194 (merged 51149da792cd8b28aba617f118d1ae01aefbe501) adds the credential-free, inference-free Codex sandbox diagnostic; #196 (merged 8cb4374133d429627c31d9835bfe6fc9d71771e9) restores only PATH and a private per-attempt TMPDIR for the Codex sandbox launcher and adds --compare-path/--compare-tmpdir. sandbox_check.py and two tests are the 8cb4374 bytes; reviewers.py ports the #194/#196 hunks. The diagnostic is exposed as sphereceti review-check-sandbox in a fresh interpreter, not as an upstream console script; its one /bin/sh test moves to tests/test_review_sandbox.py. #196's inspection-failure narrowing (amending #193, not imported) is omitted. Per-file hashes: tools/review/import-manifest.json."
 
 [[components]]
+name = "review-pricing"
+repository = "TauCetiProject/TauCetiReview"
+commit = "4684a52a03859a5e22ba2af736720426de373e1f"
+source_paths = ["runner/pricing.py", "runner/render.py", "runner/costs.py", "runner/COSTS.md", "runner/prices.json", "tests/test_prices.py", "tests/test_token_accounting.py", "LICENSE"]
+destination_paths = ["tools/review/runner/pricing.py", "tools/review/runner/render.py", "tools/review/runner/costs.py", "tools/review/runner/COSTS.md", "tools/review/runner/prices.json", "tools/review/tests/test_prices.py", "tools/review/tests/test_token_accounting.py", "tools/review/import-manifest.json", "tests/test_review_codex.py", "docs/infrastructure/local-review.md"]
+state = "imported"
+license = "Apache-2.0"
+license_status = "recorded"
+adaptation = "Later fixes onto the afb424e review import. TauCetiReview #148 (merged 7f1d28863dcd914f3bcc2ae1d9e2b7ee42a96441) normalizes provider input-token accounting in round totals, comments and cost reports; test_token_accounting.py is its bytes. #172 (merged baf2e680b43369805621e6ff0b6c984cab5e4ccb) prices the gpt-6 family, including gpt-6.1-sol; its default-model change is not adopted, so gpt-5.6-sol stays the default and Sol61 is selected explicitly. #175 (merged 4684a52a03859a5e22ba2af736720426de373e1f) corrects list rates and adds cache-write rates. The table and literal rate test omit the claude-opus-5-5 and claude-fable-5-1 rows from other upstream changes; #174's inherited rates are not ported, so unpriced models are still rejected before inference. Per-file hashes: tools/review/import-manifest.json."
+
+[[components]]
 name = "worker"
 repository = "TauCetiProject/TauCetiWorker"
 commit = "27c234a5722cfe557279aa47fbfd8e51450481a6"

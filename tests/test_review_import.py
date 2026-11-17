@@ -11,7 +11,10 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 REVIEW = ROOT / "tools" / "review"
 # Later merged upstream commits adapted onto the afb424e import, by TauCetiReview PR.
-LATER = {194: "51149da792cd8b28aba617f118d1ae01aefbe501",
+LATER = {148: "7f1d28863dcd914f3bcc2ae1d9e2b7ee42a96441",
+         172: "baf2e680b43369805621e6ff0b6c984cab5e4ccb",
+         175: "4684a52a03859a5e22ba2af736720426de373e1f",
+         194: "51149da792cd8b28aba617f118d1ae01aefbe501",
          196: "8cb4374133d429627c31d9835bfe6fc9d71771e9"}
 spec = importlib.util.spec_from_file_location("review_test_harness", ROOT / "scripts/run_review_tests.py")
 harness = importlib.util.module_from_spec(spec)
@@ -48,12 +51,15 @@ class ReviewImportTests(unittest.TestCase):
             self.assertEqual("100755" if path.stat().st_mode & 0o111 else "100644", item["mode"], path)
             if item["upstream_sha256"] != item["import_sha256"]:
                 changed.add(item["destination"])
-        self.assertEqual(len(mapped), 59)
+        self.assertEqual(len(mapped), 60)
         self.assertEqual(changed, {f"runner/{name}.py" for name in (
             "archive", "cli", "costs", "merge_from_scoreboard", "post", "queue_reservation", "review", "sweep",
-            "reviewers",
-        )} | {"tests/test_sandbox_check.py"})
-        self.assertEqual(adapted, {"runner/reviewers.py": {194, 196}})
+            "reviewers", "pricing", "render",
+        )} | {"runner/COSTS.md", "runner/prices.json", "tests/test_prices.py", "tests/test_sandbox_check.py"})
+        self.assertEqual(adapted, {"runner/reviewers.py": {194, 196}, "runner/pricing.py": {148},
+                                   "runner/render.py": {148}, "runner/costs.py": {148},
+                                   "runner/COSTS.md": {148, 175}, "runner/prices.json": {172, 175},
+                                   "tests/test_prices.py": {172, 175}})
         for directory in ("runner", "rubrics", "tests", "fixtures"):
             actual = {p.relative_to(REVIEW).as_posix() for p in (REVIEW / directory).rglob("*")
                       if p.is_file() and "__pycache__" not in p.parts}

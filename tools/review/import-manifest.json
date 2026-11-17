@@ -162,7 +162,17 @@
       "destination": "runner/COSTS.md",
       "mode": "100644",
       "upstream_sha256": "e7fcfb9d9f73806e3cb55b9f5767046bb6da8d3e52f266a7a199234fee179768",
-      "import_sha256": "e7fcfb9d9f73806e3cb55b9f5767046bb6da8d3e52f266a7a199234fee179768"
+      "import_sha256": "8decfdd7545e38ed47caaa0556464972f419f7d3b4cb4b4729037a7e86025772",
+      "adapted": [
+        {
+          "pr": 148,
+          "commit": "7f1d28863dcd914f3bcc2ae1d9e2b7ee42a96441"
+        },
+        {
+          "pr": 175,
+          "commit": "4684a52a03859a5e22ba2af736720426de373e1f"
+        }
+      ]
     },
     {
       "source": "runner/REDESIGN.md",
@@ -204,7 +214,13 @@
       "destination": "runner/costs.py",
       "mode": "100755",
       "upstream_sha256": "329f2d4d8997e5533da78f4ba430f682c5e4a5bda9a1fd0e60a8aaf07894f7a8",
-      "import_sha256": "c139960dc3ccca501c573205fddf24b5a03c386dcb75fb6e9dad834cc3489bb7"
+      "import_sha256": "95b01a3e51fed30c80737c9a93e3715cd99faf4fa4f0d69516b0711832346681",
+      "adapted": [
+        {
+          "pr": 148,
+          "commit": "7f1d28863dcd914f3bcc2ae1d9e2b7ee42a96441"
+        }
+      ]
     },
     {
       "source": "runner/ledger.py",
@@ -239,14 +255,30 @@
       "destination": "runner/prices.json",
       "mode": "100644",
       "upstream_sha256": "387b989081a150ba9b3eb0cdfb8353c59c38a28f4688256a155bbc05c63645ce",
-      "import_sha256": "387b989081a150ba9b3eb0cdfb8353c59c38a28f4688256a155bbc05c63645ce"
+      "import_sha256": "875be1f0b17590b325e4ca91b5ac300bc439d2587c4cf42336c48ee12e9df554",
+      "adapted": [
+        {
+          "pr": 172,
+          "commit": "baf2e680b43369805621e6ff0b6c984cab5e4ccb"
+        },
+        {
+          "pr": 175,
+          "commit": "4684a52a03859a5e22ba2af736720426de373e1f"
+        }
+      ]
     },
     {
       "source": "runner/pricing.py",
       "destination": "runner/pricing.py",
       "mode": "100644",
       "upstream_sha256": "91a4438a4459e5c527fd5cb3aa58613e9613f8b8db5bb926653b0213dd075f30",
-      "import_sha256": "91a4438a4459e5c527fd5cb3aa58613e9613f8b8db5bb926653b0213dd075f30"
+      "import_sha256": "0db86aa4dd0019a3b2fa90e7308066f52c823c81f86fe2ea8d5864818c6c0a9e",
+      "adapted": [
+        {
+          "pr": 148,
+          "commit": "7f1d28863dcd914f3bcc2ae1d9e2b7ee42a96441"
+        }
+      ]
     },
     {
       "source": "runner/queue_reservation.py",
@@ -260,7 +292,13 @@
       "destination": "runner/render.py",
       "mode": "100644",
       "upstream_sha256": "aa2eccf81ccdae62c3801cebdede5b1417b3d8c0cedb5689b43157248224709f",
-      "import_sha256": "aa2eccf81ccdae62c3801cebdede5b1417b3d8c0cedb5689b43157248224709f"
+      "import_sha256": "06bb914f607e5e2c6eb5b9d9af2427799eecec991c96cf00173d1e4a7a2e6fba",
+      "adapted": [
+        {
+          "pr": 148,
+          "commit": "7f1d28863dcd914f3bcc2ae1d9e2b7ee42a96441"
+        }
+      ]
     },
     {
       "source": "runner/review.py",
@@ -363,7 +401,17 @@
       "destination": "tests/test_prices.py",
       "mode": "100644",
       "upstream_sha256": "e84bfe34f3f60469ae687511bf1696426c2a8ef530c1058b72fe6410dd4a6a8a",
-      "import_sha256": "e84bfe34f3f60469ae687511bf1696426c2a8ef530c1058b72fe6410dd4a6a8a"
+      "import_sha256": "c6732a476b1cad2b5cf83fc78a91ddd2abf539160f106a17b21d74fee061c607",
+      "adapted": [
+        {
+          "pr": 172,
+          "commit": "baf2e680b43369805621e6ff0b6c984cab5e4ccb"
+        },
+        {
+          "pr": 175,
+          "commit": "4684a52a03859a5e22ba2af736720426de373e1f"
+        }
+      ]
     },
     {
       "source": "tests/test_prompt_refs.py",
@@ -422,6 +470,14 @@
       "mode": "100644",
       "upstream_sha256": "8b95580d419277b53296961bce0d8d325f781c807b781a46b48a553ed5d8c590",
       "import_sha256": "8b95580d419277b53296961bce0d8d325f781c807b781a46b48a553ed5d8c590"
+    },
+    {
+      "source": "tests/test_token_accounting.py",
+      "destination": "tests/test_token_accounting.py",
+      "commit": "7f1d28863dcd914f3bcc2ae1d9e2b7ee42a96441",
+      "mode": "100644",
+      "upstream_sha256": "b424f49ba4ce8f011edf490b664d9247af63e9b38f3b647e04e96e436437cb66",
+      "import_sha256": "b424f49ba4ce8f011edf490b664d9247af63e9b38f3b647e04e96e436437cb66"
     },
     {
       "source": "tests/test_tool_trace.py",
