@@ -212,8 +212,10 @@ def main(argv: list[str] | None = None) -> int:
         "roadmap": {"state": "approved" if project.roadmap_approved else "not_installed",
                     "reason": "Approved roadmap is not installed; an open PR is not approved specification."
                     if not project.roadmap_approved else "Profile records approved roadmap sources."},
-        "capabilities": {name: {"implemented": name in ("posting", "merging"), "enabled": False,
-                                "policy_requested": getattr(policy, name)}
+        # Policy requests do not establish installed identity or operational readiness.
+        "capabilities": {name: {"implemented": name in ("review_generation", "posting", "merging"), "enabled": False,
+                                "policy_requested": getattr(policy, name),
+                                "readiness": "not_implemented" if name in ("authoring", "reporting") else "unverified"}
                          for name in ("review_generation", "posting", "authoring", "reporting", "merging")},
         "worker": {"planning": True, "review_round": True, "execution_readiness": "unverified",
                    "mathematical_authoring": False},
@@ -221,7 +223,9 @@ def main(argv: list[str] | None = None) -> int:
         "progress": {"implemented": True, "local_drafts": True, "publishing": False,
                      "production_evidence": "not_configured"},
         "merge_observation": {"implemented": True, "read_only": True, "activation_verified": False},
-        "merge_controller": {"implemented": True, "enabled": False, "activation_verified": False},
+        "merge_controller": {"implemented": True, "enabled": False,
+                             "policy_requested": policy.merging, "readiness": "unverified",
+                             "activation_verified": False},
         "maintenance": {"implemented": True, "labels_enabled": False, "automatic_closure": False},
         "queue": {"state": "not_checked", "pull_requests": None},
         "setup": {"state": "not_verified", "merging_ready": False,
@@ -247,7 +251,10 @@ def main(argv: list[str] | None = None) -> int:
         queue = report["queue"]
         print(f"Queue: {len(queue['pull_requests'])} open PR(s)" if queue["state"] == "available"
               else f"Queue: {queue.get('reason', 'not checked (offline)')}")
-        print("Local review and explicit policy-gated posting are available. Automated review, authoring, reporting, and merging remain disabled.")
+        print("Local review, worker review execution, posting, local report drafts, and merge control are implemented.")
+        requested = [name for name, item in report["capabilities"].items() if item["policy_requested"]]
+        print("Repository policy requests: " + (", ".join(requested) if requested else "none") + ".")
+        print("Execution readiness is unverified; automated authoring and reporting are not implemented.")
         print(f"Operational setup: {report['setup']['reason']}")
         if args.command == "doctor":
             for name, path in report["executables"].items():

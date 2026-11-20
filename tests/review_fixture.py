@@ -11,6 +11,22 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def automation_policy(*, review_generation=False, posting=False, authoring=False,
+                      reporting=False, merging=False, mathematical_paths=(), authorized_reviewers=()):
+    """Explicit fixture policy; repository activation must not alter test permissions."""
+    data = dict(schema_version=1, review_generation=review_generation, posting=posting,
+                authoring=authoring, reporting=reporting, merging=merging,
+                mathematical_paths=list(mathematical_paths), authorized_reviewers=list(authorized_reviewers))
+    return ''.join(f'{key} = {json.dumps(value)}\n' for key, value in data.items())
+
+
+UNCONFIGURED_CHECKS = 'schema_version = 1\nworkflow_id = 0\nstatus_creator_ids = []\n'
+DISABLED_CONTROLLER = ('schema_version = 1\nworkflow_id = 0\nbot_user_id = 0\n'
+                       'checks_app_id = 0\nmerge_method = "squash"\n')
+DISABLED_LIFECYCLE = ('schema_version = 1\nlabels_enabled = false\nwriter_user_id = 0\n'
+                      'stuck_hours = 24\nhousekeeping_hours = 168\n')
+
+
 def git(repo, *args):
     return subprocess.check_output(["git", "-C", str(repo), *args], stderr=subprocess.PIPE).decode().strip()
 
@@ -59,8 +75,8 @@ class ReviewFixture:
         shutil.copy2(ROOT / "lean-toolchain", self.repo / "lean-toolchain")
         shutil.copy2(ROOT / "lakefile.toml", self.repo / "lakefile.toml")
         (self.repo / "policy").mkdir()
-        for name in ("automation.toml", "audits.json"):
-            shutil.copy2(ROOT / "policy" / name, self.repo / "policy" / name)
+        (self.repo / 'policy/automation.toml').write_text(automation_policy())
+        shutil.copy2(ROOT / 'policy/audits.json', self.repo / 'policy/audits.json')
         for name in ("README.md", "CONVENTIONS.md", "MIGRATION.md", "PROVENANCE.md", "UPSTREAM.md", "VALIDATION.md", "INFRASTRUCTURE-PLAN.md"):
             (self.repo / name).write_text("APPROVED SENTINEL " + name + "\n")
         (self.repo / "SphereCetiRoadmap").mkdir()

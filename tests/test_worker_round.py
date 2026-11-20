@@ -17,7 +17,7 @@ from sphereceti.worker_cli import add_parser
 from sphereceti.worker_execution import run_round
 from sphereceti.worker_leases import utcnow, stamp
 from review_post_fixture import PostingFixture
-from review_fixture import git, commit
+from review_fixture import automation_policy, git, commit
 from test_worker_execution import API
 
 
@@ -29,7 +29,8 @@ class WorkerRoundTest(unittest.TestCase):
         f=self.fixture
         git(f.repo,'checkout','-q',f.tooling)
         profile=(f.repo/'sphereceti.toml').read_bytes()
-        policy=(f.repo/'policy/automation.toml').read_bytes().replace(b'review_generation = false',b'review_generation = true')
+        policy=automation_policy(review_generation=True, posting=True,
+                                 authorized_reviewers=('user:7',)).encode()
         self.files=review_resources.tooling_files()
         self.files.update({'sphereceti.toml':profile,'policy/automation.toml':policy})
         for name,body in self.files.items():

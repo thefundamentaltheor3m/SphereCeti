@@ -20,6 +20,7 @@ from sphereceti.worker_execution import ReviewGuard, NothingToDo
 from sphereceti.worker_leases import Lease, active_claims, encode, utcnow, stamp, MARKER
 from sphereceti.review_records import RecordError, sha
 from test_review_records import result as review_result, comment as review_comment
+from test_project_cli import DISABLED_POLICY
 
 PROJECT = parse_project(resource_text('sphereceti.toml'))
 POLICY = replace(parse_policy(resource_text('automation.toml')), review_generation=True,
@@ -245,13 +246,35 @@ class GuardTests(unittest.TestCase):
             self.api.fail_write=True
         self.assertIn('unconfirmed',self.guard.receipt['release'])
 
-    def test_default_cli_execute_is_disabled_without_network(self):
+    def test_explicit_disabled_policy_blocks_execution_without_network_or_provider(self):
+        for extra in (['--pr','1'], ['--loop','--max-rounds','2']):
+            out=io.StringIO()
+            with patch('sys.stdout',out),patch('subprocess.run') as run, \
+                    patch('subprocess.Popen') as provider, \
+                    patch('sphereceti.cli.parse_policy',return_value=DISABLED_POLICY):
+                code=cli.main(['worker','run','--execute',*extra,'--json'])
+            self.assertEqual(code,0)
+            report=json.loads(out.getvalue())
+            self.assertEqual(report['state'],'disabled')
+            if '--loop' in extra:
+                self.assertEqual(len(report['rounds']),1)
+            run.assert_not_called()
+            provider.assert_not_called()
+
+    def test_enabled_cli_policy_reaches_review_selection_without_spurious_disabled_state(self):
         out=io.StringIO()
-        with patch('sys.stdout',out),patch('subprocess.run') as run:
+        planned={'selected':None,'candidates':[]}
+        with patch('sys.stdout',out),patch('subprocess.run') as run, \
+                patch('subprocess.Popen') as provider, \
+                patch('sphereceti.cli.parse_policy',return_value=POLICY), \
+                patch('sphereceti.worker_execution.survey',return_value={}) as survey, \
+                patch('sphereceti.worker_execution.plan',return_value=planned):
             code=cli.main(['worker','run','--execute','--pr','1','--json'])
         self.assertEqual(code,0)
-        self.assertEqual(json.loads(out.getvalue())['state'],'disabled')
+        self.assertEqual(json.loads(out.getvalue())['state'],'unavailable')
+        survey.assert_called_once_with(PROJECT,(1,))
         run.assert_not_called()
+        provider.assert_not_called()
 
     def test_invalid_target_and_execution_flags_fail_before_network(self):
         for argv in (['--pr',''],['--post-review'],['--publish-state']):

@@ -57,17 +57,31 @@ The implemented priority is:
 
 1. Investigate conflicts on the operator's PRs.
 2. Investigate failing CI on the operator's PRs.
-3. Ask the shared reviewer to assess whether review work is needed on observed green,
+3. Ask the shared reviewer to assess whether review work is needed on review-ready,
    non-draft PRs with known mergeability.
 4. Consider ready work from the single approved roadmap's optional frontier.
 
 Within each PR category, older updates come first, then PR number. Draft PRs can receive
-maintenance advice but not review-assessment advice. A green check summary is only a hint:
-this planner does not know required checks, trust their publishers, inspect accepted review
-records or prove that a review is needed. Neutral, skipped, absent and potentially capped
-check summaries do not become all-green. The execution adapter re-reads the exact
-head/base, invoke the existing review/gate logic, account for provider availability and
-budgets, and excludes already satisfied work before dispatch. No paid provider is queried.
+maintenance advice but not review-assessment advice. A green check summary is only a scheduling
+hint; it does not establish required checks or prove that a review is needed. Neutral, skipped,
+absent and potentially capped check summaries do not become all-green. The execution adapter
+re-reads the exact head/base, invokes the existing review/gate logic, accounts for provider
+availability and budgets, and excludes already satisfied work before dispatch. Planning invokes
+no paid provider.
+
+Live surveys emit `sphereceti.worker-survey/v2`, retaining aggregate `ci` and separately reporting
+`review_ci`. A sole failed `trusted-scope` may mean a successful build that requires human merging.
+Before treating that PR as review-ready, `worker_checks.py` verifies the exact human-review verdict
+through the shared check-provenance assessor: configured immutable producer/workflow IDs, current
+approved tooling, exact PR head/base/run attempt, successful build/status jobs, and publication
+timing. All other checks must pass. The failed aggregate CI and merge-scope verdict remain intact.
+Missing configuration, unknown/pending/failed checks and incomplete inventories cannot earn the
+exception. The shipped producer IDs are unconfigured, so this exception is initially unavailable.
+
+Legacy `v1` snapshots remain accepted and use aggregate `ci` conservatively. Saved `v2` snapshots
+are advisory, untrusted input: readiness values and timestamps are caller assertions, not authenticated
+evidence. Execution always surveys live state. Producer ID `41898282` is the generic GitHub Actions
+bot, not a project-specific identity; exact workflow/run binding supplies the project provenance.
 
 Dependency-graph repair, progress generation and review-response repair are explicitly
 reported as deferred stages, pending their existing adapters and authenticated evidence.

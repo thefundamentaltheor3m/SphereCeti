@@ -102,6 +102,26 @@ class PlannerTest(unittest.TestCase):
         for state in ('CLOSED', 'MERGED'):
             self.assertIsNone(self.run_plan(snapshot([pr(state=state)], scope=[1]), requested=(1,))['selected'])
 
+    def test_v2_review_readiness_keeps_failed_aggregate_visible(self):
+        data = snapshot([pr(ci='failed', review_ci='passed')], schema='sphereceti.worker-survey/v2')
+        report = self.run_plan(data)
+        self.assertEqual(report['selected']['stage'], 'review-assessment')
+        self.assertEqual(report['pull_requests'][0]['ci'], 'failed')
+        self.assertEqual(report['pull_requests'][0]['review_ci'], 'passed')
+        self.assertIn('merge scope is unchanged', report['pull_requests'][0]['reason'])
+        # A v1 observation makes no exception, including on the operator's own PR.
+        self.assertEqual(self.run_plan(snapshot([pr(ci='failed')]))['selected']['stage'], 'ci-repair')
+
+    def test_v2_readiness_requires_complete_consistent_schema(self):
+        variants = [snapshot([pr(review_ci='passed')]),
+                    snapshot([pr()], schema='sphereceti.worker-survey/v2'),
+                    snapshot([pr(ci='pending', review_ci='passed')], schema='sphereceti.worker-survey/v2'),
+                    snapshot([pr(ci='unknown', review_ci='passed')], schema='sphereceti.worker-survey/v2'),
+                    snapshot([pr(ci='passed', review_ci='failed')], schema='sphereceti.worker-survey/v2')]
+        for data in variants:
+            with self.subTest(data=data), self.assertRaises(WorkerError):
+                self.run_plan(data)
+
     def test_stable_oldest_pr_ties(self):
         older = '2026-09-12T11:00:00Z'
         report = self.run_plan(snapshot([pr(3), pr(2, updated_at=older), pr(1, updated_at=older)]))

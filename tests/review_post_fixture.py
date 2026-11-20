@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 import sys
 
-from review_fixture import ReviewFixture, commit, git
+from review_fixture import ReviewFixture, automation_policy, commit, git
 
 
 class PostingFixture(ReviewFixture):
@@ -11,8 +11,7 @@ class PostingFixture(ReviewFixture):
         super().__init__(root)
         git(self.repo,'checkout','-q',self.tooling)
         policy=self.repo/'policy/automation.toml'
-        policy.write_text(policy.read_text().replace('posting = false',f'posting = {str(posting).lower()}').replace(
-            'authorized_reviewers = []','authorized_reviewers = ["user:7"]'))
+        policy.write_text(automation_policy(posting=posting, authorized_reviewers=('user:7',)))
         self.tooling=commit(self.repo)
         (self.repo/'README.md').write_text('PROPOSED SENTINEL roadmap')
         self.head=commit(self.repo)
