@@ -76,6 +76,8 @@ def main(argv: list[str] | None = None) -> int:
     add_controller(commands)
     from .lifecycle_api import add_parser as add_maintenance, run as run_maintenance
     add_maintenance(commands)
+    from .authoring import add_parser as add_author, run as run_author
+    add_author(commands)
     for command in ('profile-plan', 'profile-run'):
         sub = commands.add_parser(command, help='local advisory exact-revision profiling')
         sub.add_argument('--repo', type=Path, required=True)
@@ -114,6 +116,14 @@ def main(argv: list[str] | None = None) -> int:
         preferences = parse_operator(operator_path.read_text() if operator_path else "")
     except (ConfigError, OSError, tomllib.TOMLDecodeError) as error:
         parser.exit(2, f"sphereceti: configuration error: {error}\n")
+
+    if args.command == 'author':
+        try:
+            report = run_author(args, project)
+        except (ValueError, OSError, GateError, subprocess.SubprocessError) as error:
+            parser.exit(2, f"sphereceti author: {error}\n")
+        print(json.dumps(report, indent=2))
+        return 0
 
     if args.command == "evaluation":
         try:
@@ -218,6 +228,8 @@ def main(argv: list[str] | None = None) -> int:
         "worker": {"planning": True, "review_round": True, "execution_readiness": "unverified",
                    "mathematical_authoring": False},
         "local_review": {"implemented": True, "advisory_only": True, "publishing": True},
+        "authoring_plan": {"implemented": True, "advisory_only": True, "execution": False,
+                           "publishing": False, "source_authority": "local_unverified"},
         "progress": {"implemented": True, "local_drafts": True, "publishing": False,
                      "production_evidence": "not_configured"},
         "merge_observation": {"implemented": True, "read_only": True, "activation_verified": False},
