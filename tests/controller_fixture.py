@@ -4,14 +4,14 @@ from pathlib import Path
 import sys
 
 from merge_fixture import MergeFixture
-from review_fixture import ROOT, commit, git
+from review_fixture import ROOT, DISABLED_CONTROLLER, commit, git
 
 
 class ControllerFixture(MergeFixture):
     def __init__(self,root):
         super().__init__(root)
         git(self.repo,'checkout','-q',self.tooling)
-        (self.repo/'policy/merge-controller.toml').write_text((ROOT/'policy/merge-controller.toml').read_text())
+        (self.repo/'policy/merge-controller.toml').write_text(DISABLED_CONTROLLER)
         self.tooling=commit(self.repo)
         state=self.api();state['tooling']=self.tooling;self.api_state.write_text(json.dumps(state))
         fake=self.bin/'gh';source=fake.read_text().replace('import json,pathlib,sys','import json,pathlib,sys,os\nassert "SPHERECETI_MERGE_TOKEN" not in os.environ')
