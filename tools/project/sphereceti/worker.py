@@ -91,7 +91,9 @@ def targets(values: list[str] | None) -> tuple[int, ...] | None:
 
 def validate_snapshot(data, project: ProjectConfig, now: datetime) -> None:
     fields(data, {"schema", "repository", "actor", "observed_at", "scope", "pull_requests"}, "snapshot")
-    require(data["schema"] == "sphereceti.worker-survey/v1", "unknown survey schema")
+    require(data["schema"] in ("sphereceti.worker-survey/v1", "sphereceti.worker-survey/v2"),
+            "unknown survey schema")
+    separate_review_ci = data["schema"] == "sphereceti.worker-survey/v2"
     require(data["repository"] == project.repository, "queue destination does not match the project")
     text(data["actor"], "actor")
     fresh(data["observed_at"], now)
@@ -103,8 +105,8 @@ def validate_snapshot(data, project: ProjectConfig, now: datetime) -> None:
     require(isinstance(prs, list) and len(prs) <= MAX_PRS, "queue exceeds the bounded survey limit")
     seen = set()
     for pr in prs:
-        fields(pr, {"number", "title", "author", "head", "base", "updated_at", "state", "draft",
-                    "mergeable", "ci"}, "pull request")
+        keys = {"number", "title", "author", "head", "base", "updated_at", "state", "draft", "mergeable", "ci"}
+        fields(pr, keys | ({"review_ci"} if separate_review_ci else set()), "pull request")
         n = pr["number"]
         require(type(n) is int and n > 0 and n not in seen, "invalid or duplicate pull request")
         seen.add(n)
@@ -117,6 +119,11 @@ def validate_snapshot(data, project: ProjectConfig, now: datetime) -> None:
         require(type(pr["draft"]) is bool, "draft must be boolean")
         choice(pr["mergeable"], ("MERGEABLE", "CONFLICTING", "UNKNOWN"), "mergeability")
         choice(pr["ci"], ("passed", "failed", "pending", "unknown"), "CI observation")
+        if separate_review_ci:
+            choice(pr["review_ci"], ("passed", "failed", "pending", "unknown"), "review CI observation")
+            require(pr["review_ci"] == pr["ci"] or
+                    (pr["ci"] == "failed" and pr["review_ci"] == "passed"),
+                    "review CI may only separate an observed scope failure")
         require(scope is not None or pr["state"] == "OPEN", "complete queue contains a closed PR")
     require(scope is None or set(scope) == seen, "targeted survey is missing or adds a PR")
 
@@ -186,19 +193,22 @@ def plan(snapshot, project: ProjectConfig, *, requested: tuple[int, ...] | None 
         stage = None
         reason = "No supported maintenance recommendation."
         own = pr["author"].casefold() == snapshot["actor"].casefold()
+        review_ci = pr.get("review_ci", pr["ci"])
         if pr["state"] != "OPEN":
             reason = "PR is closed or merged."
         elif own and pr["mergeable"] == "CONFLICTING":
             stage, reason = "rebase", "Resolve this operator's observed conflict before new work."
-        elif own and pr["ci"] == "failed":
+        elif own and review_ci == "failed":
             stage, reason = "ci-repair", "Investigate this operator's failing CI before new work."
         elif pr["draft"]:
             reason = "Draft PR; review assessment waits."
-        elif pr["mergeable"] != "MERGEABLE" or pr["ci"] != "passed":
+        elif pr["mergeable"] != "MERGEABLE" or review_ci != "passed":
             reason = "Review assessment waits for known mergeability and passing observed checks."
         else:
             stage, reason = "review-assessment", "Ask the shared engine whether current review work is needed."
-        diagnostics.append({"pr": pr["number"], "reason": reason})
+            if pr["ci"] != review_ci:
+                reason += " Reported human-review scope failure remains in aggregate CI; merge scope is unchanged."
+        diagnostics.append({"pr": pr["number"], "reason": reason, "ci": pr["ci"], "review_ci": review_ci})
         if stage:
             candidates.append({"stage": stage, "pr": pr["number"], "head": pr["head"], "base": pr["base"],
                                "destination": project.repository, "reason": reason,

@@ -8,12 +8,13 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import tomllib
 from types import SimpleNamespace
 import venv
 from package_contract import assert_installation
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tests'))
-from review_fixture import installed_smoke
+from review_fixture import automation_policy, installed_smoke
 from review_post_fixture import installed_post_smoke
 from archive_fixture import installed_archive_smoke
 from evaluation_fixture import installed_evaluation_smoke
@@ -46,6 +47,42 @@ assert sources()['files'].STATUS_MARKER == 'tauceti-status:v1'
 """
 
 
+POLICY_REGRESSIONS = r"""
+import contextlib, io, json
+from dataclasses import replace
+from unittest.mock import patch
+from sphereceti import cli
+from sphereceti.config import AutomationPolicy
+disabled = AutomationPolicy(review_generation=False, posting=False, authoring=False,
+                            reporting=False, merging=False, mathematical_paths=(),
+                            authorized_reviewers=())
+def invoke(args, policy):
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err), \
+            patch('sphereceti.cli.parse_policy', return_value=policy), \
+            patch('subprocess.run') as process, patch('subprocess.Popen') as provider:
+        try:
+            code = cli.main(args)
+        except SystemExit as error:
+            code = error.code
+        process.assert_not_called()
+        provider.assert_not_called()
+    return code, json.loads(out.getvalue()) if out.getvalue() else None, err.getvalue()
+code, report, _ = invoke(['worker', 'run', '--execute', '--pr', '1', '--json'], disabled)
+assert code == 0 and report['state'] == 'disabled'
+code, report, _ = invoke(['worker', 'run', '--loop', '--max-rounds', '2', '--execute', '--json'], disabled)
+assert code == 0 and report['state'] == 'disabled' and len(report['rounds']) == 1
+code, _, error = invoke(['worker', 'sync', '--receipt', 'survey.json'], disabled)
+assert code == 2 and 'disabled' in error
+enabled = replace(disabled, review_generation=True, posting=True, authorized_reviewers=('user:7',))
+with patch('sphereceti.worker_execution.survey', return_value={}) as survey, \
+        patch('sphereceti.worker_execution.plan', return_value={'selected': None, 'candidates': []}):
+    code, report, _ = invoke(['worker', 'run', '--execute', '--pr', '1', '--json'], enabled)
+assert code == 0 and report['state'] == 'unavailable'
+survey.assert_called_once()
+"""
+
+
 def main():
     wheels = list((ROOT / 'dist').glob('*.whl'))
     sdists = list((ROOT / 'dist').glob('*.tar.gz'))
@@ -63,7 +100,9 @@ def main():
             foreign.mkdir()
             (foreign / 'sphereceti.toml').write_text('repository = "attacker/checkout"\n')
             (foreign / 'policy').mkdir()
-            (foreign / 'policy' / 'automation.toml').write_text('merging = true\n')
+            (foreign / 'policy' / 'automation.toml').write_text(automation_policy(
+                review_generation=True, posting=True, authoring=True, reporting=True, merging=True,
+                mathematical_paths=('SphereCeti/Math',), authorized_reviewers=('user:999',)))
             (foreign / 'policy' / 'reporting.toml').write_text('docs_url = "https://attacker.invalid"\n')
             env = os.environ.copy()
             env.pop('PYTHONPATH', None)
@@ -72,8 +111,12 @@ def main():
             report = json.loads(result.stdout)
             assert report['project']['repository'] == 'thefundamentaltheor3m/SphereCeti'
             assert report['project']['implementation_repository'] == 'thefundamentaltheor3m/Sphere-Packing-Lean'
-            assert report['roadmap']['state'] == 'not_installed'
-            assert not any(report['policy'].values())
+            expected_project = tomllib.loads((ROOT / 'sphereceti.toml').read_text())
+            expected_roadmap = 'approved' if expected_project['sources']['roadmap_approved'] else 'not_installed'
+            assert report['roadmap']['state'] == expected_roadmap
+            expected_policy = tomllib.loads((ROOT / 'policy/automation.toml').read_text())
+            del expected_policy['schema_version']
+            assert report['policy'] == expected_policy, 'installed policy differs from reviewed source'
             assert report['queue']['state'] == 'not_checked'
             assert_installation(ROOT, python, foreign, env, report)
             assert report['progress']['local_drafts'] is True
@@ -119,20 +162,10 @@ def main():
             subprocess.run([str(python), '-c',
                 'from sphereceti.worker import targets; assert targets(["#3,2"]) == (2,3)'],
                 cwd=foreign, env=env, check=True)
-            disabled = subprocess.run([str(environment / 'bin' / 'sphereceti'), 'worker', 'run',
-                                       '--execute', '--pr', '1', '--json'], cwd=foreign, env=env,
-                                      text=True, capture_output=True, check=True)
-            assert json.loads(disabled.stdout)['state'] == 'disabled'
-            loop = subprocess.run([str(environment / 'bin' / 'sphereceti'), 'worker', 'run',
-                                   '--loop', '--max-rounds', '2', '--execute', '--json'],
-                                  cwd=foreign, env=env, text=True, capture_output=True, check=True)
-            assert json.loads(loop.stdout)['state'] == 'disabled'
-            assert len(json.loads(loop.stdout)['rounds']) == 1
-            # A hostile cwd cannot enable state publication either.
-            sync = subprocess.run([str(environment / 'bin' / 'sphereceti'), 'worker', 'sync',
-                                   '--receipt', str(survey)], cwd=foreign, env=env,
-                                  text=True, capture_output=True)
-            assert sync.returncode == 2 and 'disabled' in sync.stderr
+            # Explicit policies exercise both branches independently of repository activation.
+            # Mock process entry points so these regressions cannot contact a provider.
+            subprocess.run([str(python), '-I', '-c', POLICY_REGRESSIONS],
+                           cwd=foreign, env=env, check=True)
             command = str(environment / 'bin' / 'sphereceti')
             missing = subprocess.run([command, 'progress', 'plan', '--json'], cwd=foreign,
                                      env=env, text=True, capture_output=True)

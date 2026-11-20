@@ -34,6 +34,9 @@ class CompiledAuditsTest(unittest.TestCase):
         self.write('SphereCeti.lean')
         self.write('SphereCetiRoadmap.lean')
         self.policy = load_policy(ROOT / 'policy/audits.json')
+        # These disposable projects do not contain the installed mathematical roadmap.
+        self.policy['roadmap_admissions'] = []
+        self.approved_fixture_policy = copy.deepcopy(self.policy)
 
     def write(self, path, body='', imports='', *, module=True, header=True):
         file = self.root / path
@@ -42,10 +45,9 @@ class CompiledAuditsTest(unittest.TestCase):
                         imports + '\n' + body + '\n')
 
     def run_audit(self, *, custom_policy=False):
-        policy = ROOT / 'policy/audits.json'
-        if custom_policy:
-            policy = self.root / '.lake/approved-test-policy.json'
-            policy.write_text(json.dumps(self.policy))
+        # Select host-owned fixture policy explicitly; candidate policy is never consulted.
+        policy = self.root / '.lake/approved-test-policy.json'
+        policy.write_text(json.dumps(self.policy if custom_policy else self.approved_fixture_policy))
         env = os.environ.copy()
         env.update(LAKE_NO_CACHE='true', LAKE_ARTIFACT_CACHE='false')
         result = subprocess.run([sys.executable, '-I', str(ROOT / 'scripts/check_audits.py'),
@@ -173,6 +175,8 @@ public def typedIdentity (x : secretType) : secretType := x''')
 class AuditPolicyTest(unittest.TestCase):
     def setUp(self):
         self.policy = load_policy(ROOT / 'policy/audits.json')
+        # These disposable projects do not contain the installed mathematical roadmap.
+        self.policy['roadmap_admissions'] = []
         self.inventory = [{'name': 'SphereCeti', 'path': 'SphereCeti.lean', 'kind': 'library'},
                           {'name': 'SphereCetiRoadmap', 'path': 'SphereCetiRoadmap.lean', 'kind': 'roadmap'}]
         self.report = {'schema_version': 1, 'modules': [{'name': m['name'], 'isModule': True,

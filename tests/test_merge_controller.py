@@ -13,7 +13,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'tools/project'))
 from sphereceti.merge_activation import WORKFLOW, executor, parse_controller, protections
 from sphereceti.merge_controller import Writer, local_lock, reconcile
 from sphereceti.review_records import RecordError
-from sphereceti.config import resource_text
+from review_fixture import DISABLED_CONTROLLER
 
 REPO='thefundamentaltheor3m/SphereCeti'
 T='1'*40;H='2'*40;M='3'*40
@@ -177,13 +177,13 @@ class ActivationTests(unittest.TestCase):
                           ('path','.github/workflows/other.yml'),('run_attempt',2),('repository',{'full_name':'other/repo'})]:
             self.assertTrue(executor({**run,key:value},s,T,REPO,env))
 
-    def test_policy_remains_unconfigured_and_rejects_unknown_escape_hatches(self):
-        data=parse_controller(resource_text('merge-controller.toml'))
+    def test_unconfigured_policy_fixture_and_unknown_escape_hatches(self):
+        data=parse_controller(DISABLED_CONTROLLER)
         self.assertEqual(data['workflow_id'],0);self.assertEqual(data['bot_user_id'],0)
         for extra in ('\nbypass = true','\nprovider = "codex"'):
-            with self.assertRaises(ValueError):parse_controller(resource_text('merge-controller.toml')+extra)
-        with self.assertRaises(ValueError):parse_controller(resource_text('merge-controller.toml').replace('workflow_id = 0','workflow_id = true'))
-        with self.assertRaises(ValueError):parse_controller(resource_text('merge-controller.toml').replace('"squash"','"merge"'))
+            with self.assertRaises(ValueError):parse_controller(DISABLED_CONTROLLER+extra)
+        with self.assertRaises(ValueError):parse_controller(DISABLED_CONTROLLER.replace('workflow_id = 0','workflow_id = true'))
+        with self.assertRaises(ValueError):parse_controller(DISABLED_CONTROLLER.replace('"squash"','"merge"'))
 
 
 class TransportTests(unittest.TestCase):

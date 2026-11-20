@@ -91,13 +91,33 @@ def ci_summary(checks) -> str:
     return next(state for state in ("failed", "unknown", "pending", "passed") if state in observed)
 
 
-def normalize(pr) -> dict:
+def review_ci_summary(pr, project, api, *, aggregate=None) -> str:
+    """Preserve aggregate CI; only an authenticated scope failure is review-ready."""
+    checks = pr['statusCheckRollup']
+    if aggregate is None:
+        aggregate = ci_summary(checks)
+    if aggregate != 'failed' or len(checks) >= 100:
+        return aggregate
+    scope = [c for c in checks if c.get('__typename') == 'StatusContext' and
+             c.get('context') == 'trusted-scope' and c.get('state') == 'FAILURE']
+    if len(scope) != 1 or ci_summary([c for c in checks if c is not scope[0]]) != 'passed':
+        return aggregate
+    from .config import resource_text
+    from .merge_checks import parse_checks
+    from .worker_checks import human_review_scope
+    settings = parse_checks(resource_text('merge-checks.toml'))
+    return 'passed' if human_review_scope(api, project, pr, scope[0], settings) else aggregate
+
+
+def normalize(pr, project, api) -> dict:
     require(isinstance(pr, dict) and set(pr) == set(PR_FIELDS.split(",")), "incomplete PR observation")
     require(isinstance(pr["author"], dict), "missing PR author")
+    aggregate = ci_summary(pr["statusCheckRollup"])
     return {"number": pr["number"], "title": pr["title"], "author": pr["author"].get("login"),
             "head": pr["headRefOid"], "base": pr["baseRefOid"], "updated_at": pr["updatedAt"],
             "state": pr["state"], "draft": pr["isDraft"], "mergeable": pr["mergeable"],
-            "ci": ci_summary(pr["statusCheckRollup"])}
+            "ci": aggregate,
+            "review_ci": review_ci_summary(pr, project, api, aggregate=aggregate)}
 
 
 def survey(project, requested=None, *, api=None) -> dict:
@@ -112,10 +132,10 @@ def survey(project, requested=None, *, api=None) -> dict:
                 "open queue exceeds 100 PRs or is incomplete; use explicit --pr targeting")
     else:
         raw = [api.read(["pr", "view", str(number), *repo_args]) for number in requested]
-    result = {"schema": "sphereceti.worker-survey/v1", "repository": project.repository,
+    result = {"schema": "sphereceti.worker-survey/v2", "repository": project.repository,
               "actor": actor, "observed_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
               "scope": list(requested) if requested is not None else None,
-              "pull_requests": [normalize(pr) for pr in raw]}
+              "pull_requests": [normalize(pr, project, api) for pr in raw]}
     validate_snapshot(result, project, datetime.now(timezone.utc))
     return result
 
@@ -181,7 +201,7 @@ def render(report) -> str:
         return f"SphereCeti worker: {len(report['rounds'])} round(s), stopped: {report['state']}."
     if report["schema"] == "sphereceti.worker-round/v1":
         return f"SphereCeti worker: {report['state']}. " + report.get('reason', 'See --json for the round receipt.')
-    if report["schema"] == "sphereceti.worker-survey/v1":
+    if report["schema"] in ("sphereceti.worker-survey/v1", "sphereceti.worker-survey/v2"):
         return (f"Observed {len(report['pull_requests'])} PR(s) in {report['repository']} "
                 f"as {report['actor']}. Use --json to save the survey.")
     lines = [f"SphereCeti worker: advisory plan for {report['repository']}"]

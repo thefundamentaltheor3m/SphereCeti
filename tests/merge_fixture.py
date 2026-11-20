@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 import sys
 
-from review_fixture import ReviewFixture, ROOT, commit, git
+from review_fixture import ReviewFixture, ROOT, UNCONFIGURED_CHECKS, automation_policy, commit, git
 
 
 class MergeFixture(ReviewFixture):
@@ -11,10 +11,10 @@ class MergeFixture(ReviewFixture):
         super().__init__(root)
         git(self.repo,'checkout','-q',self.tooling)
         if approved_policy:
-            (self.repo/'policy/merge-checks.toml').write_text((ROOT/'policy/merge-checks.toml').read_text())
+            (self.repo/'policy/merge-checks.toml').write_text(UNCONFIGURED_CHECKS)
         if mathematical:
             policy=self.repo/'policy/automation.toml'
-            policy.write_text(policy.read_text().replace('mathematical_paths = []','mathematical_paths = ["SphereCeti/Math"]'))
+            policy.write_text(automation_policy(mathematical_paths=('SphereCeti/Math',)))
         self.tooling=commit(self.repo) if approved_policy or mathematical else self.tooling
         path=self.repo/('SphereCeti/Math/New.lean' if mathematical else 'README.md')
         path.parent.mkdir(parents=True,exist_ok=True);path.write_text('proposed content\n')

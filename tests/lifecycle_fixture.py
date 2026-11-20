@@ -4,7 +4,7 @@ from pathlib import Path
 import sys
 
 from merge_fixture import MergeFixture
-from review_fixture import ROOT, commit, git
+from review_fixture import ROOT, DISABLED_LIFECYCLE, automation_policy, commit, git
 
 
 class LifecycleFixture(MergeFixture):
@@ -17,6 +17,8 @@ class LifecycleFixture(MergeFixture):
             target = self.repo / name
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(data)
+        (self.repo / 'policy/automation.toml').write_text(automation_policy())
+        (self.repo / 'policy/lifecycle.toml').write_text(DISABLED_LIFECYCLE)
         self.tooling = commit(self.repo)
         (self.repo / 'README.md').write_text('proposed change\n')
         self.head = commit(self.repo)
