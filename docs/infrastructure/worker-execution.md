@@ -24,6 +24,8 @@ belong in production. All infrastructure lands before roadmap #1.
 sphereceti worker run --pr 9 --json                  # fresh plan only
 sphereceti worker run --pr 9 --execute --worker-id alice \
   --provider claude --budget-usd 5 --max-call-cost 1 --json
+# Optional exact Codex model, forwarded as `review --codex-model`:
+# --provider codex --auth subscription --codex-model gpt-6.1-sol
 # Optional publication flags on an executed round:
 # --post-review       publish through the existing authenticated review adapter
 # --publish-state     append a bounded outcome receipt to an initialized reviews branch
@@ -49,9 +51,14 @@ production integration; the optional single-roadmap frontier remains planning-on
 
 `--pr` has #21's strict narrowing rules. Execution always surveys live GitHub state; there
 is no snapshot-to-execution option. A run without `--execute` only plans. `--post-review` and
-`--publish-state` require explicit execution. Provider/auth/budget and materialized source-store
-options are forwarded to the existing reviewer; execution cannot select prospective tooling,
-local-unverified heads, shadow runs, arbitrary rubrics or local contest files.
+`--publish-state` require explicit execution. Provider/auth/budget, `--codex-model` and
+materialized source-store options are forwarded to the existing reviewer; execution cannot
+select prospective tooling, local-unverified heads, shadow runs, arbitrary rubrics or local
+contest files. Without `--codex-model` the engine's default Codex model applies, exactly as for
+`sphereceti review`. A pinned model must be priced, opts out of the automatic Terra fallback,
+and is named in the local `worker-result.json` receipt as `codex_model`; every archived run
+records the model it dispatched. See [model selection and accounting](local-review.md#codex-model-selection-and-accounting).
+Published state receipts keep their existing fields.
 
 ## Evidence, spending and cancellation
 

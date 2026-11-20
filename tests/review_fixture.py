@@ -122,7 +122,37 @@ print(json.dumps({"type": "result", "is_error": False, "result": marker + "\n" +
                   "total_cost_usd": 0.01, "usage": {"input_tokens": 100, "output_tokens": 10}}))
 ''')
         (self.bin / "claude").chmod(0o755)
-        self.env = {**os.environ, "HOME": str(self.home), "PATH": str(self.bin) + os.pathsep + os.environ["PATH"],
+        # Codex's JSONL shape, with usage in its total-input convention. No model is called.
+        (self.bin / "codex").write_text(f'#!{sys.executable}\n' + r'''
+import json, os, pathlib, re, sys
+root = pathlib.Path(__file__).parent
+home = pathlib.Path(os.environ["CODEX_HOME"])
+auth = home / "auth.json"
+call = {"argv": sys.argv[1:], "openai_key": os.environ.get("OPENAI_API_KEY"),
+        "codex_home": str(home), "tmpdir": os.environ.get("TMPDIR"), "home": os.environ["HOME"],
+        "auth": auth.read_text() if auth.exists() else None,
+        "leaked": sorted(k for k in ("GH_TOKEN", "PERSONAL_SECRET", "ANTHROPIC_API_KEY") if k in os.environ)}
+if sys.argv[1:3] == ["login", "--with-api-key"]:
+    call["login_key"] = sys.stdin.read()
+    with (root / "codex-calls.jsonl").open("a") as f:
+        f.write(json.dumps(call) + "\n")
+    sys.exit(0)
+prompt = sys.stdin.read()
+assert sys.argv[1:3] == ["exec", "--json"] and sys.argv[-1] == "-"
+call["prompt_ok"] = "SphereCeti" in prompt and "APPROVED SENTINEL" in prompt
+with (root / "codex-calls.jsonl").open("a") as f:
+    f.write(json.dumps(call) + "\n")
+marker = re.findall(r"TAUCETI-VERDICT-[a-z0-9]+", prompt)[-1]
+verdict = {"verdict": "approve", "summary": "Fake Codex result", "findings": []}
+for event in ({"type": "thread.started", "thread_id": "fake-thread"},
+              {"type": "item.completed", "item": {"type": "agent_message",
+                                                  "text": marker + "\n" + json.dumps(verdict)}},
+              {"type": "turn.completed", "usage": {"input_tokens": 100000, "cached_input_tokens": 80000,
+                                                   "output_tokens": 1000, "reasoning_output_tokens": 400}}):
+    print(json.dumps(event))
+''')
+        (self.bin / "codex").chmod(0o755)
+        self.env ={**os.environ, "HOME": str(self.home), "PATH": str(self.bin) + os.pathsep + os.environ["PATH"],
                     "GH_TOKEN": "test-github-token-must-not-reach-provider", "PERSONAL_SECRET": "test-personal-secret",
                     "ANTHROPIC_API_KEY": "test-provider-key", "OPENAI_API_KEY": "test-unselected-provider"}
         self.env.pop("PYTHONPATH", None)
@@ -143,6 +173,17 @@ print(json.dumps({"type": "result", "is_error": False, "result": marker + "\n" +
     def calls(self):
         path = self.bin / "calls.jsonl"
         return [json.loads(line) for line in path.read_text().splitlines()] if path.exists() else []
+
+    def codex_calls(self):
+        path = self.bin / "codex-calls.jsonl"
+        return [json.loads(line) for line in path.read_text().splitlines()] if path.exists() else []
+
+    def codex_subscription(self, login='{"auth_mode": "chatgpt", "tokens": "FAKE-CHATGPT-LOGIN"}'):
+        """A ChatGPT-login Codex subscription in the operator HOME; no API key reaches Codex."""
+        (self.home / ".codex").mkdir(exist_ok=True)
+        (self.home / ".codex/auth.json").write_text(login)
+        (self.home / ".codex/AGENTS.md").write_text("PERSONAL CODEX INSTRUCTIONS\n")
+        self.operator.write_text(self.operator.read_text().replace('provider = "claude"', 'provider = "codex"'))
 
     def ledger(self):
         return json.loads((self.root / "state/thefundamentaltheor3m__SphereCeti/engine/ledger.json").read_text())

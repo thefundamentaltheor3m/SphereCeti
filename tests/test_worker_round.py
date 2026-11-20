@@ -164,6 +164,53 @@ class WorkerRoundTest(unittest.TestCase):
         self.assertFalse(self.fixture.calls())
         self.assertEqual(receipt['coordination']['release'],'confirmed')
 
+    def codex_round(self,*extra):
+        import argparse
+        self.fixture.codex_subscription()
+        parser=argparse.ArgumentParser();add_parser(parser.add_subparsers(dest='command'))
+        self.args=parser.parse_args(['worker','run','--execute','--pr','1','--provider','codex',
+                                     '--auth','subscription','--source-repo',str(self.fixture.repo),
+                                     '--dependencies-dir',str(self.fixture.deps),*extra])
+        return self.run_round()
+
+    def test_explicit_codex_model_reaches_the_subscription_provider(self):
+        receipt=self.codex_round('--codex-model','gpt-6.1-sol')
+        self.assertEqual(receipt['state'],'complete')
+        self.assertEqual(receipt['codex_model'],'gpt-6.1-sol')
+        self.assertEqual(json.loads((Path(receipt['output'])/'worker-result.json').read_text())['codex_model'],
+                         'gpt-6.1-sol')
+        calls=self.fixture.codex_calls()
+        self.assertEqual(len(calls),10)
+        self.assertFalse(self.fixture.calls())
+        for call in calls:
+            self.assertEqual(call['argv'][call['argv'].index('-m')+1],'gpt-6.1-sol')
+            self.assertIsNone(call['openai_key'])
+            self.assertIn('FAKE-CHATGPT-LOGIN',call['auth'])
+            self.assertEqual(call['leaked'],[])
+        [record]=self.archive_records()
+        self.assertEqual(record['request']['auth'],'subscription')
+        self.assertEqual({(r['provider'],r['model']) for r in record['runs']},{('codex','gpt-6.1-sol')})
+        self.assertTrue(all(r['cost_estimated'] for r in record['runs']))
+        # Same estimate and shared ledger as the direct command: ten rubrics at $0.058 each.
+        self.assertAlmostEqual(sum(r['cost_usd'] for r in record['runs']),.58)
+        self.assertAlmostEqual(self.fixture.ledger()['days'][str(__import__('datetime').date.today())],.58)
+        self.assertEqual(len(self.api.all),2)  # lease acquisition/release only
+
+    def test_unspecified_codex_model_keeps_the_engine_default(self):
+        receipt=self.codex_round()
+        self.assertEqual(receipt['state'],'complete')
+        self.assertNotIn('codex_model',receipt)
+        models={c['argv'][c['argv'].index('-m')+1] for c in self.fixture.codex_calls()}
+        self.assertEqual(models,{'gpt-5.6-sol'})
+        self.assertEqual({r['model'] for r in self.archive_records()[0]['runs']},{'gpt-5.6-sol'})
+
+    def test_unpriced_codex_model_is_rejected_before_inference(self):
+        receipt=self.codex_round('--codex-model','gpt-99-sol')
+        self.assertEqual(receipt['state'],'error')
+        self.assertEqual(receipt['codex_model'],'gpt-99-sol')
+        self.assertFalse(self.fixture.codex_calls())
+        self.assertEqual(receipt['coordination']['release'],'confirmed')
+
     def test_unsupported_maintenance_never_falls_through_to_review(self):
         self.snapshot['pull_requests'][0].update(author='operator',ci='failed')
         self.assertEqual(self.run_round()['state'],'unavailable')

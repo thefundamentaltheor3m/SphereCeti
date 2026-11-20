@@ -55,10 +55,16 @@ using the same cache-aware formula `review.py` applies:
 cost = ((input − cached)·input_rate + cached·cache_read + output·output_rate) / 1e6
 ```
 
-escalating the whole request to the long-context tier when input crosses a model's
-threshold (e.g. gpt-5.5 above 272K). Real provider-billed costs
+The formula escalates the whole request to the long-context tier when input
+crosses a model's threshold (e.g. gpt-5.5 above 272K). Real provider-billed costs
 (`cost_estimated: false` — e.g. the claude CLI's self-reported `total_cost_usd`)
 are kept as recorded.
+
+In reports, `input_tokens` is total input traffic and `cached_input_tokens` is its
+cache-read portion. Claude and pi expose fresh input and cache reads separately;
+Claude also exposes cache writes. Codex includes cached input in `input_tokens`.
+The report normalizes those shapes before aggregation, including when it re-ingests
+older archived runs. Per-run archives retain the provider's raw usage fields.
 
 **Each run is priced as of its own date, not today's prices.** "What did this run
 cost?" must use the rate in effect when it ran — repricing a May run at June rates
@@ -69,6 +75,14 @@ runs keep the old rate); a correction of a wrong past table *edits* the window
 covering the affected dates. The engine bills at the newest window; the analysis
 prices each run at the window covering its run date. Because there is only one file,
 there is nothing to drift against.
+
+A window carries `input`, `output` and `cache_read`, plus the prompt-cache *write* rates
+the model's provider bills: `cache_write_5m` and `cache_write_1h` for Claude, which prices
+writes by cache TTL, and a single `cache_write` for the OpenAI models. The optional
+`long_context` block repeats the same fields for requests over its `threshold`.
+This engine bills no cache writes at all: the codex path leaves written tokens inside
+`input_tokens` and charges them at the input rate, and Claude runs take the CLI's own
+figure rather than a rate from this table.
 
 Three lenses, all derived, never stored as authoritative:
 
