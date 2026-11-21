@@ -108,21 +108,28 @@ on estimated spend, not a hard cap.
 | `--budget-usd` with `--max-call-cost` | `runner/review.py` `main`, both rubric phases | Before each rubric starts: skip it and later rubrics when ledger spend today + `--max-call-cost` > `--budget-usd`; `local_review.execution_settings` first requires `0 < --max-call-cost <= --budget-usd` | Stop threshold |
 | Ledger charge | `review.run_rubric`; `reviewers.run_codex` estimate | After all of a rubric's attempts finish, from Codex's final `turn.completed` usage at flat newest base rates | Accounting only |
 | Rubrics | `local_review.RUBRICS`; the worker passes no `--rubrics` | Each queued rubric runs at most once per invocation, so at most ten | Structural |
-| Attempts | `review.run_rubric` | One retry when no verdict. An unpinned Codex model may instead reconfirm and then retry on `gpt-5.6-terra`: three attempts. `--codex-model` disables that fallback: two attempts | Structural |
-| Concurrency | `local_review.store_lock`; sequential engine loop | One review per storage directory; one rubric and one Codex process at a time. Codex sub-agents, if used, run inside that process | Structural per store |
-| Runtime | `local_review.invoke_bridge` | 30 minutes for the whole engine run, then SIGTERM and SIGKILL after 5 seconds. No per-attempt or per-request timeout | Hard, time only |
+| Attempts | `review.run_rubric` | One retry when no verdict, unless that attempt's usage is unknown. An unpinned Codex model may instead reconfirm and then retry on `gpt-5.6-terra`: three attempts. `--codex-model` disables that fallback: two attempts | Structural |
+| Concurrency | `local_review.store_lock`; sequential engine loop | One review per storage directory; one rubric and one Codex process at a time | Structural per store |
+| Codex sub-agents | `reviewers.codex_single_agent_args` (engine `--codex-single-agent`) | Before each Codex attempt: a copy of the binary's bundled model catalog without `multi_agent_version`, plus `features.multi_agent_v2=false` and `features.multi_agent=false`. If the catalog cannot be read, the attempt is not dispatched | Enforced in the Codex configuration |
+| Attempt runtime | `reviewers.sh` (engine `--attempt-timeout`; `--attempt-timeout` on `review` and `worker run`, default 600, 1–1800 seconds) | Each provider attempt runs in its own process group. At the deadline, SIGTERM and then SIGKILL after 5 seconds stop the whole group, children included; children left by a finished CLI are also killed | Hard, time only |
+| Run runtime | `local_review.invoke_bridge` (`RUN_TIMEOUT`) | 30 minutes for the whole engine run, then SIGTERM and SIGKILL after 5 seconds. The bridge turns SIGTERM into cleanup of the running attempt's group | Hard, time only |
+| Unknown usage | `review.run_rubric` and `main` (engine `--usage-stop-file`); `local_review.execute` | After each attempt. One without reported usage gets `usage_status: unknown` and no cost, and a ledger `unknown_usage` entry beside the day's known spend. No retry or further rubric starts, and `stop_reason: usage_unknown` is recorded in `result.json`, `worker-result.json` and the round. A write-ahead `in_flight` ledger marker turns an attempt killed with the whole run into the same entry, reason `run_stopped` | Stop |
 | Guard | `ReviewGuard.check` (`worker_execution.py`) | Before launch, every 30 seconds, after the engine exits; failure kills the process group | Stops work, not spend |
 | Rounds | `worker_loop.run_loop` (`--loop --max-rounds` 1–20); engine `--max-rounds-per-day` 12 per PR | Between rounds; the daily ledger carries over | Structural |
 | Provider outage | `review.abort_provider_down` | After two consecutive authentication, quota or rate-limit attempts | Early stop |
 
-SphereCeti and the engine **do not limit** the number of model requests in one Codex attempt
-(tool-loop turns, Codex's own transport retries and any sub-agent requests), the input tokens
-per request, or the output tokens per request. In-process Codex compaction and its 10,000-token
-tool-output truncation are soft limits. The budget is not checked during a rubric: a rubric
-that has started finishes all of its attempts before the next check, so the unit of overshoot
-is **one whole rubric**, not one request. An attempt killed by the timeout, guard or a signal
-leaves no reported usage, so its spend never reaches the ledger. Later rounds of a `--loop`
-then start from an understated ledger.
+SphereCeti and the engine **still do not limit** the number of model requests in one Codex
+attempt (tool-loop turns and Codex's own transport retries), the input tokens per request, or the
+output tokens per request. **A ten-minute attempt has no known token ceiling**: the deadline
+bounds time, not tokens or dollars. In-process Codex compaction and its 10,000-token
+tool-output truncation are soft limits. The budget is not checked during a rubric. A rubric that
+has started finishes its attempts before the next check, so the unit of overshoot is **one whole
+rubric**, not one request. A timed-out or killed attempt reports no usage. Its spend is not in the
+ledger's dollar total, but it is no longer silent: it is marked unknown, and the round stops there.
+How the sub-agent setting was found: in codex-cli 0.171.0, `codex debug prompt-input` (run offline)
+offers `spawn_agent` and the other collaboration tools to `gpt-6.1-sol` with every
+`features.multi_agent*` flag off. It stops offering them once the catalog entry lacks
+`multi_agent_version: "v2"`. A later Codex release may change this.
 
 `review_cost_bound.round_cost_bound` (`tools/project/sphereceti/review_cost_bound.py`) shows
 what stated limits **would imply** if something held a round to them. It is not a budget to set.

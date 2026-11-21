@@ -111,6 +111,32 @@ class CodexReviewTests(unittest.TestCase):
         # TauCetiReview #175's 2026-08-21 window: 4.00 input, 0.40 cached, 20.00 output.
         self.assertAlmostEqual(self.spent_today(), 0.132)
 
+    def test_direct_review_attempt_deadline_stops_codex_and_its_child(self):
+        self.fixture.codex_subscription()
+        (self.fixture.bin / "codex-hang").write_text("all")
+        result = self.review("--auth", "subscription", "--codex-model", "gpt-6.1-sol",
+                             "--attempt-timeout", "2")
+        [pids] = self.fixture.codex_pids()
+        for pid in (pids["leader"], pids["child"]):
+            path = Path(f"/proc/{pid}/stat")
+            self.assertTrue(not path.exists() or path.read_text().rsplit(")", 1)[1].split()[0] == "Z", pid)
+        self.assertEqual(len(self.fixture.codex_calls()), 1)
+        self.assertEqual((result["stop_reason"], result["usage_unknown_rubrics"]),
+                         ("usage_unknown", ["correctness"]))
+        [(record, run)] = self.archived_runs()
+        self.assertEqual(run["usage_status"], "unknown")
+        self.assertNotIn("cost_usd", run)
+
+    def test_attempt_deadline_must_be_whole_bounded_seconds(self):
+        self.fixture.codex_subscription()
+        for value in ("0", "1801"):
+            process = self.fixture.run(output="result-" + value,
+                                       extra=("--provider", "codex", "--rubrics", "correctness",
+                                              "--auth", "subscription", "--attempt-timeout", value))
+            self.assertNotEqual(process.returncode, 0)
+            self.assertIn("--attempt-timeout", process.stdout + process.stderr)
+        self.assertEqual(self.fixture.codex_calls(), [])
+
     def test_unpriced_model_is_still_rejected_before_inference(self):
         self.fixture.codex_subscription()
         process = self.fixture.run(extra=("--provider", "codex", "--rubrics", "correctness",

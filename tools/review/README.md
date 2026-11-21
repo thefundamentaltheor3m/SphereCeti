@@ -75,9 +75,16 @@ The local changes are:
   `tests/test_review_sandbox.py` at the repository root, where subprocesses are permitted.
 - Remove the old CLI's mutable `main` fallback for missing engine/rubric resources.
   Exact upstream source links and the historical schema/marker vocabulary retain TauCeti names.
+- Add opt-in attempt bounds to `runner/reviewers.py` and `runner/review.py`, marked
+  `SphereCeti local adaptation`. They are off unless the local adapter passes them.
+  `--attempt-timeout` stops one provider attempt's whole process group.
+  `--codex-single-agent` withholds Codex sub-agent tools. `--usage-stop-file` records an attempt
+  without reported usage as unknown (with a write-ahead in-flight ledger marker) and starts no
+  further attempt or rubric after it. See
+  [when the worker stops spending](../../docs/infrastructure/worker-execution.md#when-the-worker-stops-spending).
 
-Provider adapters, contests, shadow runs, budgeting, rendering, and verdict semantics remain
-upstream's. In particular, the legacy scoreboard rules are preserved for their regression
+Provider adapters, contests, shadow runs, budgeting, rendering, and verdict semantics otherwise
+remain upstream's. In particular, the legacy scoreboard rules are preserved for their regression
 tests; they do **not** authorize SphereCeti merges. The original common rubric still describes TauCeti's project context. The adapter uses the
 explicit `project/_common.md` and `project/scope.md` overlays in its effective prompt copy, with
 a separate content digest. The separate record adapter authenticates publishing identities from GitHub API metadata.
