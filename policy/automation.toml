@@ -1,7 +1,7 @@
 # Repository-owned policy, never loaded from an operator preferences file.
 schema_version = 1
-review_generation = false
-posting = false
+review_generation = true
+posting = true
 authoring = false
 reporting = false
 merging = false

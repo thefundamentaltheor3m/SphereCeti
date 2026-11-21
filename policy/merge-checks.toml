@@ -1,5 +1,9 @@
 # Reviewed GitHub API IDs, never display names or a caller-directory override.
-# Populate only after the trusted candidate workflow lands and its producer is verified.
+# Verified read-only on 2026-11-21. Workflow 358051984 is .github/workflows/pr-build.yml
+# ("Trusted candidate"), the only workflow here granting `statuses: write`. On PR #30's head
+# 5268bcc, both `trusted-build` and `trusted-scope` were created by github-actions[bot] (41898282)
+# and link to run 44826070117 of that workflow (pull_request_target, same head, attempt 1).
+# The bot ID is shared by every workflow; it authenticates only together with that run binding.
 schema_version = 1
-workflow_id = 0
-status_creator_ids = []
+workflow_id = 358051984
+status_creator_ids = [41898282]
