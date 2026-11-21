@@ -25,8 +25,14 @@ class EvaluationTests(unittest.TestCase):
         from contextlib import redirect_stdout
         from io import StringIO
         from sphereceti import cli
+        from sphereceti.config import parse_policy
+        # Pin a disabled policy explicitly: the renderer contract must not depend on the shipped
+        # policy, which review-only activation turns on.
+        disabled = parse_policy('schema_version = 1\nreview_generation = false\nposting = false\n'
+                                'authoring = false\nreporting = false\nmerging = false\n'
+                                'mathematical_paths = []\nauthorized_reviewers = []\n')
         output=StringIO()
-        with redirect_stdout(output):
+        with redirect_stdout(output), patch.object(cli, 'parse_policy', return_value=disabled):
             self.assertEqual(cli.main(['worker','run','--execute']),0)
         self.assertIn('SphereCeti worker: disabled',output.getvalue())
 
