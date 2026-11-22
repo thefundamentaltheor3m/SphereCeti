@@ -160,7 +160,15 @@ class SyncTests(unittest.TestCase):
         lease.acquire()
         record=receipt();record['coordination'].update(claim=lease.claim,lease_comment=lease.last['comment_id'])
         api=StateAPI()
-        effective = resource_text('automation.toml').replace('review_generation = false','review_generation = true').replace('posting = false','posting = true').replace('authorized_reviewers = []','authorized_reviewers = ["user:7", "user:8"]')
+        import re
+        # Set the fixture values whatever the shipped policy says, so this does not depend on whether
+        # review generation is activated in the repository's own policy.
+        effective = resource_text('automation.toml')
+        for line in ('review_generation = true', 'posting = true',
+                     'authorized_reviewers = ["user:7", "user:8"]'):
+            name = line.split(' =')[0]
+            effective, count = re.subn(rf'^{name} = .*$', line, effective, flags=re.M)
+            self.assertEqual(count, 1)
         resources = {'sphereceti.toml': resource_text('sphereceti.toml'), 'automation.toml': effective}
         original=api.call
         def read(endpoint,**kwargs):
