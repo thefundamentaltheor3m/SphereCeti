@@ -9,6 +9,7 @@ from pathlib import Path
 import subprocess
 import time
 
+from .local_review import ATTEMPT_TIMEOUT
 from .worker import (MAX_PRS, WorkerError, plan, require, targets, text,
                      validate_snapshot)
 
@@ -169,6 +170,8 @@ def add_parser(commands):
     run.add_argument("--budget-usd", type=float)
     run.add_argument("--max-call-cost", type=float, default=1.0)
     run.add_argument("--codex-model", help="exact Codex model, as for `review`; default: the engine's")
+    run.add_argument("--attempt-timeout", type=int, default=ATTEMPT_TIMEOUT,
+                     help="seconds before one provider attempt is stopped, as for `review`")
     sync = sub.add_parser("sync", help="explicitly retry one operational run receipt; no provider")
     sync.add_argument("--receipt", type=Path, required=True)
     sync.add_argument("--json", action="store_true")

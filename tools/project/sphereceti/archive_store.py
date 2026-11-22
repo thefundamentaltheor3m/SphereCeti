@@ -144,6 +144,8 @@ def facts(source, allowed):
         elif key in ('cost_usd', 'duration_s', 'secs'):
             require(type(value) in (int, float) and math.isfinite(value) and 0 <= value <= 1e12,
                     'invalid numeric run fact')
+        elif key == 'usage_status':
+            require(value == 'unknown', 'invalid usage status')
         elif key == 'returncode':
             require(type(value) is int and -255 <= value <= 255, 'invalid exit code')
         else:
@@ -152,9 +154,11 @@ def facts(source, allowed):
     return result
 
 
+# `usage_status` is "unknown" when an attempt (or a run containing one) reported no usage; its
+# cost is then absent, never zero.
 RUN_FACTS = {'run_id', 'provider', 'model', 'rubric', 'prompt_policy', 'prices_sha',
-             'prompt_sha256', 'duration_s', 'usage', 'cost_usd', 'cost_estimated'}
-ATTEMPT_FACTS = {'model', 'secs', 'returncode', 'usage', 'cost_usd', 'cost_estimated'}
+             'prompt_sha256', 'duration_s', 'usage', 'cost_usd', 'cost_estimated', 'usage_status'}
+ATTEMPT_FACTS = {'model', 'secs', 'returncode', 'usage', 'cost_usd', 'cost_estimated', 'usage_status'}
 
 
 def project_run(source, review, request=None):

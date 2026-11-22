@@ -108,21 +108,63 @@ on estimated spend, not a hard cap.
 | `--budget-usd` with `--max-call-cost` | `runner/review.py` `main`, both rubric phases | Before each rubric starts: skip it and later rubrics when ledger spend today + `--max-call-cost` > `--budget-usd`; `local_review.execution_settings` first requires `0 < --max-call-cost <= --budget-usd` | Stop threshold |
 | Ledger charge | `review.run_rubric`; `reviewers.run_codex` estimate | After all of a rubric's attempts finish, from Codex's final `turn.completed` usage at flat newest base rates | Accounting only |
 | Rubrics | `local_review.RUBRICS`; the worker passes no `--rubrics` | Each queued rubric runs at most once per invocation, so at most ten | Structural |
-| Attempts | `review.run_rubric` | One retry when no verdict. An unpinned Codex model may instead reconfirm and then retry on `gpt-5.6-terra`: three attempts. `--codex-model` disables that fallback: two attempts | Structural |
-| Concurrency | `local_review.store_lock`; sequential engine loop | One review per storage directory; one rubric and one Codex process at a time. Codex sub-agents, if used, run inside that process | Structural per store |
-| Runtime | `local_review.invoke_bridge` | 30 minutes for the whole engine run, then SIGTERM and SIGKILL after 5 seconds. No per-attempt or per-request timeout | Hard, time only |
+| Attempts | `review.run_rubric` | One retry when no verdict, unless that attempt's usage is unknown. An unpinned Codex model may instead reconfirm and then retry on `gpt-5.6-terra`: three attempts. `--codex-model` disables that fallback: two attempts | Structural |
+| Concurrency | `local_review.store_lock`; sequential engine loop | One review per storage directory; one rubric and one Codex process at a time | Structural per store |
+| Codex sub-agents | `reviewers.codex_single_agent_args` (engine `--codex-single-agent`) | Before each Codex attempt: a copy of the binary's bundled model catalog without `multi_agent_version`, plus `features.multi_agent_v2=false` and `features.multi_agent=false`. If the catalog cannot be read, the attempt is not dispatched | Enforced in the Codex configuration |
+| Attempt runtime | `reviewers.sh` and `reviewers.run_codex` (engine `--attempt-timeout`; `--attempt-timeout` on `review` and `worker run`, default 600, 1–1800 seconds) | One deadline per attempt, set when the attempt starts and shared by every command in it. For Codex that is login (API mode), the catalog probe and `codex exec`, so probe time is taken from exec's remaining time. With no time left, exec is never started and the attempt fails closed without reaching the model. Each command runs in its own process group. At the deadline, SIGTERM and then SIGKILL after 5 seconds stop that group, children included. Children left by a finished command are also killed. Kill escalation can add up to 10 seconds beyond the deadline | Hard, time only |
+| Run runtime | `local_review.invoke_bridge` (`RUN_TIMEOUT`) | 30 minutes for the whole engine run, then SIGTERM and SIGKILL after 5 seconds. The bridge turns SIGTERM into cleanup of the running attempt's group | Hard, time only |
+| Unknown usage | `review.usage_unknown_reason`, `run_rubric` and `main` (engine `--usage-stop-file`); `local_review.execute` | After each attempt. A dispatched Codex attempt's usage is known only if it exited 0, reported complete token fields, and was not stopped by the deadline or a signal. Complete token fields means `input_tokens`, `cached_input_tokens` and `output_tokens` are all non-negative integers, with cached at most input. For other providers, known means a finite non-negative reported cost from an attempt not stopped by the deadline or a signal. Otherwise the attempt gets `usage_status: unknown`, no cost and a reason (`not_reported`, `incomplete`, `exit_nonzero`, `exit_nonzero_after_usage`, `timeout`, `timeout_after_usage`, `killed` or `killed_after_usage`). It also gets a ledger `unknown_usage` entry beside the day's known spend. Reported counters and the exit code are kept as provenance but never priced. In this mode a verdict printed by a failed attempt (nonzero exit or CLI-reported failure) is rejected, so the rubric records `error`. An attempt that fails closed before `codex exec` starts (`dispatched: false`) used no model and stays a known $0. No retry or further rubric starts, and `stop_reason: usage_unknown` is recorded in `result.json`, `worker-result.json` and the round. A write-ahead `in_flight` ledger marker turns an attempt killed with the whole run into the same entry, reason `run_stopped` | Stop |
 | Guard | `ReviewGuard.check` (`worker_execution.py`) | Before launch, every 30 seconds, after the engine exits; failure kills the process group | Stops work, not spend |
 | Rounds | `worker_loop.run_loop` (`--loop --max-rounds` 1–20); engine `--max-rounds-per-day` 12 per PR | Between rounds; the daily ledger carries over | Structural |
 | Provider outage | `review.abort_provider_down` | After two consecutive authentication, quota or rate-limit attempts | Early stop |
 
-SphereCeti and the engine **do not limit** the number of model requests in one Codex attempt
-(tool-loop turns, Codex's own transport retries and any sub-agent requests), the input tokens
-per request, or the output tokens per request. In-process Codex compaction and its 10,000-token
-tool-output truncation are soft limits. The budget is not checked during a rubric: a rubric
-that has started finishes all of its attempts before the next check, so the unit of overshoot
-is **one whole rubric**, not one request. An attempt killed by the timeout, guard or a signal
-leaves no reported usage, so its spend never reaches the ledger. Later rounds of a `--loop`
-then start from an understated ledger.
+SphereCeti and the engine **still do not limit** the number of model requests in one Codex
+attempt (tool-loop turns and Codex's own transport retries), the input tokens per request, or the
+output tokens per request. **A ten-minute attempt has no known token ceiling**: the deadline
+bounds time, not tokens or dollars. In-process Codex compaction and its 10,000-token
+tool-output truncation are soft limits. The budget is not checked during a rubric. A rubric that
+has started finishes its attempts before the next check, so the unit of overshoot is **one whole
+rubric**, not one request. A timed-out or killed attempt reports no usage. Its spend is not in the
+ledger's dollar total, but it is no longer silent: it is marked unknown, and the round stops there.
+A bridge killed with SIGKILL runs none of its cleanup, and a provider's descendants can leave
+its process group. Only an outer supervisor contains that case. The repository's
+`scripts/smoke_process.py` (from #30) runs a command under a private Linux child-subreaper and
+then stops and reaps every adopted descendant through pidfds; it needs no root or cgroups.
+`test_outer_supervisor_reaps_codex_after_the_bridge_is_killed` runs `sphereceti review` under it
+with a fake Codex whose child has its own session. It SIGKILLs the bridge and checks that the
+supervisor reports `cleanup_verified` and that the leader, the child and the bridge are all
+gone. On the canary host, run the round through `scripts/run_supervised.py`, which wraps the
+same supervisor. Run it from the repository root and check its exit status:
+
+```bash
+python3 -I scripts/run_supervised.py --timeout 2100 -- \
+  sphereceti worker run --pr N --execute --provider codex --codex-model gpt-6.1-sol \
+  --budget-usd B --max-call-cost R --json
+echo "supervised status: $?"
+```
+
+The worker's output passes through. The last line is the supervisor's JSON report, and the exit
+status carries the outcome, so a calling script must stop on any nonzero status:
+
+| Status | Meaning | Last line, for example |
+| --- | --- | --- |
+| 0 | Worker exited 0, cleanup verified, timeout not reached | `{"cleanup_verified": true, "exit_code": 0}` |
+| N | Worker's own nonzero status (128 + signal number if a signal ended it); cleanup verified | `{"cleanup_verified": true, "exit_code": 1}` |
+| 124 | The `--timeout` (default 2100 seconds) fired; every descendant was stopped | `{"cleanup_verified": true, "reason": "stage timeout; owned descendants stopped"}` |
+| 125 | Cleanup unverified: the supervisor failed or the wrapper was interrupted. Check for leftover `codex` processes before any further round | `{"cleanup_verified": false, "reason": "...; cleanup unverified"}` |
+| 126 | The worker could not be started | `{"cleanup_verified": true, "reason": "[Errno 2] ..."}` |
+| 130 | The supervisor was terminated before the worker finished; descendants were stopped | `{"cleanup_verified": true, "reason": "stage interrupted; owned descendants stopped"}` |
+| 2 | Usage error; nothing was run | none |
+
+`sphereceti worker run` itself exits 0 or 1. With status 0 or N, a `reason` of "command left
+descendant processes; owned descendants stopped" means the worker left processes behind, which
+were then stopped. `-I` keeps a module in the current directory from shadowing the supervisor.
+B and R are the operator's own stop threshold, not values this document recommends.
+
+How the sub-agent setting was found: in codex-cli 0.171.0, `codex debug prompt-input` (run offline)
+offers `spawn_agent` and the other collaboration tools to `gpt-6.1-sol` with every
+`features.multi_agent*` flag off. It stops offering them once the catalog entry lacks
+`multi_agent_version: "v2"`. A later Codex release may change this.
 
 `review_cost_bound.round_cost_bound` (`tools/project/sphereceti/review_cost_bound.py`) shows
 what stated limits **would imply** if something held a round to them. It is not a budget to set.

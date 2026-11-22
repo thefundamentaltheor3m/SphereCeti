@@ -168,7 +168,8 @@ normal case files intact. Executed arms additionally require `--shadow-budget-us
 attempt, including unsuccessful runs. No archive is pushed. Daily and per-call reservations
 use upstream cost estimates; they are not a provider-enforced billing limit. Provider failures
 are errors, never approvals. Execution has a 30-minute limit and terminates its process group
-on timeout or interruption.
+on timeout or interruption. Each provider attempt also has its own `--attempt-timeout` (default
+600 seconds); see [when the worker stops spending](worker-execution.md#when-the-worker-stops-spending).
 
 ## Codex model selection and accounting
 
