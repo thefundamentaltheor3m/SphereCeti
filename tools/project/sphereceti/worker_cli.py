@@ -168,6 +168,7 @@ def add_parser(commands):
     run.add_argument("--auth", choices=("subscription", "api"), default="subscription")
     run.add_argument("--budget-usd", type=float)
     run.add_argument("--max-call-cost", type=float, default=1.0)
+    run.add_argument("--codex-model", help="exact Codex model, as for `review`; default: the engine's")
     sync = sub.add_parser("sync", help="explicitly retry one operational run receipt; no provider")
     sync.add_argument("--receipt", type=Path, required=True)
     sync.add_argument("--json", action="store_true")

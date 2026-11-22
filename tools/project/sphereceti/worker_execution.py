@@ -125,10 +125,16 @@ def review_arguments(args, number):
     parser = argparse.ArgumentParser()
     local_review.add_parser(parser.add_subparsers(dest='command'))
     review = parser.parse_args(['review', str(number)])
-    for key in ('source_repo', 'dependencies_dir', 'provider', 'auth', 'budget_usd', 'max_call_cost'):
+    for key in ('source_repo', 'dependencies_dir', 'provider', 'auth', 'budget_usd', 'max_call_cost',
+                'codex_model'):
         setattr(review, key, getattr(args, key))
     review.post = args.post_review
     return review
+
+
+def requested_model(args):
+    # Local receipts name an explicit pin; each archived run records the model it dispatched.
+    return {'codex_model': args.codex_model} if args.codex_model else {}
 
 
 def run_round(args, project, policy, prefs, *, assessed=frozenset()):
@@ -176,12 +182,13 @@ def _run_round(args, project, policy, prefs, *, assessed=frozenset()):
             local_review.write_json(Path(guard.report['output']) / 'worker-result.json', {
                 'schema': 'sphereceti.worker-round/v1', 'state': 'interrupted', 'executed': None,
                 'repository': project.repository, 'pr': selected['pr'],
-                'reason': str(error), 'coordination': guard.receipt})
+                'reason': str(error), 'coordination': guard.receipt, **requested_model(args)})
         raise
     receipt = {'schema': 'sphereceti.worker-round/v1', 'state': result['completion'], 'executed': True,
                'repository': project.repository, 'pr': selected['pr'], 'head': result['head'],
                'base': result['base'], 'tooling': result['tooling'], 'output': result['output'],
-               'coordination': guard.receipt, 'publication': result.get('publication')}
+               'coordination': guard.receipt, 'publication': result.get('publication'),
+               **requested_model(args)}
     local_review.write_json(Path(result['output']) / 'worker-result.json', receipt)
     if args.publish_state:
         from .worker_state import publish_state

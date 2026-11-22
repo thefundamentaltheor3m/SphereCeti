@@ -8,6 +8,7 @@ The `sphereceti` command supplies project diagnostics and the adapters credited 
 | `doctor`, `status` | Project identity, policy and queue diagnostics (below) |
 | `review` | [Local advisory review](local-review.md) |
 | `review --read-records / --post` | [Authenticated records and explicit publication](review-records.md) |
+| `review-check-sandbox` | [Credential-free Codex sandbox diagnostic](local-review.md#codex-sandbox-diagnostic) |
 | `archive` | [Durable review records](review-archive.md) |
 | `worker plan` | [Worker planning](worker.md) |
 | `worker run` | [Guarded execution and leases](worker-execution.md) |
