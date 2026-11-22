@@ -6,5 +6,8 @@ authoring = false
 reporting = false
 merging = false
 mathematical_paths = []
-authorized_reviewers = []
+# Canary worker, verified read-only on 2026-11-22 with `gh api user`: login cameronfreer, id 2009342
+# (type User, repository permission write). This is the maintainer's own account, used for the
+# first canary only; dedicated worker accounts and other reviewers are added in later policy PRs.
+authorized_reviewers = ["user:2009342"]
 # Future authorization uses immutable GitHub identities: "user:12345" or "app:12345".
