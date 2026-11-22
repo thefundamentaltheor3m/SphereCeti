@@ -478,6 +478,39 @@ uniqueness.
 - [ ] **Relationship to SphereCeti:** supplies B2 as the rootless case, but is much broader than the
   minimum needed for Leech packing uniqueness.
 
+### D8. Generic destinations from the coefficient construction
+
+These come from the sibling roadmap in `SphereCetiRoadmap/CoefficientMagic/`.  None is required
+by the main theorems on density and periodic uniqueness.
+
+- [ ] **Differentiated Poisson summation.**  The dilation identity for a lattice and a Schwartz
+  function, termwise differentiation in the dilation parameter, and the first-shell identity for
+  a self-dual lattice of covolume one: `Poisson.dilation`, `Poisson.hasDerivAt_dilation`,
+  `Poisson.firstShell_deriv`.  Destination: TauCeti, beside
+  `SchwartzMap.tsum_eq_tsum_dual_fourier`.  It is useful to both constructions of the magic
+  functions as a check of normalizations.
+- [ ] **Theta quartics and their vector-valued covariants.**  `θ₂⁴`, `θ₄⁴` with their `S` and
+  `T` laws, Jacobi's identity, the product formula for `Δ`, and the two covariants `V₂`, `W₄`
+  with `det [V₂, W₄]² = 576 Δ`.  Destination: Mathlib or TauCeti modular forms, after the
+  production Jacobi-theta files migrate.
+- [ ] **Derivative blocks.**  The triangular transformation law of
+  `(F, D F, D² F)`-type combinations of weakly holomorphic forms: `Witness.plusBlock_S`.
+  Destination: TauCeti, with the normalized derivative.
+- [ ] **A positive equation from a compact regularizer.**  Coercivity and invertibility of
+  `(I - K)* (I - K) + A* A + λ* λ` for compact `K` when `A` and `λ` have no common kernel:
+  `Regularized.exists_coercive`, `Regularized.isUnit_positiveOp`.  Destination: TauCeti, beside
+  `ContinuousLinearMap.exists_pos_mul_norm_le_of_compact_estimate` and the finite-section API,
+  which then give exact Galerkin convergence.
+- [ ] **Hardy-space and Cauchy-integral bridges.**  Trace and gluing across an analytic arc, area
+  estimates, removal of a puncture, and Cauchy coefficient estimates for Laurent series on an
+  annulus.  Destination: TauCeti complex analysis, consuming `TauCeti.HardySpace`.  State the
+  missing bridges, not a general Hardy theory.
+- [ ] **Vector bundles on the modular orbifold.**  Holomorphic vector bundles given by an
+  automorphy factor with a cusp frame, their global sections, and a Riemann–Roch theorem with
+  elliptic and cusp contributions.  This is a separate, substantial TauCeti roadmap.  TauCeti's
+  divisor cohomology proves a point-twist Euler-characteristic step under a finiteness
+  hypothesis on `H¹`; it is not the required theorem.
+
 ## E. Candidates that should remain in SphereCeti/Sphere-Packing
 
 The following are application-specific and should not be pushed upstream merely because they are
@@ -492,7 +525,9 @@ important:
   permutations under `z ↦ -1/z`;
 - [ ] E8/Leech packing density formulas;
 - [ ] the equality-case path from a periodic packing to a generated lattice;
-- [ ] the main theorems on optimality and periodic uniqueness.
+- [ ] the main theorems on optimality and periodic uniqueness;
+- [ ] the coefficient systems, the synthesis map, the six-function analytic solution space, the
+  finite modular witnesses, and the comparison with the existing magic functions.
 
 General sublemmas inside those developments may still be upstream candidates, but the application
 assembly belongs with the application.

@@ -15,6 +15,11 @@ suggested formal statements of the key definitions and theorems, but it is delib
 nonexhaustive and may be adjusted when implementation reveals a form closer to Mathlib's
 conventions.
 
+A sibling roadmap,
+[Coefficient construction of the E8 and Leech magic functions](SphereCetiRoadmap/CoefficientMagic/README.md),
+is incorporated here by reference and summarized [below](#sibling-roadmap-coefficient-construction-of-the-magic-functions).
+It shares the analytic and certificate interfaces of this roadmap and adds no dependency to it.
+
 ## Reading this roadmap
 
 Readers who do not use Lean may find the following conventions helpful.
@@ -987,6 +992,51 @@ radius, energy per point, admissible potentials, completely monotone functions, 
 Hausdorff/local-frame metrics, and quantitative estimates.  They deserve separate TauCeti roadmaps.
 SphereCeti must preserve exact zero multiplicities and estimates for reuse by those roadmaps.
 
+# Sibling roadmap: coefficient construction of the magic functions
+
+[`SphereCetiRoadmap/CoefficientMagic/README.md`](SphereCetiRoadmap/CoefficientMagic/README.md) is
+part of this roadmap's specification.  It asks for a second, independent construction of the two
+magic functions: as the unique normalized solutions of explicit linear systems for coefficient
+vectors in `ℓ²`, following *A construction of the sphere-packing magic functions in dimensions 8
+and 24* (Hexagon 2610.00330v1).  The paper is material to verify, not an imported result.
+
+It has four separately reported summits:
+
+| Summit | What completion means |
+|---|---|
+| Independent coefficient construction | Existence and uniqueness of the normalized solution in the whole stated `ℓ²` space, with real coefficients and weighted decay, using neither the existing magic functions nor Fourier interpolation. |
+| Comparison and certificate | Equality with `E8.magic` and `Leech.magic`, transfer of their sign inequalities, and the same `CohnElkies.Certificate`. |
+| Regularization and approximation | The paper's compact regularizer on arbitrary coefficient vectors, bounded invertibility of the positive equation, and exact Galerkin convergence. |
+| Geometric correspondence and index | Identification of the analytic solution space with the global sections of a rank-six orbifold bundle, and its Euler characteristic. |
+
+The first summit does not wait for the fourth.  Existence is to be proved from an explicit finite
+modular witness, worked out in
+[`FINITE_SECTION_EXISTENCE.md`](SphereCetiRoadmap/CoefficientMagic/FINITE_SECTION_EXISTENCE.md),
+rather than from Riemann–Roch; uniqueness needs the continuation of every kernel vector to a
+global analytic solution, which is the central analytic target.
+
+The division of ownership with the layers above is:
+
+| Material | Treatment in the sibling roadmap |
+|---|---|
+| Packing semantics, canonical lattices, density (Layers 1–3, 6) | Referenced, not repeated. |
+| Poisson summation and shell cardinalities (Layers 4–5) | Consumed from the pinned TauCeti. |
+| Radial Schwartz maps, the Fourier convention (Layer 7) | Shared; `CONVENTIONS.md` §11 remains authoritative. |
+| Cohn–Elkies certificates (Layer 4) | The same `Certificate` type and `Certificate.ofRadial` constructor. |
+| Existing magic functions and their sign proofs (Layer 9) | Consumed by the comparison summit only. |
+| Coefficient synthesis, sample equations, continuation, the six-function solution space, the modular witness | New. |
+| Rank-six orbifold bundle and Riemann–Roch | Separate geometric work, not on the path to the first summit. |
+
+A target adopted in `Suggested.lean` is still a specification while its proof depends on
+admissions; the sibling roadmap shares such an interface without counting it as a proved input.
+The comparison summit inherits the sign inequalities of Layer 9 and gives no independent proof of
+them.  The rootless rank-24 classification (Layer 10) is not a dependency of the coefficient
+construction.  Layers 10 and 11 consume the certificates unchanged.
+
+Its targets are in `SphereCetiRoadmap/CoefficientMagic/Suggested.lean` (core),
+`Comparison.lean` (which imports the core and the targets above), and `Geometry.lean`.  The core
+does not import the other two.
+
 # PR discipline
 
 The detailed main-first sequence is in [`MIGRATION.md`](MIGRATION.md).  Every production PR must:
@@ -1007,12 +1057,18 @@ The detailed main-first sequence is in [`MIGRATION.md`](MIGRATION.md).  Every pr
 | `README.md` | Definitive mathematical roadmap |
 | `SphereCetiRoadmap/Suggested.lean` | Proposed target signatures and `#check` confirmations |
 | `SphereCetiRoadmap/Pinned.lean` | Temporary model of the older Sphere-Packing public API |
+| `SphereCetiRoadmap/CoefficientMagic/README.md` | Sibling roadmap: coefficient construction of the magic functions |
+| `SphereCetiRoadmap/CoefficientMagic/FINITE_SECTION_EXISTENCE.md` | Its finite modular existence construction |
+| `SphereCetiRoadmap/CoefficientMagic/Suggested.lean` | Its core target signatures |
+| `SphereCetiRoadmap/CoefficientMagic/Comparison.lean` | Comparison with the magic functions above and the shared certificate |
+| `SphereCetiRoadmap/CoefficientMagic/Geometry.lean` | Gluing data of the rank-six bundle |
+| `scripts/check_finite_sections.py` | Exact SymPy check of the finite algebra in that construction; not a proof |
 | `CONVENTIONS.md` | Permanent normalization and attribute decisions |
 | `MIGRATION.md` | Main-first targeted PR sequence |
 | `PROVENANCE.md` | Source and dependency record |
 | `UPSTREAM.md` | Issue-ready list of Mathlib/TauCeti upstream candidates |
 | `VALIDATION.md` | Static consistency check and Lean-elaboration validation record |
-| `scripts/check_roadmap.py` | Deterministic check of pins, links, and required declarations |
+| `scripts/check_roadmap.py` | Deterministic check of pins, links, registered roadmap sources, and required declarations |
 | `.github/workflows/ci.yml` | Static consistency check followed by Lean elaboration |
 | `lakefile.toml` | Exact TauCeti dependency |
 | `lake-manifest.json` | Full resolved pin set |
@@ -1035,6 +1091,13 @@ Core papers:
   Mathematics 196 (2022), 983–1082.
 - K. J. Böröczky, D. Radchenko, and J. P. G. Ramos,
   *A quantitative stability result for the sphere packing problem in dimensions 8 and 24*, 2023.
+
+Sources of the sibling roadmap:
+
+- *A construction of the sphere-packing magic functions in dimensions 8 and 24*, Hexagon
+  2610.00330v1, <https://hexagonmath.org/2610.00330v1>.
+- L. Candelori and C. Franc, *Vector valued modular forms and the modular orbifold of elliptic
+  curves*, International Journal of Number Theory 13 (2017), 39–63.
 
 Formal sources and sibling projects:
 

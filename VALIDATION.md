@@ -11,10 +11,15 @@ What has been checked in this repository:
   README, and provenance record;
 - the committed Lake manifest contains the exact TauCeti revision and the Mathlib revision resolved
   by that TauCeti snapshot;
-- every local link in the roadmap's own Markdown documents resolves;
-- the target files contain no theorem whose stated conclusion is merely `True`, and end with final
-  newlines;
+- every local link in the roadmap's own Markdown documents resolves, including the registered
+  sibling roadmap documents;
+- every Lean file under `SphereCetiRoadmap/` is `Pinned.lean` or a registered target file, and
+  `SphereCetiRoadmap.lean` imports every registered target file;
+- the target files, including those of registered sibling roadmaps, contain no theorem whose
+  stated conclusion is merely `True`, and end with final newlines;
 - the target-signature files contain 254 intentional `sorry` commands;
+- the three target files of the sibling roadmap contain 103 intentional `sorry` commands in the
+  `coefficient-magic` roadmap;
 - the full Lean elaboration passes locally:
 
 ```bash
@@ -90,7 +95,51 @@ isometry in the target presentation's coordinates.  `realIsometry_maps_carrier` 
 determine the extension (for `ℤ ⊂ ℝ`, the identity and negation have the same image).  The new
 target adds one textual `sorry`, one declaration, and one admission: 254, 594, and 335.
 
-`policy/audits.json` proposes the exact 335-entry ledger for human review with this roadmap.
+## The coefficient-construction roadmap
+
+The sibling roadmap `SphereCetiRoadmap/CoefficientMagic/` adds three modules and leaves the
+modules above unchanged: `Pinned` and `Suggested` keep their 86 and 508 declarations and their
+12 and 323 admissions.  The audit now inventories 884 compiled declarations, including 494 with
+transitive `sorryAx` dependencies, and no lint findings:
+
+| Module | Declarations | Admissions |
+|---|---:|---:|
+| `SphereCetiRoadmap.Pinned` | 86 | 12 |
+| `SphereCetiRoadmap.Suggested` | 508 | 323 |
+| `SphereCetiRoadmap.CoefficientMagic.Suggested` | 232 | 110 |
+| `SphereCetiRoadmap.CoefficientMagic.Geometry` | 18 | 12 |
+| `SphereCetiRoadmap.CoefficientMagic.Comparison` | 40 | 37 |
+
+What the counts mean for these modules:
+
+- in `CoefficientMagic.Suggested`, five definitions have `sorry` bodies (`synth`, `momentOp`,
+  `ofGlobalSolution`, `toGlobalSolution`, `solution`), each with its characteristic equations as
+  separate targets, and four have `sorry` proofs of membership or closure inside real data
+  (`sampleKernel`, `globalSolution`, `Witness.section8`, `Witness.section24`).  Every other
+  admission is a theorem target or a dependent of one.  The declarations without admissions are
+  the definitions with real bodies, their generated lemmas, and a few immediate facts such as
+  `Case.dim_pos` and `mem_sampleKernel`.  The `example`s are proved; among them are the exact
+  rational identities `cuspMatrix8 *ᵥ witness8 = 0` and `cuspMatrix24 *ᵥ witness24 = 0`;
+- in `CoefficientMagic.Comparison`, the only textual `sorry` commands are the two targets
+  `magic_e8_eq` and `magic_leech_eq`.  The other 35 admissions are proofs from those two and from
+  targets of the original roadmap (the sign inequalities, real-valuedness, and zero sets), and
+  from `magic_zero` and `fourier_magic_zero`.  They are in the ledger because their dependencies
+  are;
+- in `CoefficientMagic.Geometry`, the twelve admissions are the twelve matrix identities.
+
+The statements were reviewed against the source paper and the finite-section note on 2026-11-22,
+with exact SymPy and high-precision numerical checks of the gluing matrices, the correction
+jets, the theta and discriminant identities, and the transformation laws of both candidate
+families for random parameters.  That review found no false statement.  It is a check by the
+authors of this roadmap, not a substitute for mathematical review of the pull request, and
+neither it nor `scripts/check_finite_sections.py` is a proof.
+
+The contour measures and Cauchy transforms, the endpoint continuation, the concrete
+regularizer, the row-by-row identification of the cusp matrices, and the orbifold bundle with
+its Euler characteristic have no Lean declaration and so no ledger entry.  The coverage table in
+`SphereCetiRoadmap/CoefficientMagic/README.md` lists them.
+
+`policy/audits.json` proposes the exact 494-entry ledger for human review with these roadmaps.
 The profile’s `phase = "roadmap"` and `roadmap_approved = true` describe the state proposed
 for landing; checking out the PR does not approve that policy. The authoritative gate continues
 to use its already-approved tooling and policy. Initial adoption of the admission policy requires
