@@ -190,6 +190,8 @@ for event in ({"type": "thread.started", "thread_id": "fake-thread"},
                 if answer else []),
               *([{"type": "turn.completed", "usage": usage}] if reported else [])):
     print(json.dumps(event))
+if (root / "codex-exit").exists():  # report everything, then fail
+    sys.exit(int((root / "codex-exit").read_text()))
 ''')
         (self.bin / "codex").chmod(0o755)
         self.env ={**os.environ, "HOME": str(self.home), "PATH": str(self.bin) + os.pathsep + os.environ["PATH"],

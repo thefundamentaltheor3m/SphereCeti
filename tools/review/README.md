@@ -79,9 +79,9 @@ The local changes are:
   `SphereCeti local adaptation`. They are off unless the local adapter passes them.
   `--attempt-timeout` gives each provider attempt one shared deadline for all its commands
   and stops their process groups. `--codex-single-agent` withholds Codex sub-agent tools.
-  `--usage-stop-file` records an attempt without a complete, normally finished usage report as
-  unknown (with a write-ahead in-flight ledger marker) and starts no further attempt or rubric
-  after it. See
+  `--usage-stop-file` records an attempt as unknown unless it exited 0 with complete usage and
+  was not stopped (with a write-ahead in-flight ledger marker). It rejects a failed attempt's
+  verdict and starts no further attempt or rubric after an unknown one. See
   [when the worker stops spending](../../docs/infrastructure/worker-execution.md#when-the-worker-stops-spending).
 
 Provider adapters, contests, shadow runs, budgeting, rendering, and verdict semantics otherwise

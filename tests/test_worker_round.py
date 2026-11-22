@@ -453,6 +453,27 @@ class WorkerRoundTest(unittest.TestCase):
         self.assertEqual(receipt['stop_reason'],'usage_unknown')
         self.assertEqual(len(self.fixture.codex_debug_calls()),1)
 
+    def test_nonzero_exit_after_complete_usage_and_verdict_is_unknown_and_rejected(self):
+        # Complete counters and a valid approve verdict, then exit 1; a retry would answer.
+        (self.fixture.bin/'codex-exit').write_text('1')
+        receipt=self.canary_round()
+        self.assertEqual(len(self.exec_calls()),1)                    # no retry, no next rubric
+        result=json.loads((Path(receipt['output'])/'result.json').read_text())
+        self.assertEqual(result['verdicts']['correctness'],'error')  # the approve is rejected
+        self.assertEqual(result['finished_rubrics'],[])
+        run,attempt,ledger,day=self.only_attempt()
+        self.assertEqual(attempt['returncode'],1)
+        self.assertEqual(attempt['usage'],{'input_tokens':100000,'cached_input_tokens':80000,
+                                           'output_tokens':1000,'reasoning_output_tokens':400})
+        self.assertEqual((attempt['usage_status'],run['usage_status']),('unknown','unknown'))
+        self.assertNotIn('cost_usd',attempt);self.assertNotIn('cost_usd',run)
+        self.assertEqual(ledger['unknown_usage'][day][0]['reasons'],['exit_nonzero_after_usage'])
+        self.assertEqual(ledger['days'].get(day,0),0)
+        self.assertEqual(ledger['prs']['1']['state']['correctness']['verdict'],'error')
+        self.assertEqual(receipt['stop_reason'],'usage_unknown')
+        self.assertEqual(json.loads((Path(receipt['output'])/'usage-stop.json').read_text())['after_rubric'],
+                         'correctness')
+
     def test_unsupported_maintenance_never_falls_through_to_review(self):
         self.snapshot['pull_requests'][0].update(author='operator',ci='failed')
         self.assertEqual(self.run_round()['state'],'unavailable')

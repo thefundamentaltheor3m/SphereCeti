@@ -360,12 +360,14 @@ CODEX_PRICED_FIELDS = ("input_tokens", "cached_input_tokens", "output_tokens")
 
 
 def usage_unknown_reason(provider, r):
-    """None when the attempt ran to its own exit and reported a complete price; else why not.
+    """None when the attempt's price is known; else why not.
 
-    Complete means: for Codex, a usage object whose input_tokens, cached_input_tokens and
-    output_tokens are all non-negative integers with cached <= input; for other providers, a
-    finite non-negative cost. An attempt stopped by the deadline or a signal is never complete,
-    whatever it printed before it stopped."""
+    Known means the attempt was not stopped by the deadline or a signal and, for Codex, exited 0
+    with a usage object whose input_tokens, cached_input_tokens and output_tokens are all
+    non-negative integers with cached <= input; for other providers, a finite non-negative
+    reported cost. After a nonzero Codex exit, even complete counters may not cover everything
+    the attempt did, so its total is unknown. An attempt that failed closed before any model call
+    (dispatched: false) spent nothing and stays a known $0."""
     if r.get("dispatched") is False:
         return None  # failed closed before any model call: nothing was spent
     usage = r.get("usage")
@@ -373,6 +375,8 @@ def usage_unknown_reason(provider, r):
         stopped = "timeout" if r.get("timed_out") else "killed"
         return stopped + "_after_usage" if usage else stopped
     if provider == "codex":
+        if r.get("returncode") != 0:
+            return "exit_nonzero_after_usage" if usage else "exit_nonzero"
         if not isinstance(usage, dict) or not usage:
             return "not_reported"
         counts = [usage.get(k) for k in CODEX_PRICED_FIELDS]
@@ -512,7 +516,10 @@ def run_rubric(ctx, rubric):
                started_at=started_at, duration_s=round(time.monotonic() - t0, 1),
                attempts=attempts,
                prompt_sha256=hashlib.sha256(prompt.encode()).hexdigest(),
-               verdict_obj=extract_verdict(res.get("text", ""), marker))
+               # SphereCeti: in stop mode a failed run's text (nonzero exit, or a CLI-reported
+               # failure) is never accepted as the rubric's verdict; upstream accepts it.
+               verdict_obj=(extract_verdict(res.get("text", ""), marker)
+                            if not track_unknown or has_verdict(res) else None))
     # Normalize finding file paths to PR-relative (strip the reviewer-workspace prefix) so the
     # rendered locations and the thread anchor are valid PR paths.
     vo = res.get("verdict_obj")
