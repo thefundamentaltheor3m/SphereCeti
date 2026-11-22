@@ -263,8 +263,11 @@ def prepare(args, project, refs, cache: Path, workspace: Path, engine: Path) -> 
                             workspace / "dependencies" / p["name"], remaining)
         dependency_evidence.append({"name": p["name"], "repository": p["url"], "revision": p["rev"],
                                     "path": f"dependencies/{p['name']}", "internal_links": links})
-    selected_paths = (*DOCUMENTS, project.roadmap_targets, "sphereceti.toml",
-                      "policy/automation.toml", "policy/audits.json", "tools/upstream-lock.toml")
+    # Every roadmap registered by the selected profile is approved context in the same way.
+    selected_paths = (*DOCUMENTS, project.roadmap_targets,
+                      *(path for roadmap in project.additional_roadmaps for path in roadmap.paths),
+                      "sphereceti.toml", "policy/automation.toml", "policy/audits.json",
+                      "tools/upstream-lock.toml")
     evidence = []
     context_files = {}
     authority = "approved" if refs["tooling_approved"] else "prospective"

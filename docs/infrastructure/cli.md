@@ -56,7 +56,7 @@ The installed package includes these configuration resources:
 
 | File | Role |
 |---|---|
-| `sphereceti.toml` | Canonical identity, mathematical destination, source paths, dependency pins, state branch names |
+| `sphereceti.toml` | Canonical identity, mathematical destination, source paths (primary and registered sibling roadmaps), dependency pins, state branch names |
 | `policy/automation.toml` | Repository-owned operational switches and acceptance inputs |
 | `policy/reporting.toml` | Approved documentation endpoint (initially empty), report scope and cadence |
 | `policy/merge-checks.toml` | Approved workflow and status-producer IDs, initially unconfigured |

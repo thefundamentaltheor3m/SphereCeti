@@ -56,6 +56,34 @@ class LocalReviewTests(unittest.TestCase):
         self.assertNotIn("approved/CONVENTIONS.md", {e["path"] for e in result["evidence"]})
         self.assertFalse(result["merge_eligible"])
 
+    def test_registered_sibling_roadmaps_are_selected_approved_context(self):
+        git(self.fixture.repo, "checkout", "-q", self.fixture.tooling)
+        profile = self.fixture.repo / "sphereceti.toml"
+        sibling = ('[[sources.additional_roadmaps]]\nname = "fixture-sibling"\n'
+                   'document = "SphereCetiRoadmap/Sibling/README.md"\n'
+                   'companions = ["SphereCetiRoadmap/Sibling/NOTES.md"]\n'
+                   'targets = ["SphereCetiRoadmap/Sibling/Targets.lean"]\n\n')
+        text = profile.read_text()
+        self.assertEqual(text.count("\n[dependencies]"), 1)
+        profile.write_text(text.replace("\n[dependencies]", "\n" + sibling + "[dependencies]"))
+        (self.fixture.repo / "SphereCetiRoadmap/Sibling").mkdir()
+        (self.fixture.repo / "SphereCetiRoadmap/Sibling/README.md").write_text("APPROVED SIBLING SPEC\n")
+        (self.fixture.repo / "SphereCetiRoadmap/Sibling/Targets.lean").write_text("module\n")
+        self.fixture.tooling = commit(self.fixture.repo)
+        (self.fixture.repo / "SphereCetiRoadmap/Sibling/NOTES.md").write_text("CANDIDATE NOTES\n")
+        (self.fixture.repo / "README.md").write_text("PROPOSED SENTINEL")
+        self.fixture.head = commit(self.fixture.repo)
+        result = self.run_review(extra=("--dry-run",))
+        evidence = {e["path"] for e in result["evidence"]}
+        for path in ("README.md", "SphereCetiRoadmap/Suggested.lean",
+                     "SphereCetiRoadmap/Sibling/README.md", "SphereCetiRoadmap/Sibling/Targets.lean"):
+            self.assertIn("approved/" + path, evidence)
+            self.assertNotIn(path, result["missing_context"])
+        # A companion present only in the candidate is missing approved context, never evidence.
+        self.assertEqual(result["missing_context"], ["SphereCetiRoadmap/Sibling/NOTES.md"])
+        self.assertNotIn("approved/SphereCetiRoadmap/Sibling/NOTES.md", evidence)
+        self.assertFalse(result["merge_eligible"])
+
     def test_dirty_candidate_and_dependency_worktrees_do_not_change_evidence(self):
         (self.fixture.repo / "README.md").write_text("UNCOMMITTED CANDIDATE")
         (self.fixture.deps / "TauCeti/README.md").write_text("UNCOMMITTED DEPENDENCY")

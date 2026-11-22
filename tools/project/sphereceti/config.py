@@ -19,6 +19,7 @@ class ConfigError(ValueError):
 
 REPOSITORY = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9][A-Za-z0-9_.-]*\Z")
 COMMIT = re.compile(r"[0-9a-f]{40}\Z")
+ROADMAP_NAME = re.compile(r"[a-z0-9][a-z0-9-]*\Z")
 RESOURCE_PATHS = {
     "archive.toml": "policy/archive.toml",
     "sphereceti.toml": "sphereceti.toml",
@@ -68,6 +69,19 @@ def version(data: dict, context: str) -> None:
 
 
 @dataclass(frozen=True)
+class AdditionalRoadmap:
+    """A sibling roadmap registered explicitly beside the primary document and targets."""
+    name: str
+    document: str
+    companions: tuple[str, ...]
+    targets: tuple[str, ...]
+
+    @property
+    def paths(self) -> tuple[str, ...]:
+        return (self.document, *self.companions, *self.targets)
+
+
+@dataclass(frozen=True)
 class ProjectConfig:
     repository: str
     default_branch: str
@@ -84,6 +98,8 @@ class ProjectConfig:
     sphere_packing_semantics: str
     reviews_branch: str
     archive_branch: str
+    # Optional in the profile; absent means the primary roadmap is the only one.
+    additional_roadmaps: tuple[AdditionalRoadmap, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -104,16 +120,49 @@ class OperatorPreferences:
     storage: str = "~/.local/state/sphereceti"
 
 
+def parse_additional_roadmaps(value, roadmap_root: str,
+                              primary: tuple[str, ...]) -> tuple[AdditionalRoadmap, ...]:
+    """Sibling roadmaps: unique names, and no source path shared with another roadmap."""
+    if not isinstance(value, list) or not value:
+        raise ConfigError("additional_roadmaps: expected a nonempty list; omit it when there are none")
+    names, paths, roadmaps = set(), set(primary), []
+    for item in value:
+        fields(item, {"name", "document", "companions", "targets"}, "additional roadmap")
+        name = nonempty(item["name"], "additional roadmap name")
+        if not ROADMAP_NAME.fullmatch(name) or name in names:
+            raise ConfigError("additional roadmap name: expected a unique lowercase-hyphenated name")
+        names.add(name)
+        if not isinstance(item["companions"], list):
+            raise ConfigError("additional roadmap companions: expected a list")
+        if not isinstance(item["targets"], list) or not item["targets"]:
+            raise ConfigError("additional roadmap targets: expected a nonempty list")
+        for key, path in (("document", item["document"]), *(("companions", p) for p in item["companions"]),
+                          *(("targets", p) for p in item["targets"])):
+            local_path(path, f"additional roadmap {key}")
+            suffix = ".lean" if key == "targets" else ".md"
+            if not path.endswith(suffix):
+                raise ConfigError(f"additional roadmap {key}: expected {suffix} files")
+            if key == "targets" and not path.startswith(roadmap_root + "/"):
+                raise ConfigError("additional roadmap targets: expected files under roadmap_root")
+            if path in paths:
+                raise ConfigError(f"additional roadmap: duplicate roadmap source {path}")
+            paths.add(path)
+        roadmaps.append(AdditionalRoadmap(name, item["document"], tuple(item["companions"]), tuple(item["targets"])))
+    return tuple(roadmaps)
+
+
 def parse_project(text: str) -> ProjectConfig:
     data = tomllib.loads(text)
     fields(data, {"schema_version", "project", "sources", "dependencies", "state"}, "profile")
     version(data, "profile")
     fields(data["project"], {"repository", "default_branch", "implementation_repository", "phase"}, "project")
-    fields(data["sources"], {"library_root", "roadmap_root", "roadmap_document", "roadmap_targets", "roadmap_approved"}, "sources")
+    optional = {"additional_roadmaps"} & set(data["sources"]) if isinstance(data["sources"], dict) else set()
+    fields(data["sources"], {"library_root", "roadmap_root", "roadmap_document", "roadmap_targets",
+                             "roadmap_approved"} | optional, "sources")
     fields(data["dependencies"], {"lean", "tauceti", "mathlib", "sphere_packing_semantics"}, "dependencies")
     fields(data["state"], {"reviews_branch", "archive_branch"}, "state")
     values = {key: value for section in ("project", "sources", "dependencies", "state")
-              for key, value in data[section].items()}
+              for key, value in data[section].items() if key not in optional}
     for key, value in values.items():
         if key == "roadmap_approved":
             if type(value) is not bool:
@@ -132,6 +181,12 @@ def parse_project(text: str) -> ProjectConfig:
         raise ConfigError("phase: expected scaffold or roadmap")
     if values["roadmap_approved"] != (values["phase"] == "roadmap"):
         raise ConfigError("phase and roadmap_approved disagree")
+    if optional:
+        if not values["roadmap_approved"]:
+            raise ConfigError("additional_roadmaps require an approved primary roadmap")
+        values["additional_roadmaps"] = parse_additional_roadmaps(
+            data["sources"]["additional_roadmaps"], values["roadmap_root"],
+            (values["roadmap_document"], values["roadmap_targets"]))
     return ProjectConfig(**values)
 
 

@@ -8,6 +8,8 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "tools" / "project"))
+from sphereceti.config import ConfigError, parse_project  # noqa: E402
 EXPECTED = {
     "lean": "leanprover/lean4:v4.36.0-rc2",
     "tauceti": "83769e442d55cda9d85b3927a93b286831c595ff",
@@ -20,6 +22,16 @@ errors: list[str] = []
 def require(condition: bool, message: str) -> None:
     if not condition:
         errors.append(message)
+
+# Registered roadmaps: the primary document and targets, plus explicitly listed sibling roadmaps.
+try:
+    profile = parse_project((ROOT / "sphereceti.toml").read_text())
+except ConfigError as error:
+    raise SystemExit(f"ERROR: sphereceti.toml: {error}")
+siblings = profile.additional_roadmaps
+registered_targets = {profile.roadmap_targets, *(t for r in siblings for t in r.targets)}
+for path in (profile.roadmap_document, profile.roadmap_targets, *(p for r in siblings for p in r.paths)):
+    require((ROOT / path).is_file(), f"registered roadmap source is missing: {path}")
 
 # Pin coherence.
 toolchain = (ROOT / "lean-toolchain").read_text().strip()
@@ -51,22 +63,41 @@ for key, value in EXPECTED.items():
 
 # Check owned roadmap documentation; imported upstream documentation keeps its own links.
 for name in ("README.md", "CONTRIBUTING.md", "CONVENTIONS.md", "MIGRATION.md",
-             "PROVENANCE.md", "UPSTREAM.md", "VALIDATION.md", "AGENTS.md"):
+             "PROVENANCE.md", "UPSTREAM.md", "VALIDATION.md", "AGENTS.md",
+             *(p for r in siblings for p in (r.document, *r.companions))):
     md = ROOT / name
+    if not md.is_file():
+        continue  # a missing registered document is reported above
     text = md.read_text()
-    for target in re.findall(r"\[[^\]]+\]\(([^)]+)\)", text):
+    # Bracket-paren text wholly inside an inline code span, such as `[q⁻¹](p - m)`, is not a link.
+    spans = [m.span() for m in re.finditer(r"`[^`\n]+`", text)]
+    for link in re.finditer(r"\[[^\]]+\]\(([^)]+)\)", text):
+        if any(start <= link.start() and link.end() <= end for start, end in spans):
+            continue
+        target = link.group(1)
         clean = target.split("#", 1)[0]
         if not clean or "://" in clean or clean.startswith("mailto:"):
             continue
-        require((md.parent / clean).exists(), f"broken local link in {md.name}: {target}")
+        require((md.parent / clean).exists(),
+                f"broken local link in {md.relative_to(ROOT).as_posix()}: {target}")
 
-# Suggested targets must be mathematical declarations, not vacuous placeholders.
-for lean in (ROOT / "SphereCetiRoadmap").glob("*.lean"):
+# Suggested targets must be mathematical declarations, not vacuous placeholders. Every roadmap
+# Lean source, nested ones included, is the frozen Pinned adapter or a registered target file.
+for lean in sorted((ROOT / "SphereCetiRoadmap").rglob("*.lean")):
+    label = lean.relative_to(ROOT / "SphereCetiRoadmap").as_posix()
+    path = lean.relative_to(ROOT).as_posix()
+    require(path in registered_targets or path == "SphereCetiRoadmap/Pinned.lean",
+            f"roadmap Lean source is not registered in sphereceti.toml: {path}")
     text = lean.read_text()
-    require("by\n  exact True.intro" not in text, f"vacuous True proof in {lean.name}")
+    require("by\n  exact True.intro" not in text, f"vacuous True proof in {label}")
     require(not re.search(r"(?:theorem|lemma)\s+\w+[^:]*:\s*True\b", text),
-            f"vacuous True target in {lean.name}")
-    require(text.endswith("\n"), f"missing final newline in {lean.name}")
+            f"vacuous True target in {label}")
+    require(text.endswith("\n"), f"missing final newline in {label}")
+aggregator = (ROOT / "SphereCetiRoadmap.lean").read_text()
+for path in sorted(registered_targets):
+    module = path.removesuffix(".lean").replace("/", ".")
+    require(re.search(rf"^(?:public )?import {re.escape(module)}$", aggregator, re.M) is not None,
+            f"SphereCetiRoadmap.lean does not import the registered target {module}")
 
 # The roadmap must expose the agreed summit and classification boundaries.
 pinned = (ROOT / "SphereCetiRoadmap" / "Pinned.lean").read_text()
@@ -195,9 +226,19 @@ sorry_command = re.compile(r"^\s*sorry\s*$", re.MULTILINE)
 sorry_count = sum(len(sorry_command.findall(p.read_text()))
                   for p in (ROOT / "SphereCetiRoadmap").glob("*.lean"))
 validation = (ROOT / "VALIDATION.md").read_text()
-require(f"{sorry_count} intentional `sorry` commands" in validation,
-        "VALIDATION.md has a stale intentional-sorry count")
+# The primary count covers the top-level target files; each sibling roadmap is counted separately.
+require(re.search(rf"(?<!\d){sorry_count} intentional `sorry` commands(?! in the `)", validation)
+        is not None, "VALIDATION.md has a stale intentional-sorry count")
 print(f"roadmap static checks: {sorry_count} intentional sorry commands")
+for roadmap in siblings:
+    count = sum(len(sorry_command.findall((ROOT / t).read_text()))
+                for t in roadmap.targets if (ROOT / t).is_file())
+    # For example "79 intentional `sorry` commands in the `coefficient-magic` roadmap".
+    phrase = (rf"(?<!\d){count}\s+intentional\s+`sorry`\s+commands\s+in\s+the\s+"
+              rf"`{re.escape(roadmap.name)}`\s+roadmap")
+    require(re.search(phrase, validation) is not None,
+            f"VALIDATION.md has a stale intentional-sorry count for the {roadmap.name} roadmap")
+    print(f"roadmap static checks: {count} intentional sorry commands in {roadmap.name}")
 
 if errors:
     for error in errors:
