@@ -206,7 +206,7 @@ def main(argv: list[str] | None = None) -> int:
             reason = str(error) if isinstance(error, (WorkerError, ReviewError, RecordError)) else "worker operation failed; exact evidence remains unconfirmed"
             parser.exit(2, f"sphereceti worker: {reason}\n")
         print(json.dumps(report, indent=2) if args.json else render(report))
-        return 1 if report.get("state") in ("error", "partial", "unconfirmed_publication") or report.get("state_publication", {}).get("state") == "unconfirmed" else 0
+        return 1 if report.get("state") in ("error", "partial", "unconfirmed_publication", "stale_authorization") or report.get("state_publication", {}).get("state") == "unconfirmed" else 0
     if args.command == "progress":
         try:
             report = run_progress(args, project)

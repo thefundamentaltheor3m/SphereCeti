@@ -21,9 +21,10 @@ belong in production. All infrastructure lands before roadmap #1.
 ## Command boundary
 
 ```bash
-sphereceti worker run --pr 9 --json                  # fresh plan only
-sphereceti worker run --pr 9 --execute --worker-id alice \
+sphereceti worker run --pr 9 --expect-head "$HEAD" --json   # fresh plan only
+sphereceti worker run --pr 9 --expect-head "$HEAD" --execute --worker-id alice \
   --provider claude --budget-usd 5 --max-call-cost 1 --json
+# Optional: --expect-base "$BASE" also pins the authorized base commit.
 # Optional exact Codex model, forwarded as `review --codex-model`:
 # --provider codex --auth subscription --codex-model gpt-6.1-sol
 # Optional publication flags on an executed round:
@@ -59,6 +60,24 @@ contest files. Without `--codex-model` the engine's default Codex model applies,
 and is named in the local `worker-result.json` receipt as `codex_model`; every archived run
 records the model it dispatched. See [model selection and accounting](local-review.md#codex-model-selection-and-accounting).
 Published state receipts keep their existing fields.
+
+### Binding a run to the authorized head
+
+`--expect-head SHA` binds the invocation to the exact PR head an operator previewed and
+authorized; use it for every canary or other explicitly budgeted run. It requires exactly one
+`--pr` target and a full 40-character lowercase hexadecimal commit SHA. Optional
+`--expect-base SHA` follows the same rules, also pins the base, and requires `--expect-head`.
+Anything else is an argument error (exit 2) before any GitHub, provider or model call. These
+options apply to the preview as well as to `--execute` and `--loop`.
+
+The comparison uses the round's own live survey, before planning, the review adapter, lease
+acquisition, provider selection or any publication. If the surveyed head (or base) differs, the
+round returns state `stale_authorization` with `executed: false`, the expected and observed
+commits and a reason naming the changed field; it makes no model call and no GitHub write, and
+the command exits 1. A changed head needs a new preview and a renewed authorization, never an
+implicit retry. When the survey matches, the round proceeds exactly as without the option. The
+existing guard then binds every later check to that surveyed head/base, so a change detected
+after the survey still stops the round before further spend or publication.
 
 ## Evidence, spending and cancellation
 

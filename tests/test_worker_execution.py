@@ -282,6 +282,46 @@ class GuardTests(unittest.TestCase):
                 cli.main(['worker','run',*argv])
             self.assertEqual(exc.exception.code,2); run.assert_not_called()
 
+    def test_invalid_expected_evidence_fails_before_network_or_provider(self):
+        head = 'a' * 40
+        cases = (['--pr', '1', '--expect-head', 'a' * 39], ['--pr', '1', '--expect-head', 'a' * 41],
+                 ['--pr', '1', '--expect-head', 'A' * 40], ['--pr', '1', '--expect-head', 'g' * 40],
+                 ['--pr', '1', '--expect-head', 'HEAD'], ['--pr', '1', '--expect-head', ''],
+                 ['--expect-head', head], ['--pr', '1,2', '--expect-head', head],
+                 ['--pr', '1', '--pr', '2', '--expect-head', head],
+                 ['--pr', '1', '--expect-base', head],
+                 ['--pr', '1', '--expect-head', head, '--expect-base', 'b' * 7],
+                 ['--loop', '--max-rounds', '1', '--expect-head', head])
+        for argv in cases:
+            for execute in ([], ['--execute', '--post-review', '--publish-state']):
+                err = io.StringIO()
+                with self.subTest(argv=argv, execute=execute), patch('sys.stderr', err), \
+                        patch('sys.stdout', io.StringIO()), patch('subprocess.run') as run, \
+                        patch('subprocess.Popen') as provider, \
+                        patch('sphereceti.cli.parse_policy', return_value=POLICY), \
+                        patch('sphereceti.worker_execution.survey') as survey, \
+                        patch('sphereceti.worker_execution.local_review.run_review') as review, \
+                        self.assertRaises(SystemExit) as exc:
+                    cli.main(['worker', 'run', *argv, *execute, '--json'])
+                self.assertEqual(exc.exception.code, 2)
+                self.assertIn('--expect-', err.getvalue())
+                for mock in (run, provider, survey, review):
+                    mock.assert_not_called()
+
+    def test_duplicate_single_target_accepts_expected_head(self):
+        observed = {'pull_requests': [{'number': 1, 'head': '2' * 40, 'base': '3' * 40}]}
+        planned = {'selected': None, 'candidates': []}
+        for argv, state in ((['--pr', '1,#1', '--expect-head', '2' * 40], 'planned'),
+                            (['--pr', '1', '--expect-head', '4' * 40], 'stale_authorization')):
+            out = io.StringIO()
+            with self.subTest(argv=argv), patch('sys.stdout', out), patch('subprocess.run') as run, \
+                    patch('sphereceti.worker_execution.survey', return_value=observed) as survey, \
+                    patch('sphereceti.worker_execution.plan', return_value=planned):
+                code = cli.main(['worker', 'run', *argv, '--json'])
+            self.assertEqual((code, json.loads(out.getvalue())['state']), (int(state != 'planned'), state))
+            survey.assert_called_once_with(PROJECT, (1,))
+            run.assert_not_called()
+
     def test_empty_comment_page_envelope_is_not_a_confirmed_empty_queue(self):
         from sphereceti.review_post import GitHub
         with patch.object(GitHub,'call',return_value=[]),self.assertRaises(RecordError):

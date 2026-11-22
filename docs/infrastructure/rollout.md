@@ -141,17 +141,20 @@ The daily budget is shared with earlier runs in the same storage, and reservatio
 not a provider-enforced billing cap. Set a provider-side limit if a strict financial ceiling is
 needed. A partial/error review is a useful failure signal, never a complete review certificate.
 
-Then exercise the authorized worker, using its own credentials and one explicit target:
+Then exercise the authorized worker, using its own credentials, one explicit target and the
+recorded head SHA. `--expect-head` makes the run refuse, with no model call or GitHub write, if
+the PR has advanced since the preview that was authorized
+([details](worker-execution.md#binding-a-run-to-the-authorized-head)):
 
 ```bash
-sphereceti worker run --pr "$PR" --json
-sphereceti worker run --pr "$PR" --loop --max-rounds 1 --execute \
-  --worker-id canary --provider codex --budget-usd "$WORKER_BUDGET" \
-  --max-call-cost "$REVIEW_RESERVATION" --post-review --json
+sphereceti worker run --pr "$PR" --expect-head "$PR_HEAD" --json
+sphereceti worker run --pr "$PR" --expect-head "$PR_HEAD" --loop --max-rounds 1 --execute \
+  --worker-id canary --provider codex --codex-model "$REVIEW_MODEL" \
+  --budget-usd "$WORKER_BUDGET" --max-call-cost "$REVIEW_RESERVATION" --post-review --json
 ```
 
-The worker currently uses the provider's configured/default model; explicit worker model selection
-is not implemented. Its normal review can stop early on a blocking rubric. Require a complete
+`--codex-model` pins the model for every rubric, as for `review` (#35); without it the worker
+uses the engine's default model and fallback. Its normal review can stop early on a blocking rubric. Require a complete
 ten-rubric result for the positive rehearsal; stop and examine an incomplete result. Run a second
 explicit one-round invocation to confirm an accepted current review causes an idle result without
 new provider work. Do not widen the PR target or start a persistent loop.

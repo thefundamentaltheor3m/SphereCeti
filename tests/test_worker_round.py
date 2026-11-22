@@ -211,6 +211,101 @@ class WorkerRoundTest(unittest.TestCase):
         self.assertFalse(self.fixture.codex_calls())
         self.assertEqual(receipt['coordination']['release'],'confirmed')
 
+    def live_survey(self, after=None):
+        """Real survey/normalization over a fake read-only gh that reports the fake PR's head."""
+        from sphereceti.worker_cli import survey
+        from test_worker import gh_pr
+        api, reads = self.api, []
+        class GH:
+            def read(self, args):
+                reads.append(args)
+                assert args[0] == 'api' and 'GET' in args or args[:2] == ['pr', 'view'], args
+                return ({'login': 'operator'} if args[0] == 'api' else
+                        gh_pr(1, headRefOid=api.head, baseRefOid=api.base))
+        def observe(project, requested):
+            result = survey(project, requested, api=GH())
+            if after:
+                after()
+            return result
+        self.reads = reads
+        return patch('sphereceti.worker_execution.survey', side_effect=observe)
+
+    def cli(self, *extra):
+        """`sphereceti worker run` with the explicit enabled fixture policy and profile."""
+        import io
+        out = io.StringIO()
+        with patch('sys.stdout', out), patch('sphereceti.cli.parse_project', return_value=self.profile), \
+                patch('sphereceti.cli.parse_policy', return_value=self.policy):
+            code = cli.main(['worker', 'run', '--pr', '1', '--operator-config', str(self.fixture.operator),
+                             '--json', *extra])
+        return code, json.loads(out.getvalue())
+
+    def execute(self, *extra):
+        self.fixture.codex_subscription()
+        return self.cli('--execute', '--provider', 'codex', '--auth', 'subscription',
+                        '--source-repo', str(self.fixture.repo), '--dependencies-dir', str(self.fixture.deps),
+                        *extra)
+
+    def test_expected_head_changed_after_preview_makes_no_model_call_or_write(self):
+        authorized = self.fixture.head
+        with self.live_survey():
+            code, preview = self.cli('--expect-head', authorized)
+            self.assertEqual((code, preview['state']), (0, 'planned'))
+            self.assertEqual(preview['plan']['selected']['head'], authorized)
+            # The PR advances after the operator's authorization to a real, reviewable head B.
+            (self.fixture.repo / 'README.md').write_text('PROPOSED SENTINEL: a newer head')
+            advanced = self.api.head = commit(self.fixture.repo)
+            code, receipt = self.execute('--expect-head', authorized, '--post-review', '--publish-state')
+        self.assertEqual(code, 1)
+        self.assertEqual(receipt['state'], 'stale_authorization')
+        self.assertFalse(receipt['executed'])
+        self.assertIn('head changed since authorization', receipt['reason'])
+        self.assertEqual((receipt['pr'], receipt['expected_head'], receipt['observed_head']),
+                         (1, authorized, advanced))
+        self.assertFalse(self.fixture.codex_calls())  # the fake Codex never ran
+        self.assertFalse(self.fixture.calls())
+        self.assertEqual(self.api.calls, [])  # no REST call at all, hence no POST/PATCH/PUT/DELETE
+        self.assertFalse(self.api.all)
+        self.assertTrue(all(r[0] == 'pr' or r[:5] == ['api', '--hostname', 'github.com', '--method', 'GET']
+                            for r in self.reads))
+        self.assertFalse((self.root / 'state/thefundamentaltheor3m__SphereCeti/runs').exists())
+        with self.live_survey():  # the read-only preview reports the same refusal
+            self.assertEqual(self.cli('--expect-head', authorized)[0], 1)
+            self.assertEqual(self.cli('--expect-head', authorized, '--expect-base', 'c' * 40)[1]['state'],
+                             'stale_authorization')
+        self.assertEqual(self.api.calls, [])
+
+    def test_changed_expected_base_alone_stops_before_any_write(self):
+        with self.live_survey():
+            code, receipt = self.execute('--expect-head', self.fixture.head, '--expect-base', 'c' * 40)
+        self.assertEqual((code, receipt['state']), (1, 'stale_authorization'))
+        self.assertIn('base changed since authorization', receipt['reason'])
+        self.assertEqual(receipt['observed_base'], self.fixture.tooling)
+        self.assertFalse(self.fixture.codex_calls())
+        self.assertEqual(self.api.calls, [])
+
+    def test_matching_expected_head_proceeds_as_without_it(self):
+        with self.live_survey():
+            code, receipt = self.execute('--expect-head', self.fixture.head, '--expect-base', self.fixture.tooling)
+        self.assertEqual((code, receipt['state']), (0, 'complete'))
+        self.assertEqual((receipt['head'], receipt['base']), (self.fixture.head, self.fixture.tooling))
+        self.assertEqual(len(self.fixture.codex_calls()), 10)
+        self.assertEqual(receipt['coordination']['release'], 'confirmed')
+        self.assertEqual(len(self.api.all), 2)  # lease acquisition/release, as without the option
+        self.assertNotIn('expected_head', receipt)
+        stored = json.loads((Path(receipt['output']) / 'worker-result.json').read_text())
+        self.assertEqual(stored['state'], 'complete')
+
+    def test_head_change_after_matching_survey_still_stops_the_round(self):
+        def advance():
+            self.api.head = self.fixture.tooling
+        with self.live_survey(after=advance), patch('sys.stderr') as err, self.assertRaises(SystemExit) as exit:
+            self.execute('--expect-head', self.fixture.head, '--post-review')
+        self.assertEqual(exit.exception.code, 2)
+        self.assertFalse(self.fixture.codex_calls())
+        self.assertFalse(self.api.all)
+        self.assertTrue(all(payload is None for _, payload in self.api.calls))
+
     def budget_round(self,budget,reservation,*,alternate=False,spent=None):
         """A pinned Sol61 round; each fake Codex attempt reports 300k fresh input and 1k output."""
         from datetime import datetime,timezone
