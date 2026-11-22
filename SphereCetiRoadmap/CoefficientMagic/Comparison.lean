@@ -13,15 +13,16 @@ public import SphereCetiRoadmap.CoefficientMagic.Suggested
 
 This file states milestone C9: the functions constructed from the coefficient systems are the
 magic functions of the original roadmap, `SphereCeti.Suggested.E8.magic` and
-`SphereCeti.Suggested.Leech.magic`, and they give the same Cohn–Elkies certificates.
+`SphereCeti.Suggested.Leech.magic`, and they give Cohn–Elkies certificates whose functions equal
+those of `E8.certificate` and `Leech.certificate`.
 
-The comparison targets are the two equalities `magic_e8_eq` and `magic_leech_eq`.  Everything
-else in this file, including the two profile equalities on the half-line `u ≥ 0`, is **proved**
-from them and from targets of the original roadmap: the sign inequalities, real-valuedness and exact
-zeros are transferred, not reproved.  The dependency of each transferred statement on the
-original sign proofs is therefore visible in its proof term.  The coefficient construction in
-`SphereCetiRoadmap.CoefficientMagic.Suggested` is independent of this file, and gives no
-independent proof of the sign inequalities.
+The two statements to be proved are the equalities `magic_e8_eq` and `magic_leech_eq`.
+Everything else in this file is proved from them and from statements of the original roadmap:
+the equality of profiles on the half-line `u ≥ 0`, real-valuedness, the sign inequalities, and
+the zero sets.  Each of these is deduced from the corresponding statement about the known
+function, so its proof shows which of the original sign theorems it uses.  The coefficient
+construction in `SphereCetiRoadmap.CoefficientMagic.Suggested` does not use this file, and
+gives no second proof of the sign inequalities.
 
 Only the normalization of the certificates is independent of the comparison: it follows from
 `magic_zero` and `fourier_magic_zero`, and is stated as the two equations of
@@ -42,8 +43,8 @@ open SphereCeti.Suggested
 /-! ## The constructed functions at the literal dimensions
 
 `Case.dim .e8` and `Case.dim .leech` unfold to `8` and `24`.  The two definitions below restate
-`magic` at the literal dimensions used by the original roadmap, so that no cast appears in the
-comparison. -/
+`magic` at the literal dimensions used by the original roadmap, so that no coercion between
+dimensions appears in the comparison. -/
 
 /-- The coefficient construction in dimension 8, as a radial Schwartz function on `V 8`. -/
 def magic8 : RadialSchwartzMap ℂ (V 8) ℂ := magic .e8
@@ -111,8 +112,8 @@ theorem fourier_magic_e8_zero_iff {x : V 8} (hx : x ≠ 0) :
     𝓕 (magic8 : 𝓢(V 8, ℂ)) x = 0 ↔ ∃ n : ℕ, 1 ≤ n ∧ ‖x‖ ^ 2 = 2 * n := by
   rw [fourier_magic_e8_apply]; exact E8.fourier_magic_zero_iff hx
 
-/-- The Cohn–Elkies certificate built from the coefficient construction, through the shared
-constructor `Certificate.ofRadial`. -/
+/-- The Cohn–Elkies certificate of the function given by the coefficient construction, built
+with `Certificate.ofRadial` as in the original roadmap. -/
 def certificate8 : CohnElkies.Certificate 8 (Real.sqrt 2) :=
   CohnElkies.Certificate.ofRadial (Real.sqrt_pos.2 (by norm_num)) (magic8)
     magic_e8_im_eq_zero fourier_magic_e8_im_eq_zero
@@ -175,12 +176,12 @@ theorem fourier_magic_leech_re_nonneg (x : V 24) :
     0 ≤ (𝓕 (magic24 : 𝓢(V 24, ℂ)) x).re := by
   rw [fourier_magic_leech_apply]; exact Leech.fourier_magic_re_nonneg x
 
-/-- Transferred from `Leech.magic_zero_iff_of_two_le_norm`, with its scope `‖x‖ ≥ 2`. -/
+/-- Transferred from `Leech.magic_zero_iff_of_two_le_norm`, which is stated for `‖x‖ ≥ 2`. -/
 theorem magic_leech_zero_iff_of_two_le_norm {x : V 24} (hx : 2 ≤ ‖x‖) :
     magic24 x = 0 ↔ ∃ n : ℕ, 2 ≤ n ∧ ‖x‖ ^ 2 = 2 * n := by
   rw [magic_leech_apply]; exact Leech.magic_zero_iff_of_two_le_norm hx
 
-/-- The Cohn–Elkies certificate built from the coefficient construction. -/
+/-- The Cohn–Elkies certificate of the function given by the coefficient construction. -/
 def certificate24 : CohnElkies.Certificate 24 2 :=
   CohnElkies.Certificate.ofRadial (by norm_num) (magic24)
     magic_leech_im_eq_zero fourier_magic_leech_im_eq_zero

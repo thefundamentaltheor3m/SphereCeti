@@ -20,25 +20,30 @@ public import Mathlib.NumberTheory.ModularForms.LevelOne.DimensionFormula
 /-!
 # Coefficient construction of the E8 and Leech magic functions: target statements
 
-This file states the core targets of the sibling roadmap
+This file states the main definitions and theorems of the roadmap in
 `SphereCetiRoadmap/CoefficientMagic/README.md`, with `sorry` in place of the proofs and of some
 definitions.  The mathematical source is *A construction of the sphere-packing magic functions in
-dimensions 8 and 24*, Hexagon 2610.00330v1; its statements are material to verify, not imported
-theorems.  References below are to its sections and numbered results.
+dimensions 8 and 24*, Hexagon 2610.00330v1.  Its results are statements to be proved here; none
+is assumed.  References below are to its sections and numbered results.
 
-The targets cover milestones C0 (coefficient systems), C1 (Schwartz synthesis), C2 (differentiated
-Poisson normalization), the sample-coordinate form of C3 (the moment operator), the conclusion of
-C4 (uniform geometric decay), C5 (the finite modular witness and the passage from a global
-analytic solution to coefficients), C6 (the passage from an arbitrary `ℓ²` kernel vector to a
-global analytic solution, vanishing, and the coefficient theorem), and the abstract operator
-argument of C8.
+The statements are grouped by the milestones of the README: the two coefficient systems (C0);
+the map from coefficient vectors to radial Schwartz functions (C1); Poisson summation
+differentiated in a dilation parameter (C2); the moment operator, written in terms of Fourier
+samples (C3); geometric decay of the solutions of the homogeneous equations (the conclusion of
+C4); the family of modular forms and the explicit null vectors of its cusp matrices, and the map
+from a global analytic solution to a coefficient vector (C5); the map from an arbitrary solution
+in `ℓ²` of the homogeneous equations to a global analytic solution, vanishing at zero
+normalization, and the coefficient theorem (C6); and the operator-theoretic argument of C8 for an
+arbitrary compact operator.
 
-Three objects of the paper are deliberately **not** given Lean declarations here, because their
-definitions use boundary traces and contour data that have not yet been fixed in Lean: the contour
-measures `μ₀, μ₁` and their Cauchy transforms (C3), the endpoint continuation statements with
-their domains (C4), and the concrete regularizing operator `K` (C8).  The README lists them as
-prose-specified targets.  No declaration below stands in for them; in particular there is no
-regularizer whose only specification is that it fixes the kernel.
+Throughout, *the kernel* is the null space of the moment operator, as in the README's glossary.
+
+Three objects of the paper have no Lean statement here, because their definitions use boundary
+traces and contour data that have not yet been fixed in Lean: the contour measures `μ₀, μ₁` and
+their Cauchy transforms (C3), the endpoint continuation with its domains (C4), and the compact
+regularizing operator `K` of Appendix B (C8).  The README states them in prose.  No definition
+with body `sorry` is put in their place: such a definition of `K`, specified only by `K c = c`
+on the kernel, would also be satisfied by the orthogonal projection onto the kernel.
 
 Radial profiles are functions of squared radius `u = ‖x‖²`, and are specified only for `u ≥ 0`.
 The cusp coordinate of a modular form is `𝔮 = exp (2πiτ)`; the argument of a coefficient
@@ -58,10 +63,10 @@ noncomputable section
 
 open SphereCeti.Suggested (V RadialSchwartzMap)
 
-/-! ## Existing inputs at the pin
+/-! ## Results used from the fixed versions of TauCeti and Mathlib
 
-These are `#check` lines, not targets: the roadmap consumes these declarations and asks only for
-the bridges to them. -/
+These `#check` lines confirm that the named results exist.  They are not targets: the roadmap
+uses these results and asks only for the lemmas connecting them to the coefficient systems. -/
 
 #check SchwartzMap.tsum_eq_tsum_dual_fourier
 #check ZLattice.representationNumber
@@ -83,8 +88,8 @@ the bridges to them. -/
 
 /-! ## C0: the two cases and their finite data -/
 
-/-- The two coefficient systems.  This is a closed enumeration, not a typeclass: every
-dimension-dependent datum below is defined by cases, so that the two systems stay distinct. -/
+/-- The two coefficient systems, in dimensions 8 and 24.  Every quantity below that depends on
+the dimension is defined separately in the two cases, so that the two systems stay distinct. -/
 inductive Case
   | e8
   | leech
@@ -97,7 +102,7 @@ def dim : Case → ℕ
   | e8 => 8
   | leech => 24
 
-/-- The first shell index `n₀`: the first shell has squared radius `2 n₀`. -/
+/-- The number `n₀` such that the first shell has squared norm `2 n₀`. -/
 def firstShell : Case → ℕ
   | e8 => 1
   | leech => 2
@@ -145,7 +150,8 @@ example : -(e8.dim : ℚ) / (4 * e8.firstShell * e8.shellCard) = -1 / 120 := by
   norm_num [dim, firstShell, shellCard]
 example : -(leech.dim : ℚ) / (4 * leech.firstShell * leech.shellCard) = -1 / 65520 := by
   norm_num [dim, firstShell, shellCard]
-/-- The cusp exponents sum to `1/2` in dimension 8 and to `-7/2` in dimension 24. -/
+/-- The cusp exponents sum to `1/2` in dimension 8 and to `-7/2` in dimension 24; the sum enters
+the degree of the determinant bundle in the Riemann–Roch count of C7. -/
 example : ∑ j, e8.cuspExp j = 1 / 2 ∧ ∑ j, leech.cuspExp j = -7 / 2 := by
   constructor <;> norm_num [cuspExp, Fin.sum_univ_succ]
 
@@ -242,9 +248,9 @@ theorem contDiff_corrSimple (ℓ : ℕ) (hℓ : Even ℓ) : ContDiff ℝ ⊤ (co
 theorem contDiff_corrDouble (ℓ : ℕ) (hℓ : Even ℓ) : ContDiff ℝ ⊤ (corrDouble ℓ) := by
   sorry
 
-/-- The function multiplying the coefficient `c_{j,m}` in the ansatz of §2.2 and §11.1.  Positive modes use
-`U_{m,0}`, `U_{m,1}`, `U_{m,2} + V_m` for `j = 0, 1, 2` and `U_{m,0} - 2 V_m` for `j = 3`;
-a nonpositive mode `m = -ℓ` uses `e^{-πℓ} R_{ℓ,j}`. -/
+/-- The function multiplying the coefficient `c_{j,m}` in the ansatz of §2.2 and §11.1.  Positive
+modes use `U_{m,0}`, `U_{m,1}`, `U_{m,2} + V_m` for `j = 0, 1, 2` and `U_{m,0} - 2 V_m` for
+`j = 3`; a nonpositive mode `m = -ℓ` uses `e^{-πℓ} R_{ℓ,j}`. -/
 def modeFun (D : Case) (p : Fin 4 × ℤ) (u : ℝ) : ℝ :=
   if 0 < p.2 then
     match p.1 with
@@ -294,7 +300,7 @@ theorem synth_injective (D : Case) : Function.Injective (synth D) := by
 theorem profile_zero (D : Case) (c : Coeff D) : profile D c 0 = normalization D c := by
   sorry
 
-/-- The built-in zeros on every shell (Lemma 3.1 and §11.2). -/
+/-- The zeros on every shell forced by the factor `P` (Lemma 3.1 and §11.2). -/
 theorem profile_shell (D : Case) (c : Coeff D) (n : ℕ) (hn : D.firstShell ≤ n) :
     profile D c (2 * n) = 0 := by
   sorry
@@ -306,7 +312,7 @@ theorem hasDerivAt_profile_firstShell (D : Case) (c : Coeff D) :
       (2 * D.firstShell) := by
   sorry
 
-/-- The built-in double zeros on every later shell. -/
+/-- The double zeros on every later shell forced by the factor `P`. -/
 theorem hasDerivAt_profile_laterShell (D : Case) (c : Coeff D) (n : ℕ)
     (hn : D.firstShell < n) : HasDerivAt (profile D c) 0 (2 * n) := by
   sorry
@@ -351,7 +357,7 @@ def sampleKernel (D : Case) : Submodule ℂ (Coeff D) where
 theorem mem_sampleKernel {D : Case} {c : Coeff D} :
     c ∈ sampleKernel D ↔ IsSampleSolution D c := Iff.rfl
 
-/-- The sample kernel is closed. -/
+/-- The kernel is closed. -/
 theorem isClosed_sampleKernel (D : Case) : IsClosed (sampleKernel D : Set (Coeff D)) := by
   sorry
 
@@ -394,13 +400,14 @@ theorem firstShell_deriv {d : ℕ} (Λ : Submodule ℤ (V d)) [DiscreteTopology 
 
 end Poisson
 
-/-- Poisson normalization for a kernel vector (Lemma 3.2 and §11.2): the Fourier profile at the origin
-is the normalization. -/
+/-- The Poisson identity at the origin, on the kernel (Lemma 3.2 and §11.2): the Fourier profile
+at the origin is the normalization. -/
 theorem fourierProfile_zero_of_mem_sampleKernel (D : Case) {c : Coeff D}
     (hc : c ∈ sampleKernel D) : fourierProfile D c 0 = normalization D c := by
   sorry
 
-/-- Poisson normalization forces the first-shell derivative `-(d / (4 n₀ N)) λ(c)`. -/
+/-- The Poisson identity on the first shell forces the first-shell derivative `-(d / (4 n₀ N₁))
+λ(c)`, where `N₁` is the first-shell count. -/
 theorem hasDerivAt_profile_firstShell_of_mem_sampleKernel (D : Case) {c : Coeff D}
     (hc : c ∈ sampleKernel D) :
     HasDerivAt (profile D c)
@@ -423,11 +430,12 @@ theorem coeff_exceptional_leech {c : Coeff .leech} (hc : c ∈ sampleKernel .lee
 By Lemma 4.1 and §11.3, the moment of degree `n - 1` of the contour measure `μ₀` is
 `8π G_c(2n)` and that of `μ₁` is `-8 G_c'(2n)`.  The operator below is the paper's moment operator
 with its rows indexed by `k = n - n₀`: in dimension 24 the two moments of degree zero are not
-rows, and in dimension 8 they are.  The contour measures themselves are prose-specified. -/
+rows, and in dimension 8 they are.  The contour measures themselves are stated only in the
+README. -/
 
-/-- The moment operator `M_d : ℓ²(𝓘_d) → ℓ²(𝓙_d)` of §4.4 and §11.3, with rows indexed by
-`k = n - n₀`: row `k` is the paper's moment of degree `k + n₀ - 1`, that is `k + 1` in dimension
-24 and `k` in dimension 8. -/
+/-- The moment operator `M_d` of §4.4 and §11.3, from `ℓ²(𝓘_d)` to `ℓ²` of the index set
+`{0, 1} × ℕ` of rows: row `(ν, k)`, with `k = n - n₀`, is the paper's moment of `μ_ν` of degree
+`k + n₀ - 1`, that is `k + 1` in dimension 24 and `k` in dimension 8. -/
 def momentOp (D : Case) : Coeff D →L[ℂ] lp (fun _ : Fin 2 × ℕ => ℂ) 2 := by
   sorry
 
@@ -439,18 +447,17 @@ theorem momentOp_apply_one (D : Case) (c : Coeff D) (k : ℕ) :
     momentOp D c (1, k) = -8 * deriv (fourierProfile D c) (2 * (k + D.firstShell : ℕ)) := by
   sorry
 
-/-- The kernel of the moment operator is the homogeneous sample system. -/
+/-- The null space of the moment operator is the solution space of the sample equations. -/
 theorem ker_momentOp (D : Case) : LinearMap.ker (momentOp D).toLinearMap = sampleKernel D := by
   sorry
 
-/-- The geometric moment estimate of §4.4, with ratio `ρ = e^{-π}`. -/
+/-- The geometric moment estimate of §4.4, with ratio `e^{-π}`. -/
 theorem exists_norm_momentOp_apply_le (D : Case) :
     ∃ C : ℝ, ∀ (c : Coeff D) (ν : Fin 2) (k : ℕ),
       ‖momentOp D c (ν, k)‖ ≤ C * ‖c‖ * Real.exp (-π * k) := by
   sorry
 
-/-- The moment operator is compact.  Compactness alone gives neither existence nor an error
-estimate for coefficient recovery. -/
+/-- The moment operator is compact. -/
 theorem isCompactOperator_momentOp (D : Case) : IsCompactOperator (momentOp D) := by
   sorry
 
@@ -465,7 +472,7 @@ theorem summable_genSeries {D : Case} (c : Coeff D) (j : Fin 4) {q : ℂ} (hq0 :
     (hq : ‖q‖ < 1) : Summable fun m : ℤ => coeff c j m * q ^ m := by
   sorry
 
-/-- The argument `q = Q(-iτ) = e^π · exp (πiτ)` of the generating series (§6.1).  It is not the
+/-- The argument `q = e^π · exp (πiτ)` of the generating series (§6.1).  It is not the
 cusp coordinate `𝔮 = exp (2πiτ)`: `q² = e^{2π} 𝔮`. -/
 def seriesArg (τ : ℍ) : ℂ := Real.exp π * cexp (π * Complex.I * τ)
 
@@ -493,7 +500,7 @@ def glueInvert (τ : ℂ) : Matrix (Fin 6) (Fin 6) ℂ :=
 
 /-! ### The constant splitting into two blocks
 
-Used by the vanishing argument of §8 and by the finite modular witness. -/
+Used by the vanishing argument of §8 and by the family of modular forms of C5. -/
 
 /-- The constant change of variables of §8:
 `a₀⁺ = (a₀ + a₅)/2`, `a₁⁺ = (a₁ + a₂ + a₄)/2`, `a₂⁺ = a₂`,
@@ -556,24 +563,29 @@ theorem mem_globalSolution {D : Case} {a : Fin 6 → ℍ → ℂ} :
     a ∈ globalSolution D ↔ IsGlobalSolution D a := Iff.rfl
 
 /-- The relation of §6.1 between a coefficient vector and the first four components of a global
-solution: for `Im τ > 1`, where the series converge,
+analytic solution: for `Im τ > 1`, where the series converge,
 `(a₀, a₁, a₂, a₃)(τ) = (A₀, -i A₁, -A₂, A₃)(q)` with `q = seriesArg τ`. -/
 def IsSeriesOf {D : Case} (c : Coeff D) (a : Fin 6 → ℍ → ℂ) : Prop :=
   ∀ τ : ℍ, 1 < τ.im →
     a 0 τ = genSeries c 0 (seriesArg τ) ∧ a 1 τ = -Complex.I * genSeries c 1 (seriesArg τ) ∧
     a 2 τ = -genSeries c 2 (seriesArg τ) ∧ a 3 τ = genSeries c 3 (seriesArg τ)
 
-/-- The first four components determine a global solution (Lemma 6.1, injectivity). -/
+/-- The first four components determine a global analytic solution (Lemma 6.1, injectivity). -/
 theorem eq_zero_of_isGlobalSolution_of_first_four {D : Case} {a : Fin 6 → ℍ → ℂ}
     (ha : IsGlobalSolution D a) (h : ∀ j : Fin 6, j.val < 4 → a j = 0) : a = 0 := by
   sorry
 
-/-! ### C5, analytic half: from a global solution to coefficients
+/-! ### C5 (analytic part): from a global analytic solution to coefficients
 
-This is Lemma 6.1 and the reverse direction of Lemma 11.2.  It is the passage that turns the
-finite modular witness into a solution of the full coefficient system. -/
+This is Lemma 6.1 and the reverse direction of Lemma 11.2.  A cusp bound `𝔮^κ` on `a_j`,
+`j ≤ 3`, together with `q² = e^{2π} 𝔮`, gives `c_{j,m} = 0` for `m < 2κ` and for
+`m ≢ 2κ (mod 2)`, so the extracted coefficients are indexed by the modes.  Applied to
+`Witness.section8` and `Witness.section24` below (global analytic solutions once
+`isGlobalSolution_candidate8` and `isGlobalSolution_candidate24` are proved), it gives elements of
+the kernel with normalizations `180π` and `98280π`; rescaling gives normalized solutions of the
+sample equations. -/
 
-/-- Laurent extraction: a global solution gives a coefficient vector in the sample kernel. -/
+/-- Laurent extraction: a global analytic solution gives a coefficient vector in the kernel. -/
 def ofGlobalSolution (D : Case) : globalSolution D →ₗ[ℂ] sampleKernel D := by
   sorry
 
@@ -595,8 +607,8 @@ theorem summable_ofGlobalSolution_weighted (D : Case) (a : globalSolution D) {r 
 
 /-! ### C4: local continuation, uniformly on the kernel
 
-The endpoint analysis continues the four generating series of **every** kernel vector to a disk
-of some radius `R > 1`, with bounds controlled by the coefficient norm.  Only its conclusion is
+The endpoint analysis continues the four generating series of every element of the kernel to a
+disk of some radius `R > 1`, with bounds controlled by the coefficient norm.  Only its conclusion is
 stated here.  It gives geometric decay and `ℓ¹` membership; the stronger statement for every
 `r < e^π` is `summable_weighted_of_mem_sampleKernel` below, which needs the global continuation. -/
 
@@ -605,18 +617,18 @@ theorem exists_geometric_decay (D : Case) :
       ‖c i‖ ≤ C * ‖c‖ * R ^ (-i.1.2) := by
   sorry
 
-/-- Every kernel vector is absolutely summable. -/
+/-- Every element of the kernel is absolutely summable. -/
 theorem summable_norm_of_mem_sampleKernel (D : Case) {c : Coeff D} (hc : c ∈ sampleKernel D) :
     Summable fun i : Index D => ‖c i‖ := by
   sorry
 
-/-! ### C6, analytic half: from an arbitrary kernel vector to a global solution
+/-! ### C6 (continuation): from an arbitrary element of the kernel to a global analytic solution
 
-This is Lemma 6.3, Proposition 6.4 and the forward direction of Lemma 11.2.  The domain is the
-whole kernel in `ℓ²`, not the image of a constructed candidate: this is where the scope of the
-uniqueness theorem is decided. -/
+This is Lemma 6.3, Proposition 6.4 and the forward direction of Lemma 11.2.  The map is defined
+on the whole kernel in `ℓ²`.  Uniqueness in `ℓ²` needs this: a map defined only on the solutions
+constructed in C5 would give uniqueness only among those. -/
 
-/-- Global continuation: every kernel vector gives a global solution. -/
+/-- Global continuation: every element of the kernel gives a global analytic solution. -/
 def toGlobalSolution (D : Case) : sampleKernel D →ₗ[ℂ] globalSolution D := by
   sorry
 
@@ -639,15 +651,15 @@ def kernelEquivGlobalSolution (D : Case) : sampleKernel D ≃ₗ[ℂ] globalSolu
     (LinearMap.ext (toGlobalSolution_ofGlobalSolution D))
     (LinearMap.ext (ofGlobalSolution_toGlobalSolution D))
 
-/-- Weighted decay of every kernel vector, for every `1 < r < e^π`. -/
+/-- Weighted decay of every element of the kernel, for every `1 < r < e^π`. -/
 theorem summable_weighted_of_mem_sampleKernel (D : Case) {c : Coeff D}
     (hc : c ∈ sampleKernel D) {r : ℝ} (hr : 1 < r) (hr' : r < Real.exp π) :
     Summable fun i : Index D => ‖c i‖ * r ^ i.1.2 := by
   sorry
 
-/-! ## C5, modular half: the finite modular witness
+/-! ## C5 (modular-forms part): a family of modular forms and the null vectors of its cusp matrices
 
-See `FINITE_SECTION_EXISTENCE.md`.  The theta quartics `H₂ = θ₂⁴` and `H₄ = θ₄⁴` are written here
+See `MODULAR_EXISTENCE.md`.  The theta quartics `H₂ = θ₂⁴` and `H₄ = θ₄⁴` are written here
 through Mathlib's two-variable Jacobi theta function, because neither pinned dependency provides
 them; Sphere-Packing-Lean's `H₂`, `H₄` replace these two definitions after the Layer 0
 migration. -/
@@ -702,7 +714,7 @@ theorem W₄_S (τ : ℍ) : W₄ (ModularGroup.S • τ) = (τ : ℂ) ^ 4 • (r
 theorem W₄_T (τ : ℍ) : W₄ ((1 : ℝ) +ᵥ τ) = rhoT *ᵥ W₄ τ := by
   sorry
 
-/-- The determinant certificate `det [V₂, W₄]² = 576 Δ`: the two columns are pointwise
+/-- The determinant identity `det [V₂, W₄]² = 576 Δ`: the two columns are pointwise
 independent on the upper half-plane. -/
 theorem det_V₂_W₄_sq (τ : ℍ) :
     (V₂ τ 0 * W₄ τ 1 - V₂ τ 1 * W₄ τ 0) ^ 2 = 576 * ModularForm.discriminant τ := by
@@ -738,11 +750,11 @@ theorem plusBlock_S {k : ℤ} (hk0 : k ≠ 0) (hk1 : k ≠ -1) (hk2 : k ≠ -2) 
         (τ : ℂ) ^ (k + 2) * plusBlock k F B₀ C₀ 0 τ := by
   sorry
 
-/-- The six fields (4) of the note, from a plus block `p` and a minus block `(m₀, 0, m₂)`. -/
+/-- The six functions (4) of the note, from a plus block `p` and a minus block `(m₀, 0, m₂)`. -/
 def sixFields (p : Fin 3 → ℍ → ℂ) (m₀ m₂ : ℍ → ℂ) : Fin 6 → ℍ → ℂ :=
   ![p 0 + m₀, p 1, p 2, m₂, p 1 - p 2, p 0 - m₀]
 
-/-- The six fields of the finite modular witness are the inverse splitting of a plus block `p`
+/-- The six functions built from the two blocks are the inverse splitting of a plus block `p`
 and a minus block `(m₀, 0, m₂)`. -/
 theorem splitting_mulVec_sixFields (p : Fin 3 → ℍ → ℂ) (m₀ m₂ : ℍ → ℂ) (τ : ℍ) :
     (splitting *ᵥ fun j => sixFields p m₀ m₂ j τ) =
@@ -774,7 +786,7 @@ def candidate24 (v : Fin 8 → ℂ) : Fin 6 → ℍ → ℂ :=
     (fun τ => (v 5 * E₄ τ ^ 3 * V₂ τ 1 + v 6 * E₆ τ ^ 2 * V₂ τ 1 +
       v 7 * E₄ τ * E₆ τ * W₄ τ 1) / Δ τ ^ 2)
 
-/-- The cusp-constraint matrix (10) of the note. -/
+/-- The cusp-condition matrix `C₈` (10) of the note. -/
 def cuspMatrix8 : Matrix (Fin 5) (Fin 6) ℚ :=
   !![1 / 2, 1, 0, 0, 0, 0;
      1 / 12, 1 / 2, 1, 1, 0, 0;
@@ -782,7 +794,7 @@ def cuspMatrix8 : Matrix (Fin 5) (Fin 6) ℚ :=
      0, 0, 0, 0, -8, -16;
      1, 0, 0, 0, -1, 1]
 
-/-- The cusp-constraint matrix (14) of the note. -/
+/-- The cusp-condition matrix `C₂₄` (14) of the note. -/
 def cuspMatrix24 : Matrix (Fin 7) (Fin 8) ℚ :=
   !![1 / 3, 1 / 3, 1, 0, 0, 0, 0, 0;
      1 / 33, 1 / 33, 1 / 5, 1, 1, 0, 0, 0;
@@ -799,7 +811,9 @@ def witness8 : Fin 6 → ℚ := ![-3, 3 / 2, -41 / 144, -31 / 144, -2, 1]
 def witness24 : Fin 8 → ℚ :=
   ![-49 / 8, 25 / 8, 1, -23 / 1760, -169 / 1760, -8 / 9, -10 / 9, 1]
 
-/-- The witnesses satisfy the cusp constraints: exact rational arithmetic, checked here. -/
+/-- The two rational vectors are null vectors of the cusp matrices.  This is exact rational
+arithmetic, proved here; it involves no modular forms.  The ranks and the identification of the
+rows with Laurent coefficients are checked only by the script. -/
 example : cuspMatrix8 *ᵥ witness8 = 0 := by
   ext i; fin_cases i <;>
     norm_num [cuspMatrix8, witness8, Matrix.mulVec, dotProduct, Fin.sum_univ_succ]
@@ -839,12 +853,14 @@ theorem candidate24_invert (v : Fin 8 → ℂ) (τ : ℍ) :
   sorry
 
 /-- A parameter vector annihilated by the cusp matrix gives a global analytic solution: beyond
-the laws above, this is the statement that the cusp bounds of all six fields hold.
+the laws above, which hold for every parameter vector, this is the statement that the cusp
+bounds of all six functions hold.
 
-This target does not by itself identify each matrix entry with the Laurent coefficient it
-represents: the kernels are lines, so it constrains the matrices only through the witnesses.  The
-row-by-row identification required by §8 of the note is a prose-specified target, owed with
-TauCeti's Laurent q-expansion API. -/
+Since the script finds rank 5 (resp. 7), this target is equivalent to `candidate8 witness8`
+(resp. `candidate24 witness24`) being a global analytic solution; its truth depends on the matrix
+only through its null space, not on the rows being the correct Laurent coefficients.  That
+identification, required by §8 of the note and checked by the script, has no Lean statement
+yet; it is to be stated with TauCeti's Laurent expansions in `𝔮`. -/
 theorem isGlobalSolution_candidate8 (v : Fin 6 → ℂ)
     (hv : (cuspMatrix8.map (algebraMap ℚ ℂ)) *ᵥ v = 0) :
     IsGlobalSolution .e8 (candidate8 v) := by
@@ -855,36 +871,41 @@ theorem isGlobalSolution_candidate24 (v : Fin 8 → ℂ)
     IsGlobalSolution .leech (candidate24 v) := by
   sorry
 
-/-- The parametrizations are injective (§6 of the note).  This is a structural check; the
-existence proof through the explicit witnesses does not use it. -/
+/-- The parametrizations are injective (§6 of the note).  This is a consistency check; the
+existence proof through the explicit null vectors does not use it. -/
 theorem candidate8_injective : Function.Injective candidate8 := by
   sorry
 
 theorem candidate24_injective : Function.Injective candidate24 := by
   sorry
 
-/-- The explicit witness in dimension 8, as a global solution. -/
+/-- The global analytic solution in dimension 8 given by the null vector `witness8`.  That it is
+one is `isGlobalSolution_candidate8`, which is not yet proved.  The name is historical: this is a
+global analytic solution, not a section of a bundle. -/
 def section8 : globalSolution .e8 :=
   ⟨candidate8 fun i => (witness8 i : ℂ), by sorry⟩
 
-/-- The explicit witness in dimension 24, as a global solution. -/
+/-- The global analytic solution in dimension 24 given by the null vector `witness24`.  That it is
+one is `isGlobalSolution_candidate24`, which is not yet proved.  The name is historical, as for
+`section8`. -/
 def section24 : globalSolution .leech :=
   ⟨candidate24 fun i => (witness24 i : ℂ), by sorry⟩
 
-/-- The normalization (16) of the witness: `λ = 180π` in dimension 8. -/
+/-- The normalization (16) of the coefficient vector of `section8`: `λ = 180π`. -/
 theorem normalization_section8 :
     normalization .e8 (ofGlobalSolution .e8 section8 : Coeff .e8) = 180 * π := by
   sorry
 
-/-- The normalization (16) of the witness: `λ = 98280π` in dimension 24. -/
+/-- The normalization (16) of the coefficient vector of `section24`: `λ = 98280π`. -/
 theorem normalization_section24 :
     normalization .leech (ofGlobalSolution .leech section24 : Coeff .leech) = 98280 * π := by
   sorry
 
 end Witness
 
-/-- Existence (C5): a normalized kernel vector, constructed from the finite modular witness
-without either known magic function, interpolation, or Riemann–Roch. -/
+/-- Existence (C5): a normalized element of the kernel, constructed from `Witness.section8`
+and `Witness.section24`, using neither of the known magic functions, nor interpolation, nor
+Riemann–Roch. -/
 theorem exists_mem_sampleKernel_normalized (D : Case) :
     ∃ c ∈ sampleKernel D, normalization D c = 1 := by
   sorry
@@ -945,9 +966,10 @@ theorem hasDerivAt_profile_solution_leech :
 
 /-! ## C8: the abstract positive equation
 
-The operator argument of Theorem 9.1, for an arbitrary compact `K`.  The concrete regularizer of
-Appendix B is prose-specified; these theorems are what it is fed to.  Exact Galerkin convergence
-then consumes TauCeti's finite-section API. -/
+The argument of Theorem 9.1, for bounded operators `K` (compact), `A` and `λ`, to be applied
+with `A = M_d`.  The operator `K` of Appendix B is stated only in the README; these theorems are
+to be applied to it.  Convergence
+of the Galerkin approximations then follows from TauCeti's results on finite sections. -/
 
 namespace Regularized
 
@@ -965,7 +987,7 @@ theorem inner_positiveOp_self (K : E →L[ℂ] E) (A : E →L[ℂ] F) (lam : E �
   sorry
 
 /-- Coercivity: compactness of `K` and vanishing at zero normalization give a positive lower
-bound.  The constant is existential; it certifies no numerical computation. -/
+bound.  The constant is existential; it justifies no numerical computation. -/
 theorem exists_coercive {K : E →L[ℂ] E} (hK : IsCompactOperator K) (A : E →L[ℂ] F)
     (lam : E →L[ℂ] ℂ) (hvan : ∀ c, A c = 0 → lam c = 0 → c = 0) :
     ∃ κ : ℝ, 0 < κ ∧ ∀ c : E, κ * ‖c‖ ^ 2 ≤ ‖c - K c‖ ^ 2 + ‖A c‖ ^ 2 + ‖lam c‖ ^ 2 := by
@@ -977,9 +999,10 @@ theorem isUnit_positiveOp {K : E →L[ℂ] E} (hK : IsCompactOperator K) (A : E 
     IsUnit (positiveOp K A lam) := by
   sorry
 
-/-- The solution of the positive equation is the normalized kernel vector.  Invertibility alone
-does not give this: the proof uses a normalized homogeneous solution `b`, the reproduction
-property of `K` on the kernel, and vanishing at zero normalization. -/
+/-- The solution of the positive equation is the normalized element of the null space of `A`.
+Invertibility alone does not give this: the proof uses a vector `b` with `A b = 0` and
+`λ b = 1`, the property `K c = c` on the null space of `A`, and vanishing at zero
+normalization. -/
 theorem eq_of_positiveOp_apply_eq {K : E →L[ℂ] E} {A : E →L[ℂ] F} {lam : E →L[ℂ] ℂ}
     (hfix : ∀ c, A c = 0 → K c = c) (hvan : ∀ c, A c = 0 → lam c = 0 → c = 0)
     {b : E} (hb : A b = 0) (hb1 : lam b = 1) {c : E}

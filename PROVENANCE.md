@@ -352,15 +352,16 @@ polynomial, the modulo-eight/residue-code coordinate description scaled by `1 / 
   Radchenko, and Viazovska (2017), transferred by comparison.
 - Luca Candelori and Cameron Franc, *Vector valued modular forms and the modular orbifold of
   elliptic curves*, International Journal of Number Theory 13 (2017), 39–63, arXiv:1506.09192: the
-  Riemann–Roch route to existence that the paper uses, for the geometric summit only.
-- The finite modular existence construction in
-  `SphereCetiRoadmap/CoefficientMagic/FINITE_SECTION_EXISTENCE.md` is a proof route proposed for
+  Riemann–Roch argument for existence that the paper uses; here it is needed only for the
+  geometric correspondence.
+- The existence proof from explicit modular forms in
+  `SphereCetiRoadmap/CoefficientMagic/MODULAR_EXISTENCE.md` was proposed for
   this roadmap on 2026-11-22.  It replaces the paper's Riemann–Roch step for existence by explicit
-  witnesses in a finite family built from `E₄`, `E₆`, `Δ`, and the theta quartics.  It claims no
+  solutions in a finite-dimensional family built from `E₄`, `E₆`, `Δ`, and the theta quartics.  It claims no
   mathematical novelty.  Its finite algebra is checked exactly by
-  `scripts/check_finite_sections.py` (run with SymPy 1.14.0); in Lean only the two identities
-  `cuspMatrix *ᵥ witness = 0` are proved.  The transformation laws, cusp expansions, and the
-  passage from a witness to coefficients are targets.
+  `scripts/check_modular_identities.py` (run with SymPy 1.14.0); in Lean only the two identities
+  `cuspMatrix *ᵥ witness = 0` are proved.  The transformation laws, the expansions at the
+  cusp, and the theorem that such a solution gives a coefficient solution are targets.
 - Reuse sources for the theta identities, on the older production toolchain and available only
   after the Layer 0 migration:
   `SpherePacking/ModularForms/JacobiTheta/{Defs,Basic,MDifferentiable,JacobiIdentity,Derivative}.lean`

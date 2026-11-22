@@ -18,7 +18,7 @@ roadmap_approved = true
 [[sources.additional_roadmaps]]
 name = "coefficient-magic"
 document = "SphereCetiRoadmap/CoefficientMagic/README.md"
-companions = ["SphereCetiRoadmap/CoefficientMagic/FINITE_SECTION_EXISTENCE.md"]
+companions = ["SphereCetiRoadmap/CoefficientMagic/MODULAR_EXISTENCE.md"]
 targets = [
   "SphereCetiRoadmap/CoefficientMagic/Suggested.lean",
   "SphereCetiRoadmap/CoefficientMagic/Geometry.lean",

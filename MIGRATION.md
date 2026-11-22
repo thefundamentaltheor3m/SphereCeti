@@ -819,23 +819,25 @@ After A1:
 - N1–N3 wait for F4 plus the dimension-specific exact zero results, and do not wait for M1/M2;
   N4 additionally waits for M1, N5 for M2, and N6 follows from N4/N5.
 
-### The coefficient-construction track
+### The coefficient construction
 
 The sibling roadmap in `SphereCetiRoadmap/CoefficientMagic/README.md` has its own PR sequence
 (its section “First production PRs”) and is parallel to every phase above.  Its dependencies on
 this sequence are:
 
-- A1 (the toolchain migration), for the production Jacobi-theta files reused by its modular
-  stream;
+- A1 (the toolchain migration), for the production Jacobi-theta files used in its modular-forms
+  part;
 - E1 (TauCeti's Poisson summation), for its differentiated Poisson identity;
-- J (the common analytic tools), only where it shares the radial Schwartz and Fourier
-  interfaces;
-- K and L (the E8 and Leech magic functions with their sign proofs), for its comparison summit
-  only.
+- J (the common analytic tools), only for the definitions of radial Schwartz functions and the
+  Fourier convention;
+- K and L (the E8 and Leech magic functions with their sign proofs), for its comparison
+  with the known functions only.
 
-Its modular stream (theta covariants, derivative blocks, the finite witnesses) and its analytic
-stream (coefficient systems, differentiated Poisson, synthesis, sample and moment identities,
-continuation) run in parallel and meet at coefficient existence.  Neither waits for Phases M–O,
+Its modular-forms part (theta covariants, derivative blocks, the explicit null vectors of the cusp
+matrices) and its
+analytic part (coefficient systems, differentiated Poisson summation, the map to Schwartz
+functions, sample and moment identities, continuation) are independent of each other until the
+existence theorem, which uses both.  Neither waits for Phases M–O,
 and no phase above waits for it.
 
 ## 19. PR description template

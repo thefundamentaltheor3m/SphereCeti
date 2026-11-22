@@ -11,19 +11,20 @@ public import SphereCetiRoadmap.CoefficientMagic.Suggested
 /-!
 # Coefficient construction: the gluing data of the rank-six bundle
 
-This file states the part of milestone C7 that is precise enough to state at the pinned
-dependencies: the finite algebra of the gluing matrices of Hexagon 2610.00330v1, §6.  These are
-the cocycle relations that make the translation and inversion laws of
-`SphereCeti.CoefficientMagic.IsGlobalSolution` consistent, the cusp frame, and the fibre actions
-at the two elliptic points.  The constant splitting into two blocks of three is in the core
-file, because the vanishing argument and the finite modular witness use it.
+This file states the part of milestone C7 that can be stated with the fixed versions of Mathlib
+and TauCeti: the matrix identities for the gluing matrices of Hexagon 2610.00330v1, §6.  These
+are the cocycle relations that make the translation and inversion laws of
+`SphereCeti.CoefficientMagic.IsGlobalSolution` consistent, the cusp frame, and the actions on
+the fibres at the two elliptic points.  The constant change of variables splitting the system
+into two blocks of three is in `Suggested.lean`, because the vanishing argument and the family of
+modular forms of C5 use it.
 
-The genuinely geometric targets of C7 have **no** Lean declaration here: the holomorphic
-orbifold bundle `𝓔_d` over the compactified modular orbifold, the identification of
-`globalSolution d` with its global sections, and the Riemann–Roch computation `χ(𝓔_d) = 1`.
-Neither pinned dependency provides orbifold vector bundles or an applicable Riemann–Roch
-theorem, and no placeholder stands in for them.  The README records them as prose-specified
-targets.  No proof of a target in `SphereCetiRoadmap.CoefficientMagic.Suggested` needs this file.
+The remaining statements of C7 have no Lean statement here: the holomorphic vector bundle `𝓔_d`
+over the compactified modular orbifold, the identification of `globalSolution d` with its space
+of global sections, and the Riemann–Roch computation `χ(𝓔_d) = 1`.  Neither library provides
+vector bundles on orbifolds or a Riemann–Roch theorem that applies, and no definition with body
+`sorry` is put in their place.  The README states them in prose.  No proof of a statement in
+`SphereCetiRoadmap.CoefficientMagic.Suggested` needs this file.
 -/
 
 @[expose] public section
@@ -56,7 +57,8 @@ def glueST (τ : ℂ) : Matrix (Fin 6) (Fin 6) ℂ :=
 /-- The action `τ ↦ -1/(τ + 1)` of `ST`. -/
 def rot (τ : ℂ) : ℂ := -(τ + 1)⁻¹
 
-/-- The order-three relation of §6.1: `J_ST(R₃²τ) J_ST(R₃τ) J_ST(τ) = 1`. -/
+/-- The order-three relation of §6.1: `J_ST(R(R τ)) J_ST(R τ) J_ST(τ) = 1`, where `R` is the map
+`τ ↦ -1/(τ + 1)`. -/
 theorem glueST_cocycle (τ : ℍ) :
     glueST (rot (rot τ)) * glueST (rot τ) * glueST τ = 1 := by
   sorry
@@ -77,8 +79,9 @@ theorem weight_cocycle (D : Case) (τ : ℍ) :
 def cuspFrame (D : Case) (τ : ℂ) : Matrix (Fin 6) (Fin 6) ℂ :=
   Matrix.diagonal fun j => cexp (2 * π * Complex.I * (D.cuspExp j : ℂ) * τ)
 
-/-- The cusp frame has the translation law of a section: the half-integer exponent of the
-fourth component cancels its antiperiodicity. -/
+/-- The cusp frame satisfies the translation law of a global analytic solution: the half-integer
+exponent
+of the fourth component cancels its antiperiodicity. -/
 theorem cuspFrame_add_one (D : Case) (τ : ℂ) :
     cuspFrame D (τ + 1) = glueTranslate * cuspFrame D τ := by
   sorry

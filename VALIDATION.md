@@ -113,7 +113,7 @@ transitive `sorryAx` dependencies, and no lint findings:
 What the counts mean for these modules:
 
 - in `CoefficientMagic.Suggested`, five definitions have `sorry` bodies (`synth`, `momentOp`,
-  `ofGlobalSolution`, `toGlobalSolution`, `solution`), each with its characteristic equations as
+  `ofGlobalSolution`, `toGlobalSolution`, `solution`), each with its defining equations stated as
   separate targets, and four have `sorry` proofs of membership or closure inside real data
   (`sampleKernel`, `globalSolution`, `Witness.section8`, `Witness.section24`).  Every other
   admission is a theorem target or a dependent of one.  The declarations without admissions are
@@ -127,12 +127,12 @@ What the counts mean for these modules:
   are;
 - in `CoefficientMagic.Geometry`, the twelve admissions are the twelve matrix identities.
 
-The statements were reviewed against the source paper and the finite-section note on 2026-11-22,
+The statements were reviewed against the source paper and `MODULAR_EXISTENCE.md` on 2026-11-22,
 with exact SymPy and high-precision numerical checks of the gluing matrices, the correction
 jets, the theta and discriminant identities, and the transformation laws of both candidate
 families for random parameters.  That review found no false statement.  It is a check by the
 authors of this roadmap, not a substitute for mathematical review of the pull request, and
-neither it nor `scripts/check_finite_sections.py` is a proof.
+neither it nor `scripts/check_modular_identities.py` is a proof.
 
 The contour measures and Cauchy transforms, the endpoint continuation, the concrete
 regularizer, the row-by-row identification of the cusp matrices, and the orbifold bundle with

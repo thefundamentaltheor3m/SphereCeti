@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Exact algebra checks for the proposed SphereCeti finite-section existence route.
+"""Exact algebra checks for the existence argument of MODULAR_EXISTENCE.md.
 
 Run with Python 3 and SymPy installed, from the repository root:
-    uv run --with sympy python -I scripts/check_finite_sections.py
+    uv run --with sympy python -I scripts/check_modular_identities.py
 
 This checks finite polynomial/rational identities and cusp coefficients. It does
 not prove the analytic theta transformation laws, convergence, boundary-to-kernel
 correspondence, or any Lean theorem. See
-SphereCetiRoadmap/CoefficientMagic/FINITE_SECTION_EXISTENCE.md.  This is a development check
+SphereCetiRoadmap/CoefficientMagic/MODULAR_EXISTENCE.md.  This is a development check
 and is not part of CI.
 
 Conventions: q = exp(2*pi*i*tau), t = q**(1/2), delta = 2*pi*i.

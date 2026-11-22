@@ -18,7 +18,8 @@ conventions.
 A sibling roadmap,
 [Coefficient construction of the E8 and Leech magic functions](SphereCetiRoadmap/CoefficientMagic/README.md),
 is incorporated here by reference and summarized [below](#sibling-roadmap-coefficient-construction-of-the-magic-functions).
-It shares the analytic and certificate interfaces of this roadmap and adds no dependency to it.
+It uses the same analytic definitions and the same Cohn–Elkies certificates as this roadmap, and
+nothing here depends on it.
 
 ## Reading this roadmap
 
@@ -995,47 +996,50 @@ SphereCeti must preserve exact zero multiplicities and estimates for reuse by th
 # Sibling roadmap: coefficient construction of the magic functions
 
 [`SphereCetiRoadmap/CoefficientMagic/README.md`](SphereCetiRoadmap/CoefficientMagic/README.md) is
-part of this roadmap's specification.  It asks for a second, independent construction of the two
-magic functions: as the unique normalized solutions of explicit linear systems for coefficient
-vectors in `ℓ²`, following *A construction of the sphere-packing magic functions in dimensions 8
-and 24* (Hexagon 2610.00330v1).  The paper is material to verify, not an imported result.
+part of this roadmap's specification.  It asks for a second construction of the two magic
+functions, as the unique normalized solutions of explicit linear systems for coefficient vectors
+in `ℓ²`, following *A construction of the sphere-packing magic functions in dimensions 8 and 24*
+(Hexagon 2610.00330v1).  The results of that paper are statements to be proved; none is assumed.
 
-It has four separately reported summits:
+It has four main results, whose progress is reported separately:
 
-| Summit | What completion means |
+| Main result | Statement |
 |---|---|
-| Independent coefficient construction | Existence and uniqueness of the normalized solution in the whole stated `ℓ²` space, with real coefficients and weighted decay, using neither the existing magic functions nor Fourier interpolation. |
-| Comparison and certificate | Equality with `E8.magic` and `Leech.magic`, transfer of their sign inequalities, and the same `CohnElkies.Certificate`. |
-| Regularization and approximation | The paper's compact regularizer on arbitrary coefficient vectors, bounded invertibility of the positive equation, and exact Galerkin convergence. |
-| Geometric correspondence and index | Identification of the analytic solution space with the global sections of a rank-six orbifold bundle, and its Euler characteristic. |
+| Coefficient theorem | The normalized system has exactly one solution in the whole space `ℓ²`; its coefficients are real and absolutely summable with weight `r^m` for every `1 < r < e^π`.  The proof uses neither the known magic functions nor Fourier interpolation. |
+| Comparison | The functions so constructed are `E8.magic` and `Leech.magic`; they therefore satisfy the same sign inequalities and give Cohn–Elkies certificates whose functions equal those of `E8.certificate` and `Leech.certificate`. |
+| Regularized equation | With the compact operator of the paper, defined on all coefficient vectors, the associated positive operator is boundedly invertible, and the Galerkin approximations converge. |
+| Geometric correspondence | The space of global analytic solutions is the space `H⁰(𝓔_d)` of global sections of a holomorphic vector bundle `𝓔_d` of rank six on the modular orbifold, of Euler characteristic one; with the continuation of the coefficient theorem, this identifies `H⁰(𝓔_d)` with the solution space in `ℓ²` of the homogeneous equations. |
 
-The first summit does not wait for the fourth.  Existence is to be proved from an explicit finite
-modular witness, worked out in
-[`FINITE_SECTION_EXISTENCE.md`](SphereCetiRoadmap/CoefficientMagic/FINITE_SECTION_EXISTENCE.md),
-rather than from Riemann–Roch; uniqueness needs the continuation of every kernel vector to a
-global analytic solution, which is the central analytic target.
+The coefficient theorem does not depend on the geometric correspondence.  Existence is to be
+proved from a finite-dimensional family built from `E₄`, `E₆`, `Δ` and theta functions, in which
+an explicit null vector of a matrix of cusp conditions is exhibited; see
+[`MODULAR_EXISTENCE.md`](SphereCetiRoadmap/CoefficientMagic/MODULAR_EXISTENCE.md),
+in place of the Riemann–Roch argument of the paper.  Uniqueness requires that every solution in
+`ℓ²` of the homogeneous equations continue to a global analytic solution, and that such a
+solution with zero normalization vanish; this continuation is the main analytic theorem to be
+proved.
 
-The division of ownership with the layers above is:
+Relation to the layers above:
 
-| Material | Treatment in the sibling roadmap |
+| Material | In the sibling roadmap |
 |---|---|
-| Packing semantics, canonical lattices, density (Layers 1–3, 6) | Referenced, not repeated. |
-| Poisson summation and shell cardinalities (Layers 4–5) | Consumed from the pinned TauCeti. |
-| Radial Schwartz maps, the Fourier convention (Layer 7) | Shared; `CONVENTIONS.md` §11 remains authoritative. |
-| Cohn–Elkies certificates (Layer 4) | The same `Certificate` type and `Certificate.ofRadial` constructor. |
-| Existing magic functions and their sign proofs (Layer 9) | Consumed by the comparison summit only. |
-| Coefficient synthesis, sample equations, continuation, the six-function solution space, the modular witness | New. |
-| Rank-six orbifold bundle and Riemann–Roch | Separate geometric work, not on the path to the first summit. |
+| Packings, the E8 and Leech lattices, density (Layers 1–3, 6) | Cited, not restated. |
+| Poisson summation and shell cardinalities (Layers 4–5) | Taken from TauCeti at its fixed version. |
+| Radial Schwartz functions and the Fourier convention (Layer 7) | The same definitions; `CONVENTIONS.md` §11 applies. |
+| Cohn–Elkies certificates (Layer 4) | The same `Certificate` and the same constructor `Certificate.ofRadial`. |
+| The known magic functions and their sign inequalities (Layer 9) | Used only in the comparison. |
+| Coefficient vectors, the sample equations, continuation, global analytic solutions, the explicit null vectors | New. |
+| The vector bundle on the modular orbifold and Riemann–Roch | New, and not needed for the coefficient theorem. |
 
-A target adopted in `Suggested.lean` is still a specification while its proof depends on
-admissions; the sibling roadmap shares such an interface without counting it as a proved input.
-The comparison summit inherits the sign inequalities of Layer 9 and gives no independent proof of
-them.  The rootless rank-24 classification (Layer 10) is not a dependency of the coefficient
-construction.  Layers 10 and 11 consume the certificates unchanged.
+A statement in `Suggested.lean` whose proof still depends on unproved targets is a statement,
+not a proved result, and the sibling roadmap may cite it only as such.  The comparison deduces
+the sign inequalities from Layer 9 and does not prove them again.  The classification of
+rootless even unimodular lattices of rank 24 (Layer 10) is not used in the coefficient
+construction.  Layers 10 and 11 use the certificates as before.
 
-Its targets are in `SphereCetiRoadmap/CoefficientMagic/Suggested.lean` (core),
-`Comparison.lean` (which imports the core and the targets above), and `Geometry.lean`.  The core
-does not import the other two.
+Its statements are in `SphereCetiRoadmap/CoefficientMagic/Suggested.lean`, in `Comparison.lean`
+(which imports that file and the statements above), and in `Geometry.lean`.  `Suggested.lean`
+imports neither of the other two.
 
 # PR discipline
 
@@ -1058,11 +1062,11 @@ The detailed main-first sequence is in [`MIGRATION.md`](MIGRATION.md).  Every pr
 | `SphereCetiRoadmap/Suggested.lean` | Proposed target signatures and `#check` confirmations |
 | `SphereCetiRoadmap/Pinned.lean` | Temporary model of the older Sphere-Packing public API |
 | `SphereCetiRoadmap/CoefficientMagic/README.md` | Sibling roadmap: coefficient construction of the magic functions |
-| `SphereCetiRoadmap/CoefficientMagic/FINITE_SECTION_EXISTENCE.md` | Its finite modular existence construction |
-| `SphereCetiRoadmap/CoefficientMagic/Suggested.lean` | Its core target signatures |
-| `SphereCetiRoadmap/CoefficientMagic/Comparison.lean` | Comparison with the magic functions above and the shared certificate |
-| `SphereCetiRoadmap/CoefficientMagic/Geometry.lean` | Gluing data of the rank-six bundle |
-| `scripts/check_finite_sections.py` | Exact SymPy check of the finite algebra in that construction; not a proof |
+| `SphereCetiRoadmap/CoefficientMagic/MODULAR_EXISTENCE.md` | Its existence proof from explicit modular forms |
+| `SphereCetiRoadmap/CoefficientMagic/Suggested.lean` | Its main target statements |
+| `SphereCetiRoadmap/CoefficientMagic/Comparison.lean` | Comparison with the magic functions above and their certificates |
+| `SphereCetiRoadmap/CoefficientMagic/Geometry.lean` | Gluing matrices of the rank-six vector bundle |
+| `scripts/check_modular_identities.py` | Exact computer-algebra check (SymPy) of the algebraic identities in that existence proof; not a proof |
 | `CONVENTIONS.md` | Permanent normalization and attribute decisions |
 | `MIGRATION.md` | Main-first targeted PR sequence |
 | `PROVENANCE.md` | Source and dependency record |
