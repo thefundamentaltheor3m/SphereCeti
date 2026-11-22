@@ -48,7 +48,7 @@ The generated tree includes:
 
 Roadmap declarations remain targets even if they have no `sorryAx`. Library declarations that
 rely on an approved admission exception remain labeled admission-dependent. The JSON states
-`production_evidence: false`: this repository is not Sphere-Packing-Lean. The Progress adapter
+`production_evidence: false`: the inventory reports compiled declarations and their axioms; mathematical acceptance requires review. The Progress adapter
 must consume this schema explicitly, distinguish targets from achievements, and require approved
 production documentation before reporting production milestones. A successful build artifact is
 not evidence that a site was deployed. The authoritative deployed cursor is the site's

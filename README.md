@@ -4,11 +4,11 @@ A TauCeti-style roadmap for a unified Lean development of sphere packing in dime
 starting from the existing `Sphere-Packing-Lean` definitions and culminating in optimality and
 uniqueness among periodic packings for the E8 and Leech configurations.
 
-This repository is a **roadmap together with precise target statements that Lean type-checks,
-with the proofs omitted**; it is not a competing production formalization.  The intended
-production home remains
-[`thefundamentaltheor3m/Sphere-Packing-Lean`](https://github.com/thefundamentaltheor3m/Sphere-Packing-Lean),
-with generic mathematics upstreamed to Mathlib or TauCeti as appropriate.
+SphereCeti hosts both the roadmap and its proofs. The target statements live in
+[`SphereCetiRoadmap/Suggested.lean`](SphereCetiRoadmap/Suggested.lean). Implement them in
+topic modules under [`SphereCeti/`](SphereCeti/), for example `SphereCeti/E8/` or
+`SphereCeti/Periodic/`. Send proof PRs here. Reuse the pinned Mathlib and TauCeti APIs and
+record adaptations from the existing Sphere-Packing-Lean formalization.
 
 `README.md` is definitive.  [`SphereCetiRoadmap/Suggested.lean`](SphereCetiRoadmap/Suggested.lean) records
 suggested formal statements of the key definitions and theorems, but it is deliberately
@@ -22,7 +22,7 @@ Readers who do not use Lean may find the following conventions helpful.
 - **Mathlib, TauCeti, Sphere-Packing-Lean.**  Mathlib is Lean's general mathematics library;
   TauCeti is a library built on Mathlib and developed from coordinated roadmaps like this one;
   Sphere-Packing-Lean is the existing project formalizing the dimension-8 proof, called the
-  *production* repository because the mathematics of this roadmap is to be implemented there.
+  source of the pinned compatibility definitions and existing E8 proofs.
 - **Upstream.**  Mathlib and TauCeti, the libraries this project builds on.  A result goes
   upstream when it is contributed there; [`UPSTREAM.md`](UPSTREAM.md) lists the candidates.
 - **Layers, phases, and PRs.**  The roadmap is organized in *layers*, stages of the mathematics,
@@ -74,16 +74,16 @@ Readers who do not use Lean may find the following conventions helpful.
   lattice into its ambient space.  `ℝ≥0∞` denotes the extended nonnegative reals `[0, ∞]`, where
   densities take their values.
 
-## The two deliberate differences from TauCetiRoadmap
+## Differences from TauCetiRoadmap
 
-SphereCeti follows TauCetiRoadmap's mathematical and library-design discipline, with two explicit
-changes.
+SphereCeti follows TauCetiRoadmap's mathematical and library-design discipline, with these differences.
 
-1. **SphereCeti depends on a fixed version of TauCeti.**  TauCeti is not merely a cited source or
+1. **Proofs and roadmap share a repository.** The admission-free library and roadmap specification have separate Lean roots.
+2. **SphereCeti depends on a fixed version of TauCeti.**  TauCeti is not merely a cited source or
    an informal destination: it is a Lake dependency fixed at a specific commit, so the TauCeti
    results imported by `Suggested.lean`, and the checks of required declarations, are
    reproducible.
-2. **Candidates for Mathlib and TauCeti are listed in one file.**  There is no parallel directory
+3. **Candidates for Mathlib and TauCeti are listed in one file.**  There is no parallel directory
    tree of proposed Mathlib or TauCeti roadmaps.  [`UPSTREAM.md`](UPSTREAM.md) lists the
    declarations and larger topics whose intended home is Mathlib or an appropriate TauCeti
    roadmap, each described so that it can be filed as an issue.  It records intended homes only:
@@ -275,7 +275,7 @@ Adapt proofs from this branch, with exact source attribution:
 - the more developed Fourier permutation proof for the integral pieces.
 
 Do not wholesale merge or rebase the branch.  Port one coherent theorem or body of supporting
-lemmas at a time onto the upgraded production `main`.
+lemmas at a time into topic modules on SphereCeti `main`.
 
 ### From PR #420
 
@@ -945,8 +945,8 @@ home is an extension of the TauCeti Integral Lattices roadmap proving that Nieme
 complete: that roadmap defines the twenty-four Niemeier lattices but does not prove completeness,
 so the statement remains a required dependency here, recorded in `UPSTREAM.md`.  SphereCeti uses
 only the uniqueness statement and does not restate the list of Niemeier lattices or the case
-analysis.  If TauCeti has not provided it when the production uniqueness proof needs it, the
-production development proves it locally, with exactly the intended statement, and replaces the
+analysis.  If TauCeti has not provided it when the SphereCeti uniqueness proof needs it, the
+SphereCeti library proves it locally, with exactly the intended statement, and replaces the
 local proof by an import once TauCeti provides the result.
 
 ## Layer 11 — assembly of the main theorems
@@ -989,7 +989,7 @@ SphereCeti must preserve exact zero multiplicities and estimates for reuse by th
 
 # PR discipline
 
-The detailed main-first sequence is in [`MIGRATION.md`](MIGRATION.md).  Every production PR must:
+The detailed sequence is in [`MIGRATION.md`](MIGRATION.md). Every SphereCeti proof PR must:
 
 - begin from current `main` unless stacked on one named immediate predecessor;
 - change one mathematical topic;
@@ -1005,6 +1005,7 @@ The detailed main-first sequence is in [`MIGRATION.md`](MIGRATION.md).  Every pr
 | File | Role |
 |---|---|
 | `README.md` | Definitive mathematical roadmap |
+| `SphereCeti/` | Admission-free proofs organized by topic |
 | `SphereCetiRoadmap/Suggested.lean` | Proposed target signatures and `#check` confirmations |
 | `SphereCetiRoadmap/Pinned.lean` | Temporary model of the older Sphere-Packing public API |
 | `CONVENTIONS.md` | Permanent normalization and attribute decisions |
@@ -1063,9 +1064,8 @@ lake env python3 -I scripts/check_audits.py
 lake build
 ```
 
-The default build checks both `SphereCeti` (the admission-free scaffold/adapters) and
-`SphereCetiRoadmap` (the roadmap target library). This separation does not change the
-production proof home. See [module boundaries](docs/infrastructure/module-boundaries.md) for
+The default build checks both `SphereCeti` (the admission-free proof library) and
+`SphereCetiRoadmap` (the roadmap target library). Proof modules may import other library modules and pinned dependencies. See [module boundaries](docs/infrastructure/module-boundaries.md) for
 the source inventory, tests, limitations, and the roadmap integration contract.
 
 The [trusted candidate build](docs/infrastructure/trusted-build.md) adapts TauCeti's pinned

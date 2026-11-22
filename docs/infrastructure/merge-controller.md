@@ -31,8 +31,7 @@ including a disabled result, exit 0; unavailable/invalid data and unconfirmed wr
 
 `--apply` is explicit and requires both ready setup and the approved serialized executor. The
 shipped `merging` switch is false, mathematical allowlist empty, and controller/producer IDs zero.
-The CLI cannot configure those settings. Under the present roadmap-only contract there is no
-SphereCeti mathematical change class to enable; production proofs still belong in Sphere-Packing-Lean.
+The CLI cannot configure those settings. Library proof PRs currently require human merging.
 No activation, live merge, new secret, branch rule, or active controller workflow is part of this PR.
 
 ## Activation profile

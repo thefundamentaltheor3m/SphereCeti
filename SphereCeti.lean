@@ -11,5 +11,5 @@ public import SphereCeti.Basic
 /-!
 # SphereCeti library
 
-The admission-free scaffold and elaboration adapters. Roadmap targets belong to SphereCetiRoadmap.
+Admission-free sphere-packing proofs and their supporting definitions. Roadmap targets belong to SphereCetiRoadmap.
 -/

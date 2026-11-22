@@ -107,7 +107,7 @@ supply this **advisory** JSON through `worker plan --frontier frontier.json`:
 {
   "schema": "sphereceti.worker-frontier/v1",
   "repository": "thefundamentaltheor3m/SphereCeti",
-  "implementation_repository": "thefundamentaltheor3m/Sphere-Packing-Lean",
+  "implementation_repository": "thefundamentaltheor3m/SphereCeti",
   "roadmap_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "implementation_revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
   "document": "README.md",
@@ -142,7 +142,7 @@ items are accepted. Among ready items, estimated `small`, `medium`, `large`, the
 effort ranks first; within the same estimate, prefer work with more immediate remaining
 dependents, then stable ID. This favors useful low-hanging work without allowing a cheap but
 blocked task to jump over its prerequisites. Effort is an estimate, not a theorem-complexity
-measurement. Mathematical recommendations name Sphere-Packing-Lean as their destination.
+measurement. Mathematical recommendations name SphereCeti as their destination.
 Strict PR targeting always excludes all frontier work.
 
 The frontier remains optional and provider-free. Automatic extraction, mathematical

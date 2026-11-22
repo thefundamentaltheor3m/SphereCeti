@@ -3,7 +3,7 @@ schema_version = 1
 [project]
 repository = "thefundamentaltheor3m/SphereCeti"
 default_branch = "main"
-implementation_repository = "thefundamentaltheor3m/Sphere-Packing-Lean"
+implementation_repository = "thefundamentaltheor3m/SphereCeti"
 phase = "roadmap"
 
 [sources]

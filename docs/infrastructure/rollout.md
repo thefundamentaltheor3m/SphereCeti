@@ -172,7 +172,7 @@ review pipeline and the correct merge refusal; it does not prove a successful au
 ## 4. Official automatic-merge canary
 
 The existing controller is for canonical **SphereCeti**, not Sphere-Packing-Lean, and SphereCeti's
-roadmap contract has no eligible mathematical change class. A production canary first needs the
+merge policy has no eligible mathematical change class. A production canary first needs the
 production profile, approved source/build adapter, genuine allowed change class, configured check
 producers and the [supported server protection/credential setup](merge-controller.md).
 

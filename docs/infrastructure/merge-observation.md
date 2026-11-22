@@ -60,7 +60,7 @@ The eligible path requires all of:
 - Successful trusted build and scope statuses from the configured producer and exact successful
   run attempt of the approved `pull_request_target` workflow, including its candidate/status jobs.
 
-SphereCeti's mathematical allowlist stays empty, and production proofs belong in Sphere-Packing-Lean.
+SphereCeti's mathematical allowlist stays empty. Proof PRs require human merging.
 Roadmap and infrastructure changes therefore take the human route. A missing policy on current
 main is explicitly reported; feature-branch policy cannot activate itself. Tests exercise the
 future mathematical path using disposable evidence, not production mathematical implementations.

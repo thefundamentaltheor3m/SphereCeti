@@ -110,7 +110,7 @@ def main():
                                     cwd=foreign, env=env, text=True, capture_output=True, check=True)
             report = json.loads(result.stdout)
             assert report['project']['repository'] == 'thefundamentaltheor3m/SphereCeti'
-            assert report['project']['implementation_repository'] == 'thefundamentaltheor3m/Sphere-Packing-Lean'
+            assert report['project']['implementation_repository'] == 'thefundamentaltheor3m/SphereCeti'
             expected_project = tomllib.loads((ROOT / 'sphereceti.toml').read_text())
             expected_roadmap = 'approved' if expected_project['sources']['roadmap_approved'] else 'not_installed'
             assert report['roadmap']['state'] == expected_roadmap

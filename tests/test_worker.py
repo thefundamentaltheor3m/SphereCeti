@@ -208,7 +208,7 @@ class PlannerTest(unittest.TestCase):
         self.assertEqual(report['candidates'][-1]['stage'], 'roadmap')
 
     def test_frontier_must_describe_one_pinned_destination(self):
-        variants = [frontier(repository='other/repo'), frontier(implementation_repository=PROJECT.repository),
+        variants = [frontier(repository='other/repo'), frontier(implementation_repository='other/repo'),
                     frontier(roadmap_revision='main'), frontier(implementation_revision='f'*7),
                     frontier(document='other.md'), frontier(targets='Elsewhere.lean'),
                     frontier(observed_at='2026-09-12T11:00:00Z'), frontier(area='E8'),

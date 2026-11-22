@@ -41,9 +41,9 @@ The ordinary CI tests the candidate checker. [#6](trusted-build.md) adds trusted
 isolation; [#8](compiled-audits.md) adds compiled axiom/module audits, lint, and builds of the
 complete inventory. Run `lake env python3 -I scripts/check_audits.py` for that combined gate.
 
-The scaffold library remains an admission-free dependency smoke check and adapter boundary.
-Substantive mathematical implementations still belong in Sphere-Packing-Lean, TauCeti, or
-Mathlib. Separating Lake targets does not authorize a second production implementation here.
+Add proofs under `SphereCeti/<Topic>/` and export them from `SphereCeti.lean`.
+The library imports only pinned dependencies and other admission-free library modules.
+Roadmap declarations may depend on the library. Use the roadmap as the proof specification.
 
 For the roadmap PR, move its target files to `SphereCetiRoadmap/Suggested.lean` and
 `SphereCetiRoadmap/Pinned.lean`, and import them from `SphereCetiRoadmap.lean`. Retain declaration
