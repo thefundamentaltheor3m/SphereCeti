@@ -133,18 +133,33 @@ then stops and reaps every adopted descendant through pidfds; it needs no root o
 `test_outer_supervisor_reaps_codex_after_the_bridge_is_killed` runs `sphereceti review` under it
 with a fake Codex whose child has its own session. It SIGKILLs the bridge and checks that the
 supervisor reports `cleanup_verified` and that the leader, the child and the bridge are all
-gone. On the canary host, run the round the same way from the repository root:
+gone. On the canary host, run the round through `scripts/run_supervised.py`, which wraps the
+same supervisor. Run it from the repository root and check its exit status:
 
 ```bash
-python3 -c 'import json, subprocess, sys; sys.path.insert(0, "scripts"); from smoke_process import run_owned; print(json.dumps(run_owned(sys.argv[1:], cwd=".", stdout=None, timeout=2100)))' \
-  sphereceti worker run --pr N --execute --provider codex --codex-model gpt-6.1-sol --budget-usd B --max-call-cost R --json
+python3 -I scripts/run_supervised.py --timeout 2100 -- \
+  sphereceti worker run --pr N --execute --provider codex --codex-model gpt-6.1-sol \
+  --budget-usd B --max-call-cost R --json
+echo "supervised status: $?"
 ```
 
-The final line must be JSON with `"cleanup_verified": true`. `exit_code` is the worker's exit
-status. `reason` appears only if the worker left descendants, which were then stopped, or if
-the 2100-second supervisor timeout fired. A missing or false `cleanup_verified` (the helper
-raises) means cleanup is unverified: check for leftover `codex` processes before any further
-round. B and R are the operator's own stop threshold, not values this document recommends.
+The worker's output passes through. The last line is the supervisor's JSON report, and the exit
+status carries the outcome, so a calling script must stop on any nonzero status:
+
+| Status | Meaning | Last line, for example |
+| --- | --- | --- |
+| 0 | Worker exited 0, cleanup verified, timeout not reached | `{"cleanup_verified": true, "exit_code": 0}` |
+| N | Worker's own nonzero status (128 + signal number if a signal ended it); cleanup verified | `{"cleanup_verified": true, "exit_code": 1}` |
+| 124 | The `--timeout` (default 2100 seconds) fired; every descendant was stopped | `{"cleanup_verified": true, "reason": "stage timeout; owned descendants stopped"}` |
+| 125 | Cleanup unverified: the supervisor failed or the wrapper was interrupted. Check for leftover `codex` processes before any further round | `{"cleanup_verified": false, "reason": "...; cleanup unverified"}` |
+| 126 | The worker could not be started | `{"cleanup_verified": true, "reason": "[Errno 2] ..."}` |
+| 130 | The supervisor was terminated before the worker finished; descendants were stopped | `{"cleanup_verified": true, "reason": "stage interrupted; owned descendants stopped"}` |
+| 2 | Usage error; nothing was run | none |
+
+`sphereceti worker run` itself exits 0 or 1. With status 0 or N, a `reason` of "command left
+descendant processes; owned descendants stopped" means the worker left processes behind, which
+were then stopped. `-I` keeps a module in the current directory from shadowing the supervisor.
+B and R are the operator's own stop threshold, not values this document recommends.
 
 How the sub-agent setting was found: in codex-cli 0.171.0, `codex debug prompt-input` (run offline)
 offers `spawn_agent` and the other collaboration tools to `gpt-6.1-sol` with every
