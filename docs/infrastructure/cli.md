@@ -83,7 +83,7 @@ storage = "~/.local/state/sphereceti"
 
 Preferences cannot change repository identity, source selection, authorization, or automation
 switches. Diagnostics only validate/report them. Explicit `review` uses private storage;
-inference requires a selected provider and positive budget. `review N --dry-run` verifies
+local subscription reviews read `~/.config/sphereceti/operator.toml` when no `--operator-config` is supplied. Inference requires a selected provider and positive budget. `review N --dry-run` verifies
 the exact evidence without invoking a provider. See [local review usage and limits](local-review.md).
 Unknown fields, floating source commits, traversal paths, and unsupported schema versions fail.
 A source-lock component cannot move from planned to adapted/imported while its reuse terms

@@ -1,6 +1,7 @@
 """Direct local reviews through the imported Codex adapter, with a fake Codex executable."""
 import datetime
 import json
+import subprocess
 from pathlib import Path
 import sys
 import tempfile
@@ -36,6 +37,29 @@ class CodexReviewTests(unittest.TestCase):
         process = self.fixture.run(output=output, extra=("--provider", "codex", "--rubrics", "correctness", *extra))
         self.assertEqual(process.returncode, 0, process.stderr + process.stdout)
         return json.loads(process.stdout)
+
+    def test_local_subscription_uses_saved_budget_and_honors_explicit_config(self):
+        self.fixture.codex_subscription()
+        saved = self.fixture.home / ".config/sphereceti/operator.toml"
+        saved.parent.mkdir(parents=True)
+        saved.write_text('provider = "codex"\nbudget_usd = 3\n')
+        cmd = self.fixture.command(extra=("--rubrics", "correctness"))
+        pos = cmd.index("--operator-config")
+        del cmd[pos:pos + 2]
+        pos = cmd.index("--auth")
+        del cmd[pos:pos + 2]
+        result = subprocess.run(cmd, cwd=self.fixture.foreign, env=self.fixture.env,
+                                capture_output=True, text=True, timeout=120)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        report = json.loads(result.stdout)
+        self.assertEqual(report["evaluation_request"]["daily_budget_usd"], 3)
+        self.assertEqual(report["verdicts"]["correctness"], "approve")
+
+        self.fixture.operator.write_text('provider = "codex"\nbudget_usd = 0\n')
+        result = self.fixture.run(output="second", extra=("--auth", "subscription"))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("positive --budget-usd", result.stderr)
+        self.assertEqual(len(self.fixture.codex_calls()), 1)
 
     def test_subscription_login_is_seeded_alone_and_launcher_runtime_is_restored(self):
         self.fixture.codex_subscription()
