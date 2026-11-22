@@ -394,6 +394,65 @@ class WorkerRoundTest(unittest.TestCase):
         [entry]=ledger['unknown_usage'][day]
         self.assertEqual((entry['rubric'],entry['reasons']),('correctness',['run_stopped']))
 
+    def only_attempt(self):
+        runs,ledger,day=self.unknown_facts(None)
+        [run]=runs
+        [attempt]=run['attempts']
+        return run,attempt,ledger,day
+
+    def test_partial_usage_is_unknown_and_starts_no_later_rubric(self):
+        # (e) A usage event without cached_input_tokens or output_tokens, then a normal verdict.
+        (self.fixture.bin/'codex-usage.json').write_text(json.dumps({'input_tokens':1000}))
+        receipt=self.canary_round()
+        self.assertEqual(len(self.exec_calls()),1)
+        run,attempt,ledger,day=self.only_attempt()
+        self.assertEqual((attempt['usage_status'],run['usage_status']),('unknown','unknown'))
+        self.assertEqual(attempt['usage'],{'input_tokens':1000})  # retained as provenance only
+        self.assertNotIn('cost_usd',attempt);self.assertNotIn('cost_usd',run)
+        self.assertEqual(ledger['unknown_usage'][day][0]['reasons'],['incomplete'])
+        self.assertEqual(ledger['days'].get(day,0),0)
+        self.assertEqual(receipt['stop_reason'],'usage_unknown')
+
+    def test_partial_usage_without_a_verdict_is_not_retried(self):
+        (self.fixture.bin/'codex-usage.json').write_text(json.dumps({'input_tokens':1000,'output_tokens':5}))
+        receipt=self.canary_round(alternate=True)  # a retry would answer
+        self.assertEqual(len(self.exec_calls()),1)
+        run,attempt,ledger,day=self.only_attempt()
+        self.assertEqual(attempt['usage_status'],'unknown')
+        self.assertNotIn('cost_usd',attempt)
+        self.assertEqual(ledger['unknown_usage'][day][0]['reasons'],['incomplete'])
+        self.assertEqual(receipt['stop_reason'],'usage_unknown')
+
+    def test_usage_printed_before_a_timeout_is_still_unknown(self):
+        # (f) A complete-looking usage event, then a hang past the deadline; a retry would answer.
+        (self.fixture.bin/'codex-usage-before-hang').write_text('')
+        receipt=self.canary_round('--attempt-timeout','2',hang='first')
+        [pids]=self.fixture.codex_pids()
+        self.assert_gone(pids['leader'],pids['child'])
+        self.assertEqual(len(self.exec_calls()),1)
+        run,attempt,ledger,day=self.only_attempt()
+        self.assertEqual(attempt['usage_status'],'unknown')
+        self.assertEqual(attempt['usage'],{'input_tokens':1000,'cached_input_tokens':0,'output_tokens':10})
+        self.assertNotIn('cost_usd',attempt);self.assertNotIn('cost_usd',run)
+        self.assertEqual(ledger['unknown_usage'][day][0]['reasons'],['timeout_after_usage'])
+        self.assertEqual(ledger['days'].get(day,0),0)
+        self.assertEqual(receipt['stop_reason'],'usage_unknown')
+
+    def test_catalog_probe_and_exec_share_one_attempt_deadline(self):
+        # (g) The probe takes 2.5 of the 3 seconds; exec gets the remainder, not a fresh 3 seconds.
+        (self.fixture.bin/'codex-probe-sleep').write_text('2.5')
+        receipt=self.canary_round('--attempt-timeout','3',hang='all')
+        self.assertEqual(len(self.exec_calls()),1)  # exec started inside the shared deadline
+        [pids]=self.fixture.codex_pids()
+        self.assert_gone(pids['leader'],pids['child'])
+        run,attempt,ledger,day=self.only_attempt()
+        self.assertGreaterEqual(attempt['secs'],2.9)
+        self.assertLess(attempt['secs'],4.5)  # separate deadlines would take at least 5.5 seconds
+        self.assertEqual(attempt['usage_status'],'unknown')
+        self.assertEqual(ledger['unknown_usage'][day][0]['reasons'],['timeout'])
+        self.assertEqual(receipt['stop_reason'],'usage_unknown')
+        self.assertEqual(len(self.fixture.codex_debug_calls()),1)
+
     def test_unsupported_maintenance_never_falls_through_to_review(self):
         self.snapshot['pull_requests'][0].update(author='operator',ci='failed')
         self.assertEqual(self.run_round()['state'],'unavailable')

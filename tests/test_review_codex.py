@@ -127,6 +127,73 @@ class CodexReviewTests(unittest.TestCase):
         self.assertEqual(run["usage_status"], "unknown")
         self.assertNotIn("cost_usd", run)
 
+    def test_exhausted_attempt_deadline_never_reaches_the_model(self):
+        # The catalog probe spends the whole shared deadline, so `codex exec` is never started.
+        import os
+        sys.path.append(str(Path(__file__).resolve().parents[1] / "tools/review"))
+        from runner import reviewers
+        (self.fixture.bin / "codex-probe-sleep").write_text("5")
+        home = self.root / "attempt-home"
+        (home / ".codex").mkdir(parents=True)
+        (home / "tmp").mkdir()
+        env = {"PATH": str(self.fixture.bin) + os.pathsep + os.environ["PATH"], "HOME": str(home),
+               "CODEX_HOME": str(home / ".codex"), "TMPDIR": str(home / "tmp")}
+        saved = reviewers.ATTEMPT_TIMEOUT, reviewers.CODEX_SINGLE_AGENT
+        reviewers.ATTEMPT_TIMEOUT, reviewers.CODEX_SINGLE_AGENT = 1, True
+        try:
+            start = datetime.datetime.now()
+            result = reviewers.run_codex("prompt", str(self.root), "gpt-6.1-sol", env)
+            elapsed = (datetime.datetime.now() - start).total_seconds()
+        finally:
+            reviewers.ATTEMPT_TIMEOUT, reviewers.CODEX_SINGLE_AGENT = saved
+        self.assertIs(result["dispatched"], False)
+        self.assertEqual(result["cost_usd"], 0.0)
+        self.assertEqual(len(self.fixture.codex_debug_calls()), 1)
+        self.assertEqual(self.fixture.codex_calls(), [])
+        self.assertLess(elapsed, 3)
+
+    def test_outer_supervisor_reaps_codex_after_the_bridge_is_killed(self):
+        # Codex's child leaves even the attempt's process group. SIGKILL the bridge so none of
+        # its own cleanup runs; the repository's child-subreaper supervisor must still reap all.
+        import os, signal, subprocess, time
+        self.fixture.codex_subscription()
+        (self.fixture.bin / "codex-hang").write_text("all")
+        (self.fixture.bin / "codex-detach").write_text("")
+        command = self.fixture.command(output="supervised", extra=(
+            "--provider", "codex", "--rubrics", "correctness", "--auth", "subscription",
+            "--codex-model", "gpt-6.1-sol"))
+        helper = ("import json, subprocess, sys; sys.path.insert(0, sys.argv[1]); "
+                  "from smoke_process import run_owned; "
+                  "print(json.dumps(run_owned(sys.argv[3:], cwd=sys.argv[2], "
+                  "stdout=subprocess.DEVNULL, timeout=120)))")
+        scripts = Path(__file__).resolve().parents[1] / "scripts"
+        supervisor = subprocess.Popen([sys.executable, "-c", helper, str(scripts), str(self.fixture.foreign),
+                                       *command], env=self.fixture.env, stdout=subprocess.PIPE, text=True)
+        try:
+            deadline = time.monotonic() + 60
+            while not self.fixture.codex_pids():
+                self.assertIsNone(supervisor.poll())
+                self.assertLess(time.monotonic(), deadline)
+                time.sleep(0.1)
+            [pids] = self.fixture.codex_pids()
+            bridge = pids["parent"]
+            self.assertIn(b"review_bridge.py", Path(f"/proc/{bridge}/cmdline").read_bytes())
+            self.assertEqual(os.getpgid(pids["leader"]), pids["leader"])  # Codex's own group
+            self.assertEqual(pids["child_pgid"], pids["child"])           # and its child's own
+            self.assertNotEqual(os.getpgid(bridge), pids["leader"])
+            os.kill(bridge, signal.SIGKILL)
+            out, _ = supervisor.communicate(timeout=60)
+        finally:
+            if supervisor.poll() is None:
+                supervisor.kill()
+                supervisor.wait()
+        result = json.loads(out)
+        self.assertIs(result["cleanup_verified"], True)
+        self.assertEqual(result["reason"], "command left descendant processes; owned descendants stopped")
+        self.assertNotEqual(result["exit_code"], 0)
+        for pid in (pids["leader"], pids["child"], bridge):
+            self.assertFalse(Path(f"/proc/{pid}").exists(), pid)
+
     def test_attempt_deadline_must_be_whole_bounded_seconds(self):
         self.fixture.codex_subscription()
         for value in ("0", "1801"):

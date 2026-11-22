@@ -305,14 +305,14 @@
       "destination": "runner/review.py",
       "mode": "100644",
       "upstream_sha256": "46e109b3eba83610a804ec80aac13d74f4f52e9acf5629ec1a5a02b72af36859",
-      "import_sha256": "b1fc2919daab3ca320394393e7a8e8c6e3b1e12984d569621aee260d11f0ed72"
+      "import_sha256": "6c0594ec10088d62e2302be35f79d74cd0b64440f7824775a1ec85053961ee33"
     },
     {
       "source": "runner/reviewers.py",
       "destination": "runner/reviewers.py",
       "mode": "100644",
       "upstream_sha256": "abc9a219d3923e6deaf2a6cb8d9c46cb51e43ac8363f6d54e115c96a34e2cfc2",
-      "import_sha256": "b01a89713768b01dc6d2fa904c5280c4a63067c9476bf7e7013887fcdea1dc57",
+      "import_sha256": "fb76e2e843dbb48c66fbc5f8049ae67a776171c62f6233b43d445203fd19891d",
       "adapted": [
         {
           "pr": 194,

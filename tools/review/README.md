@@ -77,10 +77,11 @@ The local changes are:
   Exact upstream source links and the historical schema/marker vocabulary retain TauCeti names.
 - Add opt-in attempt bounds to `runner/reviewers.py` and `runner/review.py`, marked
   `SphereCeti local adaptation`. They are off unless the local adapter passes them.
-  `--attempt-timeout` stops one provider attempt's whole process group.
-  `--codex-single-agent` withholds Codex sub-agent tools. `--usage-stop-file` records an attempt
-  without reported usage as unknown (with a write-ahead in-flight ledger marker) and starts no
-  further attempt or rubric after it. See
+  `--attempt-timeout` gives each provider attempt one shared deadline for all its commands
+  and stops their process groups. `--codex-single-agent` withholds Codex sub-agent tools.
+  `--usage-stop-file` records an attempt without a complete, normally finished usage report as
+  unknown (with a write-ahead in-flight ledger marker) and starts no further attempt or rubric
+  after it. See
   [when the worker stops spending](../../docs/infrastructure/worker-execution.md#when-the-worker-stops-spending).
 
 Provider adapters, contests, shadow runs, budgeting, rendering, and verdict semantics otherwise

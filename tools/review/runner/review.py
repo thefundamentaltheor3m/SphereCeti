@@ -354,6 +354,35 @@ class RunContext:
         return kinds.pop() if len(kinds) == 1 else "provider_unavailable"
 
 
+# SphereCeti local adaptation: when an attempt's price counts as known (--usage-stop-file only).
+# Codex's price is estimated from its turn usage, so it needs every field the estimate reads.
+CODEX_PRICED_FIELDS = ("input_tokens", "cached_input_tokens", "output_tokens")
+
+
+def usage_unknown_reason(provider, r):
+    """None when the attempt ran to its own exit and reported a complete price; else why not.
+
+    Complete means: for Codex, a usage object whose input_tokens, cached_input_tokens and
+    output_tokens are all non-negative integers with cached <= input; for other providers, a
+    finite non-negative cost. An attempt stopped by the deadline or a signal is never complete,
+    whatever it printed before it stopped."""
+    if r.get("dispatched") is False:
+        return None  # failed closed before any model call: nothing was spent
+    usage = r.get("usage")
+    if r.get("timed_out") or (type(r.get("returncode")) is int and r["returncode"] < 0):
+        stopped = "timeout" if r.get("timed_out") else "killed"
+        return stopped + "_after_usage" if usage else stopped
+    if provider == "codex":
+        if not isinstance(usage, dict) or not usage:
+            return "not_reported"
+        counts = [usage.get(k) for k in CODEX_PRICED_FIELDS]
+        if not all(type(v) is int and v >= 0 for v in counts) or counts[1] > counts[0]:
+            return "incomplete"
+        return None
+    cost = r.get("cost_usd")
+    return None if type(cost) in (int, float) and 0 <= cost < float("inf") else "not_reported"
+
+
 def run_rubric(ctx, rubric):
     """Review one rubric: build the prompt, dispatch the (pinned or drawn) reviewer with one retry,
     parse the verdict from behind the one-time marker, archive + persist, and fold into the case
@@ -404,6 +433,9 @@ def run_rubric(ctx, rubric):
             r = fn(prompt, a.tool_cwd, model, env)
         finally:
             cleanup_rev_home(rev_home)   # throwaway HOME, one per attempt — don't accumulate
+        unknown_reason = usage_unknown_reason(provider, r) if track_unknown else None
+        if unknown_reason:  # SphereCeti: a partial or interrupted total is unknown, not a price
+            r.update(cost_usd=None, usage_status="unknown")
         # Keep each attempt's execution facts: the retry path returns only the last result, but the
         # first attempt's spend/usage/failure is provenance too. error_kind rides along because it is
         # the only field that says *why* an attempt failed: a total auth failure otherwise reads as
@@ -415,17 +447,16 @@ def run_rubric(ctx, rubric):
                          if r.get(k) is not None}
                         | {"model": model, "secs": round(time.monotonic() - t, 1)}
                         | ({} if has_verdict(r) else {"error_kind": error_kind(r)})
-                        | ({} if not track_unknown or r.get("cost_usd") is not None else
-                           {"usage_status": "unknown",
-                            "usage_unknown_reason": "timeout" if r.get("timed_out") else "not_reported"}))
+                        | ({"usage_status": "unknown", "usage_unknown_reason": unknown_reason}
+                           if unknown_reason else {}))
         return r
 
-    # SphereCeti: with --usage-stop-file, an attempt that reports no usage (killed, timed out,
-    # or silent) is recorded as unknown, never as $0, and no further attempt follows it.
+    # SphereCeti: with --usage-stop-file, an attempt without a complete, normally finished usage
+    # report is recorded as unknown, never as a price, and no further attempt follows it.
     track_unknown = bool(getattr(a, "usage_stop_file", ""))
 
     def may_retry(r):
-        return not track_unknown or r.get("cost_usd") is not None
+        return r.get("usage_status") != "unknown"
 
     def has_verdict(r):
         # A run the CLI itself reports as failed is not a review, however well-formed its text looks:

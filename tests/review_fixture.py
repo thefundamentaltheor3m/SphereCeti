@@ -141,6 +141,9 @@ if sys.argv[1:] == ["debug", "models", "--bundled"]:
     # The binary's bundled catalog, which marks v2 models for sub-agent collaboration tools.
     with (root / "codex-debug.jsonl").open("a") as f:
         f.write(json.dumps(call) + "\n")
+    if (root / "codex-probe-sleep").exists():  # a slow probe spends the attempt's shared deadline
+        import time
+        time.sleep(float((root / "codex-probe-sleep").read_text()))
     print(json.dumps({"models": [{"slug": "gpt-6.1-sol", "multi_agent_version": "v2", "context_window": 500000},
                                  {"slug": "gpt-5.6-sol", "multi_agent_version": "v2"}]}))
     sys.exit(0)
@@ -158,12 +161,18 @@ attempt = sum(1 for line in (root / "codex-calls.jsonl").read_text().splitlines(
               if json.loads(line)["argv"][:1] == ["exec"])
 hang = root / "codex-hang"
 if hang.exists() and (hang.read_text() == "all" or attempt == 1):
-    # Never answer: start a child that would outlive this process, record both, and wait.
+    # Never answer: start a child that would outlive this process, record both, and wait. With
+    # codex-detach the child gets its own session and process group, out of the attempt's group.
     import subprocess, time
-    child = subprocess.Popen([sys.executable, "-c", "import time\nwhile True: time.sleep(1)"])
+    child = subprocess.Popen([sys.executable, "-c", "import time\nwhile True: time.sleep(1)"],
+                             start_new_session=(root / "codex-detach").exists())
     with (root / "codex-pids.jsonl").open("a") as f:
-        f.write(json.dumps({"leader": os.getpid(), "child": child.pid}) + "\n")
+        f.write(json.dumps({"leader": os.getpid(), "child": child.pid, "parent": os.getppid(),
+                            "child_pgid": os.getpgid(child.pid)}) + "\n")
     print(json.dumps({"type": "thread.started", "thread_id": "fake-thread"}), flush=True)
+    if (root / "codex-usage-before-hang").exists():  # a complete-looking usage event, then a hang
+        print(json.dumps({"type": "turn.completed", "usage": {"input_tokens": 1000, "cached_input_tokens": 0,
+                                                              "output_tokens": 10}}), flush=True)
     while True:
         time.sleep(1)
 marker = re.findall(r"TAUCETI-VERDICT-[a-z0-9]+", prompt)[-1]
