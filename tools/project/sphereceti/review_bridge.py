@@ -9,6 +9,7 @@ import contextlib
 import io
 import json
 from pathlib import Path
+import signal
 import sys
 
 
@@ -92,6 +93,12 @@ def main() -> int:
             raise RuntimeError("review engine attempted external I/O outside a provider adapter")
 
     sys.addaudithook(guard)
+    # The adapter's whole-run deadline signals this process group with SIGTERM. A bounded provider
+    # attempt runs in its own group, so turn SIGTERM into an exception: the engine's attempt runner
+    # then stops that group too instead of leaving it running after the bridge exits.
+    def terminated(signum, frame):
+        raise KeyboardInterrupt("review bridge terminated")
+    signal.signal(signal.SIGTERM, terminated)
     sys.argv = ["review", *request["arguments"]]
     # Raw provider errors can contain credentials. Keep neither engine console stream in artifacts.
     try:

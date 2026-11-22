@@ -8,9 +8,11 @@ The `sphereceti` command supplies project diagnostics and the adapters credited 
 | `doctor`, `status` | Project identity, policy and queue diagnostics (below) |
 | `review` | [Local advisory review](local-review.md) |
 | `review --read-records / --post` | [Authenticated records and explicit publication](review-records.md) |
+| `review-check-sandbox` | [Credential-free Codex sandbox diagnostic](local-review.md#codex-sandbox-diagnostic) |
 | `archive` | [Durable review records](review-archive.md) |
 | `worker plan` | [Worker planning](worker.md) |
 | `worker run` | [Guarded execution and leases](worker-execution.md) |
+| `worker run --expect-head SHA` | [Binding a run to the authorized head](worker-execution.md#binding-a-run-to-the-authorized-head) |
 | `evaluation` | [Costs and shadow comparisons](evaluation.md) |
 | `worker run --loop` | [Bounded review loops](worker-loop.md) |
 | `progress` | [Local reporting drafts](progress-reporting.md) |
@@ -18,6 +20,9 @@ The `sphereceti` command supplies project diagnostics and the adapters credited 
 | `merge-doctor / merge-control` | [Controller diagnostics and gated action](merge-controller.md) |
 | `maintenance` | [Lifecycle diagnostics and labels](lifecycle.md) |
 | `profile-plan / profile-run` | [Advisory profiling](profiling.md) |
+
+For installation smoke tests, one-PR review rehearsal, and the boundary between contributor
+credentials and official merge workers, see the [rollout guide](rollout.md).
 
 From this checkout:
 

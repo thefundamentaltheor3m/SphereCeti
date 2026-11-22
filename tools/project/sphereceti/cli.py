@@ -60,6 +60,8 @@ def main(argv: list[str] | None = None) -> int:
     from .gate import GateError
     from .review_records import RecordError
     add_parser(commands)
+    from .review_sandbox import add_parser as add_sandbox_parser, check_sandbox
+    add_sandbox_parser(commands)
     from .archive_cli import add_parser as add_archive_parser, run_archive
     add_archive_parser(commands)
     from .worker_cli import add_parser as add_worker_parser, render, run_worker
@@ -161,6 +163,16 @@ def main(argv: list[str] | None = None) -> int:
               f"PR #{args.pr}: {report['eligibility']}; " + '; '.join(report['reasons']) + '\nObservation only; merging is disabled.')
         return 0
 
+    if args.command == "review-check-sandbox":
+        try:
+            report = check_sandbox(args, project, preferences)
+        except (ReviewError, OSError, ValueError, subprocess.SubprocessError) as error:
+            reason = str(error) if isinstance(error, ReviewError) else f"diagnostic setup failed ({type(error).__name__})"
+            parser.exit(2, f"sphereceti review-check-sandbox: {reason}\n")
+        # JSON escaping keeps launcher stderr from becoming terminal or workflow commands.
+        print(json.dumps(report, indent=2))
+        return 0 if report["ok"] else 1
+
     if args.command == "review":
         try:
             report = run_review(args, project, preferences)
@@ -194,7 +206,7 @@ def main(argv: list[str] | None = None) -> int:
             reason = str(error) if isinstance(error, (WorkerError, ReviewError, RecordError)) else "worker operation failed; exact evidence remains unconfirmed"
             parser.exit(2, f"sphereceti worker: {reason}\n")
         print(json.dumps(report, indent=2) if args.json else render(report))
-        return 1 if report.get("state") in ("error", "partial", "unconfirmed_publication") or report.get("state_publication", {}).get("state") == "unconfirmed" else 0
+        return 1 if report.get("state") in ("error", "partial", "unconfirmed_publication", "stale_authorization") or report.get("state_publication", {}).get("state") == "unconfirmed" else 0
     if args.command == "progress":
         try:
             report = run_progress(args, project)

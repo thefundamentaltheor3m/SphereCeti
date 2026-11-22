@@ -2,11 +2,14 @@
 
 Run as a script (runner/ on sys.path), so imports are flat siblings, not package-relative."""
 
-import json, os, pathlib, re, shutil, sqlite3, subprocess, sys, tempfile, time
+import json, os, pathlib, re, shutil, signal, sqlite3, subprocess, sys, tempfile, time
 from contextlib import closing
 from urllib.parse import quote
 
-from pricing import CACHE_READ, DEFAULT_PRICE, OPENROUTER_MODELS, PRICES
+if __package__:
+    from .pricing import CACHE_READ, DEFAULT_PRICE, OPENROUTER_MODELS, PRICES
+else:
+    from pricing import CACHE_READ, DEFAULT_PRICE, OPENROUTER_MODELS, PRICES
 
 
 # A pi reviewer's tools: read + grep + ls only — never bash/edit/write. This keeps the review
@@ -65,10 +68,79 @@ def sweep_rev_homes(max_age_s=REV_HOME_MAX_AGE_S):
 
 
 
-def sh(cmd, cwd=None, env=None, stdin_text=None):
-    return subprocess.run(cmd, cwd=cwd, text=True, capture_output=True, env=env,
-                          input=stdin_text,
-                          stdin=(None if stdin_text is not None else subprocess.DEVNULL))
+# SphereCeti local adaptation (not upstream): opt-in attempt bounds for the review canary, set by
+# review.main from --attempt-timeout and --codex-single-agent. ATTEMPT_TIMEOUT is one wall-clock
+# budget per attempt: run_codex's login, catalog probe and exec share a single deadline. Unset,
+# sh and run_codex behave as imported. See
+# docs/infrastructure/worker-execution.md#when-the-worker-stops-spending.
+ATTEMPT_TIMEOUT = None
+CODEX_SINGLE_AGENT = False
+ATTEMPT_TIMEOUT_EXIT = 124
+_KILL_GRACE_S = 5
+
+
+def _stop_group(process):
+    """SphereCeti: end a provider's whole process group (its children too), then reap it."""
+    for sig in (signal.SIGTERM, signal.SIGKILL):
+        try:
+            os.killpg(process.pid, sig)
+        except (ProcessLookupError, PermissionError):
+            break
+        try:
+            process.wait(timeout=_KILL_GRACE_S)
+            if sig == signal.SIGTERM:
+                os.killpg(process.pid, signal.SIGKILL)  # stragglers that ignored SIGTERM
+            break
+        except subprocess.TimeoutExpired:
+            continue
+        except (ProcessLookupError, PermissionError):
+            break
+    process.wait()
+
+
+def attempt_deadline():
+    """SphereCeti: the one monotonic deadline every subprocess of a new attempt shares, or None."""
+    return None if ATTEMPT_TIMEOUT is None else time.monotonic() + ATTEMPT_TIMEOUT
+
+
+def _timed_out(cmd, out, err):
+    result = subprocess.CompletedProcess(cmd, ATTEMPT_TIMEOUT_EXIT, out or "",
+                                         (err or "") + f"\nattempt timed out after {ATTEMPT_TIMEOUT}s")
+    result.timed_out = True
+    return result
+
+
+def sh(cmd, cwd=None, env=None, stdin_text=None, deadline=None):
+    if ATTEMPT_TIMEOUT is None:
+        return subprocess.run(cmd, cwd=cwd, text=True, capture_output=True, env=env,
+                              input=stdin_text,
+                              stdin=(None if stdin_text is not None else subprocess.DEVNULL))
+    # SphereCeti: a per-attempt deadline, shared by every command of the attempt when the caller
+    # passes it. The provider gets its own process group so expiry, an exception or a forwarded
+    # SIGTERM can stop the CLI together with everything it spawned (in that group).
+    remaining = (deadline if deadline is not None else attempt_deadline()) - time.monotonic()
+    if remaining <= 0:
+        return _timed_out(cmd, "", "")  # no time left: never launched
+    process = subprocess.Popen(cmd, cwd=cwd, env=env, text=True, start_new_session=True,
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                               stdin=(subprocess.PIPE if stdin_text is not None else subprocess.DEVNULL))
+    try:
+        out, err = process.communicate(stdin_text, timeout=remaining)
+    except subprocess.TimeoutExpired:
+        _stop_group(process)
+        try:
+            out, err = process.communicate(timeout=_KILL_GRACE_S)
+        except (subprocess.TimeoutExpired, ValueError):
+            out, err = "", ""
+        return _timed_out(cmd, out, err)
+    except BaseException:
+        _stop_group(process)
+        raise
+    try:
+        os.killpg(process.pid, signal.SIGKILL)  # children left behind by a finished CLI
+    except (ProcessLookupError, PermissionError):
+        pass
+    return subprocess.CompletedProcess(cmd, process.returncode, out, err)
 
 
 def _kiro_auth_db():
@@ -190,6 +262,10 @@ def reviewer_env(provider, keys, subscription=False):
         codex_home = os.path.join(home, ".codex")
         os.makedirs(codex_home, exist_ok=True)  # codex requires CODEX_HOME to already exist
         env["CODEX_HOME"] = codex_home
+        # The sandbox launcher needs writable bookkeeping before enforcing the tool's
+        # read-only policy. Do not depend on a host-global /tmp inside another sandbox.
+        env["TMPDIR"] = os.path.join(home, "tmp")
+        os.mkdir(env["TMPDIR"], mode=0o700)
         if subscription:
             # Seed only the ChatGPT login; no personal AGENTS.md / config.toml.
             src = os.path.expanduser("~/.codex/auth.json")
@@ -496,19 +572,76 @@ def codex_model_unavailable(res):
     return bool(_CODEX_MODEL_MSG.search(hay))
 
 
+def codex_shell_environment_args(env):
+    """Keep tools credential-free while retaining the launcher's runtime requirements.
+
+    Codex launches the Linux sandbox helper with the shell environment. inherit=none
+    alone also deletes PATH there, forcing the bundled bwrap even when a working system
+    installation exists. TMPDIR is a private per-attempt directory created by reviewer_env,
+    so bookkeeping also works when the caller's /tmp is read-only. Neither grants the
+    model write access: the selected read-only sandbox policy still applies to its tools.
+    """
+    args = ["-c", "shell_environment_policy.inherit=none"]
+    for key in ("PATH", "TMPDIR"):
+        if key in env:
+            args += ["-c", f"shell_environment_policy.set.{key}="
+                     + json.dumps(env[key], ensure_ascii=False)]
+    return args
+
+
+def codex_single_agent_args(cwd, env, deadline=None):
+    """SphereCeti: Codex options that withhold sub-agents from one attempt, or None.
+
+    codex-cli 0.171.0 offers its collaboration tools (spawn_agent and the rest) whenever the model
+    catalog marks the model `multi_agent_version = "v2"` or `features.multi_agent_v2` is on; the
+    feature flags alone do not remove them from a v2 model such as gpt-6.1-sol (checked offline
+    with `codex debug prompt-input`). So point this attempt at the binary's own bundled catalog
+    with that marker removed, written into the attempt's private TMPDIR, and keep both flags off.
+    The probe runs under the attempt's shared deadline, so its time counts against `codex exec`."""
+    r = sh(["codex", "debug", "models", "--bundled"], cwd=cwd, env=env, deadline=deadline)
+    try:
+        catalog = json.loads(r.stdout) if r.returncode == 0 else None
+        models = catalog.get("models") if isinstance(catalog, dict) else None
+        if not isinstance(models, list) or not models or not all(isinstance(m, dict) for m in models):
+            return None
+    except ValueError:
+        return None
+    for entry in models:
+        entry.pop("multi_agent_version", None)
+    path = os.path.join(env["TMPDIR"], "sphereceti-model-catalog.json")
+    with open(path, "w") as f:
+        json.dump(catalog, f)
+    return ["-c", "model_catalog_json=" + json.dumps(path),
+            "-c", "features.multi_agent_v2=false", "-c", "features.multi_agent=false"]
+
+
 def run_codex(prompt, cwd, model, env):
     # Authenticate into this invocation's isolated CODEX_HOME so the credential is not shared.
     # In subscription mode there is no key (and no isolated home): use the inherited codex login.
+    # SphereCeti: login, catalog probe and exec share one attempt deadline (None: no deadline).
+    deadline = attempt_deadline()
     if env.get("OPENAI_API_KEY"):
-        sh(["codex", "login", "--with-api-key"], env=env, stdin_text=env["OPENAI_API_KEY"])
+        sh(["codex", "login", "--with-api-key"], env=env, stdin_text=env["OPENAI_API_KEY"],
+           deadline=deadline)
+    single_agent = []
+    if CODEX_SINGLE_AGENT:  # SphereCeti: fail closed, before any model call, if unavailable.
+        single_agent = codex_single_agent_args(cwd, env, deadline)
+        reason = ("could not disable Codex sub-agents" if single_agent is None else
+                  "attempt deadline reached before Codex started"
+                  if deadline is not None and deadline <= time.monotonic() else None)
+        if reason:
+            return {"returncode": 1, "text": "", "usage": None, "cost_usd": 0.0, "cost_estimated": True,
+                    "dispatched": False, "raw_stderr": "", "error_message": reason + "; not dispatched"}
     # inherit=none: codex's model-run shell commands get a clean env, not codex's own. `-` tells
     # codex to read the prompt from stdin; putting a large rendered review in argv can exceed the
     # OS argument-size limit before codex starts.
-    cmd = (["codex", "exec", "--json", "-s", "read-only", "--skip-git-repo-check",
-            "-c", "shell_environment_policy.inherit=none"]
+    cmd = (["codex", "exec", "--json", "-s", "read-only", "--skip-git-repo-check"]
+           + codex_shell_environment_args(env) + single_agent
            + (["-m", model] if model else []) + ["-"])
-    r = sh(cmd, cwd=cwd, env=env, stdin_text=prompt)
+    r = sh(cmd, cwd=cwd, env=env, stdin_text=prompt, deadline=deadline)
     out = {"returncode": r.returncode, "raw_stderr": r.stderr[-3000:]}
+    if getattr(r, "timed_out", False):
+        out["timed_out"] = True  # SphereCeti: the attempt deadline expired
     text, usage, thread, events, errors = "", None, None, [], []
     fail_payload = err_payload = None  # turn.failed (authoritative) and first `error` event (fallback)
     for line in r.stdout.splitlines():

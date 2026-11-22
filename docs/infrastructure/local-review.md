@@ -109,6 +109,36 @@ supported isolated credentials or API authentication. The Python engine may laun
 selected provider CLIs; GitHub, archive, and merge subprocesses are rejected. Raw provider
 console streams are not retained in the adapter's artifacts.
 
+Codex tool commands keep upstream's `shell_environment_policy.inherit=none`. Following
+TauCetiReview [#196](https://github.com/TauCetiProject/TauCetiReview/pull/196)
+([8cb4374](https://github.com/TauCetiProject/TauCetiReview/commit/8cb4374133d429627c31d9835bfe6fc9d71771e9)),
+the engine then restores exactly two runtime variables for the Linux sandbox launcher: `PATH`,
+so it can find the system `bwrap`, and a private per-attempt `TMPDIR` inside the throwaway
+reviewer home, so its bookkeeping works when the host `/tmp` is read-only. Neither carries a
+credential, and the model's tools stay read-only, including inside that directory.
+
+## Codex sandbox diagnostic
+
+When a Codex review fails before inspecting any source, run the diagnostic adapted from
+TauCetiReview [#194](https://github.com/TauCetiProject/TauCetiReview/pull/194)
+([51149da](https://github.com/TauCetiProject/TauCetiReview/commit/51149da792cd8b28aba617f118d1ae01aefbe501))
+and #196 **in the same host, container, and account that runs reviews**:
+
+```bash
+uv run --locked sphereceti review-check-sandbox --compare-path --compare-tmpdir
+```
+
+It calls the native `codex sandbox` directly in the reviewer's clean environment: no API key,
+no copied subscription login, no model inference, and no GitHub access. The probe checks that a
+known file is readable and a workspace write is denied, then removes its scratch files. By
+default it probes a fresh private directory under the operator's review storage; `--cwd DIR`
+probes an existing workspace instead. The JSON report records the Codex version, relevant
+Linux kernel settings, the system `bwrap`, and the actual launcher or sandbox error.
+`--compare-path` adds an empty-`PATH` probe and `--compare-tmpdir` a system-`TMPDIR` probe;
+`path_restoration_fixed_sandbox` or `private_tmpdir_fixed_sandbox` is true when only the fixed
+environment works. The command exits 0 only for a healthy probe. A failed report never relaxes
+the sandbox; namespace, AppArmor, and Seatbelt denials must be investigated on that host.
+
 This is an operator-run advisory tool, not the build sandbox or a sandbox for hostile Python.
 Provider processes retain their provider-specific authentication and isolation limits. The
 adapter's restrictions do not authenticate review records or make them merge authority.
@@ -138,7 +168,35 @@ normal case files intact. Executed arms additionally require `--shadow-budget-us
 attempt, including unsuccessful runs. No archive is pushed. Daily and per-call reservations
 use upstream cost estimates; they are not a provider-enforced billing limit. Provider failures
 are errors, never approvals. Execution has a 30-minute limit and terminates its process group
-on timeout or interruption.
+on timeout or interruption. Each provider attempt also has its own `--attempt-timeout` (default
+600 seconds); see [when the worker stops spending](worker-execution.md#when-the-worker-stops-spending).
+
+## Codex model selection and accounting
+
+`--codex-model MODEL` pins the exact Codex model, for both `review` and
+[`worker run --execute`](worker-execution.md); otherwise the imported default
+`gpt-5.6-sol` applies, with upstream's automatic Terra fallback for accounts without Sol. An
+explicit pin disables that fallback. Every dispatchable model must have a row in
+`runner/prices.json`; an unpriced model is rejected before any inference. The table carries
+the gpt-6 family from TauCetiReview [#172](https://github.com/TauCetiProject/TauCetiReview/pull/172)
+([baf2e68](https://github.com/TauCetiProject/TauCetiReview/commit/baf2e680b43369805621e6ff0b6c984cab5e4ccb)),
+so `--codex-model gpt-6.1-sol` (Sol61: 2.00 input, 0.10 cached input, 10.00 output per million
+tokens) is accepted. The corrected rates and cache-write rates of
+[#175](https://github.com/TauCetiProject/TauCetiReview/pull/175)
+([4684a52](https://github.com/TauCetiProject/TauCetiReview/commit/4684a52a03859a5e22ba2af736720426de373e1f))
+also apply, including `gpt-5.6-sol`'s 2026-08-21 window. Unlike #172, SphereCeti does not change
+the default model.
+
+Codex reports no dollar figure, under either authentication mode. A subscription-backed run
+therefore records `cost_estimated: true` and charges the shared daily budget the dated
+list-price estimate of its measured tokens. This is a budget guard, not a statement of
+subscription billing. The budget is a stop threshold checked before each rubric; see
+[when the worker stops spending](worker-execution.md#when-the-worker-stops-spending).
+Following [#148](https://github.com/TauCetiProject/TauCetiReview/pull/148)
+([7f1d288](https://github.com/TauCetiProject/TauCetiReview/commit/7f1d28863dcd914f3bcc2ae1d9e2b7ee42a96441)),
+round token totals use one convention across providers: `input_tokens` is all input traffic,
+with fresh, cache-read and cache-write components. Archived runs keep the provider's raw
+usage and exact model.
 
 ## Validation and next boundary
 
@@ -146,8 +204,10 @@ Regression fixtures use exact disposable Git commits and a fake provider executa
 exercise approved/proposed evidence, missing context, dirty trees, replacement refs, source
 links, partial/budgeted reviews, contests, shadow accounting, and provider failures. Both fresh
 wheel and source installations run a dry review and all ten rubrics outside the checkout with
-conflicting cwd resources and credential canaries. The 16 original upstream test scripts also
-continue to run without external calls.
+conflicting cwd resources and credential canaries. A fake Codex executable checks the
+subscription-login isolation and restored launcher runtime through the full adapter, and the
+sandbox diagnostic's credential-free probes and cleanup. The 18 imported upstream test scripts
+also continue to run without external calls.
 
 The [record adapter](review-records.md) adds API-authenticated review records and explicit
 policy-gated posting. Shared merge observation will combine those records with #8’s mechanical
