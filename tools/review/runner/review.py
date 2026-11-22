@@ -17,6 +17,7 @@ if __name__ == "__main__":
 import argparse, datetime, hashlib, json, os, pathlib, random, re, secrets, sys, time
 
 import archive
+import reviewers  # SphereCeti: module switches for the opt-in attempt bounds
 from dataclasses import dataclass, field
 
 from ledger import Ledger
@@ -322,6 +323,8 @@ class RunContext:
     # provider_is_down().
     provider_down_streak: dict = field(default_factory=dict)
     provider_down_kind: dict = field(default_factory=dict)
+    # SphereCeti: rubrics with an attempt whose usage is unknown (only with --usage-stop-file).
+    usage_unknown: list = field(default_factory=list)
 
     def note_provider_down(self, provider, kind, attempts):
         """Record `attempts` consecutive provider-down attempts for `provider`, or reset it."""
@@ -349,6 +352,39 @@ class RunContext:
         """The kind to name in the abort, when they agree; else a generic provider outage."""
         kinds = {self.provider_down_kind.get(p) for p in self.providers}
         return kinds.pop() if len(kinds) == 1 else "provider_unavailable"
+
+
+# SphereCeti local adaptation: when an attempt's price counts as known (--usage-stop-file only).
+# Codex's price is estimated from its turn usage, so it needs every field the estimate reads.
+CODEX_PRICED_FIELDS = ("input_tokens", "cached_input_tokens", "output_tokens")
+
+
+def usage_unknown_reason(provider, r):
+    """None when the attempt's price is known; else why not.
+
+    Known means the attempt was not stopped by the deadline or a signal and, for Codex, exited 0
+    with a usage object whose input_tokens, cached_input_tokens and output_tokens are all
+    non-negative integers with cached <= input; for other providers, a finite non-negative
+    reported cost. After a nonzero Codex exit, even complete counters may not cover everything
+    the attempt did, so its total is unknown. An attempt that failed closed before any model call
+    (dispatched: false) spent nothing and stays a known $0."""
+    if r.get("dispatched") is False:
+        return None  # failed closed before any model call: nothing was spent
+    usage = r.get("usage")
+    if r.get("timed_out") or (type(r.get("returncode")) is int and r["returncode"] < 0):
+        stopped = "timeout" if r.get("timed_out") else "killed"
+        return stopped + "_after_usage" if usage else stopped
+    if provider == "codex":
+        if r.get("returncode") != 0:
+            return "exit_nonzero_after_usage" if usage else "exit_nonzero"
+        if not isinstance(usage, dict) or not usage:
+            return "not_reported"
+        counts = [usage.get(k) for k in CODEX_PRICED_FIELDS]
+        if not all(type(v) is int and v >= 0 for v in counts) or counts[1] > counts[0]:
+            return "incomplete"
+        return None
+    cost = r.get("cost_usd")
+    return None if type(cost) in (int, float) and 0 <= cost < float("inf") else "not_reported"
 
 
 def run_rubric(ctx, rubric):
@@ -390,11 +426,20 @@ def run_rubric(ctx, rubric):
 
     def attempt():
         t = time.monotonic()
+        if track_unknown and not a.dry_run:
+            # SphereCeti: write-ahead marker. If the whole run is killed during this attempt, the
+            # adapter finds it and records the attempt's usage as unknown instead of losing it.
+            ctx.ledger.data["in_flight"] = {"day": day, "pr": str(a.pr), "round": round_num,
+                                            "head_sha": head, "rubric": rubric, "model": model}
+            ctx.ledger.persist()
         env, rev_home = reviewer_env(provider, keys, subscription)
         try:
             r = fn(prompt, a.tool_cwd, model, env)
         finally:
             cleanup_rev_home(rev_home)   # throwaway HOME, one per attempt — don't accumulate
+        unknown_reason = usage_unknown_reason(provider, r) if track_unknown else None
+        if unknown_reason:  # SphereCeti: a partial or interrupted total is unknown, not a price
+            r.update(cost_usd=None, usage_status="unknown")
         # Keep each attempt's execution facts: the retry path returns only the last result, but the
         # first attempt's spend/usage/failure is provenance too. error_kind rides along because it is
         # the only field that says *why* an attempt failed: a total auth failure otherwise reads as
@@ -405,8 +450,17 @@ def run_rubric(ctx, rubric):
                                            "usage", "session_id", "parse_error")
                          if r.get(k) is not None}
                         | {"model": model, "secs": round(time.monotonic() - t, 1)}
-                        | ({} if has_verdict(r) else {"error_kind": error_kind(r)}))
+                        | ({} if has_verdict(r) else {"error_kind": error_kind(r)})
+                        | ({"usage_status": "unknown", "usage_unknown_reason": unknown_reason}
+                           if unknown_reason else {}))
         return r
+
+    # SphereCeti: with --usage-stop-file, an attempt without a complete, normally finished usage
+    # report is recorded as unknown, never as a price, and no further attempt follows it.
+    track_unknown = bool(getattr(a, "usage_stop_file", ""))
+
+    def may_retry(r):
+        return r.get("usage_status") != "unknown"
 
     def has_verdict(r):
         # A run the CLI itself reports as failed is not a review, however well-formed its text looks:
@@ -419,16 +473,18 @@ def run_rubric(ctx, rubric):
     cost = res.get("cost_usd") or 0.0
     requested = model
     downgraded = False
+    if not may_retry(res):
+        pass  # SphereCeti: stop on unknown usage before another attempt
     # Seamless codex model downgrade: the default model (Sol) needs a paid ChatGPT tier; a Free/Go
     # subscription gets Terra and would otherwise fail EVERY codex rubric. Only the DEFAULT model
     # auto-falls-back — an explicit --codex-model pin is honored as chosen. Codex has been seen to wrap
     # a TRANSIENT server error in the same "model not supported" 400 an entitlement failure uses
     # (openai/codex#14190), so reconfirm on the same model before downgrading: a transient rejection
     # clears on the second try; a real unavailability repeats.
-    if provider == "codex" and not ctx.codex_model_explicit and codex_model_unavailable(res):
+    elif provider == "codex" and not ctx.codex_model_explicit and codex_model_unavailable(res):
         res = attempt()  # reconfirm on the same model
         cost += res.get("cost_usd") or 0.0
-        if not has_verdict(res) and codex_model_unavailable(res):
+        if not has_verdict(res) and codex_model_unavailable(res) and may_retry(res):
             model = CODEX_FALLBACK_MODEL  # rejected twice → treat as persistent → try the fallback
             res = attempt()
             cost += res.get("cost_usd") or 0.0
@@ -437,6 +493,9 @@ def run_rubric(ctx, rubric):
         res = attempt()  # the ordinary one retry (unchanged for every non-codex-downgrade case)
         cost += res.get("cost_usd") or 0.0  # count every attempt
     res["cost_usd"] = round(cost, 6)
+    unknown = [x for x in attempts if x.get("usage_status") == "unknown"]
+    if unknown:  # SphereCeti: the rubric's price is unknown; only its known part reaches the ledger.
+        res.update(cost_usd=None, known_cost_usd=round(cost, 6), usage_status="unknown")
     # Persist the downgrade for the rest of the run — flip the shared runner registry so later rubrics
     # skip the now-known-dead Sol call — but ONLY once the fallback has actually produced a verdict. With
     # the reconfirm above, that means: rejected twice on the default AND the fallback then worked. Runs
@@ -457,7 +516,10 @@ def run_rubric(ctx, rubric):
                started_at=started_at, duration_s=round(time.monotonic() - t0, 1),
                attempts=attempts,
                prompt_sha256=hashlib.sha256(prompt.encode()).hexdigest(),
-               verdict_obj=extract_verdict(res.get("text", ""), marker))
+               # SphereCeti: in stop mode a failed run's text (nonzero exit, or a CLI-reported
+               # failure) is never accepted as the rubric's verdict; upstream accepts it.
+               verdict_obj=(extract_verdict(res.get("text", ""), marker)
+                            if not track_unknown or has_verdict(res) else None))
     # Normalize finding file paths to PR-relative (strip the reviewer-workspace prefix) so the
     # rendered locations and the thread anchor are valid PR paths.
     vo = res.get("verdict_obj")
@@ -498,6 +560,7 @@ def run_rubric(ctx, rubric):
             "attempts": public_record(attempts),
             "usage": res.get("usage"), "cost_usd": res.get("cost_usd"),
             "cost_estimated": res.get("cost_estimated"), "prices_sha": PRICES_SHA,
+            "usage_status": res.get("usage_status"),  # SphereCeti: "unknown", or absent
             "verdict": vo.get("verdict") or "error",
             "summary": vo.get("summary"), "findings": vo.get("findings") or [],
             "fidelity": "exact",
@@ -531,14 +594,23 @@ def run_rubric(ctx, rubric):
     # `--store` is a checkout of the `reviews` branch and the review workflow commits and pushes it,
     # so this file is as public as the repo. It carried the raw stderr and the session id until now.
     (outdir / f"{rubric}.json").write_text(json.dumps(public_record(res), indent=2))
+    if unknown:  # SphereCeti: an explicit ledger marker beside the day's known spend
+        ctx.ledger.data.setdefault("unknown_usage", {}).setdefault(day, []).append(
+            {"pr": str(a.pr), "round": round_num, "head_sha": head, "rubric": rubric,
+             "model": model, "attempts": len(unknown),
+             "reasons": sorted({x["usage_unknown_reason"] for x in unknown})})
+        ctx.usage_unknown.append(rubric)
+    if track_unknown:  # SphereCeti: every attempt above is now accounted for
+        ctx.ledger.data.pop("in_flight", None)
     # Persist spend + state incrementally so a later crash cannot lose what was billed.
     ctx.ledger.set_spent(day, spent_today)
     if not a.dry_run:
         ctx.ledger.persist()
     ctx.spent_today = spent_today
     v = res["verdict_obj"] or {}
+    shown = "unknown" if unknown else f"${res.get('cost_usd') or 0:.4f}"  # SphereCeti: never $0
     print(f"[{rubric}] {provider}/{model} rc={res['returncode']} "
-          f"verdict={v.get('verdict', 'PARSE_FAILED')} cost=${res.get('cost_usd') or 0:.4f} "
+          f"verdict={v.get('verdict', 'PARSE_FAILED')} cost={shown} "
           f"today=${spent_today:.2f}")
     # A rubric that produced no verdict is the case a human has to diagnose, and the line above says
     # only that it happened: `Not logged in` at $0.00 read as an ordinary "error" for two whole PRs
@@ -699,7 +771,17 @@ def main():
     ap.add_argument("--post-plan-file", default="",
                     help="write the post plan (scoreboard + thread upsert/close actions) here")
     ap.add_argument("--dry-run", action="store_true")
+    # SphereCeti local adaptation: opt-in canary bounds (defaults keep upstream behaviour).
+    ap.add_argument("--attempt-timeout", type=float, default=None,
+                    help="seconds before one provider attempt and its process group are stopped")
+    ap.add_argument("--codex-single-agent", action="store_true",
+                    help="withhold Codex sub-agent tools from every Codex attempt")
+    ap.add_argument("--usage-stop-file", default="",
+                    help="record unknown attempt usage explicitly, start no further attempt or "
+                         "rubric after one, and write the stop reason as JSON here")
     a = ap.parse_args()
+    reviewers.ATTEMPT_TIMEOUT = a.attempt_timeout
+    reviewers.CODEX_SINGLE_AGENT = a.codex_single_agent
     try:
         a.kiro_model = exact_kiro_model(a.kiro_model)
         reject_retired_opus(a.claude_model)
@@ -971,6 +1053,16 @@ def main():
         dispatchable.add(CODEX_FALLBACK_MODEL)
     require_priced(dispatchable)
     stopped, halted = None, None
+    usage_stopped = None  # SphereCeti: the rubric after which unknown usage stopped the round
+
+    def usage_stop(rubric):
+        """SphereCeti: after a rubric with unknown attempt usage, stop before any further work."""
+        if not ctx.usage_unknown:
+            return False
+        pathlib.Path(a.usage_stop_file).write_text(json.dumps(
+            {"stop_reason": "usage_unknown", "pr": str(a.pr), "head_sha": head, "round": round_num,
+             "after_rubric": rubric, "unknown_rubrics": ctx.usage_unknown}, indent=2))
+        return True
     ctx = RunContext(a=a, state_map=state_map, pr_state=pr_state,
                      reply_text=reply_text, base_context=base_context,
                      head=head, providers=providers, runners=runners, keys=keys,
@@ -988,8 +1080,12 @@ def main():
             stopped = rubric
             break
         run_rubric(ctx, rubric)
+        if usage_stop(rubric):
+            usage_stopped = rubric
         if ctx.provider_is_down():
             abort_provider_down(ctx)
+        if usage_stopped:
+            break
         if a.mode != "manual" and state_of(state_map.get(rubric), head) == "blocking_block":
             halted = rubric
             break
@@ -998,7 +1094,7 @@ def main():
     # never-run rubrics (deferred by an earlier block halt) and stale greens. A reply that
     # clears the last blocker finalizes toward merge the same way. A fresh `block` halts this
     # phase just like phase 1.
-    if a.mode in ("commit", "manual", "reply") and not stopped and not halted:
+    if a.mode in ("commit", "manual", "reply") and not stopped and not halted and not usage_stopped:
         while not any(is_unresolved(state_of(state_map.get(r), head)) for r in candidates):
             todo = [r for r in candidates
                     if state_of(state_map.get(r), head) in ("absent", "stale")]
@@ -1009,12 +1105,16 @@ def main():
                     stopped = rubric
                     break
                 run_rubric(ctx, rubric)
+                if usage_stop(rubric):
+                    usage_stopped = rubric
                 if ctx.provider_is_down():
                     abort_provider_down(ctx)
+                if usage_stopped:
+                    break
                 if state_of(state_map.get(rubric), head) == "blocking_block":
                     halted = rubric
                     break
-            if stopped or halted:
+            if stopped or halted or usage_stopped:
                 break
 
     spent_today, ran, run_results = ctx.spent_today, ctx.ran, ctx.run_results
@@ -1037,7 +1137,9 @@ def main():
     full_rounds = prior_full + (0 if effective_mode in ("reply", "repair") else 1)
     prov["mode"] = effective_mode
     prov["full_rounds"] = full_rounds
-    if stopped:
+    if usage_stopped:  # SphereCeti
+        budget_note = f"Stopped after `{usage_stopped}`: an attempt's usage is unknown."
+    elif stopped:
         budget_note = f"Deferred {stopped} and after to the next run."
     elif halted and any(s in ("absent", "stale") for s in states.values()):
         budget_note = f"Halted at the `{halted}` block; the deferred rubrics run once it clears."
@@ -1130,7 +1232,8 @@ def main():
          "base_sha": a.base_sha or None, "merge_base_sha": a.merge_base_sha or None,
          "rubrics_sha": a.rubrics_sha or None, "diff_sha256": prov.get("diff_sha256"),
          "diff_prompt_truncated": prov.get("diff_prompt_truncated"),
-         "run_ids": [r.get("run_id") for r in run_results]})
+         "run_ids": [r.get("run_id") for r in run_results],
+         **({"stop_reason": "usage_unknown"} if usage_stopped else {})})
     print(f"\nROUND {round_num} ({effective_mode}) {overall}  (ran {len(ran)}: {ran}; "
           + (f"halted at {halted} block; " if halted else "")
           + f"cost ${round_cost:.2f}, today ${spent_today:.2f}/{a.daily_budget})")

@@ -137,19 +137,61 @@ if sys.argv[1:3] == ["login", "--with-api-key"]:
     with (root / "codex-calls.jsonl").open("a") as f:
         f.write(json.dumps(call) + "\n")
     sys.exit(0)
+if sys.argv[1:] == ["debug", "models", "--bundled"]:
+    # The binary's bundled catalog, which marks v2 models for sub-agent collaboration tools.
+    with (root / "codex-debug.jsonl").open("a") as f:
+        f.write(json.dumps(call) + "\n")
+    if (root / "codex-probe-sleep").exists():  # a slow probe spends the attempt's shared deadline
+        import time
+        time.sleep(float((root / "codex-probe-sleep").read_text()))
+    print(json.dumps({"models": [{"slug": "gpt-6.1-sol", "multi_agent_version": "v2", "context_window": 500000},
+                                 {"slug": "gpt-5.6-sol", "multi_agent_version": "v2"}]}))
+    sys.exit(0)
 prompt = sys.stdin.read()
 assert sys.argv[1:3] == ["exec", "--json"] and sys.argv[-1] == "-"
 call["prompt_ok"] = "SphereCeti" in prompt and "APPROVED SENTINEL" in prompt
+# The configuration this attempt's Codex would load: -c overrides and the catalog they name.
+call["settings"] = [sys.argv[i + 1] for i, arg in enumerate(sys.argv[:-1]) if arg == "-c"]
+catalogs = [v.split("=", 1)[1] for v in call["settings"] if v.startswith("model_catalog_json=")]
+call["catalog"] = json.loads(pathlib.Path(json.loads(catalogs[-1])).read_text()) if catalogs else None
+call["pgid_is_own"] = os.getpgid(0) == os.getpid()
 with (root / "codex-calls.jsonl").open("a") as f:
     f.write(json.dumps(call) + "\n")
+attempt = sum(1 for line in (root / "codex-calls.jsonl").read_text().splitlines()
+              if json.loads(line)["argv"][:1] == ["exec"])
+hang = root / "codex-hang"
+if hang.exists() and (hang.read_text() == "all" or attempt == 1):
+    # Never answer: start a child that would outlive this process, record both, and wait. With
+    # codex-detach the child gets its own session and process group, out of the attempt's group.
+    import subprocess, time
+    child = subprocess.Popen([sys.executable, "-c", "import time\nwhile True: time.sleep(1)"],
+                             start_new_session=(root / "codex-detach").exists())
+    with (root / "codex-pids.jsonl").open("a") as f:
+        f.write(json.dumps({"leader": os.getpid(), "child": child.pid, "parent": os.getppid(),
+                            "child_pgid": os.getpgid(child.pid)}) + "\n")
+    print(json.dumps({"type": "thread.started", "thread_id": "fake-thread"}), flush=True)
+    if (root / "codex-usage-before-hang").exists():  # a complete-looking usage event, then a hang
+        print(json.dumps({"type": "turn.completed", "usage": {"input_tokens": 1000, "cached_input_tokens": 0,
+                                                              "output_tokens": 10}}), flush=True)
+    while True:
+        time.sleep(1)
 marker = re.findall(r"TAUCETI-VERDICT-[a-z0-9]+", prompt)[-1]
 verdict = {"verdict": "approve", "summary": "Fake Codex result", "findings": []}
+# Optional budget fixtures: reported turn usage, and every odd attempt ending without a verdict.
+usage = {"input_tokens": 100000, "cached_input_tokens": 80000,
+         "output_tokens": 1000, "reasoning_output_tokens": 400}
+if (root / "codex-usage.json").exists():
+    usage = json.loads((root / "codex-usage.json").read_text())
+answer = not ((root / "codex-alternate").exists() and attempt % 2)
+reported = not (root / "codex-no-usage").exists()  # a turn that ends without its usage event
 for event in ({"type": "thread.started", "thread_id": "fake-thread"},
-              {"type": "item.completed", "item": {"type": "agent_message",
-                                                  "text": marker + "\n" + json.dumps(verdict)}},
-              {"type": "turn.completed", "usage": {"input_tokens": 100000, "cached_input_tokens": 80000,
-                                                   "output_tokens": 1000, "reasoning_output_tokens": 400}}):
+              *([{"type": "item.completed", "item": {"type": "agent_message",
+                                                     "text": marker + "\n" + json.dumps(verdict)}}]
+                if answer else []),
+              *([{"type": "turn.completed", "usage": usage}] if reported else [])):
     print(json.dumps(event))
+if (root / "codex-exit").exists():  # report everything, then fail
+    sys.exit(int((root / "codex-exit").read_text()))
 ''')
         (self.bin / "codex").chmod(0o755)
         self.env ={**os.environ, "HOME": str(self.home), "PATH": str(self.bin) + os.pathsep + os.environ["PATH"],
@@ -176,6 +218,14 @@ for event in ({"type": "thread.started", "thread_id": "fake-thread"},
 
     def codex_calls(self):
         path = self.bin / "codex-calls.jsonl"
+        return [json.loads(line) for line in path.read_text().splitlines()] if path.exists() else []
+
+    def codex_pids(self):
+        path = self.bin / "codex-pids.jsonl"
+        return [json.loads(line) for line in path.read_text().splitlines()] if path.exists() else []
+
+    def codex_debug_calls(self):
+        path = self.bin / "codex-debug.jsonl"
         return [json.loads(line) for line in path.read_text().splitlines()] if path.exists() else []
 
     def codex_subscription(self, login='{"auth_mode": "chatgpt", "tokens": "FAKE-CHATGPT-LOGIN"}'):

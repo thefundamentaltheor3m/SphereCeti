@@ -36,6 +36,9 @@ PROVIDERS = {"claude": "claude", "sonnet": "claude", "codex": "codex", "kiro": "
 DOCUMENTS = ("README.md", "CONVENTIONS.md", "MIGRATION.md", "PROVENANCE.md", "UPSTREAM.md",
              "VALIDATION.md", "INFRASTRUCTURE-PLAN.md")
 UPSTREAM = "afb424eda89e8ac96d9eb69f6a88972055a4cd1b"
+RUN_TIMEOUT = 1800       # seconds for the whole engine run, every rubric and attempt
+ATTEMPT_TIMEOUT = 600    # default seconds for one provider attempt and its process group
+MAX_ATTEMPT_TIMEOUT = 1800
 
 
 class ReviewError(ValueError):
@@ -63,6 +66,8 @@ def add_parser(commands):
     p.add_argument("--auth", choices=("subscription", "api"), default="subscription")
     p.add_argument("--budget-usd", type=float, help="daily estimated spend cap, including shadow runs")
     p.add_argument("--max-call-cost", type=float, default=1.0)
+    p.add_argument("--attempt-timeout", type=int, default=ATTEMPT_TIMEOUT,
+                   help=f"seconds before one provider attempt is stopped (1-{MAX_ATTEMPT_TIMEOUT})")
     p.add_argument("--rubrics", default=",".join(RUBRICS))
     p.add_argument("--mode", choices=("commit", "manual", "reply"), default="commit")
     p.add_argument("--reply-rubric", choices=RUBRICS)
@@ -340,11 +345,11 @@ def invoke_bridge(request: Path, env: dict, lock_fd: int, heartbeat=None) -> int
                                 str(request)], env=env, start_new_session=True, pass_fds=(lock_fd,),
                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     try:
-        deadline = time.monotonic() + 1800
+        deadline = time.monotonic() + RUN_TIMEOUT
         while True:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
-                raise subprocess.TimeoutExpired(process.args, 1800)
+                raise subprocess.TimeoutExpired(process.args, RUN_TIMEOUT)
             try:
                 return process.wait(timeout=min(30, remaining) if heartbeat else remaining)
             except subprocess.TimeoutExpired:
@@ -370,6 +375,8 @@ def execution_settings(args, prefs):
     budget = args.budget_usd if args.budget_usd is not None else prefs.budget_usd
     if not 0 < budget < float("inf") or not 0 < args.max_call_cost <= budget:
         raise ReviewError("set a finite positive --budget-usd and --max-call-cost no greater than that budget")
+    if type(args.attempt_timeout) is not int or not 1 <= args.attempt_timeout <= MAX_ATTEMPT_TIMEOUT:
+        raise ReviewError(f"--attempt-timeout must be whole seconds from 1 to {MAX_ATTEMPT_TIMEOUT}")
     if args.shadow:
         if args.shadow_budget_usd is None or not 0 < args.max_call_cost <= args.shadow_budget_usd < float('inf'):
             raise ReviewError("shadow execution requires a finite --shadow-budget-usd at least --max-call-cost")
@@ -406,7 +413,10 @@ def execute(args, prefs, report, workspace: Path, engine: Path, store: Path, out
                "--providers", ",".join(providers), "--auth", args.auth,
                "--daily-budget", str(budget), "--max-call-cost", str(args.max_call_cost),
                "--mode", "manual" if args.shadow else args.mode, "--no-post",
-               "--scoreboard-file", str(output / "upstream-scoreboard.md")]
+               "--scoreboard-file", str(output / "upstream-scoreboard.md"),
+               # Local engine adaptation: bounded attempts, no Codex sub-agents, unknown-usage stop.
+               "--attempt-timeout", str(args.attempt_timeout), "--codex-single-agent",
+               "--usage-stop-file", str(output / "usage-stop.json")]
     for name in ("claude_model", "codex_model", "kiro_model", "reply_rubric", "reply_file", "replies_json"):
         value = getattr(args, name)
         if value:
@@ -438,10 +448,26 @@ def execute(args, prefs, report, workspace: Path, engine: Path, store: Path, out
     finally:
         request.unlink(missing_ok=True)
     current = json.loads((run_store / "ledger.json").read_text())
+    flight = current.pop("in_flight", None)
+    if isinstance(flight, dict):
+        # The engine stopped during an attempt (deadline, guard, signal): that attempt's usage was
+        # never reported. Record it as unknown beside the day's known spend, never as zero.
+        current.setdefault("unknown_usage", {}).setdefault(flight.get("day"), []).append(
+            {**{k: flight.get(k) for k in ("pr", "round", "head_sha", "rubric", "model")},
+             "attempts": 1, "reasons": ["run_stopped"]})
+        write_json(run_store / "ledger.json", current)
+        stop_path = output / "usage-stop.json"
+        if not stop_path.is_file():
+            write_json(stop_path, {"stop_reason": "usage_unknown", "pr": flight.get("pr"),
+                                   "head_sha": flight.get("head_sha"), "round": flight.get("round"),
+                                   "after_rubric": flight.get("rubric"),
+                                   "unknown_rubrics": [flight.get("rubric")]})
     if args.shadow:
         ledger["days"] = current["days"]
         write_json(ledger_file, ledger)
     state = current.get("prs", {}).get(pr_key, {}).get("state", {})
+    stop_path = output / "usage-stop.json"
+    usage_stop = json.loads(stop_path.read_text()) if stop_path.is_file() else None
     finished = [r for r in RUBRICS if state.get(r, {}).get("reviewed_sha") == report["head"]
                 and state[r].get("verdict") in ("approve", "request_changes", "block")]
     complete = (len(finished) == len(RUBRICS) and args.rubrics == ",".join(RUBRICS)
@@ -455,6 +481,8 @@ def execute(args, prefs, report, workspace: Path, engine: Path, store: Path, out
               "execution_id": uuid.uuid4().hex, "finished_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
               "engine_exit_code": code, "execution_mode": "shadow" if args.shadow else args.mode,
               "requested_rubrics": args.rubrics.split(","), "finished_rubrics": finished,
+              "stop_reason": usage_stop["stop_reason"] if usage_stop else None,
+              "usage_unknown_rubrics": usage_stop["unknown_rubrics"] if usage_stop else [],
               "verdicts": {r: state.get(r, {}).get("verdict", "absent") for r in RUBRICS},
               "reviews": {r: {k: state.get(r, {}).get(k) for k in ("summary", "findings", "last_reply_seen")}
                           for r in RUBRICS},

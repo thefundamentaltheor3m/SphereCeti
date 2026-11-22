@@ -127,7 +127,7 @@ def review_arguments(args, number):
     local_review.add_parser(parser.add_subparsers(dest='command'))
     review = parser.parse_args(['review', str(number)])
     for key in ('source_repo', 'dependencies_dir', 'provider', 'auth', 'budget_usd', 'max_call_cost',
-                'codex_model'):
+                'codex_model', 'attempt_timeout'):
         setattr(review, key, getattr(args, key))
     review.post = args.post_review
     return review
@@ -225,7 +225,9 @@ def _run_round(args, project, policy, prefs, *, assessed=frozenset()):
                'repository': project.repository, 'pr': selected['pr'], 'head': result['head'],
                'base': result['base'], 'tooling': result['tooling'], 'output': result['output'],
                'coordination': guard.receipt, 'publication': result.get('publication'),
-               **requested_model(args)}
+               **requested_model(args),
+               **({'stop_reason': result['stop_reason'],
+                   'usage_unknown_rubrics': result['usage_unknown_rubrics']} if result.get('stop_reason') else {})}
     local_review.write_json(Path(result['output']) / 'worker-result.json', receipt)
     if args.publish_state:
         from .worker_state import publish_state
