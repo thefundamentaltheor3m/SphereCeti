@@ -144,11 +144,19 @@ with (root / "codex-calls.jsonl").open("a") as f:
     f.write(json.dumps(call) + "\n")
 marker = re.findall(r"TAUCETI-VERDICT-[a-z0-9]+", prompt)[-1]
 verdict = {"verdict": "approve", "summary": "Fake Codex result", "findings": []}
+# Optional budget fixtures: reported turn usage, and every odd attempt ending without a verdict.
+usage = {"input_tokens": 100000, "cached_input_tokens": 80000,
+         "output_tokens": 1000, "reasoning_output_tokens": 400}
+if (root / "codex-usage.json").exists():
+    usage = json.loads((root / "codex-usage.json").read_text())
+attempt = sum(1 for line in (root / "codex-calls.jsonl").read_text().splitlines()
+              if json.loads(line)["argv"][:1] == ["exec"])
+answer = not ((root / "codex-alternate").exists() and attempt % 2)
 for event in ({"type": "thread.started", "thread_id": "fake-thread"},
-              {"type": "item.completed", "item": {"type": "agent_message",
-                                                  "text": marker + "\n" + json.dumps(verdict)}},
-              {"type": "turn.completed", "usage": {"input_tokens": 100000, "cached_input_tokens": 80000,
-                                                   "output_tokens": 1000, "reasoning_output_tokens": 400}}):
+              *([{"type": "item.completed", "item": {"type": "agent_message",
+                                                     "text": marker + "\n" + json.dumps(verdict)}}]
+                if answer else []),
+              {"type": "turn.completed", "usage": usage}):
     print(json.dumps(event))
 ''')
         (self.bin / "codex").chmod(0o755)

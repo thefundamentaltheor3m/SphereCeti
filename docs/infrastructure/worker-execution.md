@@ -96,6 +96,70 @@ a write already submitted requires readback reconciliation. The shared ledger/ar
 no successful outcome is invented. Review errors return nonzero. A failed optional state
 sync is reported separately and does not erase the completed local review or posted record.
 
+## When the worker stops spending
+
+**The only hard monetary ceiling is the provider's own cap**: an API project or key spending
+limit under `--auth api`, or the plan's usage limits under `--auth subscription`, which bills
+no tokens and records list-price estimates only. The local flags below are a stop threshold
+on estimated spend, not a hard cap.
+
+| Limit | Where enforced | When checked | Kind |
+| --- | --- | --- | --- |
+| `--budget-usd` with `--max-call-cost` | `runner/review.py` `main`, both rubric phases | Before each rubric starts: skip it and later rubrics when ledger spend today + `--max-call-cost` > `--budget-usd`; `local_review.execution_settings` first requires `0 < --max-call-cost <= --budget-usd` | Stop threshold |
+| Ledger charge | `review.run_rubric`; `reviewers.run_codex` estimate | After all of a rubric's attempts finish, from Codex's final `turn.completed` usage at flat newest base rates | Accounting only |
+| Rubrics | `local_review.RUBRICS`; the worker passes no `--rubrics` | Each queued rubric runs at most once per invocation, so at most ten | Structural |
+| Attempts | `review.run_rubric` | One retry when no verdict. An unpinned Codex model may instead reconfirm and then retry on `gpt-5.6-terra`: three attempts. `--codex-model` disables that fallback: two attempts | Structural |
+| Concurrency | `local_review.store_lock`; sequential engine loop | One review per storage directory; one rubric and one Codex process at a time. Codex sub-agents, if used, run inside that process | Structural per store |
+| Runtime | `local_review.invoke_bridge` | 30 minutes for the whole engine run, then SIGTERM and SIGKILL after 5 seconds. No per-attempt or per-request timeout | Hard, time only |
+| Guard | `ReviewGuard.check` (`worker_execution.py`) | Before launch, every 30 seconds, after the engine exits; failure kills the process group | Stops work, not spend |
+| Rounds | `worker_loop.run_loop` (`--loop --max-rounds` 1–20); engine `--max-rounds-per-day` 12 per PR | Between rounds; the daily ledger carries over | Structural |
+| Provider outage | `review.abort_provider_down` | After two consecutive authentication, quota or rate-limit attempts | Early stop |
+
+SphereCeti and the engine **do not limit** the number of model requests in one Codex attempt
+(tool-loop turns, Codex's own transport retries and any sub-agent requests), the input tokens
+per request, or the output tokens per request. In-process Codex compaction and its 10,000-token
+tool-output truncation are soft limits. The budget is not checked during a rubric: a rubric
+that has started finishes all of its attempts before the next check, so the unit of overshoot
+is **one whole rubric**, not one request. An attempt killed by the timeout, guard or a signal
+leaves no reported usage, so its spend never reaches the ledger. Later rounds of a `--loop`
+then start from an understated ledger.
+
+`review_cost_bound.round_cost_bound` (`tools/project/sphereceti/review_cost_bound.py`) shows
+what stated limits **would imply** if something held a round to them. It is not a budget to set.
+It prices every request at the largest assumed input, all at the dearest input-side rate in the
+model's price windows and long-context tier. For Sol61 that is the long-context cache-write rate.
+The largest assumed output is priced at the dearest output rate, so the long-context tier
+applies whether or not a request crosses its threshold:
+
+```text
+per request = max_input * input_rate + max_output * output_rate
+per round   = rubrics (10) * attempts (2 pinned) * requests per attempt * per request
+```
+
+`CANARY_LIMITS` is an illustration with **unenforced assumptions**: 872,000 input tokens
+(codex-cli 0.171.0's bundled `max_context_window` for `gpt-6.1-sol`, whose default
+`context_window` is 500,000), 128,000 output tokens, and 50 model requests per attempt. No
+code holds an attempt to any of these, so neither do the figures. For `gpt-6.1-sol` ($5.00
+input-side and $15.00 output per million) the assumptions would imply:
+
+| Quantity | Implied by the assumptions |
+| --- | --- |
+| Per request | 872,000 × $5.00/M + 128,000 × $15.00/M = $6.28 |
+| Per attempt (50 requests) | $314.00 |
+| Per rubric (2 attempts) | $628.00 |
+| Per round (10 rubrics) | $6,280.00 |
+
+For comparison, the engine's live estimate charges a 300,000-input, 1,000-output request
+$0.61, while the analytics price it at $1.215. The bound for that request is $1.515.
+
+When the budget acts as a stop threshold, the rubrics finished before the last one started were
+charged at most `budget − max-call-cost − spent today` in the ledger. The ledger can understate
+their price by `ledger_ratio` (2.5 for Sol61), and the last rubric may cost a full per-rubric
+bound. `CostBound.spend_ceiling` and `overshoot` compute this under the same assumptions. For
+example, `--budget-usd 20 --max-call-cost 2` could still reach $673, which is $653 above the
+threshold. This also assumes Codex's reported usage covers every request in an attempt. Without
+that assumption only the ten-rubric product holds.
+
 ## Cooperative lease protocol
 
 Leases are immutable comments on the **same targeted PR**. The marker is

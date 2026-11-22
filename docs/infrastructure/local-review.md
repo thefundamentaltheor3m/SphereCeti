@@ -189,7 +189,9 @@ the default model.
 Codex reports no dollar figure, under either authentication mode. A subscription-backed run
 therefore records `cost_estimated: true` and charges the shared daily budget the dated
 list-price estimate of its measured tokens. This is a budget guard, not a statement of
-subscription billing. Following [#148](https://github.com/TauCetiProject/TauCetiReview/pull/148)
+subscription billing. The budget is a stop threshold checked before each rubric; see
+[when the worker stops spending](worker-execution.md#when-the-worker-stops-spending).
+Following [#148](https://github.com/TauCetiProject/TauCetiReview/pull/148)
 ([7f1d288](https://github.com/TauCetiProject/TauCetiReview/commit/7f1d28863dcd914f3bcc2ae1d9e2b7ee42a96441)),
 round token totals use one convention across providers: `input_tokens` is all input traffic,
 with fresh, cache-read and cache-write components. Archived runs keep the provider's raw
