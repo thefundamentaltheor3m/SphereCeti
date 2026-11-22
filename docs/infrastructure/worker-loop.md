@@ -30,7 +30,8 @@ the next invocation. A changed head/base can be reconsidered with fresh evidence
 completion claim or separate budget ledger is created.
 
 The loop stops on unavailable work, disabled policy, partial/error outcomes, unconfirmed state
-publication or the round limit. API errors and cancellation propagate without automatic retry.
+publication, a [`stale_authorization`](worker-execution.md#binding-a-run-to-the-authorized-head)
+round under `--expect-head`, or the round limit. API errors and cancellation propagate without automatic retry.
 SIGINT/SIGTERM also stop the interval wait; an active round retains its existing owned-process
 cleanup and accounting. Each completed round retains its normal local receipt/archive facts.
 The loop's final JSON summarizes outcomes; it does not run a daemon or install a service.

@@ -9,6 +9,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 from . import local_review
+from .config import COMMIT
 from .review_records import (RecordError, assess_records, collect_records, contests, identity)
 from .worker import WorkerError, require, targets
 from .worker_cli import plan, survey
@@ -132,6 +133,35 @@ def review_arguments(args, number):
     return review
 
 
+def authorization(args, requested):
+    """The exact PR evidence an operator authorized, checked before any network call."""
+    head, base = getattr(args, 'expect_head', None), getattr(args, 'expect_base', None)
+    if head is None:
+        require(base is None, '--expect-base requires --expect-head')
+        return None
+    require(requested is not None and len(requested) == 1,
+            '--expect-head requires exactly one --pr target')
+    for flag, value in (('--expect-head', head), ('--expect-base', base)):
+        require(value is None or COMMIT.fullmatch(value) is not None,
+                f'{flag} requires a full 40-character lowercase hexadecimal commit SHA')
+    return {'pr': requested[0], 'head': head, 'base': base}
+
+
+def unauthorized(observed, expected):
+    """A refusal receipt when the live survey differs from the authorized evidence, else None."""
+    pr = next((p for p in observed['pull_requests'] if p['number'] == expected['pr']), None)
+    head, base = (pr['head'], pr['base']) if pr else (None, None)
+    changed = [name for name, value in (('head', head), ('base', base))
+               if expected[name] is not None and value != expected[name]]
+    if not changed:
+        return None
+    return {'schema': 'sphereceti.worker-round/v1', 'state': 'stale_authorization', 'executed': False,
+            'reason': (f'PR #{expected["pr"]} {" and ".join(changed)} changed since authorization; '
+                       'no model call or GitHub write was made'),
+            'pr': expected['pr'], 'expected_head': expected['head'], 'observed_head': head,
+            **({'expected_base': expected['base'], 'observed_base': base} if expected['base'] else {})}
+
+
 def requested_model(args):
     # Local receipts name an explicit pin; each archived run records the model it dispatched.
     return {'codex_model': args.codex_model} if args.codex_model else {}
@@ -153,10 +183,17 @@ def _run_round(args, project, policy, prefs, *, assessed=frozenset()):
     require(not (args.post_review or args.publish_state) or args.execute,
             '--post-review and --publish-state require --execute')
     requested = targets(args.pr)
+    expected = authorization(args, requested)
     if args.execute and not (policy.review_generation and policy.posting):
         return {'schema': 'sphereceti.worker-round/v1', 'state': 'disabled', 'executed': False,
                 'reason': 'installed policy disables worker review generation or coordination posting'}
     observed = survey(project, requested)
+    # The authorized head is compared with this live survey before planning, the review
+    # adapter, lease, provider or any publication. The guard then binds every later check to
+    # the surveyed head/base, so a later change still stops the round before spend or writes.
+    stale = unauthorized(observed, expected) if expected else None
+    if stale:
+        return stale
     planned = plan(observed, project, requested=requested)
     if not args.execute:
         return {'schema': 'sphereceti.worker-round/v1', 'state': 'planned', 'executed': False, 'plan': planned}

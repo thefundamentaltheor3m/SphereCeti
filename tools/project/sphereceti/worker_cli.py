@@ -155,6 +155,9 @@ def add_parser(commands):
     run.add_argument("--pr", action="append")
     run.add_argument("--json", action="store_true")
     run.add_argument("--execute", action="store_true")
+    run.add_argument("--expect-head", metavar="SHA",
+                     help="authorized full head commit; with exactly one --pr, stop unless the survey matches")
+    run.add_argument("--expect-base", metavar="SHA", help="authorized full base commit; requires --expect-head")
     run.add_argument("--loop", action="store_true", help="bounded sequential rounds; requires --max-rounds")
     run.add_argument("--max-rounds", type=int)
     run.add_argument("--interval-seconds", type=int, default=60)
