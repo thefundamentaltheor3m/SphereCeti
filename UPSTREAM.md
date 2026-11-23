@@ -274,6 +274,22 @@ wedge set, and the two signed contour permutations are application geometry and 
 SphereCeti/Sphere-Packing (section E); Mathlib's Poincaré lemma takes the differentiability and
 closure-continuity hypotheses separately.
 
+### A15. Finite index of a full sublattice
+
+- [ ] **Destination:** Mathlib `Mathlib/Algebra/Module/ZLattice/Covolume.lean`, beside
+  `ZLattice.covolume_div_covolume_eq_relIndex'`.
+- [ ] **Current source:** `SphereCeti/ZLattice/RelativeQuotient.lean`.
+- [ ] **Candidate declaration:** for full lattices `Λ ≤ Γ` in a finite-dimensional real inner
+  product space, the quotient `Γ / Λ` is finite (`SphereCeti.ZLattice.finite_relativeQuotient`),
+  equivalently `Λ.toAddSubgroup.relIndex Γ.toAddSubgroup ≠ 0`.  The abbreviation
+  `SphereCeti.ZLattice.RelativeQuotient` for the quotient is local notation and is not proposed.
+- [ ] **Why general:** it involves only the two lattices and their covolumes; nothing refers to
+  packings.
+- [ ] **SphereCeti use:** the Layer 10 embedding of the center orbits of an optimal periodic
+  packing into the quotient of the generated lattice by the period lattice.
+- [ ] **Fallback:** the local SphereCeti declarations.
+- [ ] **Upstream test:** no project import remains in a minimal reproduction.
+
 ## B. TauCeti IntegralLattices roadmap extensions
 
 These are general algebraic lattice results.  Their sphere-packing consequences remain in

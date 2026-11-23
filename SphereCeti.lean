@@ -7,7 +7,7 @@ Authors: SphereCeti contributors
 module
 
 public import SphereCeti.Basic
-public import SphereCeti.Rigidity.RelativeQuotient
+public import SphereCeti.ZLattice.RelativeQuotient
 
 /-!
 # SphereCeti library
