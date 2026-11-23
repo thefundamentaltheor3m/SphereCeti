@@ -2,7 +2,7 @@
 
 Contributors run reviews with their own provider credentials and can create PRs with any
 authoring tool. Official workers decide which review records count and enforce the repository's
-merge policy. Only the official merge executor receives the dedicated merge credential.
+merge policy. Only the official merge workflow on `main` holds a merge-capable credential, its own job token.
 Installing the CLI, producing a green review, or publishing a comment grants no merge authority.
 
 Main provides local review, explicit review publication and guarded review workers. The independent
@@ -180,29 +180,41 @@ The 2026-11-12 read-only setup check found effective repository ruleset `2144977
 SphereCeti `main` with deletion, non-fast-forward, PR and required-check rules. The classic
 branch-protection lookup returned HTTP 404, which by itself cannot distinguish absent protection
 from insufficient API access. `branches/main` reports that classic protection is disabled.
-`merge-doctor` now verifies this ruleset profile and lists the remaining gaps. These are bypass
-actors that need an administration-read token, up-to-date branches, `checks_app_id`, and the
-unconfigured controller IDs. The trusted contexts stay unrequired for all PRs, so protected PRs keep
-their human route. See [the ruleset profile](merge-controller.md#ruleset-profile-sphereceti-today).
+`merge-doctor` verifies this ruleset profile and lists the remaining gaps: up-to-date branches,
+`checks_app_id`, `workflow_id`, opted-in `approving_reviewers`, and the unverified executor. The trusted
+contexts stay unrequired for all PRs, so protected PRs keep their human route. See [the ruleset profile](merge-controller.md#ruleset-profile-sphereceti-today).
 No protection setting was changed during the prototype or this diagnostic work.
 
-There is no persistent PR/head canary allowlist today. `--pr` narrows one invocation, while the
-inactive workflow template also contains hourly sweeps. Before enabling merging, implement a
+The executor follows [option A](merge-controller.md#identity-model-option-a). There is no bot or
+machine user. The workflow on `main` merges with its own job token, and that token must report
+`current_user_can_bypass: "never"` on the ruleset. The formal GitHub approval comes from an
+opted-in maintainer's own APPROVE review, submitted by their all-green `sphereceti review` (built
+separately). The controller requires that approval in addition to the auto-approval decision.
+
+The workflow is installed read-only. Its first step towards the canary is a manual
+`workflow_dispatch` run on `main`. That run verifies the run and the job token and prints the
+`workflow_id` to record. It also prints whether GitHub reports `current_user_can_bypass` for the
+installation token; see [reading the output](merge-controller.md#reading-the-executor-output).
+An omitted or unreadable view is a blocker: merging stays impossible and nothing is guessed.
+
+There is no persistent PR/head canary allowlist today. `--pr` narrows one invocation. The installed
+workflow's schedule is commented out, and activation would enable hourly sweeps. Before enabling merging, implement a
 reviewed canary restriction binding repository, PR, head and expiry that is checked by every entry
 point, or a separately reviewed manual-only activation profile. Keep sweeps disabled throughout
 the canary. A changed head requires a renewed reviewed authorization, not an implicit retry.
 
-The ordinary contributor installation never receives the merge credential. The official executor
-rechecks trusted build/scope, authorized reviews, current head/base, protection and identity before
-one head-conditioned merge request. GitHub's native approval requirement remains separate from
-automated review comments. The supported executor may reuse CLI code; the credential and approved
-execution environment supply its authority.
+The ordinary contributor installation never receives a merge credential. The official executor
+rechecks trusted build/scope, authorized review records, the formal approval, current head/base,
+protection and its own run and job-token view before one head-conditioned merge request. GitHub's
+native approval requirement remains separate from automated review comments: an all-green record
+without the maintainer's APPROVE review leaves the PR open. The approved workflow and its job token
+supply the executor's authority.
 
 The positive canary must show one permitted PR merged, another PR/head refused, duplicate execution
 becoming a no-op, and the stop condition preventing new attempts. Fixtures already cover several of
 these controller boundaries; a real successful merge is still required before claiming production
-merge readiness. Turning the policy off cannot recall a request already in flight; stop the executor
-and revoke its dedicated credential if that boundary must be interrupted.
+merge readiness. Turning the policy off cannot recall a request already in flight; disable or cancel
+the workflow if that boundary must be interrupted. The job token expires with its job.
 
 ## 5. Optional authoring after the handoff
 

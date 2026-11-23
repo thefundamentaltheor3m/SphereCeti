@@ -1,6 +1,10 @@
 # Activation is a separate reviewed setup step. Zero IDs are deliberately unconfigured.
+# The executor is the approved workflow's own job token (GITHUB_TOKEN), never a bot or machine user;
+# it is verified at run time, so no identity is recorded here. Whose formal approval qualifies is
+# policy/automation.toml approving_reviewers.
 schema_version = 1
+# GitHub's ID for .github/workflows/merge-controller.yml, printed by its first workflow_dispatch run.
 workflow_id = 0
-bot_user_id = 0
+# The integration every ruleset-required status check must be bound to.
 checks_app_id = 0
 merge_method = "squash"
