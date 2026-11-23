@@ -351,7 +351,7 @@ class BareReviewCliTest(unittest.TestCase):
         result = json.loads(process.stdout)
         self.assertEqual(set(result), {'schema', 'state', 'repository', 'actor', 'observed_at', 'priority',
                                        'waiting_since', 'selected', 'candidates', 'skipped',
-                                       'rationale', 'posting', 'review', 'main'})
+                                       'rationale', 'posting', 'plan', 'summary', 'review', 'main'})
         self.assertEqual(result['schema'], 'sphereceti.review-selection/v1')
         self.assertEqual((result['state'], result['actor']), ('selected', 'yvonne'))
         self.assertEqual(result['selected']['pr'], 47)  # older than #50
@@ -361,6 +361,10 @@ class BareReviewCliTest(unittest.TestCase):
         self.assertTrue(result['rationale'].endswith('; nothing will be posted.'))
         self.assertEqual(result['posting'], 'Not posted: dry run.')
         self.assertEqual(result['review']['completion'], 'dry_run')
+        self.assertTrue(result['plan']['line'].startswith(f'Review #47: head {self.fixture.head[:7]}, base '))
+        self.assertEqual(result['plan']['posting'], 'dry run: no model call, nothing posted')
+        self.assertEqual((result['summary']['line'], result['summary']['next_action']),
+                         ('dry run · not posted: dry run', 'run again without --dry-run to review'))
         self.assertEqual((result['review']['pr'], result['review']['head']), (47, self.fixture.head))
         self.assertFalse(self.fixture.calls())
         self.assertFalse((self.root / 'result/record.json').exists())
@@ -373,12 +377,17 @@ class BareReviewCliTest(unittest.TestCase):
         lines = process.stdout.splitlines()
         self.assertRegex(lines[0], r'^Reviewing #47 \(head [0-9a-f]{7}\): ready, not yours, '
                                    r'no current review; waiting \d+d; will post if policy permits\.$')
-        self.assertEqual(lines[1], 'Local advisory review #47: complete')
+        self.assertRegex(lines[1], r'^Review #47: head [0-9a-f]{7}, base [0-9a-f]{7} · claude claude-[a-z0-9.-]+ · '
+                                   r'will not post \(approved policy disables posting\)$')
+        self.assertEqual(lines[2], 'Local advisory review #47: complete')
         for rubric in RUBRICS:
             self.assertIn(f'  {rubric.ljust(max(map(len, RUBRICS)))}  approve', lines)
         self.assertIn(f'Record: {self.root}/result/record.md (machine-readable: record.json)', lines)
-        self.assertEqual(lines[-2:], ['Not posted: posting is disabled by approved repository policy.',
-                                      'This command does not authorize merging.'])
+        self.assertEqual(lines[-4:], ['Not posted: posting is disabled by approved repository policy.',
+                                      'This command does not authorize merging.',
+                                      '10/10 approve · not posted: posting is disabled by approved repository policy',
+                                      'Next: none: every rubric approves; the record stays local '
+                                      '(posting is disabled by approved repository policy)'])
         self.assertEqual(len(self.fixture.calls()), 10)
         self.assertEqual(self.posts(), [])
         # The contributor's local record now counts as their review of this exact head.
@@ -471,7 +480,8 @@ class BareReviewCliTest(unittest.TestCase):
         endpoints = [call[-1] for call in self.gh_calls()]
         self.assertEqual(endpoints, [f'repos/{REPO}/pulls/50', f'repos/{REPO}/commits/main'])
         process = self.run_cli('--dry-run', pr=50, output='text')
-        self.assertTrue(process.stdout.startswith('Local advisory review #50: dry_run\n'))
+        self.assertRegex(process.stdout, r'^Review #50: head [0-9a-f]{7}, base [0-9a-f]{7} · claude [^·]+ · '
+                                         r'dry run: no model call, nothing posted\nLocal advisory review #50: dry_run\n')
         self.assertIn('Not posted: dry run.', process.stdout.splitlines())
 
     def test_pr_specific_flags_are_refused_before_github(self):

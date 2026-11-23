@@ -238,13 +238,19 @@ def main(argv: list[str] | None = None) -> int:
         return 1 if review is not None and review["completion"] == "error" else 0
 
     if args.command == "review":
+        from .review_summary import announcing, summarize
+        planned = {}
         try:
-            report = run_review(args, project, preferences)
+            report = run_review(args, project, preferences, guard=announcing(
+                preferences, None if args.json else lambda line: print(line, flush=True), planned))
         except (ReviewError, GateError, ConfigError, OSError, ValueError, KeyError,
                 subprocess.SubprocessError) as error:
             reason = (str(error) if isinstance(error, (ReviewError, RecordError, ConfigError)) else
                       f"source/resource operation failed ({type(error).__name__}); check exact revisions and paths")
             parser.exit(2, f"sphereceti: {reason}\n")
+        if not args.read_records:
+            report["plan"] = planned or None
+            report["summary"] = summarize(args, report, posting=posting_note(args, report))
         if args.json:
             print(json.dumps(report, indent=2))
         else:
@@ -259,6 +265,8 @@ def main(argv: list[str] | None = None) -> int:
                       "; ".join(report["reasons"])))
             if not args.read_records:
                 print(posting_note(args, report))
+                print(report["summary"]["line"])
+                print("Next: " + report["summary"]["next_action"])
         return 1 if report["completion"] == "error" else 0
 
     if args.command == "worker":

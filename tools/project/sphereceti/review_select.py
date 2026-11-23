@@ -184,7 +184,7 @@ def select(project, policy, prefs, *, api=None, client=None, now=None) -> dict:
             "repository": project.repository, "actor": actor, "observed_at": snapshot["observed_at"],
             "priority": PRIORITY, "waiting_since": "updatedAt",
             "selected": selected, "candidates": candidates, "skipped": skipped,
-            "rationale": None, "posting": None, "review": None}
+            "rationale": None, "posting": None, "plan": None, "summary": None, "review": None}
 
 
 def count(items, verb) -> str:
@@ -265,9 +265,14 @@ def run_bare(args, project, policy, prefs, *, api=None, client=None, announce=No
         announce(selection["rationale"])
     if selection["selected"] is None:
         return selection
+    from .review_summary import announcing, summarize
     args.pr = selection["selected"]["pr"]
-    selection["review"] = run_review(args, project, prefs, guard=bound_to(selection["selected"]))
+    planned = {}
+    selection["review"] = run_review(args, project, prefs, guard=announcing(
+        prefs, announce, planned, inner=bound_to(selection["selected"])))
     selection["posting"] = posting_note(args, selection["review"])
+    selection["plan"] = planned or None
+    selection["summary"] = summarize(args, selection["review"], posting=selection["posting"])
     return selection
 
 
@@ -293,4 +298,6 @@ def render(selection, args) -> list[str]:
             lines.append(f"Archive: {archive.get('state')}: {archive.get('reason', '')}".rstrip(": "))
     lines.append(selection["posting"])
     lines.append("This command does not authorize merging.")
+    if selection.get("summary"):
+        lines += [selection["summary"]["line"], "Next: " + selection["summary"]["next_action"]]
     return lines
