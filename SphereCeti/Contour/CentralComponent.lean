@@ -19,6 +19,12 @@ inversion law `(i/z)^k g(z) = -s z⁻² g'(-1/z)`, then the Fourier transform of
 `s` times the radial function `ξ ↦ i ∫_{1}^{∞} g'(it) exp(πi ‖ξ‖² (it)) dt` of the vertical ray from
 `i` to `i∞`.
 
+The identity rests on the Fourier transform of a Gaussian segment integral along any segment
+`z(t) = a + t (b - a)` in the upper half-plane: the transform of
+`x ↦ ∫₀¹ g(z(t)) exp(πi ‖x‖² z(t)) (b - a) dt` is
+`ξ ↦ ∫₀¹ (i / z(t))^k g(z(t)) exp(πi ‖ξ‖² (-1 / z(t))) (b - a) dt`.  The left legs of the magic
+contour are segments of this kind as well.
+
 The identity needs no integrability of `g'` along the ray and holds for every `s ∈ ℂ` and every
 `k`, including `k = 0`.  The integrability hypothesis is on `g` alone: `‖g(it)‖ exp(-π ‖x‖² t)` is
 integrable on `E × (0, 1]`.  The inversion `z ↦ -1/z` maps the segment `0 → i` onto the ray
@@ -27,6 +33,8 @@ carries the sign `-s` while the identity produces `s`.
 
 ## Main statements
 
+* `SphereCeti.Contour.fourier_segment_gaussian_integral`: the Fourier transform of a Gaussian
+  segment integral.
 * `SphereCeti.Contour.fourier_centralComponent`: the central-pair Fourier identity.
 
 ## References
@@ -70,81 +78,86 @@ private lemma integral_Ioi_one_eq_integral_Ioc (h : ℝ → ℂ) :
 variable {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E] [FiniteDimensional ℝ E]
   [MeasurableSpace E] [BorelSpace E]
 
-/-- The Fourier transform of the radial function of the central leg is an integral over `(0, 1]`
-of the kernel against the transformed Gaussians. -/
-private lemma fourier_centralLeg {k : ℕ} (hk : Module.finrank ℝ E = 2 * k) {g : ℂ → ℂ}
-    (hint : Integrable (fun q : E × ℝ ↦ ‖g (q.2 * I)‖ * Real.exp (-π * ‖q.1‖ ^ 2 * q.2))
+/-- **The Fourier transform of a Gaussian segment integral.**  Let `E` be a real inner product
+space of dimension `2k`, and let the segment `z(t) = a + t (b - a)`, `0 < t ≤ 1`, lie in the upper
+half-plane.  If `g(z(t)) exp(-π ‖x‖² Im z(t))` is absolutely integrable on `E × (0, 1]`, then the
+Fourier transform of `x ↦ ∫₀¹ g(z(t)) exp(πi ‖x‖² z(t)) (b - a) dt` is
+`ξ ↦ ∫₀¹ (i / z(t))^k g(z(t)) exp(πi ‖ξ‖² (-1 / z(t))) (b - a) dt`. -/
+theorem fourier_segment_gaussian_integral {k : ℕ} (hk : Module.finrank ℝ E = 2 * k) {a b : ℂ}
+    (hab : ∀ t ∈ Ioc (0 : ℝ) 1, 0 < (a + t * (b - a)).im) {g : ℂ → ℂ}
+    (hint : Integrable (fun q : E × ℝ ↦
+      ‖g (a + q.2 * (b - a))‖ * Real.exp (-π * ‖q.1‖ ^ 2 * (a + q.2 * (b - a)).im))
       (volume.prod (volume.restrict (Ioc (0 : ℝ) 1)))) (ξ : E) :
-    𝓕 (fun x : E ↦ ∫ t in (0 : ℝ)..1, g (t * I) * cexp (π * I * (‖x‖ ^ 2 : ℝ) * (t * I)) * I) ξ =
-      I * ∫ t in Ioc (0 : ℝ) 1,
-        ((t : ℂ) ^ k)⁻¹ * g (t * I) * cexp (π * I * (‖ξ‖ ^ 2 : ℝ) * ((t : ℂ)⁻¹ * I)) := by
+    𝓕 (fun x : E ↦ ∫ t in (0 : ℝ)..1,
+        g (a + t * (b - a)) * cexp (π * I * (‖x‖ ^ 2 : ℝ) * (a + t * (b - a))) * (b - a)) ξ =
+      ∫ t in (0 : ℝ)..1, (I / (a + t * (b - a))) ^ k * g (a + t * (b - a)) *
+        cexp (π * I * (‖ξ‖ ^ 2 : ℝ) * (-1 / (a + t * (b - a)))) * (b - a) := by
   simp_rw [intervalIntegral.integral_of_le zero_le_one]
-  by_cases hmeas : AEStronglyMeasurable (fun t : ℝ ↦ g (t * I)) (volume.restrict (Ioc (0 : ℝ) 1))
+  rcases eq_or_ne b a with rfl | hba
+  · simp [Real.fourier_eq]
+  have hz0 (t : ℝ) (ht : t ∈ Ioc (0 : ℝ) 1) : a + t * (b - a) ≠ 0 := fun h ↦
+    (hab t ht).ne' (by rw [h, zero_im])
+  by_cases hmeas : AEStronglyMeasurable (fun t : ℝ ↦ g (a + t * (b - a)))
+    (volume.restrict (Ioc (0 : ℝ) 1))
   · -- Exchange the Fourier integral with the segment integral.
     have hF : Integrable (Function.uncurry fun (x : E) (t : ℝ) ↦ (𝐞 (-inner ℝ x ξ) : ℂ) *
-        (g (t * I) * cexp (π * I * (‖x‖ ^ 2 : ℝ) * (t * I)) * I))
+        (g (a + t * (b - a)) * cexp (π * I * (‖x‖ ^ 2 : ℝ) * (a + t * (b - a))) * (b - a)))
         (volume.prod (volume.restrict (Ioc (0 : ℝ) 1))) := by
-      refine hint.mono' ?_ (ae_of_all _ fun q ↦ le_of_eq ?_)
-      · have h1 : AEStronglyMeasurable (fun q : E × ℝ ↦ g (q.2 * I))
+      refine (hint.mul_const ‖b - a‖).mono' ?_ (ae_of_all _ fun q ↦ le_of_eq ?_)
+      · have h1 : AEStronglyMeasurable (fun q : E × ℝ ↦ g (a + q.2 * (b - a)))
             (volume.prod (volume.restrict (Ioc (0 : ℝ) 1))) := hmeas.comp_snd
         have h2 : Continuous fun q : E × ℝ ↦ (𝐞 (-inner ℝ q.1 ξ) : ℂ) := by fun_prop
-        have h3 : Continuous fun q : E × ℝ ↦ cexp (π * I * (‖q.1‖ ^ 2 : ℝ) * (q.2 * I)) := by
+        have h3 : Continuous fun q : E × ℝ ↦
+            cexp (π * I * (‖q.1‖ ^ 2 : ℝ) * (a + q.2 * (b - a))) := by
           fun_prop
         exact h2.aestronglyMeasurable.mul
           ((h1.mul h3.aestronglyMeasurable).mul aestronglyMeasurable_const)
       · obtain ⟨x, t⟩ := q
-        simp only [Function.uncurry_apply_pair, norm_mul, Circle.norm_coe, norm_I, one_mul,
-          mul_one, Complex.norm_exp]
-        congr 2
+        simp only [Function.uncurry_apply_pair, norm_mul, Circle.norm_coe, one_mul,
+          Complex.norm_exp]
+        congr 3
         generalize ‖x‖ ^ 2 = r
         simp [mul_re, mul_im]
     rw [Real.fourier_eq]
     simp_rw [Circle.smul_def, smul_eq_mul, ← integral_const_mul]
     rw [integral_integral_swap hF]
     refine setIntegral_congr_fun measurableSet_Ioc fun t ht ↦ ?_
-    -- The inner integral is the Fourier transform of a Gaussian with parameter `t i`.
-    have hG := TauCeti.fourier_cexp_pi_mul_I_mul_norm_sq_mul_of_finrank_eq hk
-      (τ := (t : ℂ) * I) (by simpa using ht.1) ξ
+    -- The inner integral is the Fourier transform of a Gaussian with parameter `z(t)`.
+    have hG := TauCeti.fourier_cexp_pi_mul_I_mul_norm_sq_mul_of_finrank_eq hk (hab t ht) ξ
     rw [Real.fourier_eq] at hG
     simp_rw [Circle.smul_def, smul_eq_mul] at hG
-    have ht0 : (t : ℂ) ≠ 0 := ofReal_ne_zero.mpr ht.1.ne'
-    have hpow : (-I) ^ k * ((t : ℂ) * I) ^ k = (t : ℂ) ^ k := by
-      rw [← mul_pow]
-      congr 1
-      linear_combination (-(t : ℂ)) * I_sq
-    have hinv : -1 / ((t : ℂ) * I) = (t : ℂ)⁻¹ * I := by
-      field_simp
-      linear_combination -I_sq
-    rw [hpow, hinv] at hG
+    have hpow : ((-I) ^ k * (a + t * (b - a)) ^ k)⁻¹ = (I / (a + t * (b - a))) ^ k := by
+      rw [← mul_pow, ← inv_pow, mul_inv, inv_neg, inv_I, neg_neg, div_eq_mul_inv]
+    rw [hpow] at hG
     calc ∫ x : E, (𝐞 (-inner ℝ x ξ) : ℂ) *
-          (g (t * I) * cexp (π * I * (‖x‖ ^ 2 : ℝ) * (t * I)) * I)
-        = g (t * I) * I * ∫ x : E, (𝐞 (-inner ℝ x ξ) : ℂ) *
-            cexp (π * I * (‖x‖ ^ 2 : ℝ) * (t * I)) := by
+          (g (a + t * (b - a)) * cexp (π * I * (‖x‖ ^ 2 : ℝ) * (a + t * (b - a))) * (b - a))
+        = g (a + t * (b - a)) * (b - a) * ∫ x : E, (𝐞 (-inner ℝ x ξ) : ℂ) *
+            cexp (π * I * (‖x‖ ^ 2 : ℝ) * (a + t * (b - a))) := by
           rw [← integral_const_mul]
           congr 1 with x
           ring
       _ = _ := by
           rw [hG]
           ring
-  · -- Without measurability of the kernel on the axis, both sides vanish.
-    have hA : (fun x : E ↦ ∫ t in Ioc (0 : ℝ) 1,
-        g (t * I) * cexp (π * I * (‖x‖ ^ 2 : ℝ) * (t * I)) * I) = 0 := by
+  · -- Without measurability of the kernel along the segment, both sides vanish.
+    have hA : (fun x : E ↦ ∫ t in Ioc (0 : ℝ) 1, g (a + t * (b - a)) *
+        cexp (π * I * (‖x‖ ^ 2 : ℝ) * (a + t * (b - a))) * (b - a)) = 0 := by
       funext x
       refine integral_non_aestronglyMeasurable fun h ↦ hmeas ?_
-      refine aestronglyMeasurable_of_mul_right
-        (c := fun t : ℝ ↦ cexp (π * I * (‖x‖ ^ 2 : ℝ) * (t * I)) * I) (by fun_prop)
-        (ae_of_all _ fun t ↦ mul_ne_zero (exp_ne_zero _) I_ne_zero) ?_
-      simpa only [mul_assoc] using h
-    have hB : ∫ t in Ioc (0 : ℝ) 1,
-        ((t : ℂ) ^ k)⁻¹ * g (t * I) * cexp (π * I * (‖ξ‖ ^ 2 : ℝ) * ((t : ℂ)⁻¹ * I)) = 0 := by
-      refine integral_non_aestronglyMeasurable fun h ↦ hmeas ?_
       refine aestronglyMeasurable_of_mul_right (c := fun t : ℝ ↦
-        ((t : ℂ) ^ k)⁻¹ * cexp (π * I * (‖ξ‖ ^ 2 : ℝ) * ((t : ℂ)⁻¹ * I))) (by fun_prop) ?_ ?_
+        cexp (π * I * (‖x‖ ^ 2 : ℝ) * (a + t * (b - a))) * (b - a)) (by fun_prop)
+        (ae_of_all _ fun t ↦ mul_ne_zero (exp_ne_zero _) (sub_ne_zero.mpr hba)) ?_
+      simpa only [mul_assoc] using h
+    have hB : ∫ t in Ioc (0 : ℝ) 1, (I / (a + t * (b - a))) ^ k * g (a + t * (b - a)) *
+        cexp (π * I * (‖ξ‖ ^ 2 : ℝ) * (-1 / (a + t * (b - a)))) * (b - a) = 0 := by
+      refine integral_non_aestronglyMeasurable fun h ↦ hmeas ?_
+      refine aestronglyMeasurable_of_mul_right (c := fun t : ℝ ↦ (I / (a + t * (b - a))) ^ k *
+        cexp (π * I * (‖ξ‖ ^ 2 : ℝ) * (-1 / (a + t * (b - a)))) * (b - a)) (by fun_prop) ?_ ?_
       · filter_upwards [ae_restrict_mem measurableSet_Ioc] with t ht
-        exact mul_ne_zero (inv_ne_zero (pow_ne_zero _ (ofReal_ne_zero.mpr ht.1.ne')))
-          (exp_ne_zero _)
+        exact mul_ne_zero (mul_ne_zero (pow_ne_zero _ (div_ne_zero I_ne_zero (hz0 t ht)))
+          (exp_ne_zero _)) (sub_ne_zero.mpr hba)
       · exact h.congr (ae_of_all _ fun t ↦ by ring)
-    rw [hA, hB, mul_zero, Real.fourier_eq]
+    rw [hA, hB, Real.fourier_eq]
     simp
 
 /-- **The central-pair Fourier identity.**  Let `E` be a real inner product space of dimension
@@ -162,31 +175,25 @@ theorem fourier_centralComponent {k : ℕ} (hk : Module.finrank ℝ E = 2 * k) (
     𝓕 (fun x : E ↦ ∫ t in (0 : ℝ)..1, g (t * I) * cexp (π * I * (‖x‖ ^ 2 : ℝ) * (t * I)) * I) =
       fun ξ ↦ s * (I * ∫ t in Ioi (1 : ℝ),
         g' (t * I) * cexp (π * I * (‖ξ‖ ^ 2 : ℝ) * (t * I))) := by
-  -- The Fourier transform turns each Gaussian `x ↦ exp(πi‖x‖² (it))` into
-  -- `ξ ↦ t⁻ᵏ exp(πi‖ξ‖² (i/t))` (`fourier_centralLeg`).  The inversion law rewrites
-  -- `t⁻ᵏ g(it)` as `s t⁻² g'(i/t)`, and the substitution `u = 1/t` carries the resulting integral
-  -- over `(0, 1]` onto the ray `(1, ∞)`.
+  -- The central leg is the segment from `0` to `i`.  On it the inversion law turns the transformed
+  -- kernel at `z = it` into `s t⁻² g'(i/t)`, and the substitution `u = 1/t` carries the resulting
+  -- integral over `(0, 1]` onto the ray `(1, ∞)`.
   funext ξ
-  rw [fourier_centralLeg hk hint ξ, integral_Ioi_one_eq_integral_Ioc, mul_left_comm,
-    ← integral_const_mul s]
-  congr 1
+  have hseg := fourier_segment_gaussian_integral hk (a := 0) (b := I) (g := g)
+    (fun t ht ↦ by simpa using ht.1) (by simpa using hint) ξ
+  simp only [zero_add, sub_zero] at hseg
+  rw [hseg, intervalIntegral.integral_of_le zero_le_one, integral_Ioi_one_eq_integral_Ioc,
+    ← integral_const_mul I, ← integral_const_mul s]
   refine setIntegral_congr_fun measurableSet_Ioc fun t ht ↦ ?_
-  -- On the imaginary axis the inversion law reads `t⁻ᵏ g(it) = s t⁻² g'(i/t)`.
-  have ht0 : (t : ℂ) ≠ 0 := ofReal_ne_zero.mpr ht.1.ne'
-  have hlaw' : ((t : ℂ) ^ k)⁻¹ * g (t * I) = s * (((t : ℂ) ^ 2)⁻¹ * g' ((t : ℂ)⁻¹ * I)) := by
-    have h := hlaw t ht.1
-    have h1 : I / ((t : ℂ) * I) = (t : ℂ)⁻¹ := by
-      rw [mul_comm, ← div_div, div_self I_ne_zero, one_div]
-    have h2 : ((t : ℂ) * I) ^ 2 = -(t : ℂ) ^ 2 := by
-      rw [mul_pow, I_sq]
-      ring
-    have h3 : -((t : ℂ) * I)⁻¹ = (t : ℂ)⁻¹ * I := by
-      rw [mul_inv, inv_I]
-      ring
-    rw [h1, h2, h3, inv_pow, inv_neg] at h
-    rw [h]
+  have h1 : -((t : ℂ) * I)⁻¹ = ((t⁻¹ : ℝ) : ℂ) * I := by
+    rw [ofReal_inv, mul_inv, inv_I]
     ring
-  rw [ofReal_inv]
-  linear_combination cexp (π * I * (‖ξ‖ ^ 2 : ℝ) * ((t : ℂ)⁻¹ * I)) * hlaw'
+  have h2 : -1 / ((t : ℂ) * I) = ((t⁻¹ : ℝ) : ℂ) * I := by
+    rw [neg_div, one_div, h1]
+  have h3 : ((t : ℂ) * I) ^ 2 = -(t : ℂ) ^ 2 := by
+    rw [mul_pow, I_sq]
+    ring
+  rw [hlaw t ht.1, h1, h2, h3, inv_neg]
+  ring
 
 end SphereCeti.Contour
