@@ -8,6 +8,7 @@ module
 
 public import SphereCeti.Basic
 public import SphereCeti.Lattice.IntegralPresentation
+public import SphereCeti.Lattice.MinNorm
 
 /-!
 # SphereCeti library
