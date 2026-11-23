@@ -7,6 +7,7 @@ Authors: SphereCeti contributors
 module
 
 public import SphereCeti.Basic
+public import SphereCeti.Analysis.Distribution.SchwartzSpace.CompNormSq
 public import SphereCeti.Analysis.ExactZeroOrder
 
 /-!
