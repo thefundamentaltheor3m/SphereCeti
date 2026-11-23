@@ -7,7 +7,7 @@ Authors: SphereCeti contributors
 module
 
 public import SphereCeti.Basic
-public import SphereCeti.MagicFunction.ZeroOrder
+public import SphereCeti.Analysis.ExactZeroOrder
 
 /-!
 # SphereCeti library
