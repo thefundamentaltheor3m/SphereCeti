@@ -9,26 +9,35 @@ module
 public import TauCeti.Analysis.Fourier.PoissonSummation
 
 /-!
-# Poisson summation over finitely many lattice translates
+# Structure factors and Poisson summation over finitely many lattice translates
 
 Let `L` be a full lattice in a finite-dimensional real inner product space `E`, and let
 `p : ι → E` be a finite family of points, such as representatives of the orbits of the centers of
-a periodic sphere packing under its period lattice.  Summing Poisson's formula
+a periodic sphere packing under its period lattice.  The structure amplitude of `p` at a frequency
+`y` is the exponential sum `A_p(y) = ∑ q, exp (2πi ⟪y, p q⟫)`, and its structure factor is the
+squared norm `S_p(y) = ‖A_p(y)‖²`.  Summing Poisson's formula
 `SchwartzMap.tsum_eq_tsum_dual_fourier` over the differences `p q - p q'` gives, for a Schwartz
 function `f`,
 
-`∑' z : L, ∑ q, ∑ q', f (z + p q - p q') =
-  (covolume L)⁻¹ * ∑' y : L^∨, 𝓕 f y * ‖∑ q, exp (2πi ⟪y, p q⟫)‖²`.
+`∑' z : L, ∑ q, ∑ q', f (z + p q - p q') = (covolume L)⁻¹ * ∑' y : L^∨, 𝓕 f y * S_p(y)`.
 
-The squared norm on the right is the structure factor of the configuration `L + {p q}` at the
-dual frequency `y`.  At a dual frequency `y`, the phase `exp (2πi ⟪y, s⟫)` depends only on the
-class of `s` modulo `L`, so the structure factor does not depend on the choice of the
-representatives `p q`.
+At a dual frequency `y` the phase `exp (2πi ⟪y, s⟫)` depends only on the class of `s` modulo `L`,
+so the structure amplitude, and with it the structure factor, does not depend on the choice of
+the points `p q` in their classes.
+
+## Main definitions
+
+* `SphereCeti.CohnElkies.structureAmplitude p y`: the exponential sum `∑ q, exp (2πi ⟪y, p q⟫)`.
+* `SphereCeti.CohnElkies.structureFactor p y`: the squared norm of the structure amplitude.
 
 ## Main statements
 
+* `SphereCeti.CohnElkies.structureFactor_eq_zero_iff`: the structure factor vanishes exactly
+  when the structure amplitude does.
 * `SphereCeti.CohnElkies.phase_eq_of_sub_mem_lattice`: at a dual frequency, two points that differ
   by a lattice vector have the same phase.
+* `SphereCeti.CohnElkies.structureAmplitude_eq_of_sub_mem`: at a dual frequency, the structure
+  amplitude does not change when each point moves by a lattice vector.
 * `SphereCeti.CohnElkies.tsum_sum_sum_eq_tsum_dual_fourier_mul_structureFactor`: Poisson summation
   over finitely many lattice translates, with the structure factor on the dual side.
 
@@ -45,7 +54,36 @@ open scoped Real RealInnerProductSpace SchwartzMap FourierTransform
 
 namespace SphereCeti.CohnElkies
 
-variable {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E]
+variable {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E] {ι : Type*} [Fintype ι]
+
+/-- The structure amplitude of a finite family of points `p` at a frequency `y`: the exponential
+sum `∑ q, exp (2πi ⟪y, p q⟫)`. -/
+noncomputable def structureAmplitude (p : ι → E) (y : E) : ℂ :=
+  ∑ q, cexp (2 * π * I * ⟪y, p q⟫)
+
+/-- The structure amplitude is the exponential sum `∑ q, exp (2πi ⟪y, p q⟫)`. -/
+theorem structureAmplitude_def (p : ι → E) (y : E) :
+    structureAmplitude p y = ∑ q, cexp (2 * π * I * ⟪y, p q⟫) :=
+  (rfl)
+
+/-- The structure factor of a finite family of points `p` at a frequency `y`: the squared norm of
+its structure amplitude. -/
+noncomputable def structureFactor (p : ι → E) (y : E) : ℝ :=
+  ‖structureAmplitude p y‖ ^ 2
+
+/-- The structure factor is the squared norm of the structure amplitude. -/
+theorem structureFactor_def (p : ι → E) (y : E) :
+    structureFactor p y = ‖structureAmplitude p y‖ ^ 2 :=
+  (rfl)
+
+/-- The structure factor is nonnegative. -/
+theorem structureFactor_nonneg (p : ι → E) (y : E) : 0 ≤ structureFactor p y :=
+  sq_nonneg _
+
+/-- The structure factor vanishes exactly when the structure amplitude does. -/
+theorem structureFactor_eq_zero_iff (p : ι → E) (y : E) :
+    structureFactor p y = 0 ↔ structureAmplitude p y = 0 := by
+  rw [structureFactor_def, sq_eq_zero_iff, norm_eq_zero]
 
 /-- At a frequency `y` in the dual of `L`, two points that differ by a vector of `L` have the same
 phase `exp (2πi ⟪y, ·⟫)`. -/
@@ -57,22 +95,30 @@ theorem phase_eq_of_sub_mem_lattice {L : Submodule ℤ E} {y : E} (hy : y ∈ ZL
   rw [hm, ofReal_add, mul_add, exp_add, ofReal_intCast, mul_comm _ (m : ℂ),
     exp_int_mul_two_pi_mul_I, one_mul]
 
+/-- At a frequency `y` in the dual of `L`, the structure amplitude does not change when each point
+moves by a vector of `L`. -/
+theorem structureAmplitude_eq_of_sub_mem {L : Submodule ℤ E} {y : E} (hy : y ∈ ZLattice.dual L)
+    {p p' : ι → E} (h : ∀ q, p q - p' q ∈ L) :
+    structureAmplitude p y = structureAmplitude p' y := by
+  simp only [structureAmplitude_def]
+  exact Finset.sum_congr rfl fun q _ ↦ phase_eq_of_sub_mem_lattice hy (h q)
+
 variable [FiniteDimensional ℝ E] [MeasurableSpace E] [BorelSpace E]
 
 /-- **Poisson summation over finitely many lattice translates.**  For a full lattice `L`, a finite
 family of points `p`, and a Schwartz function `f`,
-`∑' z : L, ∑ q, ∑ q', f (z + p q - p q') =
-  (covolume L)⁻¹ * ∑' y : L^∨, 𝓕 f y * ‖∑ q, exp (2πi ⟪y, p q⟫)‖²`. -/
+`∑' z : L, ∑ q, ∑ q', f (z + p q - p q') = (covolume L)⁻¹ * ∑' y : L^∨, 𝓕 f y * S_p(y)`,
+where `S_p` is the structure factor of `p`. -/
 theorem tsum_sum_sum_eq_tsum_dual_fourier_mul_structureFactor (L : Submodule ℤ E)
-    [DiscreteTopology L] [IsZLattice ℝ L] {ι : Type*} [Fintype ι] (p : ι → E)
-    (f : 𝓢(E, ℂ)) :
+    [DiscreteTopology L] [IsZLattice ℝ L] (p : ι → E) (f : 𝓢(E, ℂ)) :
     ∑' z : L, ∑ q, ∑ q', f ((z : E) + p q - p q') =
       (ZLattice.covolume L : ℂ)⁻¹ * ∑' y : ZLattice.dual L,
-        𝓕 f (y : E) * ((‖∑ q, cexp (2 * π * I * ⟪(y : E), p q⟫)‖ ^ 2 : ℝ) : ℂ) := by
-  -- The squared norm of the amplitude is the double sum of the phases of the differences.
-  have hnorm (y : E) : ((‖∑ q, cexp (2 * π * I * ⟪y, p q⟫)‖ ^ 2 : ℝ) : ℂ) =
+        𝓕 f (y : E) * (structureFactor p (y : E) : ℂ) := by
+  -- The structure factor is the double sum of the phases of the differences.
+  have hfactor (y : E) : (structureFactor p y : ℂ) =
       ∑ q, ∑ q', cexp (2 * π * I * ⟪p q - p q', y⟫) := by
-    rw [ofReal_pow, ← mul_conj', map_sum, Finset.sum_mul_sum]
+    rw [structureFactor_def, structureAmplitude_def, ofReal_pow, ← mul_conj', map_sum,
+      Finset.sum_mul_sum]
     refine Finset.sum_congr rfl fun q _ ↦ Finset.sum_congr rfl fun q' _ ↦ ?_
     rw [← exp_conj, ← exp_add, inner_sub_left, real_inner_comm y, real_inner_comm y]
     simp only [map_mul, map_ofNat, conj_ofReal, conj_I]
@@ -101,6 +147,6 @@ theorem tsum_sum_sum_eq_tsum_dual_fourier_mul_structureFactor (L : Submodule ℤ
         refine Finset.sum_congr rfl fun q _ ↦ ?_
         rw [Summable.tsum_finsetSum fun q' _ ↦ hright q q', Finset.mul_sum]
     _ = _ := by
-        simp only [hnorm, Finset.mul_sum, SchwartzMap.fourier_coe]
+        simp only [hfactor, Finset.mul_sum, SchwartzMap.fourier_coe]
 
 end SphereCeti.CohnElkies
