@@ -175,7 +175,7 @@ def add_parser(commands):
                      help="authorized full head commit; with exactly one --pr, stop unless the survey matches")
     run.add_argument("--expect-base", metavar="SHA", help="authorized full base commit; requires --expect-head")
     run.add_argument("--loop", action="store_true", help="bounded sequential rounds; requires --max-rounds")
-    run.add_argument("--max-rounds", type=int)
+    run.add_argument("--max-rounds", type=int, help="with --loop: number of sequential rounds, 1-20")
     run.add_argument("--interval-seconds", type=int, default=60)
     run.add_argument("--post-review", action="store_true")
     run.add_argument("--publish-state", action="store_true")
