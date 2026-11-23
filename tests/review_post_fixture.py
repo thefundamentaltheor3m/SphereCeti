@@ -35,8 +35,13 @@ if endpoint==f'repos/{repo}/pulls/1':
  s['pull_reads']+=1
  head=s['tooling'] if s['advance_at'] and s['pull_reads']>=s['advance_at'] else s['head']
  out={'number':1,'title':'Proposed roadmap','body':'untrusted','user':{'id':99},
-      'head':{'sha':head},'base':{'sha':s['tooling'],'repo':{'full_name':repo}}}
+      'state':s.get('state','open'),'head':{'sha':head},
+      'base':{'sha':s.get('base',s['tooling']),'repo':{'full_name':repo}}}
 elif endpoint==f'repos/{repo}/commits/main':out={'sha':s['tooling']}
+elif endpoint=='user':out={'id':s.get('user_id',7),'type':'User','login':'fixture-user'}
+elif endpoint.startswith(f'repos/{repo}/compare/'):
+ old=endpoint.rsplit('/',1)[1].split('...')[0]
+ out={'status':'ahead','merge_base_commit':{'sha':old}}  # fixture main only moves forward
 elif endpoint==f'repos/{repo}/issues/1/comments?per_page=100':
  assert a[1:]==['--paginate','--slurp'];out=[s['comments']]
 elif endpoint==f'repos/{repo}/issues/1/comments':
@@ -45,7 +50,10 @@ elif endpoint==f'repos/{repo}/issues/1/comments':
  out={'id':max([99]+[c['id'] for c in s['comments']])+1,'body':payload['body'],'user':{'id':7,'type':'User'},
       'issue_url':f'https://api.github.com/repos/{repo}/issues/1',
       'created_at':'2026-09-11T00:00:00Z','updated_at':'2026-09-11T00:00:00Z'}
- s['comments'].append(out)
+ out['user']['id']=s.get('user_id',7)
+ if s.get('post_fail')!='before':s['comments'].append(out)
+ if s.get('post_fail'):  # a lost response: the comment may exist, but the caller sees an error
+  path.write_text(json.dumps(s));sys.exit(1)
 elif endpoint.startswith(f'repos/{repo}/issues/comments/'):
  out=next(c for c in s['comments'] if c['id']==int(endpoint.split('/')[-1]))
 else:raise AssertionError(endpoint)
@@ -65,6 +73,22 @@ print(json.dumps(out))
         return command
 
     def api(self):return json.loads(self.api_state.read_text())
+
+    def update(self,**values):
+        state=self.api();state.update(values);self.api_state.write_text(json.dumps(state))
+
+    def posts(self):return sum(c[1:]==['--method','POST','--input','-'] for c in self.api()['calls'])
+
+    def publish_command(self,run,*extra):
+        launcher=super().command()[:3]
+        targets=[str(t) for t in run] if isinstance(run,(list,tuple)) else [str(run)]
+        return [*launcher,'review-publish',*targets,'--source-repo',str(self.repo),'--dependencies-dir',
+                str(self.deps),'--operator-config',str(self.operator),'--json',*extra]
+
+    def publish(self,run,*extra):
+        import subprocess
+        return subprocess.run(self.publish_command(run,*extra),cwd=self.foreign,env=self.env,
+                              capture_output=True,text=True,timeout=120)
 
 
 def installed_post_smoke(executable,root):
