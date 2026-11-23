@@ -74,10 +74,11 @@ Mathlib revision only by deleting or ignoring the manifest.
 
 Suggested prompt for a coding assistant:
 
-> Read SphereCeti's AGENTS.md and CONVENTIONS.md. Pick one target from roadmap #1 (or my chosen
-> topic), identify its prerequisites, and open a focused PR to SphereCeti proving the target
-> or a needed lemma in a new or existing topic module under SphereCeti/. Use Suggested.lean
-> as the specification. Run the build and compiled audit, fix CI failures, and respond to review.
+> Read AGENTS.md and CONVENTIONS.md in https://github.com/thefundamentaltheor3m/SphereCeti. Pick
+> one target from roadmap #1 or a prerequisite it needs. Prove it in a topic module under
+> `SphereCeti/`, using `SphereCetiRoadmap/Suggested.lean` as the specification. Run
+> `sphereceti verify` in the checkout and get an overall PASS. Open a focused PR that names the
+> target, then address CI failures and review feedback.
 
 Pick one target from the roadmap or a prerequisite you can prove against the current pins.
 Add a module under `SphereCeti/<Topic>/` and expose its public entry point from
@@ -92,6 +93,21 @@ specification. Landing a separate proof leaves its roadmap admission ledger entr
 while the target still depends on `sorryAx`. Change a target statement only in an explicit
 specification change. Start proof PRs from SphereCeti `main` or name one stacking dependency.
 Work using the current pins can start before Sphere-Packing-Lean's Phase A migration.
+
+Before opening the PR, run `sphereceti verify` and get an overall PASS. A skipped step means
+verification is incomplete, not passed; fixing the first failure often clears the skips after it.
+
+Keeping a proof PR mergeable:
+
+- Add one `public import` line for your new module to `SphereCeti.lean`, in the file's existing
+  order. Do not sort or reorder the existing lines: a reordered root conflicts with every other
+  proof PR. When `main` moves, keep `main`'s list and re-add your line.
+- For a stacked PR, when the PR below yours merges, merge `main` into your branch rather than
+  rebasing or force-pushing. The PR then shows only your own change, and existing reviews keep
+  pointing at commits that still exist.
+- For a PR from a fork, GitHub holds the ordinary CI runs for a maintainer to approve until your
+  first PR is merged. Waiting on that is expected, not a failure; the trusted build runs without
+  approval.
 
 ## Automation attributes
 
