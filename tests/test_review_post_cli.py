@@ -29,6 +29,30 @@ class PostingCLITests(unittest.TestCase):
         text=f.run(output='text',extra=('--no-post',))
         self.assertEqual(text.returncode,0,text.stderr)
 
+    def test_daily_budget_stop_keeps_mid_round_and_zero_call_reviews_local(self):
+        f = PostingFixture(self.root)
+        limits = ('--budget-usd', '0.01', '--max-call-cost', '0.01', '--mode', 'manual')
+        for name, flags, new_calls in [('mid-round', (), 1), ('before-first', ('--post',), 0)]:
+            with self.subTest(name=name):
+                before = len(f.calls())
+                run = f.run(output=name, extra=limits + flags)
+                self.assertEqual(run.returncode, 0, run.stderr)
+                self.assertEqual(len(f.calls()) - before, new_calls)
+                saved = self.root / name
+                result = json.loads((saved / 'result.json').read_text())
+                self.assertEqual(result['stop_reason'], 'daily_budget')
+                self.assertEqual(result['completion'], 'partial')
+                self.assertIn('daily review budget', result['not_posted'])
+                self.assertTrue((saved / 'record.md').is_file())
+                if new_calls:
+                    self.assertEqual(result['verdicts']['correctness'], 'approve')
+                self.assertNotIn('publication', result)
+                self.assertEqual(f.posts(), 0)
+                retry = f.publish(saved)
+                self.assertNotEqual(retry.returncode, 0)
+                self.assertIn('daily review budget', retry.stdout)
+                self.assertEqual(f.posts(), 0)
+
     def test_default_text_output_names_the_comment(self):
         f=PostingFixture(self.root)
         command=[a for a in f.command() if a!='--json']
