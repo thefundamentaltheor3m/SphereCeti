@@ -21,18 +21,63 @@ from .merge_observation import Reader, pull
 from .review_records import RecordError
 
 
+# Personal (classic and fine-grained), OAuth, user-to-server and refresh tokens. They are never
+# installation tokens, so they are refused before any request is made with them.
+USER_TOKEN_PREFIXES = ('ghp_', 'github_pat_', 'gho_', 'ghu_', 'ghr_')
+INSTALLATION_PROBE = 'installation/repositories?per_page=100'
+
+
+def token_shape(token):
+    """Non-secret diagnostics: the first 4 characters, the length and the character classes present."""
+    if not isinstance(token, str): return {'prefix': None, 'length': 0, 'classes': []}
+    classes = {'lowercase': str.islower, 'uppercase': str.isupper, 'digit': str.isdigit,
+               'underscore': lambda c: c == '_', 'hyphen': lambda c: c == '-', 'period': lambda c: c == '.',
+               'whitespace': str.isspace, 'non-ascii': lambda c: not c.isascii()}
+    present = {name for c in token for name, test in classes.items() if test(c)}
+    if any(c.isascii() and not (c.isalnum() or c.isspace() or c in '_-.') for c in token): present.add('other-ascii')
+    return {'prefix': token[:4], 'length': len(token), 'classes': sorted(present)}
+
+
 class Writer:
     """The job token, excluded from inherited reader/Git environments; one narrow PUT.
 
-    Besides the PUT it reads only its own view of the ruleset's bypass status. It never calls
-    `user`: an installation token has no user, and a login would establish nothing.
+    Besides the PUT it reads only GitHub's answer to whether it is an installation token for this
+    repository, and its own view of the ruleset's bypass status. It never calls `user`: an
+    installation token has no user, and a login would establish nothing.
     """
     def __init__(self, repository, token):
-        self.repository, self._token, self.view = repository, token, None
+        self.repository, self._token, self.view, self.identity = repository, token, None, None
 
     def installation(self):
-        # GitHub prefixes installation (server-to-server) tokens, including GITHUB_TOKEN, with ghs_.
-        return isinstance(self._token,str) and re.fullmatch(r'ghs_[A-Za-z0-9_]+',self._token) is not None
+        """Identify the token by behaviour, never by format alone; cached for this run.
+
+        GitHub does not document a stable character set or length for installation tokens, so the
+        only static rule refuses known non-installation prefixes and malformed values, without any
+        request. Any other token makes one GET to api.github.com: `installation/repositories`. Only an
+        installation token can call it. It must list exactly this repository, as the job token does.
+        """
+        if self.identity is not None: return self.identity
+        token, reason, listed = self._token, None, None
+        if not isinstance(token, str) or not token:
+            reason = 'no token reached the controller (SPHERECETI_MERGE_TOKEN is unset or empty)'
+        elif token.startswith(USER_TOKEN_PREFIXES):
+            reason = 'it has a personal, OAuth or user-token prefix; no request was made with it'
+        elif len(token) > 4096 or not token.isascii() or any(c.isspace() or not c.isprintable() for c in token):
+            reason = 'it is malformed (whitespace, control or non-ASCII characters, or over 4096 characters)'
+        else:
+            try: value = self.call(INSTALLATION_PROBE)
+            except RecordError: value = None
+            repos = value.get('repositories') if isinstance(value, dict) else None
+            if not isinstance(repos, list):
+                reason = 'GitHub refused GET /installation/repositories for it, so it is not an installation token'
+            else:
+                listed = [r.get('full_name') if isinstance(r, dict) else None for r in repos]
+                if value.get('total_count') != 1 or listed != [self.repository]:
+                    reason = (f"its installation lists {value.get('total_count')!r} repositories, "
+                              f'not exactly {self.repository}')
+        self.identity = {'installation': reason is None, 'reason': reason, 'shape': token_shape(token),
+                         'repositories': len(listed) if listed is not None else None}
+        return self.identity
 
     def run(self, command, payload, env):
         return subprocess.run(command,input=json.dumps(payload) if payload is not None else None,
@@ -42,7 +87,8 @@ class Writer:
         if not self._token: raise RecordError('the job token is unavailable to the controller')
         merge=re.fullmatch(re.escape(f'repos/{self.repository}/pulls/')+r'[1-9][0-9]*/merge',endpoint)
         ruleset=re.fullmatch(re.escape(f'repos/{self.repository}/rulesets/')+r'[1-9][0-9]*',endpoint)
-        if not (merge and payload is not None) and not (ruleset and payload is None):
+        read=ruleset or endpoint==INSTALLATION_PROBE
+        if not (merge and payload is not None) and not (read and payload is None):
             raise RecordError('unsupported merge-token operation')
         if payload is not None and (set(payload)!={'sha','merge_method'} or not isinstance(payload['sha'],str) or
                 not re.fullmatch(r'[0-9a-f]{40}',payload['sha']) or payload['merge_method']!='squash'):
@@ -64,6 +110,10 @@ class Writer:
         return self.view[1]
 
     def refresh(self):
+        if (self.identity or {}).get('installation'):
+            repos = self.call(INSTALLATION_PROBE).get('repositories')
+            if not isinstance(repos, list) or [r.get('full_name') for r in repos] != [self.repository]:
+                raise RecordError('job-token installation changed')
         if self.view is not None and self.call(f'repos/{self.repository}/rulesets/{self.view[0]}') != self.view[1]:
             raise RecordError('job-token ruleset view changed')
 
