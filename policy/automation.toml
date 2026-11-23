@@ -4,6 +4,9 @@ review_generation = true
 posting = true
 authoring = false
 reporting = false
+# Formal GitHub approvals by opted-in maintainers' own all-green reviews; off until a reviewed
+# policy PR enables it (`sphereceti review N` then approves only after every guard passes).
+approving = false
 merging = false
 mathematical_paths = []
 # Canary worker, verified read-only on 2026-11-22 with `gh api user`: login cameronfreer, id 2009342

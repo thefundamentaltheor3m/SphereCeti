@@ -372,7 +372,7 @@ class BareReviewCliTest(BareReviewHarness):
         result = json.loads(process.stdout)
         self.assertEqual(set(result), {'schema', 'state', 'repository', 'actor', 'observed_at', 'priority',
                                        'waiting_since', 'selected', 'candidates', 'skipped',
-                                       'rationale', 'posting', 'plan', 'summary', 'review', 'main'})
+                                       'rationale', 'posting', 'approval', 'plan', 'summary', 'review', 'main'})
         self.assertEqual(result['schema'], 'sphereceti.review-selection/v1')
         self.assertEqual((result['state'], result['actor']), ('selected', 'yvonne'))
         self.assertEqual(result['selected']['pr'], 47)  # older than #50
@@ -404,7 +404,8 @@ class BareReviewCliTest(BareReviewHarness):
         for rubric in RUBRICS:
             self.assertIn(f'  {rubric.ljust(max(map(len, RUBRICS)))}  approve', lines)
         self.assertIn(f'Record: {self.root}/result/record.md (machine-readable: record.json)', lines)
-        self.assertEqual(lines[-4:], ['Not posted: posting is disabled by approved repository policy.',
+        self.assertEqual(lines[-5:], ['Not posted: posting is disabled by approved repository policy.',
+                                      'Approval: not submitted: the review record is not being posted',
                                       'This command does not authorize merging.',
                                       '10/10 approve · not posted: posting is disabled by approved repository policy',
                                       'Next: none: every rubric approves; the record stays local '

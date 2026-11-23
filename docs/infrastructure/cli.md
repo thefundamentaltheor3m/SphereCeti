@@ -10,6 +10,7 @@ The `sphereceti` command supplies project diagnostics and the adapters credited 
 | `reviews` | [Your review queue: revised, author replied, new, waiting on the author](local-review.md#your-review-queue-and-bounded-batches) |
 | `review --new / --revised / --all --limit N` | [Bounded review batches](local-review.md#your-review-queue-and-bounded-batches) |
 | `review N` | [Local review, posted by default](local-review.md#posting-by-default) |
+| `review N --no-approve` | [Opted-in maintainers: review without submitting the GitHub approval](local-review.md#approvals-by-opted-in-maintainers) |
 | `review --force-claim` | [Advisory review-in-progress claims](local-review.md#review-in-progress-claims) |
 | `review --read-records / --no-post` | [Authenticated records and publication](review-records.md) |
 | `review-publish RUN` | [Publish a saved run without reviewing again](local-review.md#publishing-a-saved-run) |
