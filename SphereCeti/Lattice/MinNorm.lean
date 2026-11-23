@@ -30,6 +30,9 @@ identification `IntegralPresentation.carrierEquiv` carries squared norms to the 
 
 ## Main statements
 
+* `SphereCeti.EuclideanLattice.minNormSqAtLeast_iff`,
+  `SphereCeti.EuclideanLattice.hasMinNormSq_iff`: the defining characterizations of the two
+  predicates.
 * `SphereCeti.EuclideanLattice.IntegralPresentation.hasMinNormSq_minimum`: a nontrivial presented
   lattice has minimum squared norm the minimum of its lattice in Gram coordinates.
 -/
@@ -49,11 +52,23 @@ norms of nonzero vectors, and some nonzero vector attains it. -/
 def HasMinNormSq (Λ : Submodule ℤ E) (a : ℝ) : Prop :=
   MinNormSqAtLeast Λ a ∧ ∃ x : Λ, x ≠ 0 ∧ ‖(x : E)‖ ^ 2 = a
 
+/-- `Λ` has minimum squared norm at least `a` if and only if every nonzero vector of `Λ` has
+squared norm at least `a`. -/
+theorem minNormSqAtLeast_iff {Λ : Submodule ℤ E} {a : ℝ} :
+    MinNormSqAtLeast Λ a ↔ ∀ x : Λ, x ≠ 0 → a ≤ ‖(x : E)‖ ^ 2 :=
+  Iff.rfl
+
+/-- `Λ` has minimum squared norm `a` if and only if `a` is a lower bound for the squared norms of
+its nonzero vectors that some nonzero vector attains. -/
+theorem hasMinNormSq_iff {Λ : Submodule ℤ E} {a : ℝ} :
+    HasMinNormSq Λ a ↔ MinNormSqAtLeast Λ a ∧ ∃ x : Λ, x ≠ 0 ∧ ‖(x : E)‖ ^ 2 = a :=
+  Iff.rfl
+
 /-- A lower bound on the squared norms of the nonzero vectors of `Λ` applies to each of them. -/
 @[grind! =>]
 theorem normSq_lower_bound {Λ : Submodule ℤ E} {a : ℝ} (h : MinNormSqAtLeast Λ a) (x : Λ)
     (hx : x ≠ 0) : a ≤ ‖(x : E)‖ ^ 2 :=
-  h x hx
+  minNormSqAtLeast_iff.mp h x hx
 
 /-- Check that `grind` applies a minimum-norm bound to a nonzero lattice vector. -/
 example {Λ : Submodule ℤ E} (h : MinNormSqAtLeast Λ 4) (x : Λ) (hx : x ≠ 0)
@@ -69,7 +84,7 @@ variable {d : ℕ} {Λ : Submodule ℤ (EuclideanSpace ℝ (Fin d))} [DiscreteTo
 lattice in Gram coordinates. -/
 theorem minNormSqAtLeast_minimum (P : IntegralPresentation Λ) :
     MinNormSqAtLeast Λ P.toIntegralLattice.minimum := by
-  intro x hx
+  refine minNormSqAtLeast_iff.mpr fun x hx ↦ ?_
   have hle := P.isPosDef.isPosSemidef.minimum_le_integralNorm
     ((LinearEquiv.map_ne_zero_iff P.carrierEquiv).mpr hx)
   rw [← P.norm_carrierEquiv, ← TauCeti.IntegralLattice.integralNorm_cast]
@@ -81,7 +96,7 @@ theorem hasMinNormSq_minimum (P : IntegralPresentation Λ) [Nontrivial Λ] :
     HasMinNormSq Λ P.toIntegralLattice.minimum := by
   have : Nontrivial P.toIntegralLattice.carrier := P.carrierEquiv.symm.toEquiv.nontrivial
   obtain ⟨y, hy, hmin⟩ := P.isPosDef.isPosSemidef.exists_ne_zero_integralNorm_eq_minimum
-  refine ⟨P.minNormSqAtLeast_minimum, P.carrierEquiv.symm y,
+  refine hasMinNormSq_iff.mpr ⟨P.minNormSqAtLeast_minimum, P.carrierEquiv.symm y,
     (LinearEquiv.map_ne_zero_iff _).mpr hy, ?_⟩
   rw [← P.norm_carrierEquiv, LinearEquiv.apply_symm_apply,
     ← TauCeti.IntegralLattice.integralNorm_cast, hmin]
