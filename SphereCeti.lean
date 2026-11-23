@@ -8,6 +8,7 @@ module
 
 public import SphereCeti.Basic
 public import SphereCeti.Analysis.ExactZeroOrder
+public import SphereCeti.Contour.HalfInfiniteRectangle
 
 /-!
 # SphereCeti library
