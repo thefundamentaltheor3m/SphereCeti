@@ -34,6 +34,8 @@ the points `p q` in their classes.
 
 * `SphereCeti.CohnElkies.structureFactor_eq_zero_iff`: the structure factor vanishes exactly
   when the structure amplitude does.
+* `SphereCeti.CohnElkies.ofReal_structureFactor_eq_sum_sum`: the structure factor is the double
+  sum of the phases of the differences of the points.
 * `SphereCeti.CohnElkies.phase_eq_of_sub_mem_lattice`: at a dual frequency, two points that differ
   by a lattice vector have the same phase.
 * `SphereCeti.CohnElkies.structureAmplitude_eq_of_sub_mem`: at a dual frequency, the structure
@@ -85,6 +87,22 @@ theorem structureFactor_eq_zero_iff (p : ι → E) (y : E) :
     structureFactor p y = 0 ↔ structureAmplitude p y = 0 := by
   rw [structureFactor_def, sq_eq_zero_iff, norm_eq_zero]
 
+/-- The structure factor is the double sum of the phases of the differences of the points. -/
+theorem ofReal_structureFactor_eq_sum_sum (p : ι → E) (y : E) :
+    (structureFactor p y : ℂ) = ∑ q, ∑ q', cexp (2 * π * I * ⟪p q - p q', y⟫) := by
+  rw [structureFactor_def, structureAmplitude_def, ofReal_pow, ← mul_conj', map_sum,
+    Finset.sum_mul_sum]
+  refine Finset.sum_congr rfl fun q _ ↦ Finset.sum_congr rfl fun q' _ ↦ ?_
+  rw [← exp_conj, ← exp_add, inner_sub_left, real_inner_comm y, real_inner_comm y]
+  simp only [map_mul, map_ofNat, conj_ofReal, conj_I]
+  congr 1
+  push_cast
+  ring
+
+/-- At the zero frequency the structure factor is the square of the number of points. -/
+theorem structureFactor_zero (p : ι → E) : structureFactor p 0 = (Fintype.card ι : ℝ) ^ 2 := by
+  simp [structureFactor_def, structureAmplitude_def]
+
 /-- At a frequency `y` in the dual of `L`, two points that differ by a vector of `L` have the same
 phase `exp (2πi ⟪y, ·⟫)`. -/
 theorem phase_eq_of_sub_mem_lattice {L : Submodule ℤ E} {y : E} (hy : y ∈ ZLattice.dual L)
@@ -103,7 +121,25 @@ theorem structureAmplitude_eq_of_sub_mem {L : Submodule ℤ E} {y : E} (hy : y �
   simp only [structureAmplitude_def]
   exact Finset.sum_congr rfl fun q _ ↦ phase_eq_of_sub_mem_lattice hy (h q)
 
-variable [FiniteDimensional ℝ E] [MeasurableSpace E] [BorelSpace E]
+variable [FiniteDimensional ℝ E]
+
+/-- The direct side of Poisson summation over finitely many lattice translates is summable. -/
+theorem summable_sum_sum_translates (L : Submodule ℤ E) [DiscreteTopology L] (p : ι → E)
+    (f : 𝓢(E, ℂ)) : Summable fun z : L ↦ ∑ q, ∑ q', f ((z : E) + p q - p q') :=
+  summable_sum fun q _ ↦ summable_sum fun q' _ ↦
+    (ZLattice.summable_poisson_left L f (p q - p q')).congr fun z ↦ by
+      rw [add_sub_assoc, add_comm]
+
+variable [MeasurableSpace E] [BorelSpace E]
+
+/-- The dual side of Poisson summation over finitely many lattice translates, the Fourier
+transform times the structure factor, is summable over the dual lattice. -/
+theorem summable_fourier_mul_structureFactor (L : Submodule ℤ E) [DiscreteTopology L]
+    [IsZLattice ℝ L] (p : ι → E) (f : 𝓢(E, ℂ)) :
+    Summable fun y : ZLattice.dual L ↦ 𝓕 f (y : E) * (structureFactor p (y : E) : ℂ) := by
+  simp_rw [ofReal_structureFactor_eq_sum_sum, Finset.mul_sum]
+  exact summable_sum fun q _ ↦ summable_sum fun q' _ ↦
+    ZLattice.summable_poisson_right L f (p q - p q')
 
 /-- **Poisson summation over finitely many lattice translates.**  For a full lattice `L`, a finite
 family of points `p`, and a Schwartz function `f`,
@@ -114,17 +150,6 @@ theorem tsum_sum_sum_eq_tsum_dual_fourier_mul_structureFactor (L : Submodule ℤ
     ∑' z : L, ∑ q, ∑ q', f ((z : E) + p q - p q') =
       (ZLattice.covolume L : ℂ)⁻¹ * ∑' y : ZLattice.dual L,
         𝓕 f (y : E) * (structureFactor p (y : E) : ℂ) := by
-  -- The structure factor is the double sum of the phases of the differences.
-  have hfactor (y : E) : (structureFactor p y : ℂ) =
-      ∑ q, ∑ q', cexp (2 * π * I * ⟪p q - p q', y⟫) := by
-    rw [structureFactor_def, structureAmplitude_def, ofReal_pow, ← mul_conj', map_sum,
-      Finset.sum_mul_sum]
-    refine Finset.sum_congr rfl fun q _ ↦ Finset.sum_congr rfl fun q' _ ↦ ?_
-    rw [← exp_conj, ← exp_add, inner_sub_left, real_inner_comm y, real_inner_comm y]
-    simp only [map_mul, map_ofNat, conj_ofReal, conj_I]
-    congr 1
-    push_cast
-    ring
   have hleft (q q' : ι) : Summable fun z : L ↦ f ((z : E) + p q - p q') :=
     (ZLattice.summable_poisson_left L f (p q - p q')).congr fun z ↦ by
       rw [add_sub_assoc, add_comm]
@@ -147,6 +172,6 @@ theorem tsum_sum_sum_eq_tsum_dual_fourier_mul_structureFactor (L : Submodule ℤ
         refine Finset.sum_congr rfl fun q _ ↦ ?_
         rw [Summable.tsum_finsetSum fun q' _ ↦ hright q q', Finset.mul_sum]
     _ = _ := by
-        simp only [hfactor, Finset.mul_sum, SchwartzMap.fourier_coe]
+        simp only [ofReal_structureFactor_eq_sum_sum, Finset.mul_sum, SchwartzMap.fourier_coe]
 
 end SphereCeti.CohnElkies
