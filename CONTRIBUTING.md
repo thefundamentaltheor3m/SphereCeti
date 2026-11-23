@@ -11,6 +11,7 @@ SphereCeti hosts the sphere-packing roadmap and its admission-free proof library
 - `MIGRATION.md` records mathematical dependencies and the Sphere-Packing-Lean compatibility migration.
 - `PROVENANCE.md` records sources and exact pins.
 - `UPSTREAM.md` is the issue-ready list of Mathlib and TauCeti destinations for general results.
+  Maintainers curate it; an ordinary proof PR leaves it alone.
 - `VALIDATION.md` records the current static and Lean-elaboration status.
 
 A change to `Suggested.lean` does not silently change the roadmap; update the relevant prose and
@@ -85,7 +86,8 @@ forbids direct and transitive `sorryAx` dependencies. If a target needs an admit
 definition, implement the definition or a smaller independent prerequisite in the library first.
 
 In the PR description, link the roadmap target, name the library declaration and explain how
-their hypotheses, normalization and conclusion correspond. Keep `Suggested.lean` as the
+their hypotheses, normalization and conclusion correspond.  If a lemma belongs upstream, name the
+proposed destination (the Mathlib or TauCeti file) in the PR description; leave `UPSTREAM.md` alone. Keep `Suggested.lean` as the
 specification. Landing a separate proof leaves its roadmap admission ledger entry intact
 while the target still depends on `sorryAx`. Change a target statement only in an explicit
 specification change. Start proof PRs from SphereCeti `main` or name one stacking dependency.
