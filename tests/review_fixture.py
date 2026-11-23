@@ -21,8 +21,8 @@ def automation_policy(*, review_generation=False, posting=False, authoring=False
 
 
 UNCONFIGURED_CHECKS = 'schema_version = 1\nworkflow_id = 0\nstatus_creator_ids = []\n'
-DISABLED_CONTROLLER = ('schema_version = 1\nworkflow_id = 0\nbot_user_id = 0\n'
-                       'checks_app_id = 0\nmerge_method = "squash"\n')
+DISABLED_CONTROLLER = ('schema_version = 1\nworkflow_id = 0\nchecks_app_id = 0\n'
+                       'merge_method = "squash"\n')
 DISABLED_LIFECYCLE = ('schema_version = 1\nlabels_enabled = false\nwriter_user_id = 0\n'
                       'stuck_hours = 24\nhousekeeping_hours = 168\n')
 

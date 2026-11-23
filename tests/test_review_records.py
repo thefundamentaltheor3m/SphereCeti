@@ -10,8 +10,8 @@ import unittest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools/project'))
 from sphereceti.config import parse_policy, resource_text
 from sphereceti.local_review import RUBRICS
-from sphereceti.review_records import (BINDINGS, CONTEST, MARKER, RecordError, assess_records,
-                                      canonical, identity, make_record, parse_record)
+from sphereceti.review_records import (BINDINGS, CONTEST, FIELDS, MARKER, SIZE_LIMIT, RecordError,
+                                      assess_records, canonical, identity, make_record, parse_record, sha)
 from sphereceti.review_post import GitHub, publish
 
 REPO = 'thefundamentaltheor3m/SphereCeti'
@@ -234,6 +234,174 @@ class PublicationTests(unittest.TestCase):
             client.comments(REPO,1)
         with patch.object(client,'call',side_effect=RecordError('unavailable')),self.assertRaises(RecordError):
             client.comments(REPO,1)
+
+
+SOURCE = 'https://github.com/TauCetiProject/TauCetiReview/blob/afb424eda89e8ac96d9eb69f6a88972055a4cd1b/rubrics/'
+PUBLISHED = json.loads((Path(__file__).with_name('published_review_records.json')).read_text())['comments']
+
+
+def mixed():
+    r = result()
+    r['verdicts'].update({'reuse': 'block', 'scope': 'request_changes', 'attribution': 'error', 'api-design': 'absent'})
+    r['reviews'] = {
+        'correctness': {'summary': 'Faithful to the target. Compilation was not checked.'},
+        'reuse': {'summary': 'Duplicates a Mathlib lemma.',
+                  'findings': [{'file': 'SphereCeti/A.lean', 'line': 3, 'issue': 'Duplicates `Foo.bar`.',
+                                'fix': 'Use `Foo.bar`.', 'evidence': 'Mathlib/Foo.lean:10 states it.'}]},
+        'scope': {'summary': 'Mixes two topics.',
+                  'findings': [{'issue': 'Two unrelated results.', 'fix': 'Split the PR.'}]}}
+    return r
+
+
+def visible(rendered):
+    return rendered.split('-->\n\n', 1)[1]
+
+
+class RecordRenderingTests(unittest.TestCase):
+    def test_mixed_verdicts_render_summary_table_and_details(self):
+        row = lambda icon, rubric, word, summary: f'| {icon} | [{rubric}]({SOURCE}{rubric}.md) | {word} | {summary} |'
+        expected = '\n'.join([
+            '# SphereCeti review record', '',
+            '⛔ **Changes requested:** reuse (block), scope (changes), attribution (error), api-design (absent). '
+            '6 of 10 rubrics approve.', '',
+            "Publication identity is verified from GitHub's API; only a currently authorized publisher's "
+            'record counts. This record alone never authorizes a merge.', '',
+            '| | rubric | verdict | summary |', '|---|---|---|---|',
+            row('✅', 'correctness', 'approved', 'Faithful to the target.'),
+            row('⛔', 'reuse', 'blocked', 'Duplicates a Mathlib lemma.'),
+            row('🟡', 'scope', 'changes requested', 'Mixes two topics.'),
+            row('⚠️', 'attribution', 'error', '—'),
+            row('▫️', 'api-design', 'not run', '—'),
+            *(row('✅', r, 'approved', '—') for r in ('generality', 'placement', 'naming', 'documentation', 'proof-quality')),
+            '', '### Details', '',
+            '<details><summary>✅ <b>correctness</b>: approved</summary>', '',
+            'Faithful to the target. Compilation was not checked.', '', '</details>', '',
+            '<details><summary>⛔ <b>reuse</b>: blocked · 1 finding</summary>', '',
+            'Duplicates a Mathlib lemma.', '',
+            '**Finding 1** · `SphereCeti/A.lean:3`', '',
+            '- **Issue:** Duplicates `Foo.bar`.', '- **Fix:** Use `Foo.bar`.',
+            '- **Evidence:** `Mathlib/Foo.lean:10` states it.', '', '</details>', '',
+            '<details><summary>🟡 <b>scope</b>: changes requested · 1 finding</summary>', '',
+            'Mixes two topics.', '', '**Finding 1**', '',
+            '- **Issue:** Two unrelated results.', '- **Fix:** Split the PR.', '', '</details>', '',
+            f'<sub>Reviewed [this diff](https://github.com/{REPO}/compare/{"3"*40}...{"2"*40}) at head `2222222` '
+            'against diff base `3333333` with tooling `1111111`; completion complete, mode commit. '
+            'Rubric links credit the pinned TauCetiReview source at `afb424e`; '
+            "SphereCeti's effective rubrics are bound by the record's `effective_rubrics_digest`.</sub>", ''])
+        record, rendered = make_record(mixed())
+        self.assertEqual(visible(rendered), expected)
+        self.assertEqual(make_record(mixed()), (record, rendered))
+        self.assertNotIn('{"', rendered.split('-->', 1)[1])  # no raw JSON evidence dump
+
+    def test_code_stays_literal_and_prose_cannot_open_html(self):
+        r = result()
+        r['verdicts']['reuse'] = 'block'
+        r['reviews'] = {'reuse': {
+            'summary': 'Use `fun m x => f (x + m * I)` since a < b & c; see <details> and `a | b`. API_TOKEN=x_y',
+            'findings': [{'file': 'A.lean', 'line': 2,
+                          'issue': 'Code `` a`b `` and `x <!-- y` and @someone and a\\`stray backtick',
+                          'fix': '```lean\nexample : 1 < 2 ∧ (fun x => x) = id := by\n  exact ⟨by decide, rfl⟩\n```',
+                          'evidence': 'Mathlib/Order/Basic.lean:12–14 proves `a ≤ b → b < c → a < c` </details>'}]}}
+        body = visible(make_record(r)[1])
+        self.assertNotIn('&gt;', body)
+        self.assertNotIn('&amp;', body)
+        self.assertIn('`fun m x => f (x + m * I)`', body)
+        self.assertIn('| Use `fun m x => f (x + m * I)` since a &lt; b \\& c; see &lt;details> and `a \\| b`. |', body)
+        self.assertIn('Code ``a`b`` and `x <!\u200b-- y` and `@someone` and a\\`stray backtick', body)
+        self.assertIn('- **Fix:**\n\n  ```lean\n  example : 1 < 2 ∧ (fun x => x) = id := by\n    exact ⟨by decide, rfl⟩\n  ```', body)
+        self.assertIn('`Mathlib/Order/Basic.lean:12–14` proves `a ≤ b → b < c → a < c` &lt;/details>', body)
+        self.assertIn('API_TOKEN=x_y', body)  # archive redaction still sees secret-shaped prose
+        self.assertEqual(body.count('<details>'), 1)
+        self.assertEqual(body.count('</details>'), 1)
+        self.assertNotIn('<!--', body)
+
+    def test_marker_and_bindings_are_unchanged(self):
+        record, rendered = make_record(mixed())
+        machine, body = rendered.split('-->\n\n', 1)
+        self.assertTrue(rendered.startswith(MARKER))
+        self.assertEqual(json.loads(base64.b64decode(machine[len(MARKER):])), record)
+        self.assertEqual(set(record), FIELDS)
+        self.assertEqual(record['schema_version'], 1)
+        self.assertEqual(record['body_sha256'], sha(body))
+        self.assertEqual(record['record_id'], sha(canonical({k: v for k, v in record.items() if k != 'record_id'})))
+        self.assertEqual(parse_record(rendered), record)
+        for forged in (MARKER, CONTEST, '</details><!--x-->'):
+            r = mixed()
+            r['reviews']['reuse']['findings'][0].update(issue=f'`{forged}`', fix=f'```\n{forged}\n```', evidence=forged)
+            with self.subTest(forged=forged):
+                body = make_record(r)[1]
+                self.assertEqual(body.count(MARKER), 1)
+                self.assertEqual(body.count('<!--'), 1)
+                parse_record(body)
+
+    def test_new_record_is_accepted_end_to_end_through_fake_github(self):
+        r = mixed()
+        r['verdicts'] = {k: 'approve' for k in RUBRICS}
+        record, rendered = make_record(r)
+        self.assertIn('✅ **All 10 rubrics approve.**', rendered)
+        policy = replace(parse_policy(resource_text('automation.toml')), posting=True, authorized_reviewers=('user:7',))
+        api = FakeAPI()
+        receipt = publish(api, rendered, record, policy, lambda: None)
+        self.assertEqual(receipt['state'], 'confirmed')
+        outcome = assess_records([api.posted], result(), policy, lambda rev: rev == '1' * 40, 99)
+        self.assertTrue(outcome['review_safe'], outcome)
+        self.assertEqual(outcome['selected_comments'], {'user:7': 100})
+
+    def test_advisory_status_is_shown_before_the_table(self):
+        r = {**mixed(), 'completion': 'partial', 'missing_context': ['MIGRATION.md']}
+        record, rendered = make_record(r)
+        body = visible(rendered)
+        self.assertTrue(record['advisory'])
+        self.assertLess(body.index('> [!WARNING]'), body.index('| | rubric |'))
+        self.assertIn('cannot count as an authorized review:** completion is partial; '
+                      'missing approved context: `MIGRATION.md`.', body)
+        self.assertNotIn('[!WARNING]', visible(make_record(mixed())[1]))
+
+    def test_oversized_evidence_is_shortened_deterministically(self):
+        r = mixed()
+        long = 'Evidence `' + 'x => y < z ' * 400 + '` ' + 'word ' * 2000
+        r['reviews'] = {rubric: {'summary': 'Long. ' * 600, 'findings': [
+            {'file': f'{rubric}.lean', 'line': n, 'issue': long, 'fix': long, 'evidence': long} for n in range(3)]}
+            for rubric in RUBRICS}
+        record, rendered = make_record(r)
+        self.assertLessEqual(len(rendered.encode()), SIZE_LIMIT)
+        self.assertEqual(make_record(deepcopy(r)), (record, rendered))
+        self.assertEqual(parse_record(rendered), record)
+        self.assertIn("shortened to fit GitHub's comment size limit; the full text is in the publisher's local "
+                      '`result.json`', rendered)
+        self.assertIn('*(truncated; the full text is in', rendered)
+        self.assertEqual(rendered.count('<details>'), len(RUBRICS))
+        self.assertNotIn('&gt;', rendered)
+        r['reviews'] = {rubric: {'summary': 'x', 'findings': [{'issue': 'y' * 200}] * 400} for rubric in RUBRICS}
+        record, rendered = make_record(r)
+        self.assertLessEqual(len(rendered.encode()), SIZE_LIMIT)
+        self.assertNotIn('<details>', rendered)
+        self.assertIn('Reasoning and evidence are omitted', rendered)
+        self.assertEqual(parse_record(rendered), record)
+
+
+class PublishedRecordTests(unittest.TestCase):
+    """Records already on GitHub keep verifying: readers hash the stored body and never re-render."""
+    def test_earlier_format_records_on_github_remain_valid(self):
+        expected = {7103250313: ('e5c4298c182a8721e35000085a1e7f8395382a70d8c7525d88ed4f2114d54d74', True),
+                    7105230054: ('8c833b224ee53126732bc8e3d2bb6ecba61a543f3a5086df369800dc28814a59', False)}
+        for c in PUBLISHED:
+            with self.subTest(comment=c['id']):
+                record = parse_record(c['body'])
+                record_id, safe = expected[c['id']]
+                self.assertEqual(record['record_id'], record_id)
+                self.assertIn('\n## correctness: approve\n', c['body'])  # the earlier renderer's layout
+                actor = f"user:{c['user']['id']}"
+                policy = replace(parse_policy(resource_text('automation.toml')), authorized_reviewers=(actor,))
+                context = {**{k: record[k] for k in BINDINGS}, 'tooling_approved': True,
+                           'installed_tooling_matches_T': True, 'missing_context': [], 'config_differences': []}
+                outcome = assess_records([c], context, policy, lambda rev: rev == record['tooling_revision'], 1)
+                self.assertEqual(outcome['selected_comments'], {actor: c['id']})
+                self.assertEqual(outcome['review_safe'], safe, outcome)
+                if not safe:
+                    self.assertEqual(outcome['reasons'], [actor + ': review requests changes or lacks an approval'])
+                with self.assertRaises(RecordError):
+                    parse_record(c['body'] + ' ')
 
 
 if __name__=='__main__':unittest.main()

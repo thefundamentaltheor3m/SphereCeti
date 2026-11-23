@@ -6,6 +6,7 @@ Authors: SphereCeti contributors
 
 module
 
+public import SphereCeti.Analysis.ExactZeroOrder
 public import SphereCeti.Basic
 public import SphereCeti.ZLattice.CovolumeBound
 
