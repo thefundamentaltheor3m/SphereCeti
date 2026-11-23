@@ -87,6 +87,8 @@ def main(argv: list[str] | None = None) -> int:
     add_controller(commands)
     from .lifecycle_api import add_parser as add_maintenance, run as run_maintenance
     add_maintenance(commands)
+    from .verify import add_parser as add_verify, run as run_verify
+    add_verify(commands)
     for command in ('profile-plan', 'profile-run'):
         sub = commands.add_parser(command, help='local advisory exact-revision profiling')
         sub.add_argument('--repo', type=Path, required=True)
@@ -107,6 +109,9 @@ def main(argv: list[str] | None = None) -> int:
         except (SetupError, ConfigError, OSError) as error:
             parser.exit(2, f"sphereceti setup: {error}\n")
         return 0
+    if args.command == "verify":
+        # Local checks of the caller's checkout; no repository policy or GitHub access needed.
+        return run_verify(args)
     if args.command == "review":
         resolve_posting(args)
     if args.command in ('profile-plan', 'profile-run'):
