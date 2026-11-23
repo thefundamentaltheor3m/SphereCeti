@@ -432,9 +432,6 @@ class TransportTests(unittest.TestCase):
 
     def test_job_token_reads_only_its_own_ruleset_view_and_never_user(self):
         w=Writer(REPO,'ghs_fixturejobtoken')
-        self.assertTrue(w.installation())
-        for token in ('ghp_personal','github_pat_fine','gho_oauth','ghu_user','ghs_',None,'ghs_bad token'):
-            with self.subTest(token=token):self.assertFalse(Writer(REPO,token).installation())
         view={'id':21449770,'current_user_can_bypass':'never'}
         response=subprocess.CompletedProcess([],0,json.dumps(view),'')
         with patch('sphereceti.merge_controller.subprocess.run',return_value=response) as call:
@@ -442,6 +439,8 @@ class TransportTests(unittest.TestCase):
             self.assertEqual(call.call_args.args[0][-1],f'repos/{REPO}/rulesets/21449770')
             self.assertNotIn('--method',call.call_args.args[0])
             for endpoint,payload in ((f'repos/{REPO}/rulesets/21449770',{'sha':H,'merge_method':'squash'}),
+                                     ('installation/repositories?per_page=100',{'sha':H,'merge_method':'squash'}),
+                                     ('installation/repositories',None),('user/installations',None),
                                      (f'repos/{REPO}/rulesets',None),(f'repos/{REPO}/rulesets/0',None),('user',None),
                                      (f'repos/{REPO}/pulls/1/merge',None),(f'repos/{REPO}/branches/main/protection',None)):
                 with self.assertRaises(RecordError):w.call(endpoint,payload)
@@ -460,14 +459,22 @@ class TransportTests(unittest.TestCase):
 
 
 
+PROBE='installation/repositories?per_page=100'
+JOB_INSTALLATION={'total_count':1,'repository_selection':'selected','repositories':[{'id':1346330495,'full_name':REPO}]}
+
+
 class FakeWriter(Writer):
-    """The real Writer's validation with a recorded transport: GET views and the one PUT."""
-    def __init__(self,token='ghs_fixturejobtoken',view=None,on_put=None):
+    """The real Writer's validation with a recorded transport: the probe, GET views and the one PUT."""
+    def __init__(self,token='ghs_fixturejobtoken',view=None,on_put=None,installation=JOB_INSTALLATION):
         super().__init__(REPO,token)
-        self.requests,self.view_response,self.on_put=[],view,on_put
+        self.requests,self.view_response,self.on_put,self.installation_response=[],view,on_put,installation
     def run(self,command,payload,env):
         self.requests.append((command[4],payload))
+        assert command[:4]==['gh','api','--hostname','github.com'] and env['GH_HOST']=='github.com'
         assert env['GH_TOKEN']==self._token and 'SPHERECETI_MERGE_TOKEN' not in env
+        if command[4]==PROBE:
+            if self.installation_response is None:return subprocess.CompletedProcess(command,1,'','403 installation token required')
+            return subprocess.CompletedProcess(command,0,json.dumps(self.installation_response),'')
         if payload is None:
             if isinstance(self.view_response,Exception):return subprocess.CompletedProcess(command,1,'','denied')
             return subprocess.CompletedProcess(command,0,json.dumps(self.view_response),'')
@@ -493,7 +500,9 @@ class ExecutorTests(unittest.TestCase):
         self.assertEqual(denied,[]);self.assertTrue(result['executor_verified'])
         self.assertEqual((result['executor']['context'],result['executor']['token_view']),('github_actions','never'))
         self.assertEqual(result['executor']['run']['workflow_id'],10)
-        self.assertEqual(writer.requests,[(f'repos/{REPO}/rulesets/21449770',None)])
+        self.assertEqual(writer.requests,[(PROBE,None),(f'repos/{REPO}/rulesets/21449770',None)])
+        self.assertEqual(result['executor']['token'],{'installation':True,'reason':None,'repositories':1,
+            'shape':{'prefix':'ghs_','length':19,'classes':['lowercase','underscore']}})
         for value in ('always','pull_requests_only','exempt',None):
             with self.subTest(value=value):
                 denied,result,_=executor_result({'id':21449770,'current_user_can_bypass':value})
@@ -516,8 +525,7 @@ class ExecutorTests(unittest.TestCase):
         for token in ('ghp_personaltoken','github_pat_fine',None):
             with self.subTest(token=token):
                 denied,result,writer=executor_result(token=token)
-                self.assertIn('the merge credential is not a GitHub App installation token; the approved workflow '
-                              'must pass its own job token',denied)
+                self.assertTrue(any(d.startswith("the merge credential is not this repository's installation token") for d in denied))
                 self.assertEqual(writer.requests,[]);self.assertEqual(result['executor']['token_view'],'not read')
 
     def test_wrong_workflow_ref_sha_or_run_is_refused(self):
@@ -535,6 +543,80 @@ class ExecutorTests(unittest.TestCase):
             with self.subTest(change=change):
                 denied,_,_=executor_result(run_change=change)
                 self.assertTrue(any(d.startswith('controller run has') for d in denied),denied)
+
+
+class TokenIdentificationTests(unittest.TestCase):
+    """The job token is identified by behaviour; its format is never trusted or reported beyond its shape."""
+    # A long modern-format installation token: GitHub does not fix the length or character set.
+    MODERN='ghs_'+'Zx9-q.R_'*64+'tail'
+
+    def test_long_modern_installation_token_is_accepted_when_github_confirms_it(self):
+        for token in (self.MODERN,'ghs_fixturejobtoken','v2.installation-token_without_known_prefix'):
+            with self.subTest(length=len(token)):
+                writer=FakeWriter(token)
+                identity=writer.installation()
+                self.assertTrue(identity['installation'],identity);self.assertIsNone(identity['reason'])
+                self.assertEqual(writer.requests,[(PROBE,None)])
+                writer.installation();self.assertEqual(len(writer.requests),1)  # One probe per run.
+        denied,result,writer=executor_result(token=self.MODERN)
+        self.assertEqual(denied,[]);self.assertEqual(result['executor']['token_view'],'never')
+        self.assertEqual(result['executor']['token']['shape'],
+                         {'prefix':'ghs_','length':len(self.MODERN),
+                          'classes':['digit','hyphen','lowercase','period','underscore','uppercase']})
+
+    def test_user_token_prefixes_and_malformed_values_are_refused_without_any_request(self):
+        for token in ('ghp_'+'a'*36,'github_pat_11ABCDEFG_'+'b'*59,'gho_'+'c'*36,'ghu_'+'d'*36,'ghr_'+'e'*76,
+                      'ghs_bad token','ghs_été','ghs_'+'x'*5000,'',None):
+            with self.subTest(token=(token or '')[:12]):
+                denied,result,writer=executor_result(token=token)
+                self.assertEqual(writer.requests,[])
+                self.assertFalse(result['executor']['token']['installation'])
+                self.assertEqual(result['executor']['token_view'],'not read');self.assertFalse(result['executor_verified'])
+        self.assertIn('personal, OAuth or user-token prefix',executor_result(token='ghp_'+'a'*36)[0][-1])
+        self.assertIn('SPHERECETI_MERGE_TOKEN is unset or empty',executor_result(token=None)[0][-1])
+
+    def test_only_an_installation_listing_exactly_this_repository_passes(self):
+        other={'total_count':2,'repositories':[{'full_name':REPO},{'full_name':'other/repo'}]}
+        for response,reason in ((None,'GitHub refused GET /installation/repositories'),
+                                ({'message':'Bad credentials'},'GitHub refused GET /installation/repositories'),
+                                (other,f'its installation lists 2 repositories, not exactly {REPO}'),
+                                ({'total_count':1,'repositories':[{'full_name':'fork/SphereCeti'}]},'not exactly')):
+            with self.subTest(response=response):
+                writer=FakeWriter(self.MODERN,installation=response)
+                identity=writer.installation()
+                self.assertFalse(identity['installation']);self.assertIn(reason,identity['reason'])
+                self.assertEqual(writer.requests,[(PROBE,None)])  # The ruleset view is never read.
+
+    def test_refusal_diagnostics_contain_no_secret(self):
+        for token,kwargs in ((self.MODERN,{'installation':None}),('ghp_SECRETPERSONALTOKENVALUE0123456789',{}),
+                             ('ghs_SECRET VALUE',{})):
+            with self.subTest(prefix=token[:4]):
+                s,b,env,run=setup_data()
+                writer=FakeWriter(token,**kwargs)
+                activation=Activation(SimpleNamespace(),SimpleNamespace(repository=REPO),writer)
+                activation.reader=FakeClient({f'repos/{REPO}/actions/runs/100':run})
+                result={}
+                with patch.dict(os.environ,env):
+                    denied=activation.executor({'source':'ruleset','ruleset_id':21449770},s,T,result)
+                text=json.dumps([denied,result])
+                self.assertIn(f"prefix '{token[:4]}', length {len(token)}",text)
+                for start in range(4,len(token)-5):self.assertNotIn(token[start:start+6],text)
+                self.assertNotIn(token,text)
+
+    def test_cli_hands_the_token_to_the_writer_before_any_reader_runs(self):
+        import sphereceti.merge_controller as controller
+        seen={}
+        class Probe:
+            def __init__(self,args,project,writer):
+                seen['writer_token']=writer._token;seen['env']='SPHERECETI_MERGE_TOKEN' in os.environ
+                seen['reader_token']=os.environ.get('GH_TOKEN')
+            def setup(self,applying,*,verify_executor=False):return {'verify_executor':verify_executor}
+        with tempfile.TemporaryDirectory() as t,patch.dict(os.environ,{'SPHERECETI_MERGE_TOKEN':self.MODERN,'GH_TOKEN':'reader'}), \
+                patch.object(controller,'Backend',Probe):
+            args=SimpleNamespace(command='merge-doctor',executor=True,cache_dir=Path(t))
+            self.assertEqual(controller.run(args,SimpleNamespace(repository=REPO)),{'verify_executor':True})
+            self.assertNotIn('SPHERECETI_MERGE_TOKEN',os.environ)
+        self.assertEqual(seen,{'writer_token':self.MODERN,'env':False,'reader_token':'reader'})
 
 
 def reviews_for(head,*entries):

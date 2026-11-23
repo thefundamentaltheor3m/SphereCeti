@@ -196,6 +196,9 @@ The workflow is installed read-only. Its first step towards the canary is a manu
 `workflow_id` to record. It also prints whether GitHub reports `current_user_can_bypass` for the
 installation token; see [reading the output](merge-controller.md#reading-the-executor-output).
 An omitted or unreadable view is a blocker: merging stays impossible and nothing is guessed.
+The first probe (run 45238596085 on `5db3655`) reported workflow ID 428151597, recorded only as
+an observation. It refused the job token under a token-format check, which has since been replaced
+by a behavioural check, so its bypass view is still unread.
 
 There is no persistent PR/head canary allowlist today. `--pr` narrows one invocation. The installed
 workflow's schedule is commented out, and activation would enable hourly sweeps. Before enabling merging, implement a

@@ -95,6 +95,7 @@ class Harness:
         self.run = {'id': RUN, 'run_attempt': 1, 'workflow_id': 358051984, 'path': WORKFLOW,
                     'event': 'pull_request_target', 'status': 'completed', 'conclusion': 'success',
                     'head_sha': self.head, 'head_branch': 'proof/e8', 'repository': {'full_name': REPO},
+                    'head_repository': {'full_name': REPO},
                     'created_at': '2026-11-23T13:29:15Z', 'run_started_at': '2026-11-23T13:29:15Z',
                     'pull_requests': [{'id': 5454040028, 'number': 1, 'url': f'https://api.github.com/repos/{REPO}/pulls/1',
                                        'head': {'ref': 'proof/e8', 'sha': self.head, 'repo': repo_ref},
