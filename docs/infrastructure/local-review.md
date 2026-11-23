@@ -27,15 +27,50 @@ uv run --locked sphereceti review 9 --provider codex --budget-usd 5 \
 
 The same commands work with an installed `sphereceti` executable outside the checkout.
 `--operator-config preferences.toml` accepts the existing provider, budget, and storage
-preferences. For local subscription reviews you can set a budget once. Create
-`~/.config/sphereceti/operator.toml` with your chosen values, for example:
+preferences. For local subscription reviews they live in `~/.config/sphereceti/operator.toml`:
 
 ```toml
 provider = "codex"
 budget_usd = 5
 ```
 
-Then `sphereceti review` and `sphereceti review 9` use those preferences. The budget is a daily estimate threshold,
+`sphereceti review` and `sphereceti review 9` use those preferences.
+
+## First run and `sphereceti setup`
+
+A new contributor needs only the installed `sphereceti`, a signed-in `gh`, and a signed-in
+provider CLI (for example Codex). When a review that will call a provider is about to start,
+and there is no `--operator-config`, no `~/.config/sphereceti/operator.toml` and no
+`--budget-usd`, the CLI asks once:
+
+```text
+SphereCeti needs two review preferences before your first review.
+Review provider (claude, sonnet, codex, kiro, deepseek, minimax, grok) [codex]:
+The budget is a daily threshold in estimated dollars, checked before each rubric; it is not a cap on subscription usage.
+Daily budget threshold in estimated USD [5]:
+Saved review preferences to /home/you/.config/sphereceti/operator.toml. Change them with `sphereceti setup`.
+```
+
+It then continues the same review. An invalid answer is asked again, up to three times; end of
+input or a third invalid answer stops with exit 2 and saves nothing. The file is created with
+mode 0600 (a new directory with mode 0700) and is never overwritten. Prompts and messages go to stderr, so
+`--json` output stays clean. `--provider` becomes the offered default provider.
+
+- **Only on a terminal:** both stdin and stdout must be TTYs. Otherwise nothing is asked and
+  the command exits 2 with one line:
+  ``sphereceti: no review preferences yet; create them with `sphereceti setup --provider codex --budget-usd 5` (or pass --provider and --budget-usd)``.
+- **Never for** `--dry-run`, `--read-records`, `--auth api`, `--shadow`, an explicit
+  `--operator-config` or `--budget-usd`, or when the saved file exists. Bare `review` asks only
+  after it has chosen a PR, so "No PRs need your review" never needs preferences; a batch asks
+  once, before its first review, and uses the answer for every item.
+- **No model preference.** The preferences schema has only provider, budget and storage, so the
+  model is not asked or saved; `--codex-model` pins one per run.
+
+`sphereceti setup` changes the preferences later. It shows the current values and offers them
+as defaults, asks for whatever `--provider` and `--budget-usd` leave open, keeps a saved
+`storage`, and rewrites the file atomically with mode 0600. With both flags it needs no
+terminal, which also suits scripts: `sphereceti setup --provider codex --budget-usd 5`.
+`--operator-config PATH` selects another file. Bad values change nothing and exit 2. The budget is a daily estimate threshold,
 checked before each rubric with a default $1 reservation. Actual usage can exceed the threshold.
 An explicit `--operator-config` replaces the default file and command-line flags take precedence.
 With no configured budget the default is zero. Worker execution, API authentication and
