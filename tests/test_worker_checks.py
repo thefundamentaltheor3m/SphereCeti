@@ -28,10 +28,11 @@ def evidence():
                  'url': f'https://api.github.com/repos/{repository}/statuses/{"a"*40}',
                  'target_url': url, 'created_at': '2026-09-12T10:01:00Z'}
                 for i, name in enumerate(('trusted-build', 'trusted-scope'), 1)]
-    main = {'sha': 'c'*40}
+    main = {'sha': 'b'*40}  # the PR base: the trusted run used current approved main's tooling
+    # As GitHub reports it: a pull_request_target run's head_sha is the PR head.
     run = {'id': 100, 'run_attempt': 1, 'workflow_id': 71, 'path': '.github/workflows/pr-build.yml',
            'event': 'pull_request_target', 'status': 'completed', 'conclusion': 'success',
-           'head_sha': main['sha'], 'repository': {'full_name': repository},
+           'head_sha': 'a'*40, 'head_branch': 'feature', 'repository': {'full_name': repository},
            'pull_requests': [{'number': 1, 'head': {'sha': 'a'*40}, 'base': {'sha': 'b'*40}}]}
     jobs = {'total_count': 2, 'jobs': [
         {'id': i, 'name': name, 'run_id': 100, 'run_attempt': 1, 'status': 'completed',
@@ -102,6 +103,47 @@ class WorkerCheckTests(unittest.TestCase):
                 self.assertEqual(self.readiness(raw, responses)[0], 'failed')
         raw, responses = evidence()
         raw['statusCheckRollup'][1]['targetUrl'] += '0'
+        self.assertEqual(self.readiness(raw, responses)[0], 'failed')
+
+    def test_github_pull_request_target_run_shape_from_pr_36(self):
+        """Regression: SphereCeti PR #36's trusted run 45084681934, as GitHub reported it (2026-11-22).
+
+        GitHub gives a pull_request_target run's head_sha as the PR head (c2c0bf1), and records the
+        tooling only as the associated PR's base.sha (d5290bd, approved main at the run's start)."""
+        import json
+        head, base = 'c2c0bf114ec96efa5921a8072cf05f7fe14a94a5', 'd5290bd870256d25fb3cbee09aa3f456652b111a'
+        raw, responses = evidence()
+        raw, responses = json.loads(json.dumps([raw, responses]).replace('a'*40, head).replace('b'*40, base))
+        self.assertEqual(responses[2]['head_sha'], head)
+        self.assertEqual(responses[2]['pull_requests'][0]['base']['sha'], responses[1]['sha'])
+        self.assertEqual(self.readiness(raw, responses)[0], 'passed')
+        # The same real evidence is still rejected with a wrong head, base, workflow or attempt.
+        wrong = 'f'*40
+        for label, mutate in (
+                ('run head_sha', lambda r: r[2].update(head_sha=wrong)),
+                ('association head', lambda r: r[2]['pull_requests'][0]['head'].update(sha=wrong)),
+                ('association base', lambda r: r[2]['pull_requests'][0]['base'].update(sha=wrong)),
+                ('approved main moved', lambda r: r[1].update(sha=wrong)),
+                ('workflow id', lambda r: r[2].update(workflow_id=72)),
+                ('workflow path', lambda r: r[2].update(path='.github/workflows/ci.yml')),
+                ('event', lambda r: r[2].update(event='pull_request')),
+                ('run attempt', lambda r: r[2].update(run_attempt=2))):
+            changed = json.loads(json.dumps(responses))
+            mutate(changed)
+            with self.subTest(wrong=label):
+                self.assertEqual(self.readiness(raw, changed)[0], 'failed')
+
+    def test_run_reporting_the_tooling_as_head_sha_is_rejected(self):
+        # The earlier assumption: head_sha equal to approved main. GitHub never reports that for a
+        # pull_request_target run, so such a run cannot be the trusted run for this PR head.
+        raw, responses = evidence()
+        responses[2]['head_sha'] = responses[1]['sha']
+        self.assertEqual(self.readiness(raw, responses)[0], 'failed')
+
+    def test_stale_pr_base_needs_a_fresh_trusted_run(self):
+        # main has advanced past the PR's base: the run used older tooling and must be refreshed.
+        raw, responses = evidence()
+        responses[1] = {'sha': 'e'*40}
         self.assertEqual(self.readiness(raw, responses)[0], 'failed')
 
     def test_exact_workflow_attempt_head_base_and_jobs_are_required(self):
