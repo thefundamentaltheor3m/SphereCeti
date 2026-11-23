@@ -109,8 +109,8 @@ For each candidate the controller runs the [auto-approval decision](merge-observ
 under the approved policy; a hypothetical allowlist never counts. It then reads the PR's reviews.
 A PR is eligible only when every item holds:
 
-- **Paths:** every changed path is an eligible proof path under `mathematical_paths`, or an allowed
-  library-root import.
+- **Paths:** every changed path is an eligible proof path under `mathematical_paths`. Proof PRs
+  never edit the library root `SphereCeti.lean`.
 - **Trusted checks:** `trusted-build` succeeded and `trusted-scope` is `mathematical`, from the
   approved producer (`policy/merge-checks.toml`). Both come from one exact run attempt bound to the
   head. The run's attested tooling is current approved `main`.

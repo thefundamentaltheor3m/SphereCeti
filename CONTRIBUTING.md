@@ -79,8 +79,14 @@ Suggested prompt for a coding assistant:
 > as the specification. Run the build and compiled audit, fix CI failures, and respond to review.
 
 Pick one target from the roadmap or a prerequisite you can prove against the current pins.
-Add a module under `SphereCeti/<Topic>/` and expose its public entry point from
-`SphereCeti.lean`. Build on library definitions and imported results. The library audit
+Add a module under `SphereCeti/<Topic>/`.
+For an ordinary proof PR, edit the topic modules under SphereCeti/. Import topic modules directly.
+Leave SphereCeti.lean and UPSTREAM.md alone. If a lemma belongs upstream, name the proposed
+destination in the PR description.
+The `SphereCeti.*` glob in `lakefile.toml` builds every library module and the compiled audit
+checks every source file, so a new module needs no root import. `SphereCeti.lean` keeps its
+existing re-exports, so `import SphereCeti` still works downstream, and is otherwise frozen.
+Build on library definitions and imported results. The library audit
 forbids direct and transitive `sorryAx` dependencies. If a target needs an admitted roadmap
 definition, implement the definition or a smaller independent prerequisite in the library first.
 

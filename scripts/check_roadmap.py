@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 import sys
+import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -28,6 +29,23 @@ require(toolchain == EXPECTED["lean"], f"lean-toolchain is {toolchain!r}")
 lakefile = (ROOT / "lakefile.toml").read_text()
 require(EXPECTED["tauceti"] in lakefile, "TauCeti SHA missing from lakefile.toml")
 require("Sphere-Packing-Lean" not in lakefile, "roadmap must not import the 4.32 production package")
+# Proof PRs never edit SphereCeti.lean: each library selects every module below its root by glob
+# (Lake's `andSubmodules`), so a topic module builds without being imported from the root.
+libraries = {lib.get("name"): lib.get("globs") for lib in tomllib.loads(lakefile).get("lean_lib", [])}
+for library in ("SphereCeti", "SphereCetiRoadmap"):
+    require(libraries.get(library) == [f"{library}.*"],
+            f"lakefile.toml library {library} must select its modules with globs = [\"{library}.*\"]")
+# The library root is frozen: it keeps its existing re-exports, so downstream `import SphereCeti`
+# still works, and proof PRs never add to it (topic modules are imported directly). Changing this
+# list is a maintainer decision. A guard against honest mistakes in CI; the trusted gate separately
+# routes every root edit to human review.
+FROZEN_ROOT_IMPORTS = ["SphereCeti.Basic", "SphereCeti.Analysis.ExactZeroOrder",
+                       "SphereCeti.Contour.HalfInfiniteRectangle"]
+root_imports = re.findall(r"^\s*(?:public\s+)?(?:meta\s+)?import\s+(\S+)", (ROOT / "SphereCeti.lean").read_text(),
+                          re.MULTILINE)
+require(root_imports == FROZEN_ROOT_IMPORTS,
+        f"SphereCeti.lean must keep exactly its frozen imports {FROZEN_ROOT_IMPORTS} (found {root_imports}); "
+        "proof PRs leave the library root alone and import topic modules directly")
 
 manifest = json.loads((ROOT / "lake-manifest.json").read_text())
 require(manifest.get("name") == "SphereCeti", "manifest package name is not SphereCeti")
