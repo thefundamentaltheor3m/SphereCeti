@@ -44,7 +44,7 @@ class FakeBackend:
     def __init__(self):
         self.activation={'ready':True,'executor_verified':True,'tooling':T,'policy_digest':'a','merging_requested':True}
         self.pr={'number':1,'state':'open','merged':False,'draft':False,'head':{'sha':H},'merge_commit_sha':None}
-        self.decision={'eligibility':'eligible','head':H,'base':T,'tooling':T,'reasons':[]}
+        self.decision={'eligibility':'eligible','action':'merge','head':H,'base':T,'tooling':T,'reasons':[]}
         self.setups=0;self.observations=0;self.puts=[];self.refreshed=0
         self.change_setup=None;self.change_observation=None;self.on_refresh=None;self.ambiguous=False;self.reject=False
     def setup(self,applying):
@@ -80,7 +80,7 @@ class ControllerTests(unittest.TestCase):
             self.assertEqual(r['state'],'disabled');self.assertFalse(b.puts)
 
     def test_revoked_review_and_changed_head_base_or_policy_require_new_run(self):
-        for change in ({'eligibility':'blocked','reasons':['revoked review']},{'head':'4'*40},
+        for change in ({'eligibility':'blocked','action':'needs_review','reasons':['revoked review']},{'head':'4'*40},
                        {'base':'4'*40},{'tooling':'4'*40}):
             with self.subTest(change=change):
                 b=FakeBackend();b.change_observation={**b.decision,**change}
@@ -132,7 +132,7 @@ class ControllerTests(unittest.TestCase):
 
     def test_ineligible_observation_does_not_gain_authority_from_activation(self):
         for state in ('human_review','blocked'):
-            b=FakeBackend();b.decision['eligibility']=state
+            b=FakeBackend();b.decision.update(eligibility=state,action=state)
             r=reconcile(b,lambda:[1],applying=True)
             self.assertFalse(b.puts);self.assertEqual(r['results'][0]['state'],state)
 
@@ -693,7 +693,8 @@ class ControllerDecisionTests(unittest.TestCase):
     def test_formal_approval_and_passing_decision_merge_once_pinned_to_the_head(self):
         self.reviews=reviews_for(self.h.head,(self.reviewer,'APPROVED',None,'User','COLLABORATOR'))
         preview,writer=self.reconcile(applying=False)
-        self.assertEqual(preview['results'],[{'pr':1,'state':'would_merge','head':self.h.head}]);self.assertEqual(writer.requests,[])
+        self.assertEqual(preview['results'],[{'pr':1,'state':'would_merge','action':'merge','head':self.h.head}])
+        self.assertEqual(writer.requests,[])
         result,writer=self.reconcile()
         self.assertEqual(writer.requests,[(f'repos/{REPO}/pulls/1/merge',{'sha':self.h.head,'merge_method':'squash'})])
         self.assertEqual(result['results'][0],{'pr':1,'head':self.h.head,'state':'merged','merge_commit':M})
@@ -702,8 +703,9 @@ class ControllerDecisionTests(unittest.TestCase):
         self.reviews=reviews_for(self.h.head,(self.reviewer,'APPROVED',None,'User','COLLABORATOR'))
         self.h.comments=[]  # No official review record: the formal approval alone cannot merge.
         result,writer=self.reconcile()
-        self.assertEqual(result['results'][0]['state'],'blocked');self.assertEqual(writer.requests,[])
-        self.assertTrue(any(r.startswith('official_review') for r in result['results'][0]['reasons']))
+        # No accepted review for the head: route back for review, never merge on the approval alone.
+        self.assertEqual(result['results'][0]['state'],'needs_review');self.assertEqual(writer.requests,[])
+        self.assertIn('no accepted official review for the current head',result['results'][0]['reasons'])
 
     def test_merging_false_is_read_only(self):
         h=self.h
@@ -712,9 +714,9 @@ class ControllerDecisionTests(unittest.TestCase):
         backend.activation=SimpleNamespace(policy=None,refresh=lambda:None,
             inspect=lambda **kw:{'ready':False,'merging_requested':False,'executor_verified':True})
         with patch.object(GitHub,'call',side_effect=AssertionError('no GitHub read after a disabled setup')):
-            for applying in (False,True):
-                result=reconcile(backend,lambda:(_ for _ in ()).throw(AssertionError('enumerated')),applying=applying)
-                self.assertEqual(result['state'],'disabled')
+            # Applying with switches off lists no work at all; previews are covered by RefreshTests.
+            result=reconcile(backend,lambda:(_ for _ in ()).throw(AssertionError('enumerated')),applying=True)
+            self.assertEqual(result['state'],'disabled')
         self.assertEqual(writer.requests,[])
 
 

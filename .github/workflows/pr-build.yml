@@ -1,25 +1,47 @@
 # Adapted from TauCetiProject/TauCeti@b743b607ce3e9742b18026ad79082e5d15badff5,
 # .github/workflows/pr-build.yml and scripts/sandbox-build.sh (Apache-2.0).
 name: Trusted candidate
+# A dispatched refresh names its PR and exact head, so the runs API (display_title) shows the binding.
+run-name: >-
+  ${{ github.event_name == 'workflow_dispatch'
+      && format('refresh #{0} at {1}', inputs.pr, inputs.head)
+      || format('Trusted candidate #{0}', github.event.pull_request.number) }}
 
 on:
   pull_request_target:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
+  # A refresh of one PR's trusted build with main's tooling, dispatched on main by the merge
+  # controller (or a maintainer). The PR is resolved from the API; inputs are only a request.
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: PR number to refresh
+        type: string
+        required: true
+      head:
+        description: The PR head SHA the refresh must build (exact, 40 hex)
+        type: string
+        required: true
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
-  group: trusted-candidate-${{ github.event.pull_request.number }}
+  # One trusted run per PR: a new push supersedes an in-progress refresh of the same PR.
+  group: trusted-candidate-${{ github.event.pull_request.number || inputs.pr }}
   cancel-in-progress: true
 
 jobs:
   candidate:
+    # A refresh is dispatched only on main, so the workflow and tooling are main's own.
+    if: github.event_name == 'pull_request_target' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     outputs:
       scope: ${{ steps.prepare.outputs.scope }}
+      base: ${{ steps.prepare.outputs.base }}
     steps:
       # T is the revision of this approved base workflow. Never check out H with Actions.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -32,16 +54,45 @@ jobs:
       - name: Resolve the complete immutable candidate tree
         id: prepare
         env:
+          EVENT: ${{ github.event_name }}
           TOOLING_SHA: ${{ github.workflow_sha }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          EVENT_BASE: ${{ github.event.pull_request.base.sha }}
+          EVENT_HEAD: ${{ github.event.pull_request.head.sha }}
+          INPUT_PR: ${{ inputs.pr }}
+          INPUT_HEAD: ${{ inputs.head }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         shell: bash
         run: |
           set -euo pipefail
+          if [ "$EVENT" = workflow_dispatch ]; then
+            # Refresh: resolve the PR from the API at run start; the inputs are only a request.
+            [ "$GITHUB_REF" = refs/heads/main ] || { echo "::error::a refresh runs only on main"; exit 1; }
+            [[ "$INPUT_PR" =~ ^[1-9][0-9]{0,8}$ ]] || { echo "::error::invalid pr input"; exit 1; }
+            [[ "$INPUT_HEAD" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::invalid head input"; exit 1; }
+            IFS=$'\t' read -r state base_ref base_repo BASE_SHA HEAD_SHA head_repo < <(gh api "repos/$GH_REPO/pulls/$INPUT_PR" \
+              --jq '[.state, .base.ref, .base.repo.full_name, .base.sha, .head.sha, (.head.repo.full_name // "")] | @tsv')
+            if [ "$state" != open ] || [ "$base_ref" != main ] || [ "$base_repo" != "$GH_REPO" ]; then
+              echo "::error::PR #$INPUT_PR is not an open PR into main of $GH_REPO; nothing to refresh"; exit 1
+            fi
+            [ "$HEAD_SHA" = "$INPUT_HEAD" ] || { echo "::error::PR #$INPUT_PR head is $HEAD_SHA, not the requested $INPUT_HEAD"; exit 1; }
+            # Only a PR based on this very main commit can qualify; anything else is refused early.
+            [ "$BASE_SHA" = "$TOOLING_SHA" ] || { echo "::error::PR #$INPUT_PR base $BASE_SHA is not main $TOOLING_SHA"; exit 1; }
+            [[ "$head_repo" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || { echo "::error::PR head repository is unavailable"; exit 1; }
+            HEAD_SOURCE="https://github.com/$head_repo.git"  # anonymous fetch of the exact SHA
+          else
+            BASE_SHA="$EVENT_BASE"
+            HEAD_SHA="$EVENT_HEAD"
+            HEAD_SOURCE=origin
+          fi
           for sha in "$TOOLING_SHA" "$BASE_SHA" "$HEAD_SHA"; do
             [[ "$sha" =~ ^[0-9a-f]{40}$ ]]
           done
-          git -C gate fetch --no-tags origin "$BASE_SHA" "$HEAD_SHA"
+          echo "base=$BASE_SHA" >> "$GITHUB_OUTPUT"
+          echo "head=$HEAD_SHA" >> "$GITHUB_OUTPUT"
+          git -C gate fetch --no-tags origin "$BASE_SHA"
+          git -C gate fetch --no-tags "$HEAD_SOURCE" "$HEAD_SHA"
+          [ "$(git -C gate rev-parse --verify "$HEAD_SHA^{commit}")" = "$HEAD_SHA" ]
           python3 -I gate/scripts/trusted_gate.py --repo gate \
             --tooling "$TOOLING_SHA" --base "$BASE_SHA" --head "$HEAD_SHA" \
             --destination candidate --report "$RUNNER_TEMP/trusted-report.json"
@@ -54,7 +105,7 @@ jobs:
               output.write('scope=' + report['scope'] + '\n')
           assert report['config_attested'], 'Configuration differs from approved tooling; human dependency review required'
           PY
-          bash gate/scripts/attest-pr-config.sh gate candidate "$HEAD_SHA" pull_request_target 1 0
+          bash gate/scripts/attest-pr-config.sh gate candidate "$HEAD_SHA" "$EVENT" 1 0
 
       # These host commands execute only T and its attested dependencies, never candidate code.
       - name: Install approved Elan, Lean, and Mathlib cache
@@ -67,14 +118,15 @@ jobs:
 
       - name: Build approved baseline and stage dependencies
         env:
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_SHA: ${{ steps.prepare.outputs.head }}
+          EVENT: ${{ github.event_name }}
         working-directory: gate
         shell: bash
         run: |
           set -euo pipefail
           lake build
           python3 -I scripts/validate_dependencies.py
-          bash scripts/attest-pr-config.sh . ../candidate "$HEAD_SHA" pull_request_target 1 0
+          bash scripts/attest-pr-config.sh . ../candidate "$HEAD_SHA" "$EVENT" 1 0
           # Move only dependency sources/artifacts. H gets no stale root build or lakefile cache.
           mv .lake/packages ../candidate/.lake/packages
           echo "APPROVED_TOOLCHAIN=$(lean --print-prefix)" >> "$GITHUB_ENV"
@@ -90,19 +142,22 @@ jobs:
   # Only this separate job receives status-writing permission. No candidate or tool checkout.
   status:
     needs: candidate
-    if: ${{ always() }}
+    if: ${{ always() && (github.event_name == 'pull_request_target' || github.ref == 'refs/heads/main') }}
     runs-on: ubuntu-24.04
     permissions:
       statuses: write
+      pull-requests: read
     steps:
       - name: Publish separate build and scope verdicts for exact H
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          # The PR binding comes from this pull_request_target event, never from candidate code.
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          EVENT: ${{ github.event_name }}
+          # The PR binding comes from the pull_request_target event, or for a refresh from its inputs
+          # and the base resolved at run start, never from candidate code.
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || inputs.head }}
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || needs.candidate.outputs.base }}
           TOOLING_SHA: ${{ github.workflow_sha }}
           BUILD_RESULT: ${{ needs.candidate.result }}
           SCOPE: ${{ needs.candidate.outputs.scope }}
@@ -115,9 +170,27 @@ jobs:
           [[ "$PR_NUMBER" =~ ^[1-9][0-9]{0,8}$ ]]
           [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]]
           [[ "$BUILD_RESULT" =~ ^[a-z_]+$ ]]
+          kind=build
+          if [ "$EVENT" = workflow_dispatch ]; then
+            kind=refresh
+            # Race guard: publish only if the PR still has the exact head and base resolved at the
+            # start, and main has not moved; otherwise nothing is published and the run fails.
+            IFS=$'\t' read -r state head base base_ref < <(gh api "repos/$GH_REPO/pulls/$PR_NUMBER" \
+              --jq '[.state, .head.sha, .base.sha, .base.ref] | @tsv')
+            main=$(gh api "repos/$GH_REPO/commits/main" --jq .sha)
+            if [ "$state" != open ] || [ "$head" != "$HEAD_SHA" ] || [ "$base" != "$BASE_SHA" ] ||
+                [ "$base_ref" != main ] || [ "$main" != "$TOOLING_SHA" ]; then
+              echo "::error::refresh not published: PR #$PR_NUMBER is now $state, head $head, base $base, main $main;" \
+                "the run built head $HEAD_SHA on base $BASE_SHA with tooling $TOOLING_SHA"
+              exit 1
+            fi
+          fi
           # The head is bound by the status's own commit; GitHub caps a description at 140 characters.
-          build_description="Approved tooling build: $BUILD_RESULT; tooling $TOOLING_SHA; pr $PR_NUMBER; base $BASE_SHA"
-          (( ${#build_description} <= 140 ))
+          build_description="Approved tooling $kind: $BUILD_RESULT; tooling $TOOLING_SHA; pr $PR_NUMBER; base $BASE_SHA"
+          if (( ${#build_description} > 140 )); then
+            echo "::error::trusted-build description has ${#build_description} characters (limit 140); nothing published"
+            exit 1
+          fi
           build_state=failure
           scope_state=failure
           [ "$BUILD_RESULT" != success ] || build_state=success

@@ -332,7 +332,7 @@ def executor(run, settings, revision, repository, environ):
 class Activation:
     def __init__(self, args, project, writer):
         self.args, self.project, self.writer = args, project, writer
-        self.reader = self.settings = self.policy = None
+        self.reader = self.settings = self.policy = self.checks = None
 
     def inspect(self, *, applying=False, verify_executor=False):
         """Setup diagnosis. The executor is verified with the job token for --apply or `merge-doctor --executor`."""
@@ -353,7 +353,7 @@ class Activation:
         if selected.repository != project.repository or selected.implementation_repository != project.implementation_repository:
             raise RecordError('approved controller profile has another project identity')
         policy = self.policy = parse_policy(data['policy/automation.toml'].decode())
-        checks = parse_checks(data['policy/merge-checks.toml'].decode())
+        checks = self.checks = parse_checks(data['policy/merge-checks.toml'].decode())
         settings = self.settings = parse_controller(data['policy/merge-controller.toml'].decode())
         result['merging_requested']=policy.merging
         path=automatic(policy,checks,settings,selected.roadmap_approved)

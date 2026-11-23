@@ -126,6 +126,58 @@ An all-green record without the formal review, as `sphereceti review --no-approv
 the PR open with `no qualifying approval`. A formal approval without the decision's evidence does
 not merge either. An eligible PR gets exactly one squash-merge PUT whose `sha` is the reviewed head.
 
+### Per-PR actions: stale build versus stale review
+
+Each candidate gets one action, in `merge-control` results (`action`, `state`, `reasons`) and in
+`merge-doctor --pr N` (`candidate`). Both commands also print text without `--json`.
+
+- **`blocked`:** not an automatic-route PR (paths, policy, a hypothesis), a misbound or failed
+  build, an unmergeable PR, or no qualifying formal approval.
+- **`needs_review`:** route back for review. Nothing is posted or merged. This applies when there
+  is no accepted official review for the current head, or when the review's base is not current
+  main.
+- **`refresh_build`:** only the trusted build is stale. The accepted review binds the current head,
+  and its base and diff base are current main. The formal approval qualifies, and every other
+  requirement passes. The build fails only with refreshable reasons: older attested tooling, a
+  missing or older attestation, an older attested or associated base, or (with those) a
+  trusted-scope verdict made under that older tooling.
+- **`merge`:** everything is current and the formal approval qualifies. This path is unchanged.
+
+**The review's base.** A record binds `base`, which is GitHub's PR `base.sha` when the review ran.
+It also binds `diff_base`, the merge-base of that base and the head, which is where the reviewed
+diff starts. Its `tooling_revision` is main at review time and need only be approved main. A review
+is current only when it is accepted against the current context, so the head, base, diff base and
+digests are all unchanged. In addition, its `base` and `diff_base` must both equal current
+`commits/main`. A moved base means a stale review even if the PR diff looks unchanged. Accepting
+an older review for an unchanged diff would be a separate, explicitly approved policy decision;
+the code says so where the rule lives.
+
+**GitHub's `base.sha` is a snapshot, not live.** Observed read-only on 2026-11-23, after main
+moved to `e64e506`, every open PR into main still reported an older main as `base.sha`. #85 had a
+head pushed after the move and still reported `5db3655`. #41 reported `f435c43`, which is neither
+main nor its merge-base `bab1893`. So `base.sha` can lag main indefinitely, and the controller never
+treats it as current main. In practice, after any merge every other PR's review base is stale
+(`needs_review`), and `refresh_build` applies when the review is current but the build is not.
+Examples are builds from before the attestation formats, or runs whose workflow tooling differs
+from the PR's base.
+
+### Trusted refresh dispatch
+
+For `refresh_build`, an applying run (`--apply`, ready setup, verified executor, `merging` on)
+confirms the same evidence once more and then dispatches one
+[refresh](trusted-build.md#dispatched-refresh) of `pr-build.yml` on main. It uses the approved
+trusted workflow ID from `policy/merge-checks.toml`, with inputs `pr` and the exact `head`. It
+then moves on without waiting; the next scheduled run re-evaluates. Each PR gets at most one
+dispatch per run, and an unconfirmed dispatch is never retried in that run. A preview, or any run
+while switches are off, only reports `would dispatch refresh for #N`. Previews classify PRs
+read-only even while setup is not ready. Applying with switches off lists no work at all.
+
+The dispatch is gated by the existing `merging` switch, not a new `refreshing` switch. A refresh
+exists only to let a merge follow, and the same stop switch then halts both. A new policy field
+would also make every older CLI refuse the approved policy, because older CLIs parse an exact field
+set. The job token needs `actions: write` to dispatch; only the activation change grants it,
+together with `contents`/`pull-requests: write`.
+
 ### Classic profile
 
 The original classic profile is unchanged. It is read only once all controller IDs are
@@ -210,10 +262,10 @@ GitHub still enforces the formal approval, required checks and up-to-date rule o
 
 The writer receives the token privately; it is removed from the environment before any Git or
 reader child process runs, and its subprocess environment is minimal. It permits only a GET of its
-own ruleset view, the installation probe and the squash-merge PUT with an exact head SHA. It never
-calls `user`, because an installation token has no user. Reads use the same job token through the
-GET-only reader. No API response or error message includes token values; diagnostics give only the
-token's shape (below).
+own ruleset view and installation probe, a squash-merge PUT with an exact head SHA, and a
+`workflow_dispatch` POST of the approved trusted workflow on `main` for a PR number and exact
+head SHA. Reads use the same job token through the GET-only reader. Diagnostics report the
+token's shape (below) and omit its value.
 
 ### The read-only first run
 

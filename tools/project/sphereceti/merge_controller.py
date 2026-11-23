@@ -17,8 +17,10 @@ import subprocess
 
 from .auto_approval import auto_approval
 from .merge_activation import Activation, pages
+from .merge_checks import TOOLING_ATTESTATION
 from .merge_observation import Reader, pull
 from .review_records import RecordError
+from .worker_checks import SCOPE_FAILURE, STALE_TOOLING
 
 
 # Personal (classic and fine-grained), OAuth, user-to-server and refresh tokens. They are never
@@ -41,9 +43,8 @@ def token_shape(token):
 class Writer:
     """The job token, excluded from inherited reader/Git environments; one narrow PUT.
 
-    Besides the PUT it reads only GitHub's answer to whether it is an installation token for this
-    repository, and its own view of the ruleset's bypass status. It never calls `user`: an
-    installation token has no user, and a login would establish nothing.
+    It reads the installation probe and ruleset bypass status and may dispatch the approved
+    trusted workflow on main for one PR and head. An installation token has no user.
     """
     def __init__(self, repository, token):
         self.repository, self._token, self.view, self.identity = repository, token, None, None
@@ -87,19 +88,25 @@ class Writer:
         if not self._token: raise RecordError('the job token is unavailable to the controller')
         merge=re.fullmatch(re.escape(f'repos/{self.repository}/pulls/')+r'[1-9][0-9]*/merge',endpoint)
         ruleset=re.fullmatch(re.escape(f'repos/{self.repository}/rulesets/')+r'[1-9][0-9]*',endpoint)
+        dispatch=re.fullmatch(re.escape(f'repos/{self.repository}/actions/workflows/')+r'[1-9][0-9]*/dispatches',endpoint)
         read=ruleset or endpoint==INSTALLATION_PROBE
-        if not (merge and payload is not None) and not (read and payload is None):
+        if not ((merge or dispatch) and payload is not None) and not (read and payload is None):
             raise RecordError('unsupported merge-token operation')
-        if payload is not None and (set(payload)!={'sha','merge_method'} or not isinstance(payload['sha'],str) or
+        if merge and (set(payload)!={'sha','merge_method'} or not isinstance(payload['sha'],str) or
                 not re.fullmatch(r'[0-9a-f]{40}',payload['sha']) or payload['merge_method']!='squash'):
             raise RecordError('invalid expected-head merge request')
+        if dispatch and (set(payload)!={'ref','inputs'} or payload['ref']!='main' or not isinstance(payload['inputs'],dict) or
+                set(payload['inputs'])!={'pr','head'} or not re.fullmatch(r'[1-9][0-9]{0,8}',str(payload['inputs']['pr'])) or
+                not isinstance(payload['inputs']['head'],str) or not re.fullmatch(r'[0-9a-f]{40}',payload['inputs']['head'])):
+            raise RecordError('invalid trusted-refresh dispatch')
         command=['gh','api','--hostname','github.com',endpoint]
-        if payload is not None: command += ['--method','PUT','--input','-']
+        if payload is not None: command += ['--method','POST' if dispatch else 'PUT','--input','-']
         env={'PATH':os.environ.get('PATH',os.defpath),'GH_TOKEN':self._token,'GH_HOST':'github.com',
              'GH_PROMPT_DISABLED':'1'}
         try:
             response=self.run(command,payload,env)
             if response.returncode: raise RecordError('merge-token request failed; result is unconfirmed')
+            if dispatch and not response.stdout.strip(): return {}  # GitHub answers a dispatch with 204.
             return json.loads(response.stdout)
         except (OSError,subprocess.SubprocessError,ValueError) as error:
             raise RecordError('merge-token request failed; result is unconfirmed') from error
@@ -120,6 +127,13 @@ class Writer:
     def merge(self, number, head):
         if type(number) is not int or number<=0: raise RecordError('invalid PR number')
         return self.call(f'repos/{self.repository}/pulls/{number}/merge',{'sha':head,'merge_method':'squash'})
+
+    def dispatch_refresh(self, workflow_id, number, head):
+        """One workflow_dispatch of the approved trusted workflow on main, for one PR and exact head."""
+        if type(number) is not int or number<=0 or type(workflow_id) is not int or workflow_id<=0:
+            raise RecordError('invalid trusted-refresh dispatch')
+        return self.call(f'repos/{self.repository}/actions/workflows/{workflow_id}/dispatches',
+                         {'ref':'main','inputs':{'pr':str(number),'head':head}})
 
 
 @contextmanager
@@ -174,6 +188,61 @@ def formal_approval(reviews, author, head, approvers):
     return {'qualifying':qualifying,'reasons':reasons}
 
 
+# Failures that only a trusted run on current main resolves, when nothing else is wrong with the
+# PR: older tooling, a missing or older attestation, or an older attested or associated base.
+BUILD_STALE = {STALE_TOOLING, 'trusted-build does not attest its tooling commit; refresh the trusted run',
+               'trusted-build attests another PR or base', 'trusted run lacks the exact PR head/base association',
+               'trusted run PR association disagrees with the attested PR binding'}
+
+
+def classify(decision, approval):
+    """One action per candidate: merge, refresh_build, needs_review or blocked, with reasons.
+
+    The review's base is the PR `base.sha` its record binds (GitHub's value when the review ran);
+    the record also binds `diff_base`, the merge-base of that base and the head, which is the base
+    of the reviewed diff. GitHub's `base.sha` is a snapshot, not live: it does not follow main
+    (observed 2026-11-23, docs/infrastructure/merge-controller.md). So `commits/main` decides, and
+    a review is current only when it is accepted for the current head and its base and diff base
+    both equal current main.
+    """
+    req={r['id']:r for r in decision['requirements']}
+    passed=lambda name:req[name]['status']=='pass'
+    current,base,diff_base=decision['tooling'],decision['base'],decision.get('diff_base')
+    # Not on the automatic route at all (paths, policy, a hypothesis): neither stale nor refreshable.
+    if decision['hypothetical'] or not passed('paths') or not passed('policy'):
+        return 'blocked',decision['reasons'] or ['not an automatic-merge candidate']
+    review=[]
+    if not passed('official_review') or not passed('independent_reviewer'):
+        review.append('no accepted official review for the current head')
+    # Conservative: a moved base means a stale review, even when the PR diff looks unchanged.
+    # Accepting an older review because the diff is unchanged would be a separate, explicitly
+    # approved policy decision; nothing here infers it.
+    if base!=current:
+        review.append(f'the PR base {base[:12]} that a review binds is not current main {current[:12]}')
+    elif diff_base!=current:
+        review.append(f'the reviewed diff base {str(diff_base)[:12]} is not current main {current[:12]}; '
+                      'the PR must contain current main')
+    if review:
+        return 'needs_review',review
+    pr_reasons=req['pull_request']['evidence'].get('reasons') or []
+    checks=set(req['trusted_checks']['evidence'].get('reasons') or [])|set(req['compiled_audit']['evidence'].get('reasons') or [])
+    if checks:
+        stale=checks&BUILD_STALE
+        if 'trusted-build attests another PR or base' in checks:
+            build=(req['trusted_checks']['evidence'].get('statuses') or {}).get('trusted-build') or {}
+            attested=TOOLING_ATTESTATION.fullmatch(build.get('description') or '')
+            if not attested or not attested.group(2) or int(attested.group(2))!=decision['pr']:
+                stale=set()  # Another PR's binding is a misbinding, never staleness.
+        if not stale or not checks<=BUILD_STALE|{SCOPE_FAILURE}:
+            return 'blocked',decision['reasons']
+        if pr_reasons or approval['reasons']:
+            return 'blocked',pr_reasons+approval['reasons']+['the trusted build is also stale']
+        return 'refresh_build',sorted(checks)
+    if pr_reasons or approval['reasons'] or decision['would_approve'] is not True:
+        return 'blocked',decision['reasons']+approval['reasons']
+    return 'merge',[]
+
+
 class Backend:
     def __init__(self,args,project,writer):
         self.args,self.project,self.writer=args,project,writer
@@ -194,16 +263,19 @@ class Backend:
         reviews=pages(client.call(f'repos/{self.project.repository}/pulls/{number}/reviews?per_page=100',paginate=True),'review')
         approval=formal_approval(reviews,decision['author']['identity'],decision['head'],
                                  self.activation.policy.approving_reviewers)
-        eligible=decision['would_approve'] is True and decision['hypothetical'] is False and not approval['reasons']
-        return {'eligibility':'eligible' if eligible else 'blocked','head':decision['head'],'base':decision['base'],
-                'tooling':decision['tooling'],'reasons':decision['reasons']+approval['reasons'],
-                'approval':approval['qualifying'],'decision_digest':decision['evidence_digest']}
+        action,reasons=classify(decision,approval)
+        return {'eligibility':'eligible' if action=='merge' else 'blocked','action':action,'head':decision['head'],
+                'base':decision['base'],'diff_base':decision.get('diff_base'),'tooling':decision['tooling'],
+                'reasons':reasons,'approval':approval['qualifying'],'decision_digest':decision['evidence_digest']}
 
     def refresh(self):
         self.observer.revalidate()
         self.activation.refresh()
 
     def merge(self, number, head): return self.writer.merge(number,head)
+
+    def dispatch_refresh(self, number, head):
+        return self.writer.dispatch_refresh(self.activation.checks['workflow_id'],number,head)
 
     def queue(self):
         client=Reader(self.project.repository)
@@ -220,13 +292,19 @@ class Backend:
 
 
 def reconcile(backend, numbers, *, applying=False):
-    """At most one merge attempt per run; restart reconciliation always comes from live GitHub."""
+    """Per-PR actions; at most one merge and at most one trusted refresh per PR per run.
+
+    Applying needs ready setup, the `merging` switch and the verified executor before any work is
+    listed. A preview lists and classifies read-only even while switches are off, and only reports.
+    """
     setup=backend.setup(applying)
     result={'schema_version':1,'mode':'apply' if applying else 'preview','setup':setup,'results':[],
-            'merge_attempted':False}
-    if (setup.get('ready') is not True or setup.get('merging_requested') is not True or
-            (applying and setup.get('executor_verified') is not True)):
+            'merge_attempted':False,'refreshes_dispatched':[]}
+    enabled=(setup.get('ready') is True and setup.get('merging_requested') is True and
+             (not applying or setup.get('executor_verified') is True))
+    if applying and not enabled:
         result['state']='disabled';return result
+    dispatched=set()
     for number in numbers():
         pr=backend.state(number)
         if pr['merged'] is True or pr['state']=='closed':
@@ -234,10 +312,30 @@ def reconcile(backend, numbers, *, applying=False):
         if pr['draft'] is not False or pr.get('auto_merge') is not None:
             result['results'].append({'pr':number,'state':'human_managed'});continue
         first=backend.observation(number)
-        if first.get('eligibility')!='eligible':
-            result['results'].append({'pr':number,'state':first['eligibility'],'reasons':first['reasons']});continue
+        action=first.get('action')
+        if action=='refresh_build':
+            entry={'pr':number,'action':action,'head':first['head'],'reasons':first['reasons']}
+            if not applying or number in dispatched:
+                entry.update(state='would_dispatch_refresh',note=f'would dispatch refresh for #{number}')
+            else:
+                # The refresh is a write; confirm the same evidence once more, then dispatch exactly once.
+                second=backend.observation(number)
+                if second!=first:
+                    entry.update(state='changed',note='PR evidence changed before the refresh dispatch')
+                else:
+                    dispatched.add(number)
+                    try:
+                        backend.dispatch_refresh(number,first['head'])
+                        entry.update(state='refresh_dispatched',note=f'dispatched refresh for #{number}; '
+                                     'the next scheduled run re-evaluates')
+                        result['refreshes_dispatched'].append(number)
+                    except RecordError:
+                        entry.update(state='refresh_unconfirmed',note='the dispatch was not confirmed; not retried in this run')
+            result['results'].append(entry);continue
+        if action!='merge':
+            result['results'].append({'pr':number,'state':action,'action':action,'reasons':first['reasons']});continue
         if not applying:
-            result['results'].append({'pr':number,'state':'would_merge','head':first['head']});continue
+            result['results'].append({'pr':number,'state':'would_merge','action':action,'head':first['head']});continue
         fresh_setup=backend.setup(True)
         second=backend.observation(number)
         if (fresh_setup != setup or fresh_setup.get('ready') is not True or
@@ -260,7 +358,25 @@ def reconcile(backend, numbers, *, applying=False):
                                   'merge_commit':after.get('merge_commit_sha') if merged else None})
         result['state']='completed' if merged else 'unconfirmed'
         return result  # Base changed or outcome ambiguous: no next merge using the old snapshot.
-    result['state']='completed';return result
+    result['state']='completed' if enabled else 'disabled'
+    if not enabled: result['note']='switches are off or setup is not ready: actions are reported only'
+    return result
+
+
+def render(report):
+    """Text for merge-doctor / merge-control; the JSON carries the same facts."""
+    setup=report.get('setup',report)
+    lines=[f"setup: {'ready' if setup.get('ready') else 'not ready'}"]
+    lines+=['  - '+r for r in setup.get('reasons') or []]
+    if 'mode' in report:
+        lines.insert(0,f"merge-control ({report['mode']}): {report.get('state')}")
+        if report.get('note'): lines.append(report['note'])
+    for item in report.get('results') or ([report['candidate']] if report.get('candidate') else []):
+        text=f"#{item['pr']}: {item.get('state')}"
+        if item.get('note'): text+=f" ({item['note']})"
+        lines.append(text)
+        lines+=['    - '+r for r in item.get('reasons') or []]
+    return '\n'.join(lines)
 
 
 def run(args,project):
@@ -268,7 +384,15 @@ def run(args,project):
     writer=Writer(project.repository,os.environ.pop('SPHERECETI_MERGE_TOKEN',None))
     backend=Backend(args,project,writer)
     with local_lock(args.cache_dir):
-        if args.command=='merge-doctor': return backend.setup(False,verify_executor=args.executor)
+        if args.command=='merge-doctor':
+            report=backend.setup(False,verify_executor=args.executor)
+            if args.pr is not None:
+                # Read-only per-PR action for diagnosis; nothing is dispatched or merged.
+                if args.pr<=0: raise RecordError('PR number must be positive')
+                found=backend.observation(args.pr)
+                report['candidate']={'pr':args.pr,'state':found['action'],**{k:found[k] for k in ('action','head','base','reasons')}}
+                if found['action']=='refresh_build': report['candidate']['note']=f'would dispatch refresh for #{args.pr}'
+            return report
         if args.pr is not None and args.pr<=0: raise RecordError('PR number must be positive')
         return reconcile(backend,(lambda:[args.pr]) if args.pr is not None else backend.queue,applying=args.apply)
 
@@ -284,6 +408,7 @@ def add_parser(commands):
         if name=='merge-doctor':
             p.add_argument('--executor',action='store_true',
                            help='also verify this GitHub Actions run and its job token (the approved workflow passes it)')
+            p.add_argument('--pr',type=int,help='also report the read-only action for one PR')
         if name=='merge-control':
             group=p.add_mutually_exclusive_group(required=True)
             group.add_argument('--pr',type=int)

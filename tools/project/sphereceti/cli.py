@@ -78,7 +78,7 @@ def main(argv: list[str] | None = None) -> int:
     add_observer(commands)
     from .auto_approval import add_parser as add_auto_approval, auto_approval, render as render_auto_approval
     add_auto_approval(commands)
-    from .merge_controller import add_parser as add_controller, run as run_controller
+    from .merge_controller import add_parser as add_controller, render as render_controller, run as run_controller
     add_controller(commands)
     from .lifecycle_api import add_parser as add_maintenance, run as run_maintenance
     add_maintenance(commands)
@@ -150,7 +150,7 @@ def main(argv: list[str] | None = None) -> int:
                 TypeError, subprocess.SubprocessError) as error:
             reason = str(error) if isinstance(error, (RecordError, ConfigError, ReviewError)) else 'incomplete or unavailable controller evidence'
             parser.exit(2, f"sphereceti {args.command}: {reason}\n")
-        print(json.dumps(report, indent=2))
+        print(json.dumps(report, indent=2) if args.json else render_controller(report))
         return 2 if report.get('state') == 'unconfirmed' else 0
     if args.command == 'maintenance':
         try:

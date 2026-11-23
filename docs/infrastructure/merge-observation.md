@@ -108,7 +108,28 @@ association, when GitHub reports one for this PR, must agree. The older descript
 `pr`/`base` remains accepted only together with the exact association, so same-repository PRs
 keep working until their trusted run is refreshed; fork PRs need a refreshed run. A status on the
 same commit attesting another PR number is refused for this PR. Incomplete API fields fail
-closed. A rerun cannot reuse statuses from an earlier attempt. The latest run
+closed. A rerun cannot reuse statuses from an earlier attempt.
+
+**Dispatched refresh.** `pr-build.yml` also accepts `workflow_dispatch` on main with inputs `pr` and
+`head`, to rebuild one PR head with main's tooling
+([trusted build](trusted-build.md#dispatched-refresh)). It attests
+`Approved tooling refresh: <result>; tooling <workflow_sha>; pr <number>; base <sha>`. Readers
+older than this format do not match it, so they fail closed. A refresh run is accepted as an
+alternative to `pull_request_target` only when all of these hold:
+- the event is `workflow_dispatch`, from the approved workflow ID and path;
+- the run completed successfully, and its `head_branch` is `main`;
+- its `head_sha` is the dispatched main commit, which must equal the attested tooling and current
+  approved main;
+- its run-name (`display_title`) is exactly `refresh #<pr> at <head>` for this PR and exact head;
+- the statuses live on that head commit, from the approved producer, published in that attempt's
+  status job;
+- the attested PR number and base equal the PR's number and base now.
+
+The refresh attestation is refused on a `pull_request_target` run, and the build attestation on
+a dispatched run. A dispatched run's `head_repository` is the base repository, so the exact head
+SHA, not a repository, binds its candidate. GitHub does not expose a fork head's push time. The
+run's own race guard stands in for "created after the head's latest push": the workflow read
+the PR at start and again before publishing, and found this head and base both times. The latest run
 must use the exact current tooling revision; unrelated main advancement conservatively requires
 fresh base/build validation even if #11 can reuse unchanged review context.
 
