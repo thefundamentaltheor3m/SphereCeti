@@ -14,6 +14,7 @@ public import SphereCeti.CohnElkies.Certificate
 public import SphereCeti.CohnElkies.StructureFactor
 public import SphereCeti.Contour.HalfInfiniteRectangle
 public import SphereCeti.Lattice.IntegralPresentation
+public import SphereCeti.ZLattice.DualPhase
 public import SphereCeti.ZLattice.RelativeQuotient
 
 /-!
