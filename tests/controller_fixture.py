@@ -27,7 +27,8 @@ class ControllerFixture(MergeFixture):
             'else:raise AssertionError(endpoint)')
         fake.write_text(source)
         self.env['SPHERECETI_MERGE_TOKEN']='must-not-reach-reader-or-git'
-        (self.foreign/'policy/merge-controller.toml').write_text('workflow_id=999\nbot_user_id=7\nchecks_app_id=9\n')
+        for key in [k for k in self.env if k.startswith('GITHUB_')]:del self.env[key]  # Hermetic even under CI.
+        (self.foreign/'policy/merge-controller.toml').write_text('workflow_id=999\nchecks_app_id=9\n')
 
     def command(self,executable=None,*,output='ignored',extra=()):
         launcher=[str(executable)] if executable else [sys.executable,'-c',
@@ -49,11 +50,19 @@ def installed_controller_smoke(executable,root):
         assert (protection['source'],protection['ruleset_id'])==('ruleset',21449770)
         assert 'human-reviewed policy and dependency PRs can land with an approval and a passing build' in protection['verified']
         assert protection['missing']==[
-            'ruleset 21449770 bypass actors are not visible to this reader; an administration-read token must confirm them',
             'build is required from integration 15368, but checks_app_id is unconfigured',
             'strict_required_status_checks_policy is false: GitHub would accept a merge after main advances '
             'past the base the executor verified (humans can still update a branch and merge)'],protection
         assert all(r in setup['reasons'] for r in protection['missing']+setup['automatic_path']['missing'])
+        executor=setup['executor']
+        if command[-1]=='--apply':
+            # Outside Actions the job token is absent: no run read, no view read, and every gap is reported.
+            assert executor['context']=='github_actions' and executor['token_view']=='not read',executor
+            assert 'missing exact workflow run/attempt' in executor['missing'] and setup['executor_verified'] is False
+        else:
+            assert executor['context']=='local' and executor['stand_in']['reader_current_user_can_bypass']=='never'
+            assert ('executor not verified: run `merge-doctor --executor` in the approved workflow, '
+                    'where the job token is available') in setup['reasons']
         if command[0]=='merge-control':assert value['state']=='disabled' and value['merge_attempted'] is False
     assert not f.calls()
     # Main, branch summary, rules, ruleset list/detail and repository, each refreshed; no work listing.
