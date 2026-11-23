@@ -102,7 +102,8 @@ reviewer's comment, publishes the old TauCeti scoreboard marker, or runs a model
 publication. Before a write, an exact unedited authorized record can be adopted after an
 ambiguous earlier POST. Independent machines can still produce cosmetic duplicates; the
 same content ID does not reset contests or change the decision. Local artifacts survive a
-publication failure. The [archive adapter](review-archive.md) queues metadata before posting and synchronizes its
+publication failure, and [`review-publish`](local-review.md#publishing-a-saved-run) can publish that saved
+record later without running inference again. The [archive adapter](review-archive.md) queues metadata before posting and synchronizes its
 immutable outbox separately; archive failure does not undo a review comment.
 
 ## Replacement reviews and contests

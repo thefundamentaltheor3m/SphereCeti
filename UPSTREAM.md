@@ -312,6 +312,21 @@ closure-continuity hypotheses separately.
   packing into the quotient of the generated lattice by the period lattice.
 
 - [ ] **Fallback:** the local SphereCeti declarations.
+
+### A18. Positivity at the origin from a nonnegative Fourier transform
+
+- [ ] **Destination:** Mathlib `Mathlib/Analysis/Distribution/SchwartzSpace/Fourier.lean`, beside
+  the Schwartz Fourier inversion `FourierPair.fourierInv_fourier_eq`.
+- [ ] **Current source:** `SphereCeti/Analysis/Distribution/SchwartzSpace/FourierPositivity.lean`.
+- [ ] **Candidate declaration:** a Schwartz function on a finite-dimensional real inner product
+  space whose Fourier transform has nonnegative real part, positive at some point, has positive
+  real part at the origin (`SchwartzMap.re_apply_zero_pos_of_fourier_nonneg`).
+- [ ] **Why general:** it uses only Fourier inversion and positivity of integrals; nothing refers
+  to packings.
+- [ ] **SphereCeti use:** positivity of `f(0)` and of the density bound of a Cohn–Elkies
+  certificate.
+- [ ] **Fallback:** the local declaration in the root `SchwartzMap` namespace.
+
 - [ ] **Upstream test:** no project import remains in a minimal reproduction.
 
 ## B. TauCeti IntegralLattices roadmap extensions

@@ -62,6 +62,62 @@ explicit form; `--post --no-post` is a usage error (exit 2).
 
 The worker (`worker run --execute`) is unchanged: it posts only with `--post-review`.
 
+## Publishing a saved run
+
+A review that finished but was not posted keeps its exact record in the run directory
+(`record.md`, with `record.json` and `result.json` beside it). The record may be unposted because
+the POST was interrupted, the network failed, policy was unavailable or disabled, or the review ran
+with `--no-post`. Publish it later without spending provider usage again:
+
+```bash
+sphereceti review-publish 0123456789abcdef0123456789abcdef   # run id under the review storage
+sphereceti review-publish /path/to/run-directory             # for example an --output directory
+sphereceti review-publish --latest 53                        # the newest saved run for PR #53
+```
+
+`--latest` takes only the newest saved run for that PR. If that run is ineligible, the command
+says why. It never falls back to an older run. `--source-repo` and `--dependencies-dir` work as
+for `review`. `--json` prints `schema: sphereceti.review-publish/v1` with `state` (`published`,
+`already_published`, `unconfirmed` or `refused`) and, when refused, the list of `reasons`.
+
+The command never starts the engine or a provider. In order, it:
+
+1. **Loads the saved run** and checks that `record.md`, `record.json` and `result.json` agree,
+   as archive capture does. It publishes those exact bytes. A record saved by an earlier renderer
+   stays valid, because readers hash the published text.
+2. **Checks eligibility.** Only a run that `review --post` could have published is eligible:
+   - a live GitHub review against approved main (not `--local-sources`, not a prospective `--tooling`);
+   - commit or manual mode (shadow and reply runs never publish);
+   - complete or partial completion (an errored run has nothing to publish);
+   - no local reply inputs (`--replies-json` or `--reply-file`). Such inputs are untrusted text,
+     and the record's contest watermarks must not claim to have answered a GitHub contest from
+     them. A run saved before contest provenance was recorded is refused only when it carries
+     nonzero watermarks.
+
+   A daily budget stop keeps the run local, even with `--post`. The CLI saves any completed
+   findings and explains why it skipped publication. Run the review again when budget is available.
+   Other eligible partial runs can publish an advisory record. A run that was
+   already confirmed on GitHub is never published again, even if that comment was deleted.
+3. **Checks the identity.** It reads the `gh` identity. A posting run records the identity that
+   was about to post, and a publication attempt records the identity it used. A different
+   identity is refused. A `--no-post` run is published under the identity that runs this command.
+4. **Reconciles with GitHub.** If a comment by this identity already carries this record (same
+   body, hence the same record ID), it reports `Already published: <URL>` and writes nothing.
+5. **Revalidates** as `review --post` does immediately before its POST. The PR must still be
+   open with the same head and base. A moved head means the saved run reviews an older head and
+   cannot be published as current: run a new review. The command also materializes approved main
+   again and requires every bound digest to match: dependencies, engine, effective rubrics,
+   installed tooling, policy, review context and PR description. Whether the installed tooling
+   matches T must be unchanged. The run's T must be an ancestor of approved main, and approved
+   main's policy must still set `posting = true`. Every failed check is listed.
+6. **Publishes once** through the same publisher as `review --post`. That means confirmed
+   readback and the API identity receipt. The local archive entry is captured idempotently. The
+   receipt is saved in `result.json`. A POST whose outcome is unknown is reported as `unconfirmed`
+   and never retried. Run the same command again: it finds the comment if GitHub created it, and
+   posts only if GitHub did not.
+
+The command exits 0 when the record is published or already on the PR, and 2 otherwise.
+
 ## Choosing what to review
 
 `sphereceti review` without a number selects one PR, prints one line explaining the choice,
@@ -71,13 +127,24 @@ rerun. Selection reuses the worker's read-only `survey` and `plan`; it never wri
 
 **Eligible PRs** are open PRs the planner offers for `review-assessment`: not a draft,
 mergeable, and with passing review readiness (CI passed, or the authenticated human-review
-scope exception with main-only skipped jobs). Then it skips:
+scope exception with main-only skipped jobs). For review readiness only, that exception also
+accepts a trusted run on the **same PR head** whose attested tooling, and the PR's recorded base,
+are older approved main commits: equal to or ancestors of current main, checked with GitHub's
+compare API (an unknown or diverged commit is not ready). Every producer, workflow, run,
+attempt, job, head and association check still applies. A review runs with current tooling T and
+binds T itself, so the trusted run's tooling does not change the review's authority. Approval
+and merging keep exact current evidence: the shared assessor (`merge_checks`, used by
+`auto-approve-check` and merging) still requires the attested tooling and the base to equal
+current main. Such a PR carries the note `trusted build predates main; refresh to merge`, as
+information only. Then it skips:
 
 | Code | Reason |
 |---|---|
 | `yours` | You authored it (author login equals the authenticated `gh` user, case-insensitively). |
 | `draft` | Draft PR. |
-| `not_ready` | Conflicting, unknown mergeability, or CI failed, pending or unknown. |
+| `not_ready` | Conflicting, unknown mergeability, or CI failed. |
+| `awaiting_ci` | CI is pending or unknown. |
+| `awaiting_refresh` | Only a fresh trusted run is missing (a build from before tooling attestation). |
 | `reviewed` | It already has an accepted review of this head (below). |
 | `reviewed_by_you` | You already published or produced a complete review of this head. |
 
@@ -92,7 +159,9 @@ scope exception with main-only skipped jobs). Then it skips:
 - **Reviewed by you:** a complete commit/manual record for this head and base that you posted
   (comment author login equals yours, advisory or not), or that you produced locally: a
   `record.json` under your storage's `runs/`, or a record in the local archive journal, which
-  also covers runs with `--output`. Dry runs, partial and errored runs do not count.
+  also covers runs with `--output`. Dry runs, partial and errored runs do not count. A local
+  record that was never posted is published with
+  [`review-publish`](#publishing-a-saved-run), not by reviewing again.
 
 **Priority** comes from the planner. Every eligible PR is at the `review-assessment` stage, so
 they tie, and the planner's tie-break decides: **longest waiting first**, by the PR's GitHub
@@ -108,7 +177,10 @@ Reviewing #50 (head 8cdec1b): ready, not yours, no current review; waiting 3h; w
 
 `Previewing` replaces `Reviewing` under `--dry-run`, which ends `; nothing will be posted.`
 `--no-post` ends `; will not post (--no-post).` and an explicit `--post` ends `; will post.`
-`ready (human-review scope)` marks the scope exception. Waiting is rounded down to `<1m`,
+`ready (human-review scope)` marks the scope exception, and
+`ready (human-review scope; trusted build predates main; refresh to merge)` an older trusted run.
+A PR skipped for another reason keeps that note beside its reason, e.g. `is yours (trusted build
+predates main; refresh to merge)`. Waiting is rounded down to `<1m`,
 minutes, hours or days. The result then lists the ten rubric verdicts, the record path
 (`record.md`, with `record.json` beside it), the local archive entry, and whether and where the
 record was posted.
@@ -116,7 +188,14 @@ record was posted.
 When nothing qualifies, the command prints why and **exits 0**:
 
 ```text
-No PRs need your review: #53 is not ready (CI pending); #51 is yours; #50 is yours.
+No PRs need your review: #53 is not ready (CI failed); #51 is yours; #50 is yours.
+```
+
+When some PRs only await current evidence, the answer summarizes them instead of listing each,
+so stale evidence is not mistaken for an empty queue; real failures stay listed:
+
+```text
+No PR is ready with current evidence: 20 open PRs await a refreshed trusted build (main moved to 5db3655); 2 open PRs await CI; 3 are yours; #41 is not ready (CI failed).
 ```
 
 An unknown queue (GitHub unavailable, more than 100 open PRs, unreadable review records) is
@@ -127,8 +206,8 @@ inputs, `--head`/`--base`/`--description-file`) need an explicit number.
 `--json` prints `schema: sphereceti.review-selection/v1` with `state` (`selected` or
 `nothing_to_review`), `actor`, `observed_at`, `priority`, `waiting_since: updatedAt`,
 `selected` (PR, title, author, head, base, `updated_at`, `waiting_seconds`, `ci`,
-`review_ci`), the ordered eligible `candidates`, `skipped` entries (`pr`, `head`, `code`,
-`reason`), the `rationale` line, the `posting` note, and the full `review` report
+`review_ci`, `note`), the ordered eligible `candidates`, `skipped` entries (`pr`, `head`, `code`,
+`reason`, `note`), `main` (current main, when some PR awaits a refresh), the `rationale` line, the `posting` note, and the full `review` report
 (`null` when nothing was selected).
 
 `--auth api` uses the selected provider's API credential instead.
@@ -151,6 +230,49 @@ sphereceti review 9 --dry-run --local-sources --source-repo . \
 `--local-sources` disables GitHub queries and fetching, not an explicitly requested provider
 call. Combine it with `--dry-run` to make no inference calls. Local references and an explicit
 prospective `--tooling` override cannot establish that context was approved on GitHub.
+
+## What the terminal says
+
+Before any provider call (after the exact evidence is prepared), `review N` and bare `review`
+print one plan line with the PR, short head and base, each selected provider with its effective
+model after defaults (from the packaged engine's pricing table, or `--codex-model` /
+`--claude-model` / `--kiro-model`), and whether the result will post:
+
+```text
+Review #54: head 8cdec1b, base 5db3655 · codex gpt-5.6-sol (falls back to gpt-5.6-terra) · will post
+```
+
+The posting part is `will post`, `will not post (--no-post)`, `will not post (approved policy
+disables posting)`, or `dry run: no model call, nothing posted`.
+
+At the end it prints one summary line and a concrete next action:
+
+```text
+10/10 approve · posted https://github.com/thefundamentaltheor3m/SphereCeti/pull/54#issuecomment-1 · official
+4/10 reviewed · stopped: blocked on attribution · posted <URL> · advisory
+Next: author: address attribution (see record); rerun after the head changes
+```
+
+- **Counts:** rubrics with a verdict on this head out of those requested; `approve` when all of
+  them approve, else `reviewed`. A review that stops early names the first blocking rubric and
+  the stop reason from the run's receipt: `usage unknown` (the engine's usage stop), `provider
+  unavailable (not authenticated|quota exhausted|rate limited)` from the archived attempts'
+  error kinds, `provider failed to start` (every rubric ended without a verdict and without the
+  model touching a file), `blocked on <rubric>`, an engine error, or `budget or round limit
+  reached`. A complete review with requested changes says `changes requested: <rubrics>`.
+- **Posting:** `posted <URL> · official` (an authorized reviewer's record) or `· advisory`,
+  `not posted: <reason>`, or `publication interrupted`.
+- **Next action:** `author: address <rubric> (see record); rerun after the head changes`;
+  ``run `sphereceti review-check-sandbox --compare-path --compare-tmpdir` `` after a provider
+  startup failure; sign in again, wait for the usage window, or rerun later for a provider that
+  is down; ``publication was interrupted; run `sphereceti review-publish RUN` `` (RUN is the run id
+  under the operator store, or the run directory for an `--output` run, as `sphereceti review-publish`
+  takes it); `rerun without --no-post to publish
+  the record`; `run again without --dry-run to review`; or `none: every rubric approves`.
+
+`--json` carries the same as `plan` (`line`, `pr`, `head`, `base`, `providers`, `models`,
+`posting`) and `summary` (`line`, `reviewed`, `total`, `first_blocking`, `stop`, `posted`,
+`official`, `next_action`); bare `review` adds both at the top level of its selection report.
 
 ## Evidence and authority
 
