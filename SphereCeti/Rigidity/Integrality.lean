@@ -9,23 +9,18 @@ module
 public import SphereCeti.Lattice.Generated
 
 /-!
-# Integrality in the rigidity argument
+# Integral inner products from even squared distances
 
-Two facts about integral lattices used in the uniqueness argument of Cohn and Elkies.
-
-* If every squared distance between two points of a set `X` is an even integer, then after
-  translating any point `x₀` of `X` to the origin, every inner product `⟪x - x₀, y - x₀⟫` of two
-  translated points is an integer.  This is polarization, applied to the translated set, which
-  contains `0`.
-* An integral full lattice has covolume at least one: its squared covolume is its determinant,
-  a positive integer.
+If every squared distance between two points of a set `X` is an even integer, then after
+translating any point `x₀` of `X` to the origin, every inner product `⟪x - x₀, y - x₀⟫` of two
+translated points is an integer.  This is polarization, applied to the translated set, which
+contains `0`.  In the uniqueness argument of Cohn and Elkies it makes the translated centers of an
+optimal periodic packing span an integral lattice.
 
 ## Main statements
 
 * `SphereCeti.Rigidity.integral_inner_of_even_distanceSpectrum`: integral inner products after
   translation.
-* `SphereCeti.Rigidity.one_le_covolume_of_isIntegral`: an integral full lattice has covolume at
-  least one.
 
 ## References
 
@@ -35,7 +30,6 @@ Two facts about integral lattices used in the uniqueness argument of Cohn and El
 
 public section
 
-open MeasureTheory
 open scoped InnerProductSpace
 
 namespace SphereCeti.Rigidity
@@ -54,14 +48,5 @@ theorem integral_inner_of_even_distanceSpectrum (X : Set E) (x₀ : E) (hx₀ : 
     simpa using heven x hx y hy
   intro x hx y hy
   exact EuclideanLattice.isIntegral_span_iff.mp hS.isIntegral _ ⟨x, hx, rfl⟩ _ ⟨y, hy, rfl⟩
-
-/-- An integral full lattice has covolume at least one: its squared covolume is its determinant,
-which is at least one. -/
-theorem one_le_covolume_of_isIntegral [FiniteDimensional ℝ E] [MeasurableSpace E] [BorelSpace E]
-    {Λ : Submodule ℤ E} [DiscreteTopology Λ] [IsZLattice ℝ Λ] (h : ZLattice.IsIntegral Λ) :
-    1 ≤ ZLattice.covolume Λ := by
-  have hdet := h.one_le_det
-  rw [ZLattice.det_def] at hdet
-  nlinarith [ZLattice.covolume_pos Λ volume]
 
 end SphereCeti.Rigidity
