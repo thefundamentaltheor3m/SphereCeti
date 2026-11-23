@@ -34,7 +34,7 @@ def evidence():
                  'target_url':f'https://github.com/{REPO}/actions/runs/100/attempts/1',
                  'created_at':'2026-09-12T10:01:00Z'} for i,name in enumerate(('trusted-build','trusted-scope'),1)]
     run = {'id':100,'run_attempt':1,'workflow_id':71,'path':WORKFLOW,'event':'pull_request_target',
-           'status':'completed','conclusion':'success','head_sha':context['tooling'],
+           'status':'completed','conclusion':'success','head_sha':context['head'],
            'repository':{'full_name':REPO},'pull_requests':[{'number':1,'head':pr['head'],'base':pr['base']}]}
     jobs = [{'id':i,'name':name,'run_id':100,'run_attempt':1,'status':'completed','conclusion':'success',
              'started_at':'2026-09-12T10:00:00Z','completed_at':'2026-09-12T10:02:00Z'}
@@ -125,6 +125,14 @@ class DecisionTests(unittest.TestCase):
         self.statuses=[];self.assertEqual(self.decision()['eligibility'],'blocked')
         self.statuses=[{'id':1,'context':'x'}]*2
         with self.assertRaises(RecordError):self.decision()
+
+    def test_trusted_run_binds_tooling_through_the_pr_base(self):
+        # A pull_request_target run reports the PR head as head_sha; the tooling is the PR base.
+        self.assertEqual(self.run['head_sha'], self.context['head'])
+        original = deepcopy(self.run)
+        self.run = {**original, 'head_sha': self.context['tooling']}
+        self.assertEqual(self.decision()['eligibility'], 'blocked')
+        self.run = original
 
     def test_foreign_untrusted_workflow_rerun_or_failed_job_is_rejected(self):
         original=deepcopy(self.run)
