@@ -46,7 +46,7 @@ theorem covolume_eq_one_and_relIndex_eq {E : Type*} [NormedAddCommGroup E]
     (hcov : ZLattice.covolume L = N) (hN : N ≤ L.toAddSubgroup.relIndex Γ.toAddSubgroup) :
     ZLattice.covolume Γ = 1 ∧ L.toAddSubgroup.relIndex Γ.toAddSubgroup = N := by
   have hindex := ZLattice.covolume_div_covolume_eq_relIndex' L Γ hle
-  have hΓ1 := one_le_covolume_of_isIntegral hΓ
+  have hΓ1 := hΓ.one_le_covolume
   have hNpos : (0 : ℝ) < N := hcov ▸ ZLattice.covolume_pos L volume
   -- The index `covol(L) / covol(Γ) = N / covol(Γ)` is at most `N`, as `covol(Γ) ≥ 1`, and at
   -- least `N` by hypothesis.
