@@ -22,8 +22,21 @@ uv run --locked sphereceti review 9 --provider codex --budget-usd 5 \
 
 The same commands work with an installed `sphereceti` executable outside the checkout.
 `--operator-config preferences.toml` accepts the existing provider, budget, and storage
-preferences. A real review requires an explicit provider and positive budget; the default
-preferences spend nothing. `--auth api` uses the selected provider's API credential instead.
+preferences. For local subscription reviews you can set a budget once. Create
+`~/.config/sphereceti/operator.toml` with your chosen values, for example:
+
+```toml
+provider = "codex"
+budget_usd = 5
+```
+
+Then `sphereceti review 9` uses those preferences. The budget is a daily estimate threshold,
+checked before each rubric with a default $1 reservation. Actual usage can exceed the threshold.
+An explicit `--operator-config` replaces the default file and command-line flags take precedence.
+With no configured budget the default is zero. Worker execution, posting, API authentication
+and shadow runs require their own explicit flags or operator config.
+
+`--auth api` uses the selected provider's API credential instead.
 Supported providers are the imported engine's Claude, Sonnet, Codex, Kiro, DeepSeek, MiniMax,
 and Grok adapters. Tests invoke only a fake executable, never these services.
 

@@ -113,6 +113,11 @@ def main(argv: list[str] | None = None) -> int:
         policy = parse_policy(resource_text("automation.toml"))
         sources = parse_source_lock(resource_text("upstream-lock.toml"))
         operator_path = getattr(args, "operator_config", None)
+        if (operator_path is None and args.command == "review" and args.auth == "subscription"
+                and not args.post and not args.shadow):
+            default_path = Path.home() / ".config/sphereceti/operator.toml"
+            if default_path.is_file():
+                operator_path = default_path
         preferences = parse_operator(operator_path.read_text() if operator_path else "")
     except (ConfigError, OSError, tomllib.TOMLDecodeError) as error:
         parser.exit(2, f"sphereceti: configuration error: {error}\n")
