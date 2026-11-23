@@ -60,7 +60,8 @@ def gh_pr(number=1, **updates):
     result = dict(number=number, title='Change', author={'login': 'alice'}, headRefOid='a'*40,
                   baseRefOid='b'*40, updatedAt='2020-01-01T00:00:00Z', state='OPEN', isDraft=False,
                   mergeable='MERGEABLE', statusCheckRollup=[{'__typename': 'CheckRun',
-                  'status': 'COMPLETED', 'conclusion': 'SUCCESS'}])
+                  'status': 'COMPLETED', 'conclusion': 'SUCCESS'}],
+                  headRepository={'nameWithOwner': PROJECT.repository})
     result.update(updates)
     return result
 

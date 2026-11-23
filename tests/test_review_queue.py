@@ -423,7 +423,8 @@ class QueueCliTest(unittest.TestCase):
         item = dict(number=47, title='Change 47', author={'login': 'bob'}, headRefOid=self.fixture.head,
                     baseRefOid=self.fixture.tooling, updatedAt='2026-01-01T00:00:00Z', state='OPEN',
                     isDraft=False, mergeable='MERGEABLE',
-                    statusCheckRollup=[{'__typename': 'CheckRun', 'status': 'COMPLETED', 'conclusion': 'SUCCESS'}])
+                    statusCheckRollup=[{'__typename': 'CheckRun', 'status': 'COMPLETED', 'conclusion': 'SUCCESS'}],
+                    headRepository={'nameWithOwner': REPO})
         self.table = {'user': {'login': ME}, 'pr list': [item], 'poster_id': 7, 'accept_posts': False}
         (self.fixture.bin / 'gh.json').write_text(json.dumps(self.table))
 
