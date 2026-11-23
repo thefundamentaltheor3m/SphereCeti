@@ -125,13 +125,24 @@ rerun. Selection reuses the worker's read-only `survey` and `plan`; it never wri
 
 **Eligible PRs** are open PRs the planner offers for `review-assessment`: not a draft,
 mergeable, and with passing review readiness (CI passed, or the authenticated human-review
-scope exception with main-only skipped jobs). Then it skips:
+scope exception with main-only skipped jobs). For review readiness only, that exception also
+accepts a trusted run on the **same PR head** whose attested tooling, and the PR's recorded base,
+are older approved main commits: equal to or ancestors of current main, checked with GitHub's
+compare API (an unknown or diverged commit is not ready). Every producer, workflow, run,
+attempt, job, head and association check still applies. A review runs with current tooling T and
+binds T itself, so the trusted run's tooling does not change the review's authority. Approval
+and merging keep exact current evidence: the shared assessor (`merge_checks`, used by
+`auto-approve-check` and merging) still requires the attested tooling and the base to equal
+current main. Such a PR carries the note `trusted build predates main; refresh to merge`, as
+information only. Then it skips:
 
 | Code | Reason |
 |---|---|
 | `yours` | You authored it (author login equals the authenticated `gh` user, case-insensitively). |
 | `draft` | Draft PR. |
-| `not_ready` | Conflicting, unknown mergeability, or CI failed, pending or unknown. |
+| `not_ready` | Conflicting, unknown mergeability, or CI failed. |
+| `awaiting_ci` | CI is pending or unknown. |
+| `awaiting_refresh` | Only a fresh trusted run is missing (a build from before tooling attestation). |
 | `reviewed` | It already has an accepted review of this head (below). |
 | `reviewed_by_you` | You already published or produced a complete review of this head. |
 
@@ -164,7 +175,10 @@ Reviewing #50 (head 8cdec1b): ready, not yours, no current review; waiting 3h; w
 
 `Previewing` replaces `Reviewing` under `--dry-run`, which ends `; nothing will be posted.`
 `--no-post` ends `; will not post (--no-post).` and an explicit `--post` ends `; will post.`
-`ready (human-review scope)` marks the scope exception. Waiting is rounded down to `<1m`,
+`ready (human-review scope)` marks the scope exception, and
+`ready (human-review scope; trusted build predates main; refresh to merge)` an older trusted run.
+A PR skipped for another reason keeps that note beside its reason, e.g. `is yours (trusted build
+predates main; refresh to merge)`. Waiting is rounded down to `<1m`,
 minutes, hours or days. The result then lists the ten rubric verdicts, the record path
 (`record.md`, with `record.json` beside it), the local archive entry, and whether and where the
 record was posted.
@@ -172,7 +186,14 @@ record was posted.
 When nothing qualifies, the command prints why and **exits 0**:
 
 ```text
-No PRs need your review: #53 is not ready (CI pending); #51 is yours; #50 is yours.
+No PRs need your review: #53 is not ready (CI failed); #51 is yours; #50 is yours.
+```
+
+When some PRs only await current evidence, the answer summarizes them instead of listing each,
+so stale evidence is not mistaken for an empty queue; real failures stay listed:
+
+```text
+No PR is ready with current evidence: 20 open PRs await a refreshed trusted build (main moved to 5db3655); 2 open PRs await CI; 3 are yours; #41 is not ready (CI failed).
 ```
 
 An unknown queue (GitHub unavailable, more than 100 open PRs, unreadable review records) is
@@ -183,8 +204,8 @@ inputs, `--head`/`--base`/`--description-file`) need an explicit number.
 `--json` prints `schema: sphereceti.review-selection/v1` with `state` (`selected` or
 `nothing_to_review`), `actor`, `observed_at`, `priority`, `waiting_since: updatedAt`,
 `selected` (PR, title, author, head, base, `updated_at`, `waiting_seconds`, `ci`,
-`review_ci`), the ordered eligible `candidates`, `skipped` entries (`pr`, `head`, `code`,
-`reason`), the `rationale` line, the `posting` note, and the full `review` report
+`review_ci`, `note`), the ordered eligible `candidates`, `skipped` entries (`pr`, `head`, `code`,
+`reason`, `note`), `main` (current main, when some PR awaits a refresh), the `rationale` line, the `posting` note, and the full `review` report
 (`null` when nothing was selected).
 
 `--auth api` uses the selected provider's API credential instead.
