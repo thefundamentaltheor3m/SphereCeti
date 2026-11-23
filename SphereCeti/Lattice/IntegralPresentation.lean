@@ -152,20 +152,6 @@ theorem isIntegral_real (P : IntegralPresentation Λ) : ZLattice.IsIntegral Λ :
   refine Finset.sum_congr rfl fun i _ ↦ Finset.sum_congr rfl fun j _ ↦ ?_
   ring
 
-/-- TauCeti's standard basis `ofGramMatrix.basis` of the lattice in Gram coordinates, typed as a
-basis of `P.toIntegralLattice` so that its vectors can be rewritten in that lattice. -/
-private noncomputable def gramBasis (P : IntegralPresentation Λ) :
-    Basis (Fin d) ℤ P.toIntegralLattice :=
-  TauCeti.IntegralLattice.ofGramMatrix.basis (Pi.basisFun ℚ (Fin d)) P.gram P.gram_isSymm
-
-private theorem coe_gramBasis (P : IntegralPresentation Λ) (i : Fin d) :
-    (P.gramBasis i : Fin d → ℚ) = Pi.single i 1 :=
-  (TauCeti.IntegralLattice.ofGramMatrix.coe_basis _ _ _ i).trans (Pi.basisFun_apply ℚ (Fin d) i)
-
-private theorem gramMatrix_gramBasis (P : IntegralPresentation Λ) :
-    P.toIntegralLattice.gramMatrix P.gramBasis = P.gram :=
-  TauCeti.IntegralLattice.gramMatrix_ofGramMatrix _ _ _
-
 variable [DiscreteTopology Λ] [IsZLattice ℝ Λ]
 
 /-- The presentation basis, carried into the rational model, has Gram matrix `P.gram`. -/
@@ -180,17 +166,23 @@ private theorem gramMatrix_ratModel (P : IntegralPresentation Λ) :
 of `Λ` that sends the `i`-th standard basis vector to `1 ⊗ bᵢ` (`ratModelIsometry_single`). -/
 noncomputable def ratModelIsometry (P : IntegralPresentation Λ) :
     TauCeti.IntegralLattice.Isometry P.toIntegralLattice (ZLattice.ratModel P.isIntegral_real) :=
-  TauCeti.IntegralLattice.Isometry.ofGramMatrixEq P.gramBasis
+  TauCeti.IntegralLattice.Isometry.ofGramMatrixEq
+    (TauCeti.IntegralLattice.ofGramMatrix.basis (Pi.basisFun ℚ (Fin d)) P.gram P.gram_isSymm)
     (P.basis.map (ZLattice.ratModelCarrierEquiv P.isIntegral_real))
-    (P.gramMatrix_gramBasis.trans P.gramMatrix_ratModel.symm)
+    ((TauCeti.IntegralLattice.gramMatrix_ofGramMatrix _ _ _).trans P.gramMatrix_ratModel.symm)
 
 /-- The isometry `ratModelIsometry` sends the `i`-th standard basis vector to `1 ⊗ bᵢ`. -/
 @[simp]
 theorem ratModelIsometry_single (P : IntegralPresentation Λ) (i : Fin d) :
     P.ratModelIsometry (Pi.single i 1) = (1 : ℚ) ⊗ₜ[ℤ] P.basis i := by
-  rw [← P.coe_gramBasis i, ratModelIsometry,
-    TauCeti.IntegralLattice.Isometry.ofGramMatrixEq_apply_basis]
-  simp
+  have h := TauCeti.IntegralLattice.Isometry.ofGramMatrixEq_apply_basis
+    (TauCeti.IntegralLattice.ofGramMatrix.basis (Pi.basisFun ℚ (Fin d)) P.gram P.gram_isSymm)
+    (P.basis.map (ZLattice.ratModelCarrierEquiv P.isIntegral_real))
+    ((TauCeti.IntegralLattice.gramMatrix_ofGramMatrix _ _ _).trans P.gramMatrix_ratModel.symm) i
+  simp only [TauCeti.IntegralLattice.ofGramMatrix.coe_basis, Pi.basisFun_apply, Basis.map_apply,
+    ZLattice.coe_ratModelCarrierEquiv] at h
+  -- `h` is the claim with `ratModelIsometry` and `toIntegralLattice` unfolded.
+  exact h
 
 /-- Check that `simp` evaluates the isometry on coordinate vectors, including inside a sum. -/
 example (P : IntegralPresentation Λ) (i j : Fin d) :
