@@ -9,6 +9,7 @@ module
 public import SphereCeti.Analysis.ExactZeroOrder
 public import SphereCeti.Basic
 public import SphereCeti.ZLattice.RelativeQuotient
+public import SphereCeti.ZLattice.RelativeQuotientEmbedding
 
 /-!
 # SphereCeti library
