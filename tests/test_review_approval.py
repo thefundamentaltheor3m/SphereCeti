@@ -112,6 +112,10 @@ class ApprovalTest(unittest.TestCase):
     def setUp(self):
         self.hub = ApprovalHub()
         self.lines = []
+        import tempfile
+        temp = tempfile.TemporaryDirectory(prefix='sphereceti-approval-')
+        self.addCleanup(temp.cleanup)
+        self.storage = temp.name
 
     def tearDown(self):
         # The CLI never merges: no merge endpoint is ever called, in any scenario.
@@ -123,7 +127,9 @@ class ApprovalTest(unittest.TestCase):
         args = arguments(**updates)
         args.source_repo = args.dependencies_dir = None
         approval = Approval(PROJECT, announce=self.lines.append, decide=self.decide)
-        return run_claimed(args, PROJECT, OperatorPreferences(), run=FakeReview(self.hub, policy, **flags),
+        # A budget that fits the first rubric, so the claim is posted (an empty ledger in a temp store).
+        prefs = OperatorPreferences(budget_usd=5, storage=self.storage)
+        return run_claimed(args, PROJECT, prefs, run=FakeReview(self.hub, policy, **flags),
                            approval=approval)
 
     def approvals(self):
