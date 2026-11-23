@@ -59,7 +59,7 @@ therefore apply to the lattice in Gram coordinates: it is positive definite, and
 * `SphereCeti.EuclideanLattice.IntegralPresentation.isEven_real_iff`,
   `SphereCeti.EuclideanLattice.IntegralPresentation.isUnimodular_real_iff`: `Λ` is even
   (unimodular) exactly when the presentation is; `isEven_real` and `isUnimodular_real` are the
-  forward directions.
+  reverse directions, transporting evenness and unimodularity from the presentation to `Λ`.
 * `SphereCeti.EuclideanLattice.IntegralPresentation.covolume_sq_eq_discriminant`: the squared
   covolume of `Λ` is the discriminant of the presentation.
 * `SphereCeti.EuclideanLattice.IntegralPresentation.isUnimodular_iff_covolume_eq_one`,
