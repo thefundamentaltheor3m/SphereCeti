@@ -45,7 +45,7 @@ def proof(repo):
 class Harness:
     """One disposable repository: approved main T, a PR head H, and GitHub's view of both."""
 
-    def __init__(self, root, change=proof, *, policy_paths=()):
+    def __init__(self, root, change=proof, *, policy_paths=(), merging=False, approving_reviewers=()):
         self.root, self.repo = root, root / 'repo'
         init(self.repo)
         for name in ('sphereceti.toml', 'lakefile.toml', 'lake-manifest.json', 'lean-toolchain', 'SphereCeti.lean',
@@ -58,8 +58,9 @@ class Harness:
         (self.repo / 'SphereCeti/E8/Basic.lean').write_text('module\n')
         (self.repo / 'policy').mkdir()
         (self.repo / 'policy/automation.toml').write_text(automation_policy(
-            review_generation=True, posting=True, mathematical_paths=policy_paths,
-            authorized_reviewers=(f'user:{REVIEWER}', f'user:{OTHER}')))
+            review_generation=True, posting=True, merging=merging, mathematical_paths=policy_paths,
+            authorized_reviewers=(f'user:{REVIEWER}', f'user:{OTHER}')) +
+            (f'approving_reviewers = {json.dumps(list(approving_reviewers))}\n' if approving_reviewers else ''))
         (self.repo / 'policy/merge-checks.toml').write_text(CHECKS)
         (self.repo / 'scripts').mkdir()
         (self.repo / 'scripts/check_audits.py').write_text('# approved\n')

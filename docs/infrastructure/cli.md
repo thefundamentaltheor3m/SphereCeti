@@ -63,8 +63,8 @@ The installed package includes these configuration resources:
 | `policy/automation.toml` | Repository-owned operational switches and acceptance inputs |
 | `policy/reporting.toml` | Approved documentation endpoint (initially empty), report scope and cadence |
 | `policy/merge-checks.toml` | Approved workflow and status-producer IDs, initially unconfigured |
-| `policy/merge-controller.toml` | Controller, dedicated merge identity, and required-check App IDs, initially unconfigured |
-| `tools/ci/merge-controller.yml` | Inactive serialized workflow template, packaged for exact-byte comparison |
+| `policy/merge-controller.toml` | Controller workflow and required-check IDs, initially unconfigured; the executor is the workflow's job token |
+| `tools/ci/merge-controller.yml` | Packaged copy of the installed read-only `.github/workflows/merge-controller.yml`, for exact-byte comparison |
 | `policy/archive.toml` | Private archive capture and remote sync policy |
 | `policy/lifecycle.toml` | Managed labels and lifecycle thresholds |
 | `tools/upstream-lock.toml` | Exact upstream source revisions/paths, adaptation status, reuse terms |
