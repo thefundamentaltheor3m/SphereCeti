@@ -19,15 +19,19 @@ from .review_records import RecordError
 
 
 class Writer:
-    """Dedicated credential, excluded from inherited reader/Git environments; one narrow PUT."""
+    """Dedicated credential, excluded from inherited reader/Git environments; one narrow PUT.
+
+    Besides the PUT it reads only its own identity and its own view of the ruleset's bypass status.
+    """
     def __init__(self, repository, token):
-        self.repository, self._token, self.account = repository, token, None
+        self.repository, self._token, self.account, self.view = repository, token, None, None
 
     def call(self, endpoint, payload=None):
         if not self._token: raise RecordError('dedicated merge token is unavailable')
-        if endpoint != 'user' and not re.fullmatch(re.escape(f'repos/{self.repository}/pulls/')+r'[1-9][0-9]*/merge',endpoint):
+        merge=re.fullmatch(re.escape(f'repos/{self.repository}/pulls/')+r'[1-9][0-9]*/merge',endpoint)
+        if endpoint != 'user' and not merge and not re.fullmatch(re.escape(f'repos/{self.repository}/rulesets/')+r'[1-9][0-9]*',endpoint):
             raise RecordError('unsupported merge-token operation')
-        if payload is not None and (endpoint=='user' or set(payload)!={'sha','merge_method'} or
+        if payload is not None and (not merge or set(payload)!={'sha','merge_method'} or
                 not re.fullmatch(r'[0-9a-f]{40}',payload['sha']) or payload['merge_method']!='squash'):
             raise RecordError('invalid expected-head merge request')
         command=['gh','api','--hostname','github.com',endpoint]
@@ -46,9 +50,16 @@ class Writer:
         self.account=self.call('user')
         return self.account
 
+    def ruleset(self, rid):
+        if type(rid) is not int or rid<=0: raise RecordError('invalid ruleset ID')
+        self.view=(rid,self.call(f'repos/{self.repository}/rulesets/{rid}'))
+        return self.view[1]
+
     def refresh_identity(self):
         if self.account is not None and self.call('user') != self.account:
             raise RecordError('merge-token identity changed')
+        if self.view is not None and self.call(f'repos/{self.repository}/rulesets/{self.view[0]}') != self.view[1]:
+            raise RecordError('merge-token ruleset view changed')
 
     def merge(self, number, head):
         if type(number) is not int or number<=0: raise RecordError('invalid PR number')

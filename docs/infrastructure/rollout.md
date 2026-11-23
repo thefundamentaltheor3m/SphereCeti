@@ -179,9 +179,12 @@ producers and the [supported server protection/credential setup](merge-controlle
 The 2026-11-12 read-only setup check found effective repository ruleset `21449770` protecting
 SphereCeti `main` with deletion, non-fast-forward, PR and required-check rules. The classic
 branch-protection lookup returned HTTP 404, which by itself cannot distinguish absent protection
-from insufficient API access. The controller's initial profile rejects effective rulesets, so
-support for the existing ruleset profile is another prerequisite for activation. No protection
-setting was changed during the prototype.
+from insufficient API access. `branches/main` reports that classic protection is disabled.
+`merge-doctor` now verifies this ruleset profile and lists the remaining gaps. These are bypass
+actors that need an administration-read token, up-to-date branches, `checks_app_id`, and the
+unconfigured controller IDs. The trusted contexts stay unrequired for all PRs, so protected PRs keep
+their human route. See [the ruleset profile](merge-controller.md#ruleset-profile-sphereceti-today).
+No protection setting was changed during the prototype or this diagnostic work.
 
 There is no persistent PR/head canary allowlist today. `--pr` narrows one invocation, while the
 inactive workflow template also contains hourly sweeps. Before enabling merging, implement a
