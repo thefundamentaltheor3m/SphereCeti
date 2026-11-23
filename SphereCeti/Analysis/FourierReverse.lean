@@ -7,6 +7,7 @@ Authors: SphereCeti contributors
 module
 
 public import Mathlib.Analysis.Fourier.Inversion
+public import TauCeti.Analysis.Fourier.Continuous
 
 /-!
 # Reversing a Fourier identity by inversion
@@ -44,9 +45,9 @@ theorem fourier_reverse {s : ℂ} (hs : s ^ 2 = 1) {F G : V → ℂ} (hF : Integ
     (h : 𝓕 F = fun ξ ↦ s * G ξ) :
     𝓕 G = fun ξ ↦ s * F ξ := by
   -- Since `s ^ 2 = 1`, `G = s • 𝓕 F`.
-  have hGF : G = fun ξ ↦ s * 𝓕 F ξ := by
+  have hGF : G = s • 𝓕 F := by
     funext ξ
-    rw [h, ← mul_assoc, ← sq, hs, one_mul]
+    rw [Pi.smul_apply, smul_eq_mul, h, ← mul_assoc, ← sq, hs, one_mul]
   -- Fourier inversion and evenness give `𝓕 (𝓕 F) = F`.
   have hint : Integrable (𝓕 F) := by
     rw [h]
@@ -56,10 +57,6 @@ theorem fourier_reverse {s : ℂ} (hs : s ^ 2 = 1) {F G : V → ℂ} (hF : Integ
       _ = F (-ξ) := by rw [hFc.fourierInv_fourier_eq hF hint]
       _ = F ξ := heven ξ
   funext ξ
-  rw [hGF, ← hinv ξ, Real.fourier_eq, Real.fourier_eq, ← integral_const_mul]
-  congr 1
-  funext v
-  simp only [Circle.smul_def, smul_eq_mul]
-  ring
+  rw [hGF, Real.fourier_const_smul, Pi.smul_apply, smul_eq_mul, hinv ξ]
 
 end SphereCeti
