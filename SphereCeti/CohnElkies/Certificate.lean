@@ -19,8 +19,9 @@ bounds the density of every sphere packing with center separation `r` by
 `f(0) / f̂(0) · vol B(0, r / 2)`.  The Fourier transform is Mathlib's, with kernel
 `exp(-2πi⟪x, ξ⟫)`.  No radiality is required.
 
-By Fourier inversion, `f(0)` is the integral of `f̂`, which is positive since `f̂` is continuous,
-nonnegative and positive at `0`; so the bound of a certificate is positive.
+The value `f(0)` of a certificate, and hence its density bound, is positive.  More generally, a
+Schwartz function on a finite-dimensional real inner product space whose Fourier transform has
+nonnegative real part, positive at some point, has positive real part at the origin.
 
 ## Main definitions
 
@@ -30,6 +31,9 @@ nonnegative and positive at `0`; so the bound of a certificate is positive.
 
 ## Main statements
 
+* `SphereCeti.CohnElkies.re_apply_zero_pos_of_fourier_nonneg`: a Schwartz function whose Fourier
+  transform has nonnegative real part, positive at some point, has positive real part at `0`.
+* `SphereCeti.CohnElkies.Certificate.bound_def`: the defining formula of the density bound.
 * `SphereCeti.CohnElkies.Certificate.f_zero_pos`: the value of a certificate at `0` is positive.
 * `SphereCeti.CohnElkies.Certificate.bound_pos`: the density bound of a certificate is positive.
 
@@ -45,6 +49,27 @@ open MeasureTheory Metric
 open scoped ENNReal FourierTransform SchwartzMap
 
 namespace SphereCeti.CohnElkies
+
+/-- A Schwartz function whose Fourier transform has nonnegative real part, positive at some point,
+has positive real part at the origin. -/
+theorem re_apply_zero_pos_of_fourier_nonneg {E : Type*} [NormedAddCommGroup E]
+    [InnerProductSpace ℝ E] [FiniteDimensional ℝ E] [MeasurableSpace E] [BorelSpace E]
+    (f : 𝓢(E, ℂ)) (hnonneg : ∀ ξ, 0 ≤ (𝓕 f ξ).re) {ξ₀ : E} (hpos : 0 < (𝓕 f ξ₀).re) :
+    0 < (f 0).re := by
+  -- By Fourier inversion `f 0` is the integral of `𝓕 f`, whose real part is continuous,
+  -- nonnegative, and positive at `ξ₀`.
+  have h0 : f 0 = ∫ ξ, 𝓕 f ξ :=
+    calc f 0 = (𝓕⁻ (𝓕 f) : 𝓢(E, ℂ)) 0 := by
+          rw [FourierPair.fourierInv_fourier_eq]
+      _ = ∫ ξ, 𝓕 f ξ := by
+          rw [SchwartzMap.fourierInv_coe, Real.fourierInv_eq]
+          simp
+  have hint : Integrable ⇑(𝓕 f : 𝓢(E, ℂ)) := (𝓕 f).integrable
+  have hre := integral_re hint
+  simp only [RCLike.re_to_complex] at hre
+  rw [h0, ← hre]
+  exact integral_pos_of_integrable_nonneg_ne_zero (x := ξ₀)
+    (Complex.continuous_re.comp (𝓕 f).continuous) hint.re hnonneg hpos.ne'
 
 /-- A Cohn–Elkies certificate in dimension `d` with radius `r`: a Schwartz function whose values
 and Fourier transform are real, which is nonpositive outside the ball of radius `r`, and whose
@@ -74,26 +99,20 @@ noncomputable def bound (C : Certificate d r) : ℝ≥0∞ :=
   ENNReal.ofReal ((C.f 0).re / (𝓕 C.f 0).re) *
     volume (ball (0 : EuclideanSpace ℝ (Fin d)) (r / 2))
 
-/-- The value of a certificate at the origin is positive: by Fourier inversion it is the integral
-of the Fourier transform, which is continuous, nonnegative, and positive at the origin. -/
-theorem f_zero_pos (C : Certificate d r) : 0 < (C.f 0).re := by
-  have h0 : C.f 0 = ∫ ξ, 𝓕 C.f ξ :=
-    calc C.f 0 = (𝓕⁻ (𝓕 C.f) : 𝓢(EuclideanSpace ℝ (Fin d), ℂ)) 0 := by
-          rw [FourierPair.fourierInv_fourier_eq]
-      _ = ∫ ξ, 𝓕 C.f ξ := by
-          rw [SchwartzMap.fourierInv_coe, Real.fourierInv_eq]
-          simp
-  have hint : Integrable ⇑(𝓕 C.f : 𝓢(EuclideanSpace ℝ (Fin d), ℂ)) := (𝓕 C.f).integrable
-  have hre := integral_re hint
-  simp only [RCLike.re_to_complex] at hre
-  rw [h0, ← hre]
-  exact integral_pos_of_integrable_nonneg_ne_zero (x := 0)
-    (Complex.continuous_re.comp (𝓕 C.f).continuous) hint.re C.fourier_nonneg
-    C.fourier_zero_pos.ne'
+/-- The defining formula of the density bound of a certificate. -/
+theorem bound_def (C : Certificate d r) :
+    C.bound = ENNReal.ofReal ((C.f 0).re / (𝓕 C.f 0).re) *
+      volume (ball (0 : EuclideanSpace ℝ (Fin d)) (r / 2)) :=
+  (rfl)
+
+/-- The value of a certificate at the origin has positive real part. -/
+theorem f_zero_pos (C : Certificate d r) : 0 < (C.f 0).re :=
+  re_apply_zero_pos_of_fourier_nonneg C.f C.fourier_nonneg C.fourier_zero_pos
 
 /-- The density bound of a certificate is positive. -/
-theorem bound_pos (C : Certificate d r) : 0 < C.bound :=
-  ENNReal.mul_pos (ENNReal.ofReal_pos.mpr (div_pos C.f_zero_pos C.fourier_zero_pos)).ne'
+theorem bound_pos (C : Certificate d r) : 0 < C.bound := by
+  rw [bound_def]
+  exact ENNReal.mul_pos (ENNReal.ofReal_pos.mpr (div_pos C.f_zero_pos C.fourier_zero_pos)).ne'
     (measure_ball_pos volume _ (half_pos C.radius_pos)).ne'
 
 end Certificate
