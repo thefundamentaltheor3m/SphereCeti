@@ -7,7 +7,7 @@ Authors: SphereCeti contributors
 module
 
 public import SphereCeti.Basic
-public import SphereCeti.Rigidity.CovolumeBound
+public import SphereCeti.ZLattice.CovolumeBound
 
 /-!
 # SphereCeti library
