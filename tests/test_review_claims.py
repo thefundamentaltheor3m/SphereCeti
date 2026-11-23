@@ -143,9 +143,10 @@ class ClaimTest(unittest.TestCase):
                 with guard(args, report, POLICY, inner.client):
                     seen.extend(bodies(hub))
                 return {**report, 'completion': 'complete', 'publication': {'state': 'confirmed', 'comment_id': 555}}
-        result = run_claimed(arguments(), PROJECT, self.prefs, run=Watch(hub.client(7)))
+        result = run_claimed(arguments(provider="codex", codex_model="gpt-6.1-sol"), PROJECT, self.prefs, run=Watch(hub.client(7)))
         [started] = seen
         self.assertTrue(started.startswith(MARKER))
+        self.assertIn('Selected model: codex/gpt-6.1-sol · Estimated usage cost: pending', started)
         data = json.loads(started[len(MARKER):started.index('-->')])
         self.assertEqual({k: data[k] for k in ('repository', 'pr', 'head', 'base', 'actor', 'state')},
                          {'repository': REPO, 'pr': 1, 'head': HEAD, 'base': BASE, 'actor': 'user:7',
@@ -156,6 +157,7 @@ class ClaimTest(unittest.TestCase):
                           utcnow().fromisoformat(data['started_at'].replace('Z', '+00:00'))).total_seconds(), 1800)
         [final] = bodies(hub)  # edited in place, never a second comment
         self.assertIn(f'finished: https://github.com/{REPO}/pull/1#issuecomment-555', final)
+        self.assertIn('Estimated usage cost: unavailable', final)  # no receipts in this fixture
         self.assertEqual(result['claim']['state'], 'finished')
         self.assertEqual(note(result['claim']), f'Claim https://github.com/{REPO}/pull/1#issuecomment-100 marked finished.')
 
@@ -316,6 +318,24 @@ class ClaimCliTest(BareReviewHarness):
         data['base'] = self.fixture.tooling
         comment['body'] = render(data)
         (self.fixture.bin / 'gh-comments.json').write_text(json.dumps({str(number): [comment]}))
+
+    def test_default_codex_model_and_usage_cost_are_visible(self):
+        self.enable_posting()
+        self.fixture.codex_subscription()
+        run = self.run_cli('--provider', 'codex', '--auth', 'subscription', pr=47)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        [comment] = self.claims()
+        # Each fake Codex rubric reports tokens priced at $0.058 for the default model.
+        self.assertIn('Models used: codex/gpt-6.1-sol · Estimated usage cost: $0.58', comment['body'])
+
+    def test_unknown_usage_never_displays_a_zero_cost(self):
+        self.enable_posting()
+        self.fixture.codex_subscription()
+        (self.fixture.bin / 'codex-no-usage').touch()
+        run = self.run_cli('--provider', 'codex', '--auth', 'subscription', pr=47)
+        [comment] = self.claims()
+        self.assertIn('codex/gpt-6.1-sol · Estimated usage cost: unavailable', comment['body'])
+        self.assertNotIn('$0.00', comment['body'])
 
     def test_explicit_review_is_refused_then_forced(self):
         self.enable_posting()

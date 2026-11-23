@@ -133,6 +133,10 @@ comment under your `gh` identity:
 SphereCeti review in progress by @yvonne on head 8cdec1b (started 15:05 UTC, expires 15:35 UTC).
 ```
 
+The notice shows the selected provider and model, including defaults. On completion it shows
+the models recorded for the attempts and the estimated USD cost of this run, including retries.
+Subscription estimates use list prices. Missing usage is displayed as unavailable.
+
 The claim lasts `TTL = 1800` seconds, the review's whole-run deadline (`RUN_TIMEOUT`).
 
 **Live claims.** A claim counts only if it parses strictly, its GitHub comment author is its

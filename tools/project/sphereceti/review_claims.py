@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from datetime import timedelta
+from pathlib import Path
 import json
 import math
 import re
@@ -20,6 +21,7 @@ import uuid
 
 from .local_review import RUN_TIMEOUT, ReviewError
 from .review_records import RecordError, identity
+from .review_summary import plan, receipt_runs
 from .worker import WorkerError, commit, timestamp
 from .worker_cli import load_json
 from .worker_leases import stamp, utcnow
@@ -49,14 +51,47 @@ def clock(value: str) -> str:
     return value[11:16] + " UTC"
 
 
-def render(data) -> str:
+def render(data, usage="") -> str:
     who, head = f"@{data['login']}", data["head"][:7]
     text = {"in_progress": f"SphereCeti review in progress by {who} on head {head} "
                            f"(started {clock(data['started_at'])}, expires {clock(data['expires_at'])}).",
             "finished": f"SphereCeti review by {who} on head {head} finished: {data['detail']}",
             "abandoned": f"SphereCeti review by {who} on head {head} abandoned ({data['detail']}).",
             "yielded": f"SphereCeti review by {who} on head {head} yielded to @{data['detail']}."}[data["state"]]
-    return MARKER + json.dumps(data, sort_keys=True, separators=(",", ":")) + "-->\n" + text + "\n\n" + NOTE
+    marker = MARKER + json.dumps(data, sort_keys=True, separators=(",", ":")) + "-->"
+    return "\n".join([marker, text, *([usage] if usage else []), "", NOTE])
+
+
+def final_usage(result, planned):
+    """Show model attempts and the estimate for this run only, including retries."""
+    runs = receipt_runs(result) if result.get("output") else []
+    models = []
+    for run in runs:
+        for attempt in run.get("attempts") or [run]:
+            model = attempt.get("model") or run.get("model")
+            if model:
+                models.append(f"{run['provider']}/{model}")
+    model_text = "Models used: " + ", ".join(dict.fromkeys(models)) if models else planned
+    estimate = "unavailable"
+    if result.get("output") and not (result.get("engine_exit_code") or result.get("usage_unknown_rubrics")
+                                     or result.get("stop_reason") == "usage_unknown"):
+        directory = Path(result["output"]) / "engine-archive" / "records" / "rounds" / str(result["pr"])
+        files = list(directory.glob("*.json"))
+        if len(files) == 1:
+            try:
+                receipt = json.loads(files[0].read_text())
+                cost = receipt["cost"]
+                if (receipt["head_sha"] == result["head"] and isinstance(receipt["run_ids"], list)
+                        and sorted(receipt["run_ids"]) == sorted(run["run_id"] for run in runs)
+                        and all(run.get("cost_usd") is not None and run.get("usage_status") != "unknown"
+                                for run in runs)
+                        and type(cost) in (int, float) and math.isfinite(cost) and cost >= 0):
+                    estimate = f"${cost:.2f}" if cost == 0 or cost >= 0.01 else "under $0.01"
+            except (OSError, ValueError, TypeError, KeyError):
+                pass
+    if estimate != "unavailable" and (result.get("evaluation_request") or {}).get("auth") == "subscription":
+        estimate += " (subscription list-price equivalent)"
+    return f"{model_text} · Estimated usage cost: {estimate}"
 
 
 def parse(comment, repository, pr):
@@ -112,16 +147,22 @@ def describe(claim, now) -> str:
 class ReviewClaim:
     """Run-scoped claim. `guard` plugs into run_review before any provider call."""
 
-    def __init__(self, project, *, force=False, expect=None, now=utcnow):
+    def __init__(self, project, prefs, *, force=False, expect=None, now=utcnow):
         self.project, self.force, self.expect, self.now = project, force, expect, now
         self.client = self.data = self.comment_id = None
         self.closed = False
+        self.prefs = prefs
+        self.usage = ""
 
     @contextmanager
     def guard(self, args, report, policy, client):
         if self.expect and (report["head"] != self.expect["head"] or report["base"] != self.expect["base"]):
             raise ReviewError(f"PR #{report['pr']} changed since it was selected; run `sphereceti review` again")
         if args.post:
+            planned = plan(args, self.prefs, report)
+            self.models = "Selected model: " + ", ".join(
+                f"{p}/{m}" for p, m in zip(planned["providers"], planned["models"]))
+            self.usage = f"{self.models} · Estimated usage cost: pending"
             self.claim(report, client)
         yield None
 
@@ -150,7 +191,7 @@ class ReviewClaim:
             self.comment_id = own[0]["comment_id"]
             self.edit("in_progress", None)
         else:
-            body = render(self.data)
+            body = render(self.data, self.usage)
             posted = client.call(f"repos/{self.context['repository']}/issues/{self.context['pr']}/comments",
                                  payload={"body": body})
             if not isinstance(posted, dict) or type(posted.get("id")) is not int:
@@ -171,6 +212,7 @@ class ReviewClaim:
             raise ReviewError("your review claim was not visible after posting; nothing was spent")
         winner = claims[0]
         if winner["actor"] != actor and not self.force:
+            self.usage = f"{self.models} · No model calls"
             self.edit("yielded", winner["author"])
             self.closed = True
             raise ClaimYielded(f"PR #{report['pr']}: yielded to @{winner['author']}, whose claim is earlier; "
@@ -178,7 +220,7 @@ class ReviewClaim:
 
     def edit(self, state, detail):
         data = {**self.data, "state": state, "detail": detail}
-        body = render(data)
+        body = render(data, self.usage)
         seen = self.client.call(f"repos/{self.context['repository']}/issues/comments/{self.comment_id}",
                                 payload={"body": body}, method="PATCH")
         if not isinstance(seen, dict) or seen.get("body") != body:
@@ -200,9 +242,14 @@ class ReviewClaim:
         return receipt
 
     def abandon(self, reason) -> dict | None:
+        if self.comment_id is not None:
+            self.usage = f"{self.models} · Estimated usage cost: unavailable"
         return self.close("abandoned", reason)
 
     def finish(self, result) -> dict | None:
+        if self.comment_id is None:
+            return None
+        self.usage = final_usage(result, self.models)
         posted = result.get("publication") or {}
         link = (f"https://github.com/{result['repository']}/pull/{result['pr']}"
                 f"#issuecomment-{posted['comment_id']}" if posted.get("state") == "confirmed" else None)
@@ -226,7 +273,7 @@ def run_claimed(args, project, prefs, *, expect=None, run=None, wrap=None):
     """run_review with an advisory claim when it will post; abandon on any failure or signal."""
     from .local_review import run_review
     run = run or run_review
-    claim = ReviewClaim(project, force=getattr(args, "force_claim", False), expect=expect)
+    claim = ReviewClaim(project, prefs, force=getattr(args, "force_claim", False), expect=expect)
 
     def interrupted(signum, frame):
         raise KeyboardInterrupt("review stopped")
