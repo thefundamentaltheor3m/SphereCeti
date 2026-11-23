@@ -91,9 +91,10 @@ def targets(values: list[str] | None) -> tuple[int, ...] | None:
 
 def validate_snapshot(data, project: ProjectConfig, now: datetime) -> None:
     fields(data, {"schema", "repository", "actor", "observed_at", "scope", "pull_requests"}, "snapshot")
-    require(data["schema"] in ("sphereceti.worker-survey/v1", "sphereceti.worker-survey/v2"),
-            "unknown survey schema")
-    separate_review_ci = data["schema"] == "sphereceti.worker-survey/v2"
+    require(data["schema"] in ("sphereceti.worker-survey/v1", "sphereceti.worker-survey/v2",
+                               "sphereceti.worker-survey/v3"), "unknown survey schema")
+    separate_review_ci = data["schema"] != "sphereceti.worker-survey/v1"
+    review_note = data["schema"] == "sphereceti.worker-survey/v3"
     require(data["repository"] == project.repository, "queue destination does not match the project")
     text(data["actor"], "actor")
     fresh(data["observed_at"], now)
@@ -106,7 +107,8 @@ def validate_snapshot(data, project: ProjectConfig, now: datetime) -> None:
     seen = set()
     for pr in prs:
         keys = {"number", "title", "author", "head", "base", "updated_at", "state", "draft", "mergeable", "ci"}
-        fields(pr, keys | ({"review_ci"} if separate_review_ci else set()), "pull request")
+        fields(pr, keys | ({"review_ci"} if separate_review_ci else set()) |
+               ({"review_note"} if review_note else set()), "pull request")
         n = pr["number"]
         require(type(n) is int and n > 0 and n not in seen, "invalid or duplicate pull request")
         seen.add(n)
@@ -124,6 +126,11 @@ def validate_snapshot(data, project: ProjectConfig, now: datetime) -> None:
             require(pr["review_ci"] == pr["ci"] or
                     (pr["ci"] == "failed" and pr["review_ci"] == "passed"),
                     "review CI may only separate an observed scope failure")
+        if review_note:
+            require(pr["review_note"] is None or
+                    (pr["ci"] == "failed" and pr["review_ci"] in ("passed", "failed") and
+                     text(pr["review_note"], "review note") == pr["review_note"]),
+                    "a review note only explains an observed trusted-scope failure")
         require(scope is not None or pr["state"] == "OPEN", "complete queue contains a closed PR")
     require(scope is None or set(scope) == seen, "targeted survey is missing or adds a PR")
 
@@ -208,7 +215,10 @@ def plan(snapshot, project: ProjectConfig, *, requested: tuple[int, ...] | None 
             stage, reason = "review-assessment", "Ask the shared engine whether current review work is needed."
             if pr["ci"] != review_ci:
                 reason += " Reported human-review scope failure remains in aggregate CI; merge scope is unchanged."
-        diagnostics.append({"pr": pr["number"], "reason": reason, "ci": pr["ci"], "review_ci": review_ci})
+            if pr.get("review_note"):
+                reason += f" Note: {pr['review_note']}."
+        diagnostics.append({"pr": pr["number"], "reason": reason, "ci": pr["ci"], "review_ci": review_ci,
+                            "review_note": pr.get("review_note")})
         if stage:
             candidates.append({"stage": stage, "pr": pr["number"], "head": pr["head"], "base": pr["base"],
                                "destination": project.repository, "reason": reason,

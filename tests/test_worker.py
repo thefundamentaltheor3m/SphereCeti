@@ -60,7 +60,8 @@ def gh_pr(number=1, **updates):
     result = dict(number=number, title='Change', author={'login': 'alice'}, headRefOid='a'*40,
                   baseRefOid='b'*40, updatedAt='2020-01-01T00:00:00Z', state='OPEN', isDraft=False,
                   mergeable='MERGEABLE', statusCheckRollup=[{'__typename': 'CheckRun',
-                  'status': 'COMPLETED', 'conclusion': 'SUCCESS'}])
+                  'status': 'COMPLETED', 'conclusion': 'SUCCESS'}],
+                  headRepository={'nameWithOwner': PROJECT.repository})
     result.update(updates)
     return result
 
@@ -122,6 +123,21 @@ class PlannerTest(unittest.TestCase):
         for data in variants:
             with self.subTest(data=data), self.assertRaises(WorkerError):
                 self.run_plan(data)
+
+    def test_v3_review_note_is_information_on_a_scope_failure_only(self):
+        v3 = 'sphereceti.worker-survey/v3'
+        note = 'trusted build predates main; refresh to merge'
+        report = self.run_plan(snapshot([pr(ci='failed', review_ci='passed', review_note=note)], schema=v3))
+        self.assertEqual(report['selected']['stage'], 'review-assessment')
+        self.assertEqual(report['pull_requests'][0]['review_note'], note)
+        self.assertIn(f'Note: {note}.', report['pull_requests'][0]['reason'])
+        waiting = self.run_plan(snapshot([pr(ci='failed', review_ci='failed', review_note='awaits a refreshed '
+                                             'trusted build', author='bob')], schema=v3))
+        self.assertIsNone(waiting['selected'])
+        for bad in (pr(ci='passed', review_ci='passed', review_note=note), pr(ci='failed', review_ci='passed'),
+                    pr(ci='failed', review_ci='passed', review_note='')):
+            with self.subTest(pr=bad), self.assertRaises(WorkerError):
+                self.run_plan(snapshot([bad], schema=v3))
 
     def test_stable_oldest_pr_ties(self):
         older = '2026-09-12T11:00:00Z'
