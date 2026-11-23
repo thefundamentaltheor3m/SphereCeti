@@ -7,6 +7,7 @@ Authors: SphereCeti contributors
 module
 
 public import SphereCeti.Basic
+public import SphereCeti.CohnElkies.Defects
 public import SphereCeti.CohnElkies.StructureFactor
 
 /-!
