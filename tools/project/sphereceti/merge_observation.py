@@ -174,7 +174,8 @@ def collect(args, project, client, *, assess_review=mathematical_scope, evidence
         rid, attempt = next(iter(runs))
         run = client.call(f'repos/{project.repository}/actions/runs/{rid}')
         jobs = client.jobs(rid, attempt)
-    ev.update(run=run, jobs=jobs, checks=assess_checks(statuses, run, jobs, context, settings))
+    bound = {**context, 'head_repository': ((pr['head'] or {}).get('repo') or {}).get('full_name')}
+    ev.update(run=run, jobs=jobs, checks=assess_checks(statuses, run, jobs, bound, settings))
     return ev
 
 
