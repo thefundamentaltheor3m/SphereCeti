@@ -13,7 +13,8 @@ from .local_review import ATTEMPT_TIMEOUT
 from .worker import (MAX_PRS, WorkerError, plan, require, targets, text,
                      validate_snapshot)
 
-PR_FIELDS = "number,title,author,headRefOid,baseRefOid,updatedAt,state,isDraft,mergeable,statusCheckRollup"
+PR_FIELDS = ("number,title,author,headRefOid,baseRefOid,updatedAt,state,isDraft,mergeable,statusCheckRollup,"
+             "headRepository")
 
 
 def load_json(raw: str):

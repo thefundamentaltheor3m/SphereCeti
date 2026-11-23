@@ -36,6 +36,7 @@ def evidence():
     run = {'id': 100, 'run_attempt': 1, 'workflow_id': 71, 'path': '.github/workflows/pr-build.yml',
            'event': 'pull_request_target', 'status': 'completed', 'conclusion': 'success',
            'head_sha': 'a'*40, 'head_branch': 'feature', 'repository': {'full_name': repository},
+           'head_repository': {'full_name': repository},
            'pull_requests': [{'number': 1, 'head': {'sha': 'a'*40}, 'base': {'sha': 'b'*40}}]}
     jobs = {'total_count': 2, 'jobs': [
         {'id': i, 'name': name, 'run_id': 100, 'run_attempt': 1, 'status': 'completed',

@@ -3,6 +3,8 @@
 # by hand, and the labeller never removes a label (sync-labels is off).
 
 # Changes what we intend to prove: target statements, hypotheses, conventions, dependencies.
+# UPSTREAM.md is not listed: proof PRs append upstream-candidate entries to it, which records where a
+# proof should eventually go, not a change to what we intend to prove.
 area:roadmap:
 - changed-files:
   - any-glob-to-any-file:
@@ -10,7 +12,6 @@ area:roadmap:
     - 'SphereCetiRoadmap.lean'
     - 'CONVENTIONS.md'
     - 'MIGRATION.md'
-    - 'UPSTREAM.md'
     - 'PROVENANCE.md'
 
 # Implements mathematics in the SphereCeti/ library: definitions, lemmas, proofs.

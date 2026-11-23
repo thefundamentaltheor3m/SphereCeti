@@ -299,7 +299,8 @@ class BareReviewCliTest(unittest.TestCase):
                          headRefOid=f.head, baseRefOid=f.tooling, updatedAt='2026-01-01T00:00:00Z',
                          state='OPEN', isDraft=False, mergeable='MERGEABLE',
                          statusCheckRollup=[{'__typename': 'CheckRun', 'status': 'COMPLETED',
-                                             'conclusion': 'SUCCESS'}])
+                                             'conclusion': 'SUCCESS'}],
+                         headRepository={'nameWithOwner': REPO})
             value.update(updates)
             return value
         self.queue = [pr(50, 'xavier', updatedAt='2026-03-01T00:00:00Z'),

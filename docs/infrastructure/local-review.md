@@ -94,7 +94,9 @@ The command never starts the engine or a provider. In order, it:
      them. A run saved before contest provenance was recorded is refused only when it carries
      nonzero watermarks.
 
-   A partial run is published as the advisory record it already says it is. A run that was
+   A daily budget stop keeps the run local, even with `--post`. The CLI saves any completed
+   findings and explains why it skipped publication. Run the review again when budget is available.
+   Other eligible partial runs can publish an advisory record. A run that was
    already confirmed on GitHub is never published again, even if that comment was deleted.
 3. **Checks the identity.** It reads the `gh` identity. A posting run records the identity that
    was about to post, and a publication attempt records the identity it used. A different
