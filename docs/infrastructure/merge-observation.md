@@ -87,10 +87,28 @@ Older links without attempts cannot satisfy this observer. Build/scope context n
 separate status-writing job remain unchanged.
 
 The reader checks the run's repository, configured workflow ID, exact workflow path, event,
-tooling revision, completed success, and associated PR head/base. It then verifies both expected
-jobs, their attempt/run IDs, and status publication timestamps within the status job. Missing
-associations or incomplete API fields fail closed, including fork cases where GitHub omits PR
-association metadata. A rerun cannot reuse statuses from an earlier attempt. The latest run
+tooling revision, completed success, head repository, and PR binding. It then verifies both
+expected jobs, their attempt/run IDs, and status publication timestamps within the status job.
+
+**PR binding.** GitHub reports a fork PR's `pull_request_target` run with an empty
+`pull_requests` association (SphereCeti #54, run 45224210603), so the trusted workflow's status
+job also attests the event's own binding in the `trusted-build` description, taken from the
+`pull_request_target` payload in main's workflow, never from candidate code:
+
+```text
+Approved tooling build: success; tooling <workflow_sha>; pr <number>; base <event base sha>
+```
+
+The head is the status's own commit (the status URL must name the PR head), and the run's
+`head_sha` must equal it. GitHub caps a status description at 140 characters, so the head is not
+repeated. A run is bound when its event is `pull_request_target` with the approved workflow ID,
+its `head_sha` is the PR head, its `head_repository` equals the PR's head repository (from the PR
+API, or the survey's `headRepository`), and the attested PR number and base match. An
+association, when GitHub reports one for this PR, must agree. The older description without
+`pr`/`base` remains accepted only together with the exact association, so same-repository PRs
+keep working until their trusted run is refreshed; fork PRs need a refreshed run. A status on the
+same commit attesting another PR number is refused for this PR. Incomplete API fields fail
+closed. A rerun cannot reuse statuses from an earlier attempt. The latest run
 must use the exact current tooling revision; unrelated main advancement conservatively requires
 fresh base/build validation even if #11 can reuse unchanged review context.
 
@@ -134,7 +152,7 @@ author against the review publishers, and the reasons for any refusal. A compute
 |---|---|
 | `paths` | The PR's complete file list from the API; a count differing from `changed_files`, GitHub's 3000-file cap, or a list differing from the exact Git diff fails closed. Each path must be an added or modified regular `SphereCeti/**/*.lean` library file under the allowlist; protected library modules are excluded. Renames, deletions, mode changes, symlinks and submodules are ineligible. Roadmap/specification, dependency, CI, policy, review and machinery paths are listed with their human route. |
 | library root | `SphereCeti.lean` may only gain `public import SphereCeti.<Topic>…` lines naming eligible modules present at the head. Every existing line must remain byte-for-byte and in order. |
-| `trusted_checks` | `assess_checks`: `trusted-build` success and `trusted-scope` present from the approved producer and one exact `pull_request_target` run attempt. The run's `head_sha` is the PR head, and the run's PR association `base.sha` is the current main (the tooling). The gate reports `human_review` while the allowlist is empty, and it also protects the library root. That status is replaced by the stricter path rule only under the hypothesis or for a root import. |
+| `trusted_checks` | `assess_checks`: `trusted-build` success and `trusted-scope` present from the approved producer and one exact `pull_request_target` run attempt. The run's `head_sha` is the PR head, its head repository is the PR's, and the attested PR binding (or, for older runs, the PR association) names this PR and base. The gate reports `human_review` while the allowlist is empty, and it also protects the library root. That status is replaced by the stricter path rule only under the hypothesis or for a root import. |
 | `compiled_audit` | The `candidate` job of that same run attempt. It ran the approved tooling's `scripts/check_audits.py` through `scripts/sandbox-build.sh` on the exact head. The tooling is bound by #48's attestation: `trusted-build` publishes the run's `github.workflow_sha`, and `assess_checks` requires it to equal current main. The output reports the attested SHA. The ordinary `build` check runs candidate-controlled scripts, and its name alone is not used. |
 | `official_review` | `assess_records` accepts a complete, non-advisory record covering all ten rubrics. Its exact head, base, diff base and context digests come from an authorized reviewer. Run it from installed tooling equal to main; otherwise the installed-tooling comparison fails. |
 | `independent_reviewer` | At least one accepted publisher is not the PR author, by API user ID. The author can never supply the sole approval. |

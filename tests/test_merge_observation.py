@@ -26,7 +26,7 @@ def evidence():
     scope = {k:context[k] for k in ('repository','head','base','diff_base','dependency_digest','tooling')}
     scope.update(scope='mathematical', config_attested=True)
     pr = {'number':1, 'state':'open', 'draft':False, 'merged':False, 'mergeable':True, 'mergeable_state':'clean',
-          'head':{'sha':context['head']}, 'base':{'sha':context['base'],'ref':'main','repo':{'full_name':REPO}},
+          'head':{'sha':context['head'],'repo':{'full_name':REPO}}, 'base':{'sha':context['base'],'ref':'main','repo':{'full_name':REPO}},
           'user':{'id':99},'title':'Math', 'body':''}
     settings = {'schema_version':1,'workflow_id':71,'status_creator_ids':[42]}
     statuses = [{'id':i,'context':name,'state':'success','creator':{'id':42,'type':'Bot'},
@@ -37,7 +37,7 @@ def evidence():
                  'created_at':'2026-09-12T10:01:00Z'} for i,name in enumerate(('trusted-build','trusted-scope'),1)]
     run = {'id':100,'run_attempt':1,'workflow_id':71,'path':WORKFLOW,'event':'pull_request_target',
            'status':'completed','conclusion':'success','head_sha':context['head'],
-           'repository':{'full_name':REPO},'pull_requests':[{'number':1,'head':pr['head'],'base':pr['base']}]}
+           'repository':{'full_name':REPO},'head_repository':{'full_name':REPO},'pull_requests':[{'number':1,'head':pr['head'],'base':pr['base']}]}
     jobs = [{'id':i,'name':name,'run_id':100,'run_attempt':1,'status':'completed','conclusion':'success',
              'started_at':'2026-09-12T10:00:00Z','completed_at':'2026-09-12T10:02:00Z'}
             for i,name in enumerate(('candidate','status'),1)]
@@ -51,7 +51,7 @@ class DecisionTests(unittest.TestCase):
     def decision(self, comments=None):
         if comments is None: comments=[comment(self.context)[0]]
         review=assess_records(comments,self.context,self.policy,lambda rev:rev==self.context['tooling'],99)
-        checks=assess_checks(self.statuses,self.run,self.jobs,self.context,self.settings)
+        checks=assess_checks(self.statuses,self.run,self.jobs,{**self.context,'head_repository':REPO},self.settings)
         return decide(self.context,self.scope,review,checks,self.pr,self.policy,current_main=self.context['tooling'])
 
     def test_future_mathematical_fixture_is_eligible_but_never_action_authority(self):
