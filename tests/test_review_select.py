@@ -174,7 +174,8 @@ class SelectionTest(unittest.TestCase):
         with patch('sphereceti.config.resource_text', return_value=CHECKS):
             as_author = self.choose([raw], actor='xavier', extra=responses)
             as_other = self.choose([raw], actor='yvonne', extra=responses)
-        self.assertEqual(as_author['skipped'], [{'pr': 1, 'head': 'a'*40, 'code': 'yours', 'reason': 'is yours'}])
+        self.assertEqual(as_author['skipped'], [{'pr': 1, 'head': 'a'*40, 'code': 'yours', 'reason': 'is yours',
+                                                'note': None}])
         self.assertEqual(rationale(as_author), 'No PRs need your review: #1 is yours.')
         self.assertEqual(as_other['selected']['pr'], 1)
         self.assertEqual(as_other['selected']['ci'], 'failed')
@@ -182,7 +183,53 @@ class SelectionTest(unittest.TestCase):
         # Before the trusted scope check reports, the same PR is not ready for anyone.
         pending = {**raw, 'statusCheckRollup': [{'__typename': 'CheckRun', 'status': 'IN_PROGRESS',
                                                  'conclusion': None}]}
-        self.assertEqual(self.choose([pending], actor='yvonne')['skipped'][0]['code'], 'not_ready')
+        self.assertEqual(self.choose([pending], actor='yvonne')['skipped'][0]['code'], 'awaiting_ci')
+
+    def predates_main(self, number=1, author='xavier'):
+        # The same evidence after main moved from b... to e...: the run's tooling and the PR base are
+        # an older approved main (one compare), so the PR is review-ready with a note.
+        raw, responses = evidence()
+        responses[1] = {'sha': 'e'*40}
+        responses.append({'status': 'ahead', 'merge_base_commit': {'sha': 'b'*40}})
+        return {**raw, 'number': number, 'author': {'login': author}}, responses
+
+    def test_older_trusted_build_is_ready_with_a_refresh_note(self):
+        raw, responses = self.predates_main()
+        with patch('sphereceti.config.resource_text', return_value=CHECKS):
+            other = self.choose([raw], actor='yvonne', extra=responses)
+            raw, responses = self.predates_main()
+            author = self.choose([raw], actor='xavier', extra=responses)
+        self.assertEqual(other['selected']['note'], 'trusted build predates main; refresh to merge')
+        self.assertIn('ready (human-review scope; trusted build predates main; refresh to merge), not yours',
+                      rationale(other))
+        # Information only: a PR skipped for another reason keeps its reason, with the note beside it.
+        self.assertEqual(author['skipped'][0]['reason'], 'is yours (trusted build predates main; refresh to merge)')
+        self.assertEqual(author['skipped'][0]['code'], 'yours')
+
+    def test_stale_or_pending_evidence_is_summarized_apart_from_real_failures(self):
+        stale, responses = evidence()
+        stale = {**stale, 'number': 60, 'author': {'login': 'bob'}}
+        responses[0][0]['description'] = 'Approved tooling build: success'  # pre-attestation build
+        responses[2]['pull_requests'][0]['number'] = 60
+        stale2, responses2 = evidence()
+        stale2 = {**stale2, 'number': 61, 'author': {'login': 'carol'}}
+        responses2[0][0]['description'] = 'Approved tooling build: success'
+        responses2[2]['pull_requests'][0]['number'] = 61
+        pending = gh_pr(62, author={'login': 'bob'}, statusCheckRollup=[
+            {'__typename': 'CheckRun', 'status': 'IN_PROGRESS', 'conclusion': None}])
+        failed = gh_pr(41, author={'login': 'bob'}, statusCheckRollup=[
+            {'__typename': 'CheckRun', 'status': 'COMPLETED', 'conclusion': 'FAILURE'}])
+        mine = gh_pr(50, author={'login': 'alice'})
+        client = FakeClient(pulls={f'repos/{REPO}/commits/main': {'sha': '5db3655' + 'f'*33}})
+        with patch('sphereceti.config.resource_text', return_value=CHECKS):
+            result = self.choose([stale, stale2, pending, failed, mine], client=client,
+                                 extra=[*responses, *responses2])
+        codes = {i['pr']: i['code'] for i in result['skipped']}
+        self.assertEqual(codes, {60: 'awaiting_refresh', 61: 'awaiting_refresh', 62: 'awaiting_ci',
+                                 41: 'not_ready', 50: 'yours'})
+        self.assertEqual(rationale(result), 'No PR is ready with current evidence: 2 open PRs await a refreshed '
+                         'trusted build (main moved to 5db3655); 1 open PR awaits CI; 1 is yours; '
+                         '#41 is not ready (CI failed).')
 
     def test_pr_specific_inputs_need_an_explicit_number(self):
         base = dict(local_sources=False, read_records=False, shadow=None, replies_json=None, head=None,
@@ -252,7 +299,8 @@ class BareReviewCliTest(unittest.TestCase):
                          headRefOid=f.head, baseRefOid=f.tooling, updatedAt='2026-01-01T00:00:00Z',
                          state='OPEN', isDraft=False, mergeable='MERGEABLE',
                          statusCheckRollup=[{'__typename': 'CheckRun', 'status': 'COMPLETED',
-                                             'conclusion': 'SUCCESS'}])
+                                             'conclusion': 'SUCCESS'}],
+                         headRepository={'nameWithOwner': REPO})
             value.update(updates)
             return value
         self.queue = [pr(50, 'xavier', updatedAt='2026-03-01T00:00:00Z'),
@@ -303,7 +351,7 @@ class BareReviewCliTest(unittest.TestCase):
         result = json.loads(process.stdout)
         self.assertEqual(set(result), {'schema', 'state', 'repository', 'actor', 'observed_at', 'priority',
                                        'waiting_since', 'selected', 'candidates', 'skipped',
-                                       'rationale', 'posting', 'review'})
+                                       'rationale', 'posting', 'plan', 'summary', 'review', 'main'})
         self.assertEqual(result['schema'], 'sphereceti.review-selection/v1')
         self.assertEqual((result['state'], result['actor']), ('selected', 'yvonne'))
         self.assertEqual(result['selected']['pr'], 47)  # older than #50
@@ -313,6 +361,10 @@ class BareReviewCliTest(unittest.TestCase):
         self.assertTrue(result['rationale'].endswith('; nothing will be posted.'))
         self.assertEqual(result['posting'], 'Not posted: dry run.')
         self.assertEqual(result['review']['completion'], 'dry_run')
+        self.assertTrue(result['plan']['line'].startswith(f'Review #47: head {self.fixture.head[:7]}, base '))
+        self.assertEqual(result['plan']['posting'], 'dry run: no model call, nothing posted')
+        self.assertEqual((result['summary']['line'], result['summary']['next_action']),
+                         ('dry run · not posted: dry run', 'run again without --dry-run to review'))
         self.assertEqual((result['review']['pr'], result['review']['head']), (47, self.fixture.head))
         self.assertFalse(self.fixture.calls())
         self.assertFalse((self.root / 'result/record.json').exists())
@@ -325,12 +377,17 @@ class BareReviewCliTest(unittest.TestCase):
         lines = process.stdout.splitlines()
         self.assertRegex(lines[0], r'^Reviewing #47 \(head [0-9a-f]{7}\): ready, not yours, '
                                    r'no current review; waiting \d+d; will post if policy permits\.$')
-        self.assertEqual(lines[1], 'Local advisory review #47: complete')
+        self.assertRegex(lines[1], r'^Review #47: head [0-9a-f]{7}, base [0-9a-f]{7} · claude claude-[a-z0-9.-]+ · '
+                                   r'will not post \(approved policy disables posting\)$')
+        self.assertEqual(lines[2], 'Local advisory review #47: complete')
         for rubric in RUBRICS:
             self.assertIn(f'  {rubric.ljust(max(map(len, RUBRICS)))}  approve', lines)
         self.assertIn(f'Record: {self.root}/result/record.md (machine-readable: record.json)', lines)
-        self.assertEqual(lines[-2:], ['Not posted: posting is disabled by approved repository policy.',
-                                      'This command does not authorize merging.'])
+        self.assertEqual(lines[-4:], ['Not posted: posting is disabled by approved repository policy.',
+                                      'This command does not authorize merging.',
+                                      '10/10 approve · not posted: posting is disabled by approved repository policy',
+                                      'Next: none: every rubric approves; the record stays local '
+                                      '(posting is disabled by approved repository policy)'])
         self.assertEqual(len(self.fixture.calls()), 10)
         self.assertEqual(self.posts(), [])
         # The contributor's local record now counts as their review of this exact head.
@@ -356,7 +413,8 @@ class BareReviewCliTest(unittest.TestCase):
         (self.root / 'result/record.json').unlink()
         again = json.loads(self.run_cli('--dry-run', '--json', output='again').stdout)
         self.assertIn({'pr': 47, 'head': self.fixture.head, 'code': 'reviewed_by_you',
-                       'reason': 'you already published a complete review of this head'}, again['skipped'])
+                       'reason': 'you already published a complete review of this head', 'note': None},
+                      again['skipped'])
         self.assertEqual(again['selected']['pr'], 50)
 
     def test_unauthorized_contributor_posts_an_advisory_record(self):
@@ -422,7 +480,8 @@ class BareReviewCliTest(unittest.TestCase):
         endpoints = [call[-1] for call in self.gh_calls()]
         self.assertEqual(endpoints, [f'repos/{REPO}/pulls/50', f'repos/{REPO}/commits/main'])
         process = self.run_cli('--dry-run', pr=50, output='text')
-        self.assertTrue(process.stdout.startswith('Local advisory review #50: dry_run\n'))
+        self.assertRegex(process.stdout, r'^Review #50: head [0-9a-f]{7}, base [0-9a-f]{7} · claude [^·]+ · '
+                                         r'dry run: no model call, nothing posted\nLocal advisory review #50: dry_run\n')
         self.assertIn('Not posted: dry run.', process.stdout.splitlines())
 
     def test_pr_specific_flags_are_refused_before_github(self):
