@@ -43,6 +43,10 @@ therefore apply to the lattice in Gram coordinates: it is positive definite, and
   the lattice in Gram coordinates.
 * `SphereCeti.EuclideanLattice.IsRootless`: an integral lattice is rootless when it has no vector of
   norm two.
+* `SphereCeti.EuclideanLattice.IntegralPresentation.realIsometryOfIsometry`,
+  `SphereCeti.EuclideanLattice.IntegralPresentation.affineIsometryOfIsometry`: the extension of an
+  isometry between the lattices of two presentations in Gram coordinates to a real linear isometry
+  of `ℝ^d`, and its affine version carrying one lattice coset to another.
 
 ## Main statements
 
@@ -68,6 +72,14 @@ therefore apply to the lattice in Gram coordinates: it is positive definite, and
   carrier.
 * `SphereCeti.EuclideanLattice.IntegralPresentation.isRootless_iff_shell_two_eq_empty`: the
   presentation is rootless exactly when `Λ` has no vector of squared length two.
+* `SphereCeti.EuclideanLattice.IntegralPresentation.discreteTopology`,
+  `SphereCeti.EuclideanLattice.IntegralPresentation.isZLattice`: a presented lattice is a discrete
+  full lattice.
+* `SphereCeti.EuclideanLattice.IntegralPresentation.realIsometry_maps_carrier`,
+  `SphereCeti.EuclideanLattice.IntegralPresentation.realIsometryOfIsometry_basis`,
+  `SphereCeti.EuclideanLattice.IntegralPresentation.affineIsometry_maps_coset`: the real extension
+  carries `Λ` onto `Μ`, agrees with the given isometry on the basis in coordinates, and its affine
+  version carries `v + Λ` onto `w + Μ`.
 
 ## References
 
@@ -77,7 +89,7 @@ therefore apply to the lattice in Gram coordinates: it is positive definite, and
 public section
 
 open Module TensorProduct
-open scoped InnerProductSpace
+open scoped InnerProductSpace Pointwise
 
 namespace SphereCeti.EuclideanLattice
 
@@ -384,6 +396,170 @@ theorem isRootless_iff_shell_two_eq_empty (P : IntegralPresentation Λ) :
     IsRootless P.toIntegralLattice ↔ ZLattice.shell Λ 2 = ∅ := by
   rw [IsRootless, ← Set.isEmpty_coe_sort, ← Set.isEmpty_coe_sort]
   exact_mod_cast (P.shellEquiv 2).isEmpty_congr.symm
+
+end IntegralPresentation
+
+/-! ### Full rank, and the real extension of an isometry -/
+
+namespace IntegralPresentation
+
+variable {d : ℕ} {Λ Μ : Submodule ℤ (EuclideanSpace ℝ (Fin d))}
+
+/-- A presented lattice is discrete. -/
+theorem discreteTopology (P : IntegralPresentation Λ) : DiscreteTopology Λ :=
+  P.isIntegral_real.discreteTopology
+
+/-- A presented lattice spans `ℝ^d`: its `ℤ`-rank `d` is the dimension of its real span. -/
+theorem isZLattice (P : IntegralPresentation Λ) [DiscreteTopology Λ] : IsZLattice ℝ Λ := by
+  have : DiscreteTopology (Submodule.span ℤ (Λ : Set (EuclideanSpace ℝ (Fin d)))) := by
+    rwa [Submodule.span_eq]
+  have h := Real.finrank_eq_int_finrank_of_discrete this
+  rw [Set.finrank, Set.finrank, Submodule.span_eq, Module.finrank_eq_card_basis P.basis,
+    Fintype.card_fin] at h
+  exact ⟨Submodule.eq_top_of_finrank_eq (h.trans finrank_euclideanSpace_fin.symm)⟩
+
+/-- The vector of `ℝ^d` with coordinates `q` in the presentation basis. -/
+private noncomputable def toReal (P : IntegralPresentation Λ) (q : Fin d → ℚ) :
+    EuclideanSpace ℝ (Fin d) :=
+  ∑ i, (q i : ℝ) • (P.basis i : EuclideanSpace ℝ (Fin d))
+
+private theorem toReal_single (P : IntegralPresentation Λ) (i : Fin d) :
+    P.toReal (Pi.single i 1) = P.basis i := by
+  rw [toReal, Finset.sum_eq_single i (fun j _ hj ↦ by simp [hj]) (by simp)]
+  simp
+
+private theorem toReal_sum_smul (P : IntegralPresentation Λ) (c : Fin d → ℚ)
+    (q : Fin d → Fin d → ℚ) : P.toReal (∑ i, c i • q i) = ∑ i, (c i : ℝ) • P.toReal (q i) := by
+  simp only [toReal, Finset.smul_sum, smul_smul, Finset.sum_apply, Pi.smul_apply, smul_eq_mul,
+    Rat.cast_sum, Rat.cast_mul, Finset.sum_smul]
+  exact Finset.sum_comm
+
+private theorem toReal_carrierEquiv (P : IntegralPresentation Λ) (x : Λ) :
+    P.toReal (P.carrierEquiv x) = x := by
+  simp only [toReal, coe_carrierEquiv_apply, Rat.cast_intCast, Int.cast_smul_eq_zsmul]
+  conv_rhs => rw [← P.basis.sum_repr x]
+  simp only [Submodule.coe_sum, Submodule.coe_smul_of_tower]
+
+private theorem toReal_mem (P : IntegralPresentation Λ) (c : P.toIntegralLattice) :
+    P.toReal c ∈ Λ := by
+  have h := P.toReal_carrierEquiv (P.carrierEquiv.symm c)
+  rw [LinearEquiv.apply_symm_apply] at h
+  exact h ▸ (P.carrierEquiv.symm c).2
+
+private theorem inner_toReal (P : IntegralPresentation Λ) (x y : Fin d → ℚ) :
+    ⟪P.toReal x, P.toReal y⟫_ℝ = (P.toIntegralLattice.form x y : ℝ) := by
+  simp only [toReal, sum_inner, inner_sum, real_inner_smul_left, real_inner_smul_right,
+    ← P.gram_spec, toIntegralLattice_def, TauCeti.IntegralLattice.ofGramMatrix_form,
+    Matrix.toBilin_apply, Pi.basisFun_repr, Matrix.map_apply, eq_intCast, Rat.cast_sum,
+    Rat.cast_mul, Rat.cast_intCast]
+  rw [Finset.sum_comm]
+  refine Finset.sum_congr rfl fun i _ ↦ Finset.sum_congr rfl fun j _ ↦ ?_
+  ring
+
+/-- The extension to `ℝ^d` of an isometry `e` between the lattices of two presentations in Gram
+coordinates: the real linear isometry sending the `i`-th basis vector of `P` to the vector with
+coordinates `e eᵢ` in the basis of `Q` (`realIsometryOfIsometry_basis`). -/
+noncomputable def realIsometryOfIsometry (P : IntegralPresentation Λ)
+    (Q : IntegralPresentation Μ)
+    (e : TauCeti.IntegralLattice.Isometry P.toIntegralLattice Q.toIntegralLattice) :
+    EuclideanSpace ℝ (Fin d) ≃ₗᵢ[ℝ] EuclideanSpace ℝ (Fin d) :=
+  haveI := P.discreteTopology
+  haveI := P.isZLattice
+  let B := P.basis.ofZLatticeBasis ℝ Λ
+  let f := B.constr ℝ fun i ↦ Q.toReal (e (Pi.single i 1))
+  have hf : ∀ x y, ⟪f x, f y⟫_ℝ = ⟪x, y⟫_ℝ := by
+    have h : (innerₗ (EuclideanSpace ℝ (Fin d))).compl₁₂ f f =
+        innerₗ (EuclideanSpace ℝ (Fin d)) := by
+      refine B.ext fun i ↦ B.ext fun j ↦ ?_
+      simp only [LinearMap.compl₁₂_apply, innerₗ_apply_apply, f, Basis.constr_basis]
+      simp only [B, Basis.ofZLatticeBasis_apply, ← P.toReal_single, inner_toReal,
+        TauCeti.IntegralLattice.Isometry.map_app]
+    exact fun x y ↦ LinearMap.congr_fun₂ h x y
+  (f.isometryOfInner hf).toLinearIsometryEquiv rfl
+
+/-- The real extension sends the `i`-th basis vector of `P` to the vector with coordinates
+`e eᵢ` in the basis of `Q`. -/
+theorem realIsometryOfIsometry_basis (P : IntegralPresentation Λ) (Q : IntegralPresentation Μ)
+    (e : TauCeti.IntegralLattice.Isometry P.toIntegralLattice Q.toIntegralLattice) (i : Fin d) :
+    realIsometryOfIsometry P Q e (P.basis i : EuclideanSpace ℝ (Fin d)) =
+      ∑ j, ((e (Pi.single i 1) j : ℚ) : ℝ) • (Q.basis j : EuclideanSpace ℝ (Fin d)) := by
+  have := P.discreteTopology
+  have := P.isZLattice
+  rw [← Basis.ofZLatticeBasis_apply ℝ Λ P.basis i]
+  simp only [realIsometryOfIsometry, LinearIsometry.coe_toLinearIsometryEquiv,
+    LinearMap.coe_isometryOfInner, Basis.constr_basis, toReal]
+
+/-- The real extension carries the vector with coordinates `q` in the basis of `P` to the vector
+with coordinates `e q` in the basis of `Q`. -/
+private theorem realIsometryOfIsometry_toReal (P : IntegralPresentation Λ)
+    (Q : IntegralPresentation Μ)
+    (e : TauCeti.IntegralLattice.Isometry P.toIntegralLattice Q.toIntegralLattice)
+    (q : Fin d → ℚ) : realIsometryOfIsometry P Q e (P.toReal q) = Q.toReal (e q) := by
+  conv_rhs => rw [← (Pi.basisFun ℚ (Fin d)).sum_repr q]
+  simp only [Pi.basisFun_repr, Pi.basisFun_apply, map_sum, map_smul, toReal_sum_smul]
+  simp only [toReal, map_sum, map_smul, realIsometryOfIsometry_basis]
+
+/-- The real extension of an isometry carries the lattice `Λ` onto the lattice `Μ`. -/
+@[simp]
+theorem realIsometry_maps_carrier (P : IntegralPresentation Λ) (Q : IntegralPresentation Μ)
+    (e : TauCeti.IntegralLattice.Isometry P.toIntegralLattice Q.toIntegralLattice) :
+    realIsometryOfIsometry P Q e '' (Λ : Set (EuclideanSpace ℝ (Fin d))) = Μ := by
+  ext y
+  constructor
+  · rintro ⟨x, hx, rfl⟩
+    have h : realIsometryOfIsometry P Q e x = Q.toReal (e (P.carrierEquiv ⟨x, hx⟩)) := by
+      rw [← realIsometryOfIsometry_toReal, P.toReal_carrierEquiv]
+    rw [h]
+    exact Q.toReal_mem ⟨_, (e.apply_mem_carrier_iff _).mpr (P.carrierEquiv ⟨x, hx⟩).2⟩
+  · intro hy
+    refine ⟨P.toReal (e.symm (Q.carrierEquiv ⟨y, hy⟩)),
+      P.toReal_mem ⟨_, (e.symm.apply_mem_carrier_iff _).mpr (Q.carrierEquiv ⟨y, hy⟩).2⟩, ?_⟩
+    rw [realIsometryOfIsometry_toReal, TauCeti.IntegralLattice.Isometry.apply_symm_apply,
+      Q.toReal_carrierEquiv]
+
+/-- Check that `simp` computes the image of the lattice. -/
+example (P : IntegralPresentation Λ) (Q : IntegralPresentation Μ)
+    (e : TauCeti.IntegralLattice.Isometry P.toIntegralLattice Q.toIntegralLattice) :
+    realIsometryOfIsometry P Q e '' (Λ : Set (EuclideanSpace ℝ (Fin d))) = Μ := by
+  simp
+
+/-- The affine isometry `x ↦ realIsometryOfIsometry P Q e (x - v) + w`, which carries the coset
+`v + Λ` onto the coset `w + Μ` (`affineIsometry_maps_coset`). -/
+noncomputable def affineIsometryOfIsometry (P : IntegralPresentation Λ)
+    (Q : IntegralPresentation Μ)
+    (e : TauCeti.IntegralLattice.Isometry P.toIntegralLattice Q.toIntegralLattice)
+    (v w : EuclideanSpace ℝ (Fin d)) :
+    EuclideanSpace ℝ (Fin d) ≃ᵃⁱ[ℝ] EuclideanSpace ℝ (Fin d) :=
+  ((AffineIsometryEquiv.vaddConst ℝ v).symm.trans
+    (realIsometryOfIsometry P Q e).toAffineIsometryEquiv).trans
+      (AffineIsometryEquiv.vaddConst ℝ w)
+
+/-- The affine extension is `x ↦ realIsometryOfIsometry P Q e (x - v) + w`. -/
+theorem affineIsometryOfIsometry_apply (P : IntegralPresentation Λ) (Q : IntegralPresentation Μ)
+    (e : TauCeti.IntegralLattice.Isometry P.toIntegralLattice Q.toIntegralLattice)
+    (v w x : EuclideanSpace ℝ (Fin d)) :
+    affineIsometryOfIsometry P Q e v w x = realIsometryOfIsometry P Q e (x - v) + w :=
+  (rfl)
+
+/-- The affine extension carries the coset `v + Λ` onto the coset `w + Μ`. -/
+@[simp]
+theorem affineIsometry_maps_coset (P : IntegralPresentation Λ) (Q : IntegralPresentation Μ)
+    (e : TauCeti.IntegralLattice.Isometry P.toIntegralLattice Q.toIntegralLattice)
+    (v w : EuclideanSpace ℝ (Fin d)) :
+    affineIsometryOfIsometry P Q e v w '' (v +ᵥ (Λ : Set (EuclideanSpace ℝ (Fin d)))) =
+      w +ᵥ (Μ : Set (EuclideanSpace ℝ (Fin d))) := by
+  rw [← realIsometry_maps_carrier P Q e, ← Set.image_vadd, ← Set.image_vadd, Set.image_image,
+    Set.image_image]
+  refine Set.image_congr fun x _ ↦ ?_
+  rw [affineIsometryOfIsometry_apply, vadd_eq_add, vadd_eq_add, add_sub_cancel_left, add_comm]
+
+/-- Check that `simp` computes the image of a coset. -/
+example (P : IntegralPresentation Λ) (Q : IntegralPresentation Μ)
+    (e : TauCeti.IntegralLattice.Isometry P.toIntegralLattice Q.toIntegralLattice)
+    (v w : EuclideanSpace ℝ (Fin d)) :
+    affineIsometryOfIsometry P Q e v w '' (v +ᵥ (Λ : Set (EuclideanSpace ℝ (Fin d)))) =
+      w +ᵥ (Μ : Set (EuclideanSpace ℝ (Fin d))) := by
+  simp
 
 end IntegralPresentation
 
