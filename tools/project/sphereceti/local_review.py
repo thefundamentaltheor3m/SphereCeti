@@ -117,6 +117,18 @@ def posting_note(args, report) -> str:
     return "Not posted: " + next((reason for flag, reason in reasons if flag), "local review") + "."
 
 
+def poster_identity(client):
+    """The authenticated personal gh identity that would publish, or None when unknown (App tokens)."""
+    from .review_records import RecordError
+    try:
+        user = client.call("user")
+    except RecordError:
+        return None
+    if isinstance(user, dict) and user.get("type") == "User" and type(user.get("id")) is int and user["id"] > 0:
+        return f"user:{user['id']}"
+    return None
+
+
 def write_json(path: Path, value):
     temporary = path.with_suffix(path.suffix + ".tmp")
     temporary.write_text(json.dumps(value, indent=2) + "\n")
@@ -585,6 +597,8 @@ def run_review(args, project, prefs, *, guard=None) -> dict:
         value = getattr(args, name)
         if value:
             setattr(args, name, value.resolve())
+    # Where this run's contest inputs come from; review-publish refuses runs fed local replies.
+    contest_inputs = "local" if args.replies_json or args.reply_file else None
     storage = Path(prefs.storage).expanduser().resolve() / project.repository.replace("/", "__")
     with store_lock(storage / "engine") as lock_fd:
         refs = revisions(args, project)
@@ -609,7 +623,7 @@ def run_review(args, project, prefs, *, guard=None) -> dict:
             policy_path = workspace / "approved/policy/automation.toml"
             selected_policy = parse_policy(policy_path.read_text()) if policy_path.is_file() else None
             client = GitHub()
-            not_posted = None
+            not_posted = poster = None
             if args.post and getattr(args, "post_default", False):
                 # Posting by default degrades to a local record; an explicit --post still fails.
                 if not report["tooling_approved"] or selected_policy is None:
@@ -625,6 +639,8 @@ def run_review(args, project, prefs, *, guard=None) -> dict:
                     raise ReviewError("posting is disabled by approved repository policy")
                 pr_info = client.call(f"repos/{project.repository}/pulls/{args.pr}")
                 author_id = pr_info["user"]["id"]
+                if args.post:
+                    poster = poster_identity(client)
                 comments = client.comments(project.repository, args.pr)
                 approved_revision = lambda rev: client.approved_revision(project.repository, rev, report["tooling"])
                 if args.read_records:
@@ -646,12 +662,17 @@ def run_review(args, project, prefs, *, guard=None) -> dict:
                     write_json(reply_path, {r: [c for c in pending if c["rubric"] == r] for r in RUBRICS})
                     args.replies_json = reply_path
                     args.mode = "manual"  # A posted contest response re-evaluates the full selected scope.
+            # Publication provenance stays out of the provider context; it joins the saved result.
+            provenance = {"contest_inputs": contest_inputs or ("github" if args.post else "none")}
+            if poster:
+                provenance["poster_identity"] = poster
             # Worker guard shares this exact prepared evidence and provider lifecycle. Direct
             # local reviews keep their existing behavior; no second engine or policy parser.
             with (guard(args, report, selected_policy, client) if guard else nullcontext()) as heartbeat:
                 result = ({**report, "completion": "dry_run", "advisory": True, "merge_eligible": False}
                           if args.dry_run else execute(args, prefs, report, workspace, engine,
                                                       storage / "engine", output, lock_fd, heartbeat=heartbeat))
+                result.update(provenance)
                 if heartbeat:
                     try:
                         heartbeat()

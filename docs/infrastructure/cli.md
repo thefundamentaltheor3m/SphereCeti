@@ -9,6 +9,7 @@ The `sphereceti` command supplies project diagnostics and the adapters credited 
 | `review` | [Choose the PR that most needs your review](local-review.md#choosing-what-to-review) |
 | `review N` | [Local review, posted by default](local-review.md#posting-by-default) |
 | `review --read-records / --no-post` | [Authenticated records and publication](review-records.md) |
+| `review-publish RUN` | [Publish a saved run without reviewing again](local-review.md#publishing-a-saved-run) |
 | `review-check-sandbox` | [Credential-free Codex sandbox diagnostic](local-review.md#codex-sandbox-diagnostic) |
 | `archive` | [Durable review records](review-archive.md) |
 | `worker plan` | [Worker planning](worker.md) |
