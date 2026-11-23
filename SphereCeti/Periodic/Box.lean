@@ -12,7 +12,8 @@ public import Mathlib.MeasureTheory.Measure.Haar.InnerProductSpace
 # Coordinate boxes and their boundary layers
 
 The centered coordinate box of radius `R` in `ℝ^d` is the set of points all of whose coordinates
-have absolute value at most `R`; for `R ≥ 0` its volume is `(2R)^d`, and it is empty for `R < 0`.
+have absolute value at most `R`; for `R ≥ 0` its volume is `(2R)^d`.  For `R < 0` it is empty when
+`d > 0`; in dimension zero every box is the whole one-point space, of volume `1`.
 The boundary layer of thickness `t` is the box of radius `R + t` with the box of radius `R - t`
 removed; for `R ≥ t ≥ 0` its volume is `(2(R + t))^d - (2(R - t))^d`.  For fixed `t ≥ 0`, the
 boundary layer is negligible compared with the box as `R → ∞`: for `R > t` the ratio of volumes
@@ -32,7 +33,7 @@ are lost.
 * `SphereCeti.PeriodicSpherePacking.mem_centeredBox`, `mem_boxBoundaryLayer`: membership in a box
   and in its boundary layer.
 * `SphereCeti.PeriodicSpherePacking.volume_centeredBox`: the box of radius `R` has volume
-  `ENNReal.ofReal (2R) ^ d`, that is `(2R)^d` for `R ≥ 0` and `0` for `R < 0`.
+  `ENNReal.ofReal (2R) ^ d`, that is `(2R)^d` for `R ≥ 0`, and `0` for `R < 0` when `d > 0`.
 * `SphereCeti.PeriodicSpherePacking.boundaryLayer_volume_div_volume_tendsto_zero`: the volume of
   the boundary layer of fixed thickness is negligible compared with that of the box.
 -/
@@ -97,7 +98,8 @@ theorem centeredBox_mono {d : ℕ} {R R' : ℝ} (h : R ≤ R') : centeredBox d R
   fun _ hx ↦ mem_centeredBox.mpr fun i ↦ (mem_centeredBox.mp hx i).trans h
 
 /-- The centered box of radius `R` in `ℝ^d` has volume `ENNReal.ofReal (2R) ^ d`: this is `(2R)^d`
-for `R ≥ 0`, and `0` for `R < 0`, when the box is empty. -/
+for `R ≥ 0`, and `0` for `R < 0` when `d > 0`, when the box is empty.  In dimension zero the box is
+the whole one-point space, of volume `1` for every `R`. -/
 theorem volume_centeredBox (d : ℕ) (R : ℝ) :
     volume (centeredBox d R) = ENNReal.ofReal (2 * R) ^ d := by
   rw [centeredBox_eq_preimage, (PiLp.volume_preserving_ofLp (Fin d)).measure_preimage
