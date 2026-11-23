@@ -11,6 +11,11 @@ context, installed resources, and local execution boundary.
 ## Use
 
 ```bash
+# Pick the open PR that most needs your review, say why in one line, and review it.
+sphereceti review
+# The same choice as a preview: no model call and no GitHub write.
+sphereceti review --dry-run
+
 # No provider calls: identify and verify the exact PR, approved context, and dependency sources.
 uv run --locked sphereceti review 1 --dry-run \
   --source-repo . --dependencies-dir .lake/packages
@@ -30,11 +35,101 @@ provider = "codex"
 budget_usd = 5
 ```
 
-Then `sphereceti review 9` uses those preferences. The budget is a daily estimate threshold,
+Then `sphereceti review` and `sphereceti review 9` use those preferences. The budget is a daily estimate threshold,
 checked before each rubric with a default $1 reservation. Actual usage can exceed the threshold.
 An explicit `--operator-config` replaces the default file and command-line flags take precedence.
-With no configured budget the default is zero. Worker execution, posting, API authentication
-and shadow runs require their own explicit flags or operator config.
+With no configured budget the default is zero. Worker execution, API authentication and
+shadow runs require their own explicit flags or operator config.
+
+## Posting by default
+
+A live GitHub review (bare `review` or `review N`) publishes its review record on the PR,
+under your own `gh` identity, through the [record publisher](review-records.md): exactly what
+`--post` did before. `--no-post` keeps the record local. `--post` remains accepted as the
+explicit form; `--post --no-post` is a usage error (exit 2).
+
+- Dry runs, `--read-records`, `--local-sources`, `--shadow`, reply mode and `--replies-json`
+  never post, and need no `--no-post`.
+- Posting still requires approved policy: `posting = true` in `policy/automation.toml` on
+  remote main, read from the approved tooling commit T. When that policy is unavailable (for
+  example an explicit prospective `--tooling`) or disables posting, the default keeps the
+  record local and reports `Not posted: posting is disabled by approved repository policy.`
+  (`not_posted` in `--json`). An explicit `--post` still fails before any provider call.
+- Anyone may post. A record from a GitHub identity outside the approved
+  `authorized_reviewers` is an advisory record: readers and merge gates ignore it. The result
+  says so: `Posted: <comment URL> (advisory: user:N is not an authorized reviewer).`
+- The text result always ends with `Posted: <URL> (...)` or `Not posted: <reason>.`
+
+The worker (`worker run --execute`) is unchanged: it posts only with `--post-review`.
+
+## Choosing what to review
+
+`sphereceti review` without a number selects one PR, prints one line explaining the choice,
+and then reviews it exactly as `sphereceti review N` would, bound to the head and base it
+observed. If the PR moves before the provider starts, the run stops (exit 2) and asks you to
+rerun. Selection reuses the worker's read-only `survey` and `plan`; it never writes to GitHub.
+
+**Eligible PRs** are open PRs the planner offers for `review-assessment`: not a draft,
+mergeable, and with passing review readiness (CI passed, or the authenticated human-review
+scope exception with main-only skipped jobs). Then it skips:
+
+| Code | Reason |
+|---|---|
+| `yours` | You authored it (author login equals the authenticated `gh` user, case-insensitively). |
+| `draft` | Draft PR. |
+| `not_ready` | Conflicting, unknown mergeability, or CI failed, pending or unknown. |
+| `reviewed` | It already has an accepted review of this head (below). |
+| `reviewed_by_you` | You already published or produced a complete review of this head. |
+
+"Already reviewed" is checked per exact head **and** base:
+
+- **Accepted review:** a PR comment holds an unedited, complete, non-advisory commit/manual
+  review record for this PR's current head and base, published by an identity in the installed
+  policy's `authorized_reviewers` (the same records `review --read-records` reads). An
+  authenticated contest newer than that record, not yet answered by its publisher, reopens the
+  PR. Selection does not recompute tooling, context or engine digests (that would mean
+  materializing every candidate's sources); the record reader still checks them all.
+- **Reviewed by you:** a complete commit/manual record for this head and base that you posted
+  (comment author login equals yours, advisory or not), or that you produced locally: a
+  `record.json` under your storage's `runs/`, or a record in the local archive journal, which
+  also covers runs with `--output`. Dry runs, partial and errored runs do not count.
+
+**Priority** comes from the planner. Every eligible PR is at the `review-assessment` stage, so
+they tie, and the planner's tie-break decides: **longest waiting first**, by the PR's GitHub
+`updatedAt` (oldest first), then the lowest PR number. The planner does not observe when the
+current head became ready, so `updatedAt` stands in for it. Any comment, including a posted
+record, refreshes it.
+
+The rationale line has this form:
+
+```text
+Reviewing #50 (head 8cdec1b): ready, not yours, no current review; waiting 3h; will post if policy permits.
+```
+
+`Previewing` replaces `Reviewing` under `--dry-run`, which ends `; nothing will be posted.`
+`--no-post` ends `; will not post (--no-post).` and an explicit `--post` ends `; will post.`
+`ready (human-review scope)` marks the scope exception. Waiting is rounded down to `<1m`,
+minutes, hours or days. The result then lists the ten rubric verdicts, the record path
+(`record.md`, with `record.json` beside it), the local archive entry, and whether and where the
+record was posted.
+
+When nothing qualifies, the command prints why and **exits 0**:
+
+```text
+No PRs need your review: #53 is not ready (CI pending); #51 is yours; #50 is yours.
+```
+
+An unknown queue (GitHub unavailable, more than 100 open PRs, unreadable review records) is
+never reported as nothing to do: it exits 2. A review that ran but ended in error exits 1, as
+for `review N`. PR-specific inputs (`--local-sources`, `--read-records`, `--shadow`, reply
+inputs, `--head`/`--base`/`--description-file`) need an explicit number.
+
+`--json` prints `schema: sphereceti.review-selection/v1` with `state` (`selected` or
+`nothing_to_review`), `actor`, `observed_at`, `priority`, `waiting_since: updatedAt`,
+`selected` (PR, title, author, head, base, `updated_at`, `waiting_seconds`, `ci`,
+`review_ci`), the ordered eligible `candidates`, `skipped` entries (`pr`, `head`, `code`,
+`reason`), the `rationale` line, the `posting` note, and the full `review` report
+(`null` when nothing was selected).
 
 `--auth api` uses the selected provider's API credential instead.
 Supported providers are the imported engine's Claude, Sonnet, Codex, Kiro, DeepSeek, MiniMax,
@@ -186,10 +281,10 @@ on timeout or interruption. Each provider attempt also has its own `--attempt-ti
 
 ## Codex model selection and accounting
 
-`--codex-model MODEL` pins the exact Codex model, for both `review` and
-[`worker run --execute`](worker-execution.md); otherwise the imported default
-`gpt-5.6-sol` applies, with upstream's automatic Terra fallback for accounts without Sol. An
-explicit pin disables that fallback. Every dispatchable model must have a row in
+`sphereceti review` uses `gpt-6.1-sol` when Codex is selected. Use `--codex-model MODEL` to
+choose a different model. The contributor CLI pins that choice, including the default.
+[`worker run --execute`](worker-execution.md) uses the engine's `gpt-5.6-sol` default with
+automatic Terra fallback unless the worker operator pins a model. Every dispatchable model must have a row in
 `runner/prices.json`; an unpriced model is rejected before any inference. The table carries
 the gpt-6 family from TauCetiReview [#172](https://github.com/TauCetiProject/TauCetiReview/pull/172)
 ([baf2e68](https://github.com/TauCetiProject/TauCetiReview/commit/baf2e680b43369805621e6ff0b6c984cab5e4ccb)),
@@ -197,8 +292,7 @@ so `--codex-model gpt-6.1-sol` (Sol61: 2.00 input, 0.10 cached input, 10.00 outp
 tokens) is accepted. The corrected rates and cache-write rates of
 [#175](https://github.com/TauCetiProject/TauCetiReview/pull/175)
 ([4684a52](https://github.com/TauCetiProject/TauCetiReview/commit/4684a52a03859a5e22ba2af736720426de373e1f))
-also apply, including `gpt-5.6-sol`'s 2026-08-21 window. Unlike #172, SphereCeti does not change
-the default model.
+also apply, including `gpt-5.6-sol`'s 2026-08-21 window.
 
 Codex reports no dollar figure, under either authentication mode. A subscription-backed run
 therefore records `cost_estimated: true` and charges the shared daily budget the dated
