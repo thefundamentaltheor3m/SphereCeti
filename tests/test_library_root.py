@@ -49,14 +49,14 @@ class LibraryRootContractTest(unittest.TestCase):
     def test_root_imports_are_frozen(self):
         # Existing re-exports stay (downstream `import SphereCeti` keeps working); nothing is added,
         # removed or reordered by a proof PR.
-        basic = 'public import SphereCeti.Basic\n'
-        zero = 'public import SphereCeti.Analysis.ExactZeroOrder\n'
+        lines = [l + '\n' for l in (ROOT / 'SphereCeti.lean').read_text().splitlines() if l.startswith('public import ')]
+        first, second, last = lines[0], lines[1], lines[-1]
         edits = {
-            'added public import': (basic, basic + 'public import SphereCeti.ZLattice.CovolumeBound\n'),
-            'added plain import': (basic, basic + 'import SphereCeti.ZLattice.CovolumeBound\n'),
-            'added indented meta import': (basic, basic + '  public meta import SphereCeti.ZLattice.CovolumeBound\n'),
-            'removed re-export': (zero, ''),
-            'sorted': (basic + zero, zero + basic),
+            'added public import': (first, first + 'public import SphereCeti.ZLattice.CovolumeBound\n'),
+            'added plain import': (first, first + 'import SphereCeti.ZLattice.CovolumeBound\n'),
+            'added indented meta import': (first, first + '  public meta import SphereCeti.ZLattice.CovolumeBound\n'),
+            'removed re-export': (last, ''),
+            'reordered': (first + second, second + first),
         }
         for name, (old, new) in edits.items():
             with self.subTest(name=name):
@@ -67,10 +67,11 @@ class LibraryRootContractTest(unittest.TestCase):
                 self.assertIn('must keep exactly its frozen imports', result.stderr)
                 self.assertIn('import topic modules directly', result.stderr)
 
-    def test_preserved_reexports_match_main(self):
+    def test_existing_reexports_are_preserved(self):
         text = (ROOT / 'SphereCeti.lean').read_text()
-        self.assertIn('public import SphereCeti.Basic\npublic import SphereCeti.Analysis.ExactZeroOrder\n'
-                      'public import SphereCeti.Contour.HalfInfiniteRectangle\n', text)
+        for module in ('SphereCeti.Basic', 'SphereCeti.Analysis.ExactZeroOrder',
+                       'SphereCeti.Contour.HalfInfiniteRectangle', 'SphereCeti.CohnElkies.Certificate'):
+            self.assertIn(f'public import {module}\n', text)
 
 
 if __name__ == '__main__':

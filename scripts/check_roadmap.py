@@ -39,8 +39,16 @@ for library in ("SphereCeti", "SphereCetiRoadmap"):
 # still works, and proof PRs never add to it (topic modules are imported directly). Changing this
 # list is a maintainer decision. A guard against honest mistakes in CI; the trusted gate separately
 # routes every root edit to human review.
-FROZEN_ROOT_IMPORTS = ["SphereCeti.Basic", "SphereCeti.Analysis.ExactZeroOrder",
-                       "SphereCeti.Contour.HalfInfiniteRectangle"]
+FROZEN_ROOT_IMPORTS = [
+    "SphereCeti.Basic",
+    "SphereCeti.Analysis.Distribution.SchwartzSpace.CompNormSq",
+    "SphereCeti.Analysis.Distribution.SchwartzSpace.FourierPositivity",
+    "SphereCeti.Analysis.ExactZeroOrder",
+    "SphereCeti.CohnElkies.Certificate",
+    "SphereCeti.Contour.HalfInfiniteRectangle",
+    "SphereCeti.Lattice.IntegralPresentation",
+    "SphereCeti.ZLattice.RelativeQuotient",
+]
 root_imports = re.findall(r"^\s*(?:public\s+)?(?:meta\s+)?import\s+(\S+)", (ROOT / "SphereCeti.lean").read_text(),
                           re.MULTILINE)
 require(root_imports == FROZEN_ROOT_IMPORTS,
