@@ -14,8 +14,11 @@ WORKFLOW = '.github/workflows/pr-build.yml'
 CONTEXTS = ('trusted-build', 'trusted-scope')
 # pr-build.yml's status job publishes the commit whose workflow ran (github.workflow_sha) in the
 # trusted-build description. A run's PR association reports the PR's current base, not the base when
-# the run happened, so this attestation is what binds a run to its tooling.
-TOOLING_ATTESTATION = re.compile(r'Approved tooling build: [a-z_]+; tooling ([0-9a-f]{40})')
+# the run happened, so this attestation is what binds a run to its tooling. Newer runs also attest
+# the pull_request_target event's PR number and base; the head is the status's own commit. That
+# binding works for fork PRs, whose runs GitHub reports with an empty pull_requests association.
+TOOLING_ATTESTATION = re.compile(r'Approved tooling build: [a-z_]+; tooling ([0-9a-f]{40})'
+                                 r'(?:; pr ([1-9][0-9]{0,8}); base ([0-9a-f]{40}))?')
 
 
 def parse_checks(text):
@@ -96,11 +99,23 @@ def assess_checks(statuses, run, jobs, context, settings):
         if (run.get('repository') or {}).get('full_name') != context['repository']:
             reasons.append('trusted run belongs to another repository')
         associated = run.get('pull_requests')
-        if not isinstance(associated, list) or not any(
-                isinstance(p, dict) and type(p.get('number')) is int and p['number'] == context['pr'] and
-                (p.get('head') or {}).get('sha') == context['head'] and
-                (p.get('base') or {}).get('sha') == context['base'] for p in associated):
+        mine = [p for p in associated if isinstance(p, dict) and type(p.get('number')) is int and
+                p['number'] == context['pr']] if isinstance(associated, list) else []
+        exact = any((p.get('head') or {}).get('sha') == context['head'] and
+                    (p.get('base') or {}).get('sha') == context['base'] for p in mine)
+        attested = TOOLING_ATTESTATION.fullmatch((latest.get('trusted-build') or {}).get('description') or '')
+        if attested and attested.group(2):
+            # The event's own PR binding; an association, when GitHub reports one, must agree.
+            if int(attested.group(2)) != context['pr'] or attested.group(3) != context['base']:
+                reasons.append('trusted-build attests another PR or base')
+            if mine and not exact:
+                reasons.append('trusted run PR association disagrees with the attested PR binding')
+        elif not exact:
+            # Older descriptions carry no PR binding: only the association can supply it.
             reasons.append('trusted run lacks the exact PR head/base association')
+        if (not context.get('head_repository') or
+                (run.get('head_repository') or {}).get('full_name') != context['head_repository']):
+            reasons.append('trusted run head repository differs from the PR head repository')
         if context['base'] != context['tooling']:
             reasons.append('PR base is not approved main; update the PR and refresh the trusted run')
         if not isinstance(jobs, list):

@@ -39,6 +39,7 @@ UPSTREAM = "afb424eda89e8ac96d9eb69f6a88972055a4cd1b"
 RUN_TIMEOUT = 1800       # seconds for the whole engine run, every rubric and attempt
 ATTEMPT_TIMEOUT = 600    # default seconds for one provider attempt and its process group
 MAX_ATTEMPT_TIMEOUT = 1800
+BUDGET_STOP_NOTE = "daily review budget reached (run saved locally)"
 
 
 class ReviewError(ValueError):
@@ -115,6 +116,18 @@ def posting_note(args, report) -> str:
                (args.local_sources, "local sources"), (args.shadow, "shadow run"),
                (args.mode == "reply" or args.replies_json, "local reply input"))
     return "Not posted: " + next((reason for flag, reason in reasons if flag), "local review") + "."
+
+
+def poster_identity(client):
+    """The authenticated personal gh identity that would publish, or None when unknown (App tokens)."""
+    from .review_records import RecordError
+    try:
+        user = client.call("user")
+    except RecordError:
+        return None
+    if isinstance(user, dict) and user.get("type") == "User" and type(user.get("id")) is int and user["id"] > 0:
+        return f"user:{user['id']}"
+    return None
 
 
 def write_json(path: Path, value):
@@ -440,6 +453,7 @@ def execute(args, prefs, report, workspace: Path, engine: Path, store: Path, out
     write_json(run_store / "ledger.json", {"days": ledger["days"], "prs": {}} if args.shadow else ledger)
     if not args.shadow:
         write_json(context_path, contexts)
+    budget_signal = output / "engine-budget.json"
     command = ["--repo", report["repository"], "--pr", pr_key,
                "--rubrics", args.rubrics, "--rubrics-dir", str(engine / "effective-rubrics"),
                "--tool-cwd", str(workspace), "--code-path", "code", "--roadmap-path", "approved",
@@ -449,6 +463,7 @@ def execute(args, prefs, report, workspace: Path, engine: Path, store: Path, out
                "--rubrics-repo", "TauCetiProject/TauCetiReview", "--rubrics-sha", UPSTREAM,
                "--providers", ",".join(providers), "--auth", args.auth,
                "--daily-budget", str(budget), "--max-call-cost", str(args.max_call_cost),
+               "--budget-file", str(budget_signal),
                "--mode", "manual" if args.shadow else args.mode, "--no-post",
                "--scoreboard-file", str(output / "upstream-scoreboard.md"),
                # Local engine adaptation: bounded attempts, no Codex sub-agents, unknown-usage stop.
@@ -505,9 +520,13 @@ def execute(args, prefs, report, workspace: Path, engine: Path, store: Path, out
     state = current.get("prs", {}).get(pr_key, {}).get("state", {})
     stop_path = output / "usage-stop.json"
     usage_stop = json.loads(stop_path.read_text()) if stop_path.is_file() else None
+    stop_reason = usage_stop["stop_reason"] if usage_stop else None
+    if not code and not stop_reason and budget_signal.is_file():
+        if json.loads(budget_signal.read_text())["stopped"]:
+            stop_reason = "daily_budget"
     finished = [r for r in RUBRICS if state.get(r, {}).get("reviewed_sha") == report["head"]
                 and state[r].get("verdict") in ("approve", "request_changes", "block")]
-    complete = (len(finished) == len(RUBRICS) and args.rubrics == ",".join(RUBRICS)
+    complete = (not stop_reason and len(finished) == len(RUBRICS) and args.rubrics == ",".join(RUBRICS)
                 and args.mode != "reply" and not report["diff_prompt_truncated"] and not args.shadow)
     result = {**report, "completion": "error" if code else "complete" if complete else "partial",
               "evaluation_request": {"auth": args.auth, "shadow": args.shadow or None,
@@ -518,7 +537,7 @@ def execute(args, prefs, report, workspace: Path, engine: Path, store: Path, out
               "execution_id": uuid.uuid4().hex, "finished_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
               "engine_exit_code": code, "execution_mode": "shadow" if args.shadow else args.mode,
               "requested_rubrics": args.rubrics.split(","), "finished_rubrics": finished,
-              "stop_reason": usage_stop["stop_reason"] if usage_stop else None,
+              "stop_reason": stop_reason,
               "usage_unknown_rubrics": usage_stop["unknown_rubrics"] if usage_stop else [],
               "verdicts": {r: state.get(r, {}).get("verdict", "absent") for r in RUBRICS},
               "reviews": {r: {k: state.get(r, {}).get(k) for k in ("summary", "findings", "last_reply_seen")}
@@ -585,6 +604,8 @@ def run_review(args, project, prefs, *, guard=None) -> dict:
         value = getattr(args, name)
         if value:
             setattr(args, name, value.resolve())
+    # Where this run's contest inputs come from; review-publish refuses runs fed local replies.
+    contest_inputs = "local" if args.replies_json or args.reply_file else None
     storage = Path(prefs.storage).expanduser().resolve() / project.repository.replace("/", "__")
     with store_lock(storage / "engine") as lock_fd:
         refs = revisions(args, project)
@@ -609,7 +630,7 @@ def run_review(args, project, prefs, *, guard=None) -> dict:
             policy_path = workspace / "approved/policy/automation.toml"
             selected_policy = parse_policy(policy_path.read_text()) if policy_path.is_file() else None
             client = GitHub()
-            not_posted = None
+            not_posted = poster = None
             if args.post and getattr(args, "post_default", False):
                 # Posting by default degrades to a local record; an explicit --post still fails.
                 if not report["tooling_approved"] or selected_policy is None:
@@ -625,6 +646,8 @@ def run_review(args, project, prefs, *, guard=None) -> dict:
                     raise ReviewError("posting is disabled by approved repository policy")
                 pr_info = client.call(f"repos/{project.repository}/pulls/{args.pr}")
                 author_id = pr_info["user"]["id"]
+                if args.post:
+                    poster = poster_identity(client)
                 comments = client.comments(project.repository, args.pr)
                 approved_revision = lambda rev: client.approved_revision(project.repository, rev, report["tooling"])
                 if args.read_records:
@@ -646,12 +669,17 @@ def run_review(args, project, prefs, *, guard=None) -> dict:
                     write_json(reply_path, {r: [c for c in pending if c["rubric"] == r] for r in RUBRICS})
                     args.replies_json = reply_path
                     args.mode = "manual"  # A posted contest response re-evaluates the full selected scope.
+            # Publication provenance stays out of the provider context; it joins the saved result.
+            provenance = {"contest_inputs": contest_inputs or ("github" if args.post else "none")}
+            if poster:
+                provenance["poster_identity"] = poster
             # Worker guard shares this exact prepared evidence and provider lifecycle. Direct
             # local reviews keep their existing behavior; no second engine or policy parser.
             with (guard(args, report, selected_policy, client) if guard else nullcontext()) as heartbeat:
                 result = ({**report, "completion": "dry_run", "advisory": True, "merge_eligible": False}
                           if args.dry_run else execute(args, prefs, report, workspace, engine,
                                                       storage / "engine", output, lock_fd, heartbeat=heartbeat))
+                result.update(provenance)
                 if heartbeat:
                     try:
                         heartbeat()
@@ -662,7 +690,9 @@ def run_review(args, project, prefs, *, guard=None) -> dict:
                         raise
                 if not args.dry_run:
                     record, rendered = persist_review(result, output, storage / "archive")
-                    if args.post:
+                    if result.get("stop_reason") == "daily_budget":
+                        not_posted = BUDGET_STOP_NOTE
+                    elif args.post:
                         write_json(output / "result.json", result)
                         def revalidate():
                             if heartbeat:

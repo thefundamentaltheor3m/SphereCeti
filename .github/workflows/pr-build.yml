@@ -100,6 +100,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          # The PR binding comes from this pull_request_target event, never from candidate code.
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
           TOOLING_SHA: ${{ github.workflow_sha }}
           BUILD_RESULT: ${{ needs.candidate.result }}
           SCOPE: ${{ needs.candidate.outputs.scope }}
@@ -109,13 +112,19 @@ jobs:
           set -euo pipefail
           [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]
           [[ "$TOOLING_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$PR_NUMBER" =~ ^[1-9][0-9]{0,8}$ ]]
+          [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$BUILD_RESULT" =~ ^[a-z_]+$ ]]
+          # The head is bound by the status's own commit; GitHub caps a description at 140 characters.
+          build_description="Approved tooling build: $BUILD_RESULT; tooling $TOOLING_SHA; pr $PR_NUMBER; base $BASE_SHA"
+          (( ${#build_description} <= 140 ))
           build_state=failure
           scope_state=failure
           [ "$BUILD_RESULT" != success ] || build_state=success
           [ "$SCOPE" != mathematical ] || scope_state=success
           gh api "repos/$GH_REPO/statuses/$HEAD_SHA" -f state="$build_state" \
             -f context=trusted-build -f target_url="$RUN_URL" \
-            -f description="Approved tooling build: $BUILD_RESULT; tooling $TOOLING_SHA"
+            -f description="$build_description"
           gh api "repos/$GH_REPO/statuses/$HEAD_SHA" -f state="$scope_state" \
             -f context=trusted-scope -f target_url="$RUN_URL" \
             -f description="Scope: ${SCOPE:-human_review}; no merge authorization"

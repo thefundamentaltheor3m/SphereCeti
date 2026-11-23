@@ -6,10 +6,16 @@ Authors: SphereCeti contributors
 
 module
 
-public import SphereCeti.Analysis.ExactZeroOrder
 public import SphereCeti.Basic
+public import SphereCeti.Analysis.Distribution.SchwartzSpace.CompNormSq
+public import SphereCeti.Analysis.Distribution.SchwartzSpace.FourierPositivity
+public import SphereCeti.Analysis.ExactZeroOrder
+public import SphereCeti.CohnElkies.Certificate
 public import SphereCeti.CohnElkies.Defects
 public import SphereCeti.CohnElkies.StructureFactor
+public import SphereCeti.Contour.HalfInfiniteRectangle
+public import SphereCeti.Lattice.IntegralPresentation
+public import SphereCeti.ZLattice.RelativeQuotient
 
 /-!
 # SphereCeti library
