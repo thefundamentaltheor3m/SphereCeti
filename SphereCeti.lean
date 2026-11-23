@@ -6,8 +6,9 @@ Authors: SphereCeti contributors
 
 module
 
-public import SphereCeti.Basic
+public import SphereCeti.Analysis.ExactZeroOrder
 public import SphereCeti.Analysis.FourierReverse
+public import SphereCeti.Basic
 
 /-!
 # SphereCeti library

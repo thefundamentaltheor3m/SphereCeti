@@ -95,6 +95,12 @@ class AutomationPolicy:
     merging: bool
     mathematical_paths: tuple[str, ...]
     authorized_reviewers: tuple[str, ...]
+    # Optional, so an approved policy without it still parses: absent means empty.
+    # (infra/review-approves also adds `approving`; reconcile on rebase.)
+    approving_reviewers: tuple[str, ...] = ()
+
+
+OPTIONAL_POLICY = {"approving_reviewers"}
 
 
 @dataclass(frozen=True)
@@ -138,24 +144,32 @@ def parse_project(text: str) -> ProjectConfig:
 def parse_policy(text: str) -> AutomationPolicy:
     data = tomllib.loads(text)
     names = set(AutomationPolicy.__dataclass_fields__)
-    fields(data, {"schema_version"} | names, "policy")
+    if not isinstance(data, dict) or set(data) - ({"schema_version"} | names) or \
+            ({"schema_version"} | names) - OPTIONAL_POLICY - set(data):
+        raise ConfigError(f"policy: expected fields {', '.join(sorted({'schema_version'} | names))} "
+                          f"({', '.join(sorted(OPTIONAL_POLICY))} optional)")
+    data = {"approving_reviewers": [], **data}
     version(data, "policy")
-    for name in names - {"mathematical_paths", "authorized_reviewers"}:
+    for name in names - {"mathematical_paths", "authorized_reviewers", "approving_reviewers"}:
         if type(data[name]) is not bool:
             raise ConfigError(f"{name}: expected boolean")
-    for name in ("mathematical_paths", "authorized_reviewers"):
+    for name in ("mathematical_paths", "authorized_reviewers", "approving_reviewers"):
         if not isinstance(data[name], list):
             raise ConfigError(f"{name}: expected a list")
         for item in data[name]:
             local_path(item, name) if name == "mathematical_paths" else nonempty(item, name)
             if name == "authorized_reviewers" and not re.fullmatch(r"(?:user|app):[1-9][0-9]*", item):
                 raise ConfigError("authorized_reviewers: use immutable GitHub user:ID or app:ID")
+            if name == "approving_reviewers" and not re.fullmatch(r"user:[1-9][0-9]*", item):
+                raise ConfigError("approving_reviewers: use immutable GitHub user:ID (a maintainer's own account)")
         if len(set(data[name])) != len(data[name]):
             raise ConfigError(f"{name}: duplicate entry")
     if data["merging"] and not data["mathematical_paths"]:
         raise ConfigError("merging requires a separately approved nonempty path policy")
     if data["merging"] and not data["authorized_reviewers"]:
         raise ConfigError("merging requires authorized reviewers")
+    if set(data["approving_reviewers"]) - set(data["authorized_reviewers"]):
+        raise ConfigError("approving_reviewers must be a subset of authorized_reviewers")
     return AutomationPolicy(**{name: tuple(data[name]) if isinstance(data[name], list) else data[name]
                               for name in names})
 
