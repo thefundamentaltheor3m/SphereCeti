@@ -35,7 +35,12 @@ obtained from the complex derivative of `F`, and the latter is symmetric.
 * `SphereCeti.Contour.ClosedOneFormOn.of_diffContOnCl`: the roadmap target of the same name, with
   the same statement.
 
-This is an independent formalization; no proof text is adapted from another repository.
+## Provenance
+
+The definitions and statements are the roadmap's Layer 8 targets, which are based on the `gauss2`
+branch of Sphere-Packing-Lean at commit `01f23eccf963c50250c9e48dd103e8cc88c36f85`, file
+`SpherePacking/Contour/MobiusInv/WedgeSetContour.lean` (see `PROVENANCE.md`, section 4).  The
+proofs in this file were written independently of that source; no proof text is copied from it.
 -/
 
 public section
