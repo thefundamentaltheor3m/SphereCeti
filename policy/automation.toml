@@ -11,3 +11,7 @@ mathematical_paths = []
 # first canary only; dedicated worker accounts and other reviewers are added in later policy PRs.
 authorized_reviewers = ["user:2009342"]
 # Future authorization uses immutable GitHub identities: "user:12345" or "app:12345".
+# Maintainers (a subset of authorized_reviewers, as "user:ID") whose all-green `sphereceti review`
+# also submits a formal GitHub APPROVE under their own account. Empty: added per maintainer, each
+# in a separately reviewed policy PR once that maintainer agrees.
+approving_reviewers = []

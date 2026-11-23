@@ -120,58 +120,77 @@ def pull(client, project, number):
     return pr
 
 
-def observe(args, project, *, client=None):
+def mathematical_scope(scope, evidence):
+    return scope['scope'] == 'mathematical'
+
+
+def collect(args, project, client, *, assess_review=mathematical_scope, evidence=None):
+    """Gather every observation input; `evidence` keeps partial results if a later read fails.
+
+    `assess_review(scope, evidence)` chooses whether to materialize review context. Review,
+    scope, and check verdicts come only from the shared assessors; callers add predicates.
+    """
     if args.pr <= 0: raise RecordError('PR number must be positive')
-    client = client or Reader(project.repository)
-    pr = pull(client, project, args.pr)
-    current = client.call(f'repos/{project.repository}/commits/{quote(project.default_branch, safe="")}')['sha']
-    refs = {'tooling':current, 'head':pr['head']['sha'], 'base':pr['base']['sha'],
+    ev = {} if evidence is None else evidence
+    pr = ev['pr'] = pull(client, project, args.pr)
+    current = ev['current'] = client.call(f'repos/{project.repository}/commits/{quote(project.default_branch, safe="")}')['sha']
+    refs = ev['refs'] = {'tooling':current, 'head':pr['head']['sha'], 'base':pr['base']['sha'],
             'tooling_approved':True, 'source_mode':'github', 'description':pr['title']+'\n\n'+(pr['body'] or '')}
     cache = args.cache_dir.expanduser().absolute()
     cache.mkdir(parents=True, exist_ok=True)
     if shutil.disk_usage(cache).free < 2 * 1024**3: raise RecordError('observation needs 2 GiB free reserve')
-    repo = object_source(args.source_repo, cache / 'SphereCeti.git', f'https://github.com/{project.repository}',
-                         [refs[k] for k in ('tooling','head','base')], False)
+    repo = ev['repo'] = object_source(args.source_repo, cache / 'SphereCeti.git', f'https://github.com/{project.repository}',
+                                      [refs[k] for k in ('tooling','head','base')], False)
     approved = tree(repo, current)
     required = ('sphereceti.toml','policy/automation.toml','policy/merge-checks.toml')
-    missing = [p for p in required if p not in approved]
-    if missing:
-        client.revalidate()
-        return {'schema_version':1, 'mode':'observation', 'repository':project.repository, 'pr':args.pr,
-                'head':refs['head'], 'base':refs['base'], 'tooling':current,
-                'eligibility':'human_review', 'reasons':['approved main lacks '+p for p in missing],
-                'merge_eligible':False, 'merge_allowed':False, 'activation_verified':False}
+    ev['missing'] = [p for p in required if p not in approved]
+    if ev['missing']: return ev
     selected = parse_project(blob(repo, approved['sphereceti.toml']).decode())
     if selected.repository != project.repository or selected.implementation_repository != project.implementation_repository:
         raise RecordError('approved project identity differs from installed project')
-    policy = parse_policy(blob(repo, approved['policy/automation.toml']).decode())
-    settings = parse_checks(blob(repo, approved['policy/merge-checks.toml']).decode())
-    scope = evaluate(repo, current, refs['base'], refs['head'])
+    policy = ev['policy'] = parse_policy(blob(repo, approved['policy/automation.toml']).decode())
+    settings = ev['settings'] = parse_checks(blob(repo, approved['policy/merge-checks.toml']).decode())
+    ev['check_policy_digest'] = hashlib.sha256(blob(repo, approved['policy/merge-checks.toml'])).hexdigest()
+    scope = ev['scope'] = evaluate(repo, current, refs['base'], refs['head'])
     # Protected and scaffold PRs need no dependency download or review engine workspace.
     context = {**scope, 'pr':args.pr, 'tooling_approved':True, 'installed_tooling_matches_T':False,
                'missing_context':['review evidence not prepared for human-only scope']}
     review = {'review_safe':False, 'reasons':['review assessment not needed for human-only scope'],
               'repository':project.repository,'pr':args.pr,'head':refs['head']}
-    if scope['scope'] == 'mathematical':
+    if assess_review(scope, ev):
         with tempfile.TemporaryDirectory(prefix='merge-evidence-', dir=cache) as scratch:
             root = Path(scratch); (root / 'workspace').mkdir()
             prepared = SimpleNamespace(pr=args.pr, source_repo=repo, dependencies_dir=args.dependencies_dir,
                                        local_sources=False)
             context = prepare(prepared, selected, refs, cache, root / 'workspace', root / 'engine')
-        comments = client.comments(project.repository, args.pr)
+        comments = ev['comments'] = client.comments(project.repository, args.pr)
         review = assess_records(comments, context, policy,
                                 lambda rev:client.approved_revision(project.repository, rev, current), pr['user']['id'])
-    statuses = client.statuses(refs['head'])
+    ev.update(context=context, review=review)
+    statuses = ev['statuses'] = client.statuses(refs['head'])
     runs = {run_reference(s.get('target_url'), project.repository) for s in latest_statuses(statuses).values()}
     run, jobs = None, None
     if len(runs) == 1 and None not in runs:
         rid, attempt = next(iter(runs))
         run = client.call(f'repos/{project.repository}/actions/runs/{rid}')
         jobs = client.jobs(rid, attempt)
-    checks = assess_checks(statuses, run, jobs, context, settings)
-    result = decide(context, scope, review, checks, pr, policy, current_main=current)
-    result.update(scope=scope, review=review, checks=checks,
-                  check_policy_digest=hashlib.sha256(blob(repo, approved['policy/merge-checks.toml'])).hexdigest())
+    ev.update(run=run, jobs=jobs, checks=assess_checks(statuses, run, jobs, context, settings))
+    return ev
+
+
+def observe(args, project, *, client=None):
+    client = client or Reader(project.repository)
+    ev = collect(args, project, client)
+    refs, current = ev['refs'], ev['current']
+    if ev['missing']:
+        client.revalidate()
+        return {'schema_version':1, 'mode':'observation', 'repository':project.repository, 'pr':args.pr,
+                'head':refs['head'], 'base':refs['base'], 'tooling':current,
+                'eligibility':'human_review', 'reasons':['approved main lacks '+p for p in ev['missing']],
+                'merge_eligible':False, 'merge_allowed':False, 'activation_verified':False}
+    result = decide(ev['context'], ev['scope'], ev['review'], ev['checks'], ev['pr'], ev['policy'], current_main=current)
+    result.update(scope=ev['scope'], review=ev['review'], checks=ev['checks'],
+                  check_policy_digest=ev['check_policy_digest'])
     client.revalidate()
     result['evidence_digest'] = hashlib.sha256(json.dumps(result,sort_keys=True).encode()).hexdigest()
     return result
