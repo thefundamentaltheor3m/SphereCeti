@@ -5,11 +5,12 @@ from datetime import timedelta
 import json
 from pathlib import Path
 import sys
+import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools' / 'project'))
 from sphereceti.config import OperatorPreferences, parse_project, resource_text
-from sphereceti.local_review import ReviewError
+from sphereceti.local_review import RUBRICS, ReviewError
 from sphereceti.review_claims import (MARKER, TTL, ClaimRefused, ClaimYielded, live, note, parse,
                                       render, run_claimed)
 from sphereceti.review_records import RecordError, assess_records
@@ -126,7 +127,9 @@ def bodies(hub, pr=1):
 class ClaimTest(unittest.TestCase):
     def setUp(self):
         self.hub = FakeGitHub()
-        self.prefs = OperatorPreferences()
+        temp = tempfile.TemporaryDirectory(prefix='sphereceti-claims-')
+        self.addCleanup(temp.cleanup)
+        self.prefs = OperatorPreferences(budget_usd=5, storage=temp.name)
 
     def review(self, user=7, **kwargs):
         run = FakeReview(self.hub.client(user), **{k: v for k, v in kwargs.items() if k in ('fail', 'completion')})
@@ -143,19 +146,22 @@ class ClaimTest(unittest.TestCase):
                 with guard(args, report, POLICY, inner.client):
                     seen.extend(bodies(hub))
                 return {**report, 'completion': 'complete', 'publication': {'state': 'confirmed', 'comment_id': 555}}
-        result = run_claimed(arguments(), PROJECT, self.prefs, run=Watch(hub.client(7)))
+        result = run_claimed(arguments(provider="codex", codex_model="gpt-6.1-sol"), PROJECT, self.prefs, run=Watch(hub.client(7)))
         [started] = seen
         self.assertTrue(started.startswith(MARKER))
+        self.assertIn('Selected model: codex/gpt-6.1-sol · Estimated usage cost: pending', started)
         data = json.loads(started[len(MARKER):started.index('-->')])
         self.assertEqual({k: data[k] for k in ('repository', 'pr', 'head', 'base', 'actor', 'state')},
                          {'repository': REPO, 'pr': 1, 'head': HEAD, 'base': BASE, 'actor': 'user:7',
                           'state': 'in_progress'})
-        self.assertRegex(started, r'\nSphereCeti review in progress by @yvonne on head aaaaaaa '
-                                  r'\(started \d\d:\d\d UTC, expires \d\d:\d\d UTC\)\.\n')
+        self.assertRegex(started, r'\nReviewing aaaaaaa now · `yvonne` '
+                                  r'\(started \d\d:\d\d UTC, expires \d\d:\d\d UTC\)\n')
+        self.assertNotIn('@yvonne', started)  # a code login, not a mention
         self.assertEqual((utcnow().fromisoformat(data['expires_at'].replace('Z', '+00:00')) -
                           utcnow().fromisoformat(data['started_at'].replace('Z', '+00:00'))).total_seconds(), 1800)
         [final] = bodies(hub)  # edited in place, never a second comment
         self.assertIn(f'finished: https://github.com/{REPO}/pull/1#issuecomment-555', final)
+        self.assertIn('Estimated usage cost: unavailable', final)  # no receipts in this fixture
         self.assertEqual(result['claim']['state'], 'finished')
         self.assertEqual(note(result['claim']), f'Claim https://github.com/{REPO}/pull/1#issuecomment-100 marked finished.')
 
@@ -194,14 +200,14 @@ class ClaimTest(unittest.TestCase):
         self.assertEqual(str(outcome['b']), 'PR #1: yielded to @yvonne, whose claim is earlier; nothing was spent')
         a, b = bodies(self.hub)
         self.assertIn('finished:', a)
-        self.assertIn('by @alice on head aaaaaaa yielded to @yvonne.', b)
+        self.assertIn('Review of aaaaaaa by `alice` yielded to `yvonne`.', b)
 
     def test_earlier_foreign_claim_posted_during_ours_makes_us_yield(self):
         self.hub.on_post = lambda: self.hub.store.setdefault(1, []).append(claim_comment(50))
         with self.assertRaises(ClaimYielded):
             self.review()
         own = bodies(self.hub)[-1]
-        self.assertIn('yielded to @alice', own)
+        self.assertIn('yielded to `alice`', own)
 
     def test_expired_old_head_forged_and_finished_claims_are_ignored(self):
         self.hub.store[1] = [claim_comment(10, age=timedelta(minutes=31)),          # expired
@@ -256,7 +262,46 @@ class ClaimTest(unittest.TestCase):
         self.assertRegex(note(result['claim']), r'^Claim comment 100 could not be marked finished \(GitHub operation '
                                                 r'failed; publication is unconfirmed\); it expires on its own at '
                                                 r'\d\d:\d\d UTC\.$')
-        self.assertIn('review in progress', bodies(hub)[0])
+        self.assertIn('Reviewing aaaaaaa now', bodies(hub)[0])
+
+    def test_a_budget_too_small_for_the_first_rubric_posts_no_claim(self):
+        ledger = Path(self.prefs.storage) / REPO.replace('/', '__') / 'engine' / 'ledger.json'
+        ledger.parent.mkdir(parents=True)
+        ledger.write_text(json.dumps({'days': {utcnow().strftime('%Y-%m-%d'): 4.5}, 'prs': {}}))
+
+        class BudgetStop(FakeReview):
+            def __call__(inner, args, project, prefs, guard):
+                report = {'repository': REPO, 'pr': 1, 'head': HEAD, 'base': BASE}
+                with guard(args, report, POLICY, inner.client):
+                    pass  # the engine stops before its first rubric: no provider call
+                return {**report, 'completion': 'partial', 'stop_reason': 'daily_budget', 'finished_rubrics': [],
+                        'requested_rubrics': list(RUBRICS), 'not_posted': 'daily review budget reached'}
+        result = run_claimed(arguments(budget_usd=5.0, max_call_cost=1.0), PROJECT, self.prefs,
+                             run=BudgetStop(self.hub.client(7)))
+        self.assertEqual(self.hub.store, {})       # the PR stays silent
+        self.assertEqual(self.hub.calls, [])       # not even the identity or comment reads
+        self.assertNotIn('claim', result)
+        self.assertEqual(result['stop_reason'], 'daily_budget')
+        # Exactly the engine's rule: one more reservation within the budget still fits.
+        self.assertIsNotNone(run_claimed(arguments(budget_usd=5.5, max_call_cost=1.0), PROJECT, self.prefs,
+                                         run=FakeReview(self.hub.client(7)))['claim'])
+
+    def test_a_mid_review_budget_stop_pauses_the_claim_with_counts(self):
+        class MidStop(FakeReview):
+            def __call__(inner, args, project, prefs, guard):
+                report = {'repository': REPO, 'pr': 1, 'head': HEAD, 'base': BASE}
+                with guard(args, report, POLICY, inner.client):
+                    inner.model_calls += 4
+                return {**report, 'completion': 'partial', 'stop_reason': 'daily_budget',
+                        'finished_rubrics': list(RUBRICS[:4]), 'requested_rubrics': list(RUBRICS)}
+        result = run_claimed(arguments(), PROJECT, self.prefs, run=MidStop(self.hub.client(7)))
+        [body] = bodies(self.hub)
+        self.assertIn('\nReview paused · 4 of 10 rubrics completed (daily budget reached)\n', body)
+        self.assertEqual(result['claim']['state'], 'paused')
+        data = json.loads(body[len(MARKER):body.index('-->')])
+        self.assertEqual(data['state'], 'paused')
+        self.assertIsNotNone(parse(self.hub.store[1][0], REPO, 1))  # the marker stays valid
+        self.assertEqual(live(self.hub.store[1], {'repository': REPO, 'pr': 1, 'head': HEAD}, utcnow()), [])
 
     def test_markers_keep_claims_and_official_leases_apart(self):
         claim = claim_comment(10)
@@ -281,7 +326,7 @@ class BareClaimTest(unittest.TestCase):
                          description_file=None, reply_file=None, reply_rubric=None, mode='commit',
                          post_default=True, **updates)
         api = FakeAPI([{'login': 'yvonne'}, self.queue()])
-        return run_bare(args, PROJECT, POLICY, OperatorPreferences(storage='/nonexistent'), api=api,
+        return run_bare(args, PROJECT, POLICY, OperatorPreferences(budget_usd=5, storage='/nonexistent'), api=api,
                         client=client, run=run)
 
     def test_bare_review_skips_a_live_foreign_claim_and_picks_the_next(self):
@@ -301,7 +346,7 @@ class BareClaimTest(unittest.TestCase):
         self.assertEqual(run.model_calls, 1)
         self.assertIn({'pr': 1, 'head': HEAD, 'code': 'claimed', 'reason': 'review in progress by @alice (yielded)'},
                       selection['skipped'])
-        self.assertIn('yielded to @alice', bodies(self.hub)[-1])
+        self.assertIn('yielded to `alice`', bodies(self.hub)[-1])
 
     def test_forced_bare_review_ignores_claims(self):
         self.hub.store[1] = [claim_comment(10)]
@@ -316,6 +361,24 @@ class ClaimCliTest(BareReviewHarness):
         data['base'] = self.fixture.tooling
         comment['body'] = render(data)
         (self.fixture.bin / 'gh-comments.json').write_text(json.dumps({str(number): [comment]}))
+
+    def test_default_codex_model_and_usage_cost_are_visible(self):
+        self.enable_posting()
+        self.fixture.codex_subscription()
+        run = self.run_cli('--provider', 'codex', '--auth', 'subscription', pr=47)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        [comment] = self.claims()
+        # Each fake Codex rubric reports tokens priced at $0.058 for the default model.
+        self.assertIn('Models used: codex/gpt-6.1-sol · Estimated usage cost: $0.58', comment['body'])
+
+    def test_unknown_usage_never_displays_a_zero_cost(self):
+        self.enable_posting()
+        self.fixture.codex_subscription()
+        (self.fixture.bin / 'codex-no-usage').touch()
+        run = self.run_cli('--provider', 'codex', '--auth', 'subscription', pr=47)
+        [comment] = self.claims()
+        self.assertIn('codex/gpt-6.1-sol · Estimated usage cost: unavailable', comment['body'])
+        self.assertNotIn('$0.00', comment['body'])
 
     def test_explicit_review_is_refused_then_forced(self):
         self.enable_posting()
@@ -378,7 +441,7 @@ class BatchClaimTest(unittest.TestCase):
                          read_records=False, shadow=None, replies_json=None, head=None, base=None,
                          description_file=None, reply_file=None, reply_rubric=None, mode='commit', pr=None,
                          force_claim=False)
-        result = run_batch(args, PROJECT, POLICY, OperatorPreferences(storage='/nonexistent'), api=api,
+        result = run_batch(args, PROJECT, POLICY, OperatorPreferences(budget_usd=5, storage='/nonexistent'), api=api,
                            client=client, run=run)
         self.assertEqual(runs, [3])
         self.assertEqual(result['skipped'][0]['pr'], 2)
