@@ -75,8 +75,9 @@ def add_parser(commands):
     p.add_argument("--replies-json", type=Path, help="local untrusted author contests in the upstream format")
     p.add_argument("--shadow-budget-usd", type=float, help="explicit per-invocation shadow allowance, within the shared daily cap")
     p.add_argument("--shadow", metavar="LABEL", help="fresh advisory arm; preserves the normal case files")
-    for provider in ("claude", "codex", "kiro"):
-        p.add_argument(f"--{provider}-model")
+    p.add_argument("--claude-model")
+    p.add_argument("--codex-model", default="gpt-6.1-sol", help="exact Codex review model (default: %(default)s)")
+    p.add_argument("--kiro-model")
     return p
 
 
