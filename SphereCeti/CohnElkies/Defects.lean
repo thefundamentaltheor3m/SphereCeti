@@ -26,8 +26,11 @@ The Fourier defect `D_Fourier` is `covol(L)⁻¹` times the sum of `Re 𝓕 f(y)
 nonzero dual frequencies `y`; it is nonnegative when `Re 𝓕 f ≥ 0` there.  The direct defect
 `D_direct` is minus the sum of `Re f` over the nonzero differences `z + p q - p q'`; it is
 nonnegative when `Re f ≤ 0` at distance at least `r` from the origin and the nonzero differences
-have norm at least `r`.  For a Cohn–Elkies certificate both conditions hold, and the identity is
-the periodic bound `N / covol(L) ≤ Re f(0) / Re 𝓕 f(0)` together with its exact gap.
+have norm at least `r`.  For a Cohn–Elkies certificate of radius `r`, the first condition holds,
+and the second holds when every nonzero difference `z + p q - p q'` has norm at least `r`, as for
+the orbit representatives of a periodic packing with center separation `r`.  Under that
+separation hypothesis the identity is the periodic bound `N / covol(L) ≤ Re f(0) / Re 𝓕 f(0)`
+together with its exact gap.
 
 ## Main definitions
 
@@ -38,8 +41,11 @@ the periodic bound `N / covol(L) ≤ Re f(0) / Re 𝓕 f(0)` together with its e
 
 ## Main statements
 
-* `SphereCeti.CohnElkies.directDefect_nonneg`, `SphereCeti.CohnElkies.fourierDefect_nonneg`: the
-  defects are nonnegative under the sign conditions of a Cohn–Elkies certificate.
+* `SphereCeti.CohnElkies.fourierDefect_nonneg`: the Fourier defect is nonnegative when
+  `Re 𝓕 f ≥ 0` at the nonzero dual frequencies.
+* `SphereCeti.CohnElkies.directDefect_nonneg`: the direct defect is nonnegative when `Re f ≤ 0` at
+  distance at least `r` from the origin and every nonzero difference `z + p q - p q'` has norm
+  at least `r`.
 * `SphereCeti.CohnElkies.defect_identity`: the exact identity above.
 * `SphereCeti.CohnElkies.normalized_gap_eq_defects`: the gap
   `Re f(0) / Re 𝓕 f(0) - N / covol(L)` is the sum of the defects divided by `N * Re 𝓕 f(0)`.
@@ -111,11 +117,15 @@ theorem fourierDefect_def (L : Submodule ℤ E) (p : ι → E) (f : E → ℂ) :
   (rfl)
 
 /-- The Fourier defect is nonnegative when `Re 𝓕 f ≥ 0` at the nonzero dual frequencies. -/
-theorem fourierDefect_nonneg {L : Submodule ℤ E} [DiscreteTopology L] [IsZLattice ℝ L]
-    {p : ι → E} {f : E → ℂ} (hf : ∀ y : ZLattice.dual L, y ≠ 0 → 0 ≤ (𝓕 f (y : E)).re) :
+theorem fourierDefect_nonneg {L : Submodule ℤ E} {p : ι → E} {f : E → ℂ}
+    (hf : ∀ y : ZLattice.dual L, y ≠ 0 → 0 ≤ (𝓕 f (y : E)).re) :
     0 ≤ fourierDefect L p f := by
   rw [fourierDefect_def]
-  refine mul_nonneg (inv_nonneg.mpr (ZLattice.covolume_pos L).le) (tsum_nonneg fun y ↦ ?_)
+  -- The covolume is the real value of an extended nonnegative real, hence nonnegative.
+  have hcov : 0 ≤ ZLattice.covolume L := by
+    rw [ZLattice.covolume]
+    exact ENNReal.toReal_nonneg
+  refine mul_nonneg (inv_nonneg.mpr hcov) (tsum_nonneg fun y ↦ ?_)
   split_ifs with hy
   · exact le_rfl
   · exact mul_nonneg (hf y hy) (structureFactor_nonneg p _)
