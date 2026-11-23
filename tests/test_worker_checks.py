@@ -91,6 +91,30 @@ class WorkerCheckTests(unittest.TestCase):
                 self.assertNotEqual(value, 'passed')
                 self.assertEqual(api.calls, [])
 
+    def test_main_only_skipped_jobs_do_not_block_the_exception(self):
+        """Regression: every PR here carries the docs-cache jobs deploy-pages and publish-cache,
+        which run only for pushes to main and are SKIPPED on pull requests (SphereCeti #36,
+        2026-11-23). Only those exact workflow/job pairs are ignored."""
+        def skip(name, workflow='Documentation and cache', conclusion='SKIPPED'):
+            return {'__typename': 'CheckRun', 'name': name, 'workflowName': workflow,
+                    'status': 'COMPLETED', 'conclusion': conclusion}
+        raw, responses = evidence()
+        passed, scope = raw['statusCheckRollup']
+        real = [passed]*21 + [skip('deploy-pages')]*3 + [skip('publish-cache')]*3 + [scope]
+        self.assertEqual(self.readiness(gh_pr(statusCheckRollup=real), responses)[0], 'passed')
+        for label, extra in (('other workflow', skip('deploy-pages', workflow='CI')),
+                             ('other skipped job', skip('build')),
+                             ('neutral main-only job', skip('deploy-pages', conclusion='NEUTRAL')),
+                             ('failed main-only job', skip('publish-cache', conclusion='FAILURE')),
+                             ('unnamed skipped run', {'__typename': 'CheckRun', 'status': 'COMPLETED',
+                                                      'conclusion': 'SKIPPED'})):
+            with self.subTest(blocked=label):
+                value, api = self.readiness(gh_pr(statusCheckRollup=[passed, extra, scope]), [])
+                self.assertNotEqual(value, 'passed')
+                self.assertEqual(api.calls, [])
+        only_skips = [skip('deploy-pages'), skip('publish-cache'), scope]
+        self.assertNotEqual(self.readiness(gh_pr(statusCheckRollup=only_skips), [])[0], 'passed')
+
     def test_same_named_foreign_stale_or_wrong_scope_status_stays_failed(self):
         for change in ({'creator': {'id': 9, 'type': 'Bot'}},
                        {'creator': {'id': 42, 'type': 'User'}}, {'state': 'pending'},

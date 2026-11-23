@@ -92,6 +92,20 @@ def ci_summary(checks) -> str:
     return next(state for state in ("failed", "unknown", "pending", "passed") if state in observed)
 
 
+# Jobs whose workflow runs them only for pushes to main (`docs-cache.yml`: `if: github.ref ==
+# 'refs/heads/main' && github.event_name != 'pull_request' && ...`), so GitHub reports them SKIPPED
+# on every pull request. Only these exact workflow/job pairs are ignored; any other SKIPPED or
+# NEUTRAL check still blocks the exception.
+MAIN_ONLY_JOBS = frozenset({('Documentation and cache', 'deploy-pages'),
+                            ('Documentation and cache', 'publish-cache')})
+
+
+def main_only_skip(check) -> bool:
+    return (check.get('__typename') == 'CheckRun' and check.get('status') == 'COMPLETED' and
+            check.get('conclusion') == 'SKIPPED' and
+            (check.get('workflowName'), check.get('name')) in MAIN_ONLY_JOBS)
+
+
 def review_ci_summary(pr, project, api, *, aggregate=None) -> str:
     """Preserve aggregate CI; only an authenticated scope failure is review-ready."""
     checks = pr['statusCheckRollup']
@@ -101,7 +115,8 @@ def review_ci_summary(pr, project, api, *, aggregate=None) -> str:
         return aggregate
     scope = [c for c in checks if c.get('__typename') == 'StatusContext' and
              c.get('context') == 'trusted-scope' and c.get('state') == 'FAILURE']
-    if len(scope) != 1 or ci_summary([c for c in checks if c is not scope[0]]) != 'passed':
+    others = [c for c in checks if not (scope and c is scope[0]) and not main_only_skip(c)]
+    if len(scope) != 1 or ci_summary(others) != 'passed':
         return aggregate
     from .config import resource_text
     from .merge_checks import parse_checks
