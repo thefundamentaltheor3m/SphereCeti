@@ -69,12 +69,16 @@ re-reads the exact head/base, invokes the existing review/gate logic, accounts f
 availability and budgets, and excludes already satisfied work before dispatch. Planning invokes
 no paid provider.
 
-Live surveys emit `sphereceti.worker-survey/v2`, retaining aggregate `ci` and separately reporting
-`review_ci`. A sole failed `trusted-scope` may mean a successful build that requires human merging.
+Live surveys emit `sphereceti.worker-survey/v3`, retaining aggregate `ci`, separately reporting
+`review_ci`, and adding an informational `review_note` (null, `trusted build predates main; refresh
+to merge` for an accepted older trusted run, or `awaits a refreshed trusted build` when only a fresh
+run is missing). v1 and v2 snapshots remain accepted. A sole failed `trusted-scope` may mean a successful build that requires human merging.
 Before treating that PR as review-ready, `worker_checks.py` verifies the exact human-review verdict
-through the shared check-provenance assessor: configured immutable producer/workflow IDs, current
+through the shared check-provenance assessor: configured immutable producer/workflow IDs,
 approved tooling, exact PR head/base/run attempt, successful build/status jobs, and publication
-timing. All other checks must pass. The failed aggregate CI and merge-scope verdict remain intact.
+timing. For scheduling only, the attested tooling and the PR's recorded base may be older approved
+main commits (ancestors of current main, by GitHub's compare API); the merge assessor still requires
+both to equal current main. All other checks must pass. The failed aggregate CI and merge-scope verdict remain intact.
 Missing configuration, unknown/pending/failed checks and incomplete inventories cannot earn the
 exception. The shipped producer IDs are unconfigured, so this exception is initially unavailable.
 
