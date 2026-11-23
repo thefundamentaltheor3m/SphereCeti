@@ -152,6 +152,25 @@ public def typedIdentity (x : secretType) : secretType := x''')
         self.write('SphereCetiRoadmap/Target.lean', 'public theorem planned : 2 = 2 := rfl')
         self.reject('roadmap ledger drift', custom_policy=True)
 
+    def test_nested_sibling_roadmap_admissions_are_ledgered_by_module(self):
+        self.write('SphereCetiRoadmap/Sibling/Target.lean', 'public theorem nestedPlanned : 2 = 3 := by sorry')
+        self.write('SphereCetiRoadmap/Sibling/Imports.lean', imports='public import SphereCetiRoadmap.Sibling.Target\n')
+        report = self.reject('nestedPlanned depends on sorryAx')
+        self.assertIn('empty audit: SphereCetiRoadmap.Sibling.Imports owns zero declarations',
+                      '\n'.join(report['verdict']['errors']))
+        # Ledger keys are (moduleName, name): an entry for another roadmap module does not apply.
+        self.policy['roadmap_admissions'] = [
+            {'moduleName': 'SphereCetiRoadmap.Target', 'name': 'nestedPlanned', 'reason': 'Wrong module.'}]
+        self.policy['empty_modules'].append(
+            {'moduleName': 'SphereCetiRoadmap.Sibling.Imports', 'reason': 'Imports-only fixture.'})
+        self.reject('nestedPlanned depends on sorryAx', custom_policy=True)
+        self.policy['roadmap_admissions'][0]['moduleName'] = 'SphereCetiRoadmap.Sibling.Target'
+        result, report = self.run_audit(custom_policy=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(report['verdict']['roadmap_admissions'], 1)
+        self.assertEqual(report['verdict']['declaration_counts']['SphereCetiRoadmap.Sibling.Target'], 1)
+        self.assertEqual(report['verdict']['declaration_counts']['SphereCetiRoadmap.Sibling.Imports'], 0)
+
     def test_candidate_policy_is_not_the_default_policy(self):
         self.write('SphereCeti/Bad.lean', 'public theorem bad : 2 = 3 := by sorry')
         (self.root / 'policy').mkdir()

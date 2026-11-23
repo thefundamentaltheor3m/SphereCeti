@@ -57,6 +57,52 @@ class ProjectConfigTest(unittest.TestCase):
             with self.subTest(text=text), self.assertRaises(ConfigError):
                 parse_project(text)
 
+    def test_additional_roadmaps_are_explicit_and_optional(self):
+        original = resource_text('sphereceti.toml')
+        profile = parse_project(original)
+        self.assertEqual([r.name for r in profile.additional_roadmaps], ['coefficient-magic'])
+        sibling = profile.additional_roadmaps[0]
+        self.assertEqual(sibling.document, 'SphereCetiRoadmap/CoefficientMagic/README.md')
+        self.assertEqual(sibling.paths[0], sibling.document)
+        self.assertEqual(set(sibling.paths), {sibling.document, *sibling.companions, *sibling.targets})
+        root = Path(__file__).resolve().parents[1]
+        for path in sibling.paths:
+            self.assertTrue((root / path).is_file(), path)
+        start = original.index('[[sources.additional_roadmaps]]')
+        end = original.index('[dependencies]')
+        single = original[:start] + original[end:]
+        # A profile without the optional table is the unchanged single-roadmap schema.
+        self.assertEqual(parse_project(single), replace(profile, additional_roadmaps=()))
+
+        def with_sibling(body):
+            # Appended after the shipped sibling, so duplicates across roadmaps are exercised.
+            return original[:end] + '[[sources.additional_roadmaps]]\n' + body + '\n' + original[end:]
+        valid = ('name = "sibling"\ndocument = "Sibling.md"\ncompanions = []\n'
+                 'targets = ["SphereCetiRoadmap/Sibling/Targets.lean"]\n')
+        self.assertEqual(parse_project(with_sibling(valid)).additional_roadmaps[1].targets,
+                         ('SphereCetiRoadmap/Sibling/Targets.lean',))
+        cases = [original[:start] + 'additional_roadmaps = []\n\n' + original[end:],
+                 with_sibling(valid.replace('companions = []\n', '')),
+                 with_sibling(valid + 'extra = true\n'),
+                 with_sibling(valid.replace('"sibling"', '"Sibling Roadmap"')),
+                 with_sibling(valid.replace('"Sibling.md"', '"../Sibling.md"')),
+                 with_sibling(valid.replace('"Sibling.md"', '"Sibling.lean"')),
+                 with_sibling(valid.replace('"Sibling.md"', '"README.md"')),
+                 with_sibling(valid.replace('companions = []', 'companions = "NOTES.md"')),
+                 with_sibling(valid.replace('["SphereCetiRoadmap/Sibling/Targets.lean"]', '[]')),
+                 with_sibling(valid.replace('SphereCetiRoadmap/Sibling/Targets.lean', 'SphereCeti/Targets.lean')),
+                 with_sibling(valid.replace('SphereCetiRoadmap/Sibling/Targets.lean',
+                                            'SphereCetiRoadmap/Suggested.lean')),
+                 with_sibling(valid.replace('SphereCetiRoadmap/Sibling/Targets.lean', sibling.targets[0])),
+                 with_sibling(valid.replace('"sibling"', '"coefficient-magic"').replace(
+                     'SphereCetiRoadmap/Sibling/Targets.lean', 'SphereCetiRoadmap/Other.lean').replace(
+                     'Sibling.md', 'Other.md')),
+                 original.replace('phase = "roadmap"', 'phase = "scaffold"').replace(
+                     'roadmap_approved = true', 'roadmap_approved = false')]
+        for text in cases:
+            with self.subTest(text=text), self.assertRaises(ConfigError):
+                parse_project(text)
+
     def test_operator_cannot_override_policy_or_sources(self):
         for text in ('merging = true', 'repository = "attacker/project"', '[policy]\nposting = true',
                      'roadmap_approved = true'):

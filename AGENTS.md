@@ -10,6 +10,10 @@ Read, in order:
 6. `VALIDATION.md`;
 7. `SphereCetiRoadmap/Suggested.lean`.
 
+For work on the coefficient construction of the magic functions, also read
+`SphereCetiRoadmap/CoefficientMagic/README.md`, `MODULAR_EXISTENCE.md`, and the three target
+files in that directory.
+
 The repository is a roadmap package, not the production proof.  Do not add completed mathematical
 implementations here unless they are tiny auxiliary definitions or lemmas needed only to state the
 targets.
@@ -28,7 +32,12 @@ Never:
 - conflate sphere radius with center separation;
 - state global uniqueness for arbitrary limsup-density packings;
 - turn Poisson summation, a density expansion, or a theta transformation into a simp rule;
-- treat `gauss2` or PR #420 as a branch base.
+- treat `gauss2` or PR #420 as a branch base;
+- introduce a definition with body `sorry` for an object that the coefficient roadmap states only
+  in prose (the contour measures, the endpoint continuation, the regularizing operator of the
+  paper, the vector bundle on the modular orbifold);
+- impose the dimension-8 constant moment rows in dimension 24, or drop them in dimension 8;
+- treat the SymPy check of the identities in `MODULAR_EXISTENCE.md` as a proof.
 
 When adapting proofs from a source, record the exact commit and path.  For general material,
 consult `UPSTREAM.md`, but do not wait for upstream acceptance before making progress in

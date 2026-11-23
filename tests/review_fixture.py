@@ -7,6 +7,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -81,6 +82,12 @@ class ReviewFixture:
             (self.repo / name).write_text("APPROVED SENTINEL " + name + "\n")
         (self.repo / "SphereCetiRoadmap").mkdir()
         (self.repo / "SphereCetiRoadmap/Suggested.lean").write_text("module\n")
+        # Registered sibling roadmaps are approved context exactly like the primary one.
+        for roadmap in tomllib.loads(profile)["sources"].get("additional_roadmaps", []):
+            for path in (roadmap["document"], *roadmap["companions"], *roadmap["targets"]):
+                (self.repo / path).parent.mkdir(parents=True, exist_ok=True)
+                (self.repo / path).write_text("module\n" if path.endswith(".lean") else
+                                              "APPROVED SENTINEL " + path + "\n")
         (self.repo / "tools").mkdir()
         shutil.copy2(ROOT / "tools/upstream-lock.toml", self.repo / "tools/upstream-lock.toml")
         self.tooling = commit(self.repo)

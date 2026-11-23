@@ -14,8 +14,9 @@ the mathematics already existed, not by whether identifiers or file paths moved.
 applies only to genuinely *new* mathematical content: a definition, theorem, instance, or file
 that adds a capability `main` did not have.
 
-SphereCeti's roadmap is the approved root README and target signatures identified by the
-runner, not a separate TauCetiRoadmap checkout. New mathematical material must advance a
+SphereCeti's roadmap is the approved root README, the sibling roadmap documents it
+incorporates, and the target signatures, all as identified by the runner's approved evidence,
+not a separate TauCetiRoadmap checkout. New mathematical material must advance a
 specific approved target or its direct prerequisite. Read the approved document and heading.
 If the roadmap is not yet approved, say that scope authority is missing; do not promote the
 candidate's proposed roadmap into an approved specification. Infrastructure may instead

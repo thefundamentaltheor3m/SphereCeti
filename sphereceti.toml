@@ -13,6 +13,18 @@ roadmap_document = "README.md"
 roadmap_targets = "SphereCetiRoadmap/Suggested.lean"
 roadmap_approved = true
 
+# Sibling roadmaps beside the primary document and targets above. Each is registered explicitly:
+# its specification document, companion documents, and every target file.
+[[sources.additional_roadmaps]]
+name = "coefficient-magic"
+document = "SphereCetiRoadmap/CoefficientMagic/README.md"
+companions = ["SphereCetiRoadmap/CoefficientMagic/MODULAR_EXISTENCE.md"]
+targets = [
+  "SphereCetiRoadmap/CoefficientMagic/Suggested.lean",
+  "SphereCetiRoadmap/CoefficientMagic/Geometry.lean",
+  "SphereCetiRoadmap/CoefficientMagic/Comparison.lean",
+]
+
 [dependencies]
 lean = "leanprover/lean4:v4.36.0-rc2"
 tauceti = "83769e442d55cda9d85b3927a93b286831c595ff"

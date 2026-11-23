@@ -57,6 +57,26 @@ class ModuleBoundariesTest(unittest.TestCase):
         self.write("SphereCeti/Unused/Hidden.lean", "module\nimport SphereCetiRoadmap\n")
         self.assert_rejected("forbidden import: SphereCeti.Unused.Hidden")
 
+    def test_nested_sibling_roadmap_is_classified_and_bounded(self):
+        self.write("SphereCetiRoadmap/Suggested.lean", "module\npublic import SphereCeti\n")
+        self.write("SphereCetiRoadmap/Sibling/Suggested.lean",
+                   "module\npublic import SphereCetiRoadmap.Suggested\n")
+        self.write("SphereCetiRoadmap/Sibling/Comparison.lean",
+                   "module\npublic import SphereCetiRoadmap.Sibling.Suggested\n"
+                   "public import SphereCetiRoadmap.Suggested\n")
+        self.write("SphereCetiRoadmap.lean", "module\npublic import SphereCetiRoadmap.Sibling.Comparison\n")
+        result = self.run_check()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        records = {r["name"]: r for r in json.loads(result.stdout)["modules"]}
+        self.assertEqual(records["SphereCetiRoadmap.Sibling.Comparison"],
+                         {"name": "SphereCetiRoadmap.Sibling.Comparison",
+                          "path": "SphereCetiRoadmap/Sibling/Comparison.lean", "kind": "roadmap",
+                          "imports": ["SphereCetiRoadmap.Sibling.Suggested", "SphereCetiRoadmap.Suggested"]})
+        self.assertEqual(records["SphereCetiRoadmap.Sibling.Suggested"]["kind"], "roadmap")
+        self.write("SphereCeti/Bridge.lean", "module\nimport SphereCetiRoadmap.Sibling.Suggested\n")
+        self.assert_rejected("forbidden import: SphereCeti.Bridge (library) -> "
+                             "SphereCetiRoadmap.Sibling.Suggested (roadmap)")
+
     def test_unknown_nested_source(self):
         self.write("Unclassified/Nested.lean", "module\n")
         self.assert_rejected("unclassified Lean source")

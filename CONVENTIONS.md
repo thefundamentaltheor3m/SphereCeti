@@ -307,6 +307,41 @@ The restricted Fourier transform on `RadialSchwartzMap` is the canonical involut
 and `-1` eigenspaces are defined in terms of it.  Dimension-specific `a` and `b` proofs do not
 reprove generic Fourier inversion.
 
+### Profiles specified on the half-line
+
+The coefficient construction (`SphereCetiRoadmap/CoefficientMagic/`) produces profiles that are
+specified only for `u = ‖x‖² ≥ 0`: its series need not converge or decay for `u < 0`.  Therefore:
+
+- construct its functions directly in `RadialSchwartzMap`, by a continuous linear synthesis map
+  with an evaluation theorem.  Do not pass through `ofNormSq` unless a Schwartz extension to the
+  whole line has been constructed and identified;
+- state comparisons as equality of functions on `V d`, or of profiles for `u ≥ 0`.  Never require
+  equality of extensions on all of `ℝ`;
+- derivatives of a profile are in **squared radius**.  The radial derivative at radius `r` is
+  `2r` times the squared-radius derivative at `r²`.  The forced first-shell derivatives of the
+  normalized magic functions are `-1/120` at `u = 2` in dimension 8 and `-1/65520` at `u = 4` in
+  dimension 24.
+
+### Coordinates of the coefficient construction
+
+Keep four variables distinct, with these names:
+
+| Variable | Meaning |
+|---|---|
+| `u` | squared radius `‖x‖²` on the direct side; `v` on the Fourier side |
+| `m` | exponent of a coefficient mode `(j, m)`; `n` is reserved for the sample points `2n` |
+| `q` | argument of a coefficient generating series, `q = e^π · exp (πiτ)` |
+| `𝔮` | cusp coordinate of a modular form, `𝔮 = exp (2πiτ)`, so `q² = e^{2π} 𝔮` |
+
+A half-power `𝔮^{1/2}` always means `exp (πiτ)`.  The derivative `D₀ = (2πi)⁻¹ d/dτ = 𝔮 d/d𝔮`
+is the normalized one; `d/dτ = 2πi D₀` is the ordinary one.  A cusp exponent is a lower bound on
+an order, and a zero of order at least two is not a zero of exact order two.
+
+The two coefficient systems are distinct.  Dimension 24 has five nonpositive modes and leaves
+the two zeroth moments unprescribed; dimension 8 has three and requires them to vanish.  Common
+statements take the case as an explicit argument (`CoefficientMagic.Case`); there is no
+dimension typeclass.
+
 ## 12. Poisson summation
 
 The target normalization is:
