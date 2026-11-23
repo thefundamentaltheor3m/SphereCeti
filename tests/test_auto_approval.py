@@ -89,7 +89,7 @@ class Harness:
              'target_url': url, 'creator': BOT, 'created_at': '2026-11-23T13:32:19Z',
              'url': f'https://api.github.com/repos/{REPO}/statuses/{self.head}'},
             {'id': 59656455717, 'context': 'trusted-build', 'state': 'success',
-             'description': 'Approved tooling build: success', 'target_url': url, 'creator': BOT,
+             'description': f'Approved tooling build: success; tooling {self.tooling}', 'target_url': url, 'creator': BOT,
              'created_at': '2026-11-23T13:32:19Z', 'url': f'https://api.github.com/repos/{REPO}/statuses/{self.head}'}]
         self.run = {'id': RUN, 'run_attempt': 1, 'workflow_id': 358051984, 'path': WORKFLOW,
                     'event': 'pull_request_target', 'status': 'completed', 'conclusion': 'success',
@@ -207,7 +207,8 @@ class AutoApprovalTests(unittest.TestCase):
         self.assertEqual((audit['run'], audit['run_head_sha'], audit['association_base_sha']),
                          ([RUN, 1], h.head, h.tooling))
         self.assertEqual(audit['candidate_job']['conclusion'], 'success')
-        self.assertTrue(audit['tooling_fresh'])
+        self.assertEqual((audit['attested_tooling'], audit['approved_tooling']), (h.tooling, h.tooling))
+        self.assertTrue(audit['diagnostic']['run_created_after_main_moved'])
         # No GitHub review, merge, or check-run endpoint is consulted, and every read is a GET.
         self.assertFalse(any('reviews' in c or 'merge' in c or 'check-runs' in c for c in h.calls))
         self.assertEqual(report['requirements'][5]['evidence']['mergeable_state'], 'blocked')
@@ -388,22 +389,40 @@ class AutoApprovalTests(unittest.TestCase):
                 if name != 'scope failure for another reason':
                     self.assertIn('compiled_audit', failed(report))
 
-    def test_trusted_run_must_postdate_the_current_tooling(self):
-        # GitHub reports a run's PR association with the live base, so a run from older tooling
-        # still shows base.sha == current main. Only its creation after main's last move binds it.
-        cases = {'run predates main': lambda h: h.activity[0].update(timestamp='2026-11-23T13:40:49Z'),
-                 'same second': lambda h: h.activity[0].update(timestamp=h.run['created_at']),
-                 'activity names another commit': lambda h: h.activity[0].update(after='8' * 40)}
-        for name, change in cases.items():
+    def test_old_run_with_unchanged_head_is_refused_by_its_attested_tooling(self):
+        # The head is unchanged and current with main, but its trusted run predates main's move to
+        # the current tooling. GitHub reports the run's PR association with the live base, so base
+        # equality cannot reveal that; the #48 attestation of github.workflow_sha does.
+        old = '9' * 40
+        cases = {'attests old tooling': f'Approved tooling build: success; tooling {old}',
+                 'predates the attestation': 'Approved tooling build: success'}
+        for name, description in cases.items():
             with self.subTest(name=name):
-                h = self.harness(); change(h)
+                h = self.harness()
+                h.statuses[1]['description'] = description
+                h.activity[0].update(timestamp='2026-11-23T13:40:49Z')  # main moved after the run
                 report = h.decide()
                 self.assertFalse(report['would_approve'])
                 self.assertEqual(failed(report), {'trusted_checks', 'compiled_audit'})
-                self.assertFalse(report['requirements'][2]['evidence']['tooling_fresh'])
-        h = self.harness(); h.activity = []
-        with self.assertRaises(RecordError):
-            h.decide()
+                audit = report['requirements'][2]['evidence']
+                self.assertEqual(audit['association_base_sha'], h.tooling)
+                self.assertEqual(audit['attested_tooling'], old if 'old' in name else None)
+                self.assertFalse(audit['diagnostic']['run_created_after_main_moved'])
+                self.assertTrue(any(('tooling other than approved main' if 'old' in name else
+                                     'does not attest its tooling') in r for r in audit['reasons']), audit['reasons'])
+
+    def test_timestamps_are_diagnostic_only(self):
+        # A run that looks stale by timestamps but attests the current tooling is accepted, and an
+        # unavailable or malformed activity response leaves the decision unchanged.
+        for name, change in {'run predates main': lambda h: h.activity[0].update(timestamp='2026-11-23T13:40:49Z'),
+                             'activity names another commit': lambda h: h.activity[0].update(after='8' * 40),
+                             'activity unavailable': lambda h: setattr(h, 'activity', [])}.items():
+            with self.subTest(name=name):
+                h = self.harness(); change(h)
+                report = h.decide()
+                self.assertTrue(report['would_approve'], report['reasons'])
+                self.assertIn(report['requirements'][2]['evidence']['diagnostic']['run_created_after_main_moved'],
+                              (False, None))
 
     def test_real_empty_policy_is_reported_and_never_assumed(self):
         h = self.harness()

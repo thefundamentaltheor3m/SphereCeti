@@ -18,7 +18,7 @@ from urllib.parse import quote
 from .config import ConfigError, local_path
 from .gate import CONFIG, GateError, blob, path_class, tree
 from .local_review import RUBRICS
-from .merge_checks import latest_statuses, timestamp
+from .merge_checks import TOOLING_ATTESTATION, latest_statuses, timestamp
 from .merge_observation import Reader, collect
 from .review_records import RecordError, collect_records
 from .worker_checks import HUMAN_SCOPE
@@ -30,11 +30,9 @@ FILE_LIMIT = 3000  # GitHub lists at most 3000 files for a pull request.
 SCOPE_FAILURE = 'trusted-scope is not successful'
 AUDIT_BINDING = ('trusted candidate: the approved pull_request_target workflow run attempt named by '
                  'trusted-build, whose candidate job ran the approved tooling\'s scripts/check_audits.py '
-                 '(via scripts/sandbox-build.sh) on the exact head; run head_sha is the PR head, the '
-                 'run\'s PR association base.sha is the current approved main, and the run was created '
-                 'after main last moved to that commit, so the workflow ran that tooling')
-STALE_TOOLING = ('trusted run was created before main moved to the current tooling; '
-                 'its PR association reports the live base, not the tooling it ran')
+                 '(via scripts/sandbox-build.sh) on the exact head; run head_sha is the PR head, and the '
+                 'trusted-build status attests the run\'s github.workflow_sha, which assess_checks requires '
+                 'to equal the current approved main (#48)')
 SPEC_DOCUMENTS = {'README.md', 'CONVENTIONS.md', 'MIGRATION.md', 'PROVENANCE.md', 'UPSTREAM.md',
                   'VALIDATION.md', 'AGENTS.md', 'CONTRIBUTING.md', 'INFRASTRUCTURE-PLAN.md',
                   'SphereCetiRoadmap.lean', 'sphereceti.toml'}
@@ -188,27 +186,30 @@ def assess_paths(repo, files, scope, proof):
 
 
 def main_update(client, repository, branch):
-    """The latest push or merge that moved the default branch (repository activity API)."""
+    """Diagnostic only: the latest push or merge that moved the default branch, or None."""
     ref = quote(f'refs/heads/{branch}', safe='')
-    page = client.call(f'repos/{repository}/activity?ref={ref}&direction=desc&per_page=1')
+    try:
+        page = client.call(f'repos/{repository}/activity?ref={ref}&direction=desc&per_page=1')
+    except RecordError:
+        return None
     if (not isinstance(page, list) or len(page) != 1 or not isinstance(page[0], dict) or
             not isinstance(page[0].get('after'), str) or not isinstance(page[0].get('timestamp'), str)):
-        raise RecordError('incomplete default-branch activity')
+        return None
     return {k: page[0].get(k) for k in ('after', 'timestamp', 'activity_type')}
 
 
-def tooling_fresh(run, update, current):
-    """pull_request_target runs the base tip at event time; GitHub reports neither it nor the old base.
+def run_after_main(run, update, current):
+    """Diagnostic only: was the run created after main last moved to the current tooling?
 
-    The run must have been created strictly after main last moved, and that move must be to the
-    current tooling, so the run's workflow commit can only be the current main.
+    Timestamps never decide. The authority is the trusted-build attestation of github.workflow_sha,
+    checked by assess_checks; this only helps explain a stale or missing attestation.
     """
     if not isinstance(run, dict) or not update:
-        return False
+        return None
     try:
         return update['after'] == current and timestamp(run.get('created_at')) > timestamp(update['timestamp'])
     except (ValueError, TypeError, RecordError):
-        return False
+        return None
 
 
 def requirement(name, passed, summary, **evidence):
@@ -251,9 +252,7 @@ def decide_approval(ev, paths, proof, *, comments):
     latest = latest_statuses(ev['statuses'])
     scope_status = latest.get('trusted-scope') or {}
     build_reasons = [r for r in checks['reasons'] if r != SCOPE_FAILURE]
-    fresh = tooling_fresh(ev.get('run'), ev.get('main_update'), current)
-    if ev.get('run') is not None and not fresh:
-        build_reasons.append(STALE_TOOLING)
+    attestation = TOOLING_ATTESTATION.fullmatch((latest.get('trusted-build') or {}).get('description') or '')
     bound = [k for k in ('repository', 'head', 'base', 'tooling') if checks.get(k) != context.get(k)]
     bound += [f'scope {k}' for k in ('repository', 'head', 'base', 'diff_base', 'dependency_digest', 'tooling')
               if scope.get(k) != context.get(k)]
@@ -288,7 +287,10 @@ def decide_approval(ev, paths, proof, *, comments):
         binding=AUDIT_BINDING, reasons=build_reasons, run=checks.get('run'), workflow=run.get('path'),
         event=run.get('event'), run_head_sha=run.get('head_sha'),
         association_base_sha=((association[0].get('base') or {}).get('sha') if association else None),
-        run_created_at=run.get('created_at'), main_update=ev.get('main_update'), tooling_fresh=fresh,
+        attested_tooling=attestation.group(1) if attestation else None, approved_tooling=current,
+        diagnostic={'run_created_at': run.get('created_at'), 'main_update': ev.get('main_update'),
+                    'run_created_after_main_moved': run_after_main(ev.get('run'), ev.get('main_update'), current),
+                    'note': 'timestamps are diagnostic only; the attested tooling is the binding'},
         candidate_job={k: candidate[0].get(k) for k in ('id', 'conclusion', 'run_attempt')} if len(candidate) == 1 else None))
 
     assessed = 'selected_comments' in review
