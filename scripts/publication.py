@@ -138,7 +138,7 @@ def render_docs(destination: Path, sha: str, report: dict, inventory: list[dict]
     (destination / 'SOURCE_SHA').write_text(sha + '\n')
     evidence = {'schema_version': 1, 'repository': REPOSITORY, 'source_revision': sha,
                 'toolchain': TOOLCHAIN, 'dependencies': dependencies,
-                'production_repository': 'thefundamentaltheor3m/Sphere-Packing-Lean',
+                'production_repository': REPOSITORY,
                 'production_evidence': False, 'audit_sha256': digest(json_bytes(report)),
                 'declarations': rows}
     (destination / 'declarations.json').write_bytes(json_bytes(evidence))
@@ -162,7 +162,7 @@ def render_docs(destination: Path, sha: str, report: dict, inventory: list[dict]
         (destination / section / 'index.html').write_text(page(title, body + '</ul>'))
     (destination / 'index.html').write_text(page('SphereCeti declaration reference',
         '<p>Compiled declaration and axiom inventory for the roadmap package. '
-        'Production proofs live in Sphere-Packing-Lean. This reference provides names, axiom dependencies, '
+        'Roadmap proofs live in the SphereCeti library. This reference provides names, axiom dependencies, '
         'and source links; it does not render full Lean types or replace doc-gen4.</p>'
         '<ul><li><a href="library/index.html">Audited library declarations</a></li>'
         '<li><a href="targets/index.html">Roadmap targets — not proof achievements</a></li></ul>'

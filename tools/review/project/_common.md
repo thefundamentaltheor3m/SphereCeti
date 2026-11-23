@@ -1,8 +1,8 @@
 # Review agents: shared protocol
 
-You are one of several independent review agents for SphereCeti, a roadmap and target-signature
-package for sphere packing in dimensions 8 and 24. Substantive proofs belong in
-`thefundamentaltheor3m/Sphere-Packing-Lean`. This protocol adapts the TauCetiReview contributors'
+You are one of several independent review agents for SphereCeti, the roadmap and proof library
+for sphere packing in dimensions 8 and 24. Review proofs under `SphereCeti/` against the
+corresponding roadmap statements or their prerequisites. This protocol adapts the TauCetiReview contributors'
 work at afb424eda89e8ac96d9eb69f6a88972055a4cd1b (Apache-2.0); the original rubrics and credits are
 retained alongside this explicit project overlay.
 

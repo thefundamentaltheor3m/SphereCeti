@@ -1,17 +1,14 @@
 # Main-first migration and PR sequence
 
-This file translates the mathematical layers in `README.md` into production-sized changes against
-`thefundamentaltheor3m/Sphere-Packing-Lean/main`.  It is not a license to merge the historical
-`gauss2` branch or PR #420 wholesale.
+Use the phases below to identify dependencies and adapt source material. New mathematical
+proofs land in SphereCeti under `SphereCeti/<Topic>/`. Start from this repository's current
+`main` unless the PR names one immediate stacking dependency. Historical branches and PR
+#420 are provenance sources.
 
-The standing rule is:
-
-> Every production branch starts from current `main`, unless its PR description names one immediate
-> predecessor on which it is intentionally stacked.
-
-The SphereCeti roadmap repository is downstream documentation and target-signature checking.  The
-mathematics lands in Sphere-Packing-Lean, TauCeti, or Mathlib according to the division recorded
-in `UPSTREAM.md`.
+Steps that edit existing Sphere-Packing-Lean files describe work specific to that repository.
+A1 upgrades its toolchain and A2 replaces SphereCeti's frozen compatibility layer with direct
+imports. A proof using SphereCeti's existing pinned dependencies can proceed today. A proof
+that requires direct imports from the migrated external project still depends on A2.
 
 ## 1. Migration invariants
 
@@ -27,8 +24,8 @@ Every PR must preserve the following unless its title explicitly changes one of 
 8. No source material adapted from `gauss2` or PR #420 is copied without a provenance note.
 9. `@[simp]`, `@[grind]`, and `@[fun_prop]` changes include small, focused `example`s that check the
    intended behavior.
-10. The full project builds at the PR head; roadmap target signatures are updated in the same PR or
-    an immediately following SphereCeti PR.
+10. Build the full project at the PR head. Document any proposed specification change explicitly.
+    A library proof of an existing target does not require changing its roadmap statement.
 
 ## 2. Material disposition
 

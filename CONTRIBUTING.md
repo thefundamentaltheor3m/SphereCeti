@@ -1,7 +1,6 @@
 # Contributing to SphereCeti
 
-SphereCeti is a human-steered roadmap and target-signature package for the production
-`Sphere-Packing-Lean` development.  It is not a second implementation repository.
+SphereCeti hosts the sphere-packing roadmap and its admission-free proof library.
 
 ## Authority
 
@@ -9,7 +8,7 @@ SphereCeti is a human-steered roadmap and target-signature package for the produ
 - `SphereCetiRoadmap/Suggested.lean` gives suggested forms for the declarations, together with
   `#check` lines confirming that the declarations they depend on exist; it is not exhaustive.
 - `CONVENTIONS.md` fixes normalizations and attribute policy.
-- `MIGRATION.md` fixes production PR sequencing.
+- `MIGRATION.md` records mathematical dependencies and the Sphere-Packing-Lean compatibility migration.
 - `PROVENANCE.md` records sources and exact pins.
 - `UPSTREAM.md` is the issue-ready list of Mathlib and TauCeti destinations for general results.
 - `VALIDATION.md` records the current static and Lean-elaboration status.
@@ -70,14 +69,27 @@ code.  A bare `#check` verifies name resolution; use typed checks for newly adop
 The PR must state the old and new TauCeti and resolved Mathlib SHAs.  Never change the effective
 Mathlib revision only by deleting or ignoring the manifest.
 
-## Production work
+## Contributing proofs
 
-Mathematical implementations normally belong in `Sphere-Packing-Lean`, TauCeti, or Mathlib.
-SphereCeti PRs track their statements and dependencies; they do not duplicate completed production
-proofs.
+Suggested prompt for a coding assistant:
 
-Production PRs follow the template in `MIGRATION.md` and begin from current production `main`, unless
-one immediate stacking dependency is named explicitly.
+> Read SphereCeti's AGENTS.md and CONVENTIONS.md. Pick one target from roadmap #1 (or my chosen
+> topic), identify its prerequisites, and open a focused PR to SphereCeti proving the target
+> or a needed lemma in a new or existing topic module under SphereCeti/. Use Suggested.lean
+> as the specification. Run the build and compiled audit, fix CI failures, and respond to review.
+
+Pick one target from the roadmap or a prerequisite you can prove against the current pins.
+Add a module under `SphereCeti/<Topic>/` and expose its public entry point from
+`SphereCeti.lean`. Build on library definitions and imported results. The library audit
+forbids direct and transitive `sorryAx` dependencies. If a target needs an admitted roadmap
+definition, implement the definition or a smaller independent prerequisite in the library first.
+
+In the PR description, link the roadmap target, name the library declaration and explain how
+their hypotheses, normalization and conclusion correspond. Keep `Suggested.lean` as the
+specification. Landing a separate proof leaves its roadmap admission ledger entry intact
+while the target still depends on `sorryAx`. Change a target statement only in an explicit
+specification change. Start proof PRs from SphereCeti `main` or name one stacking dependency.
+Work using the current pins can start before Sphere-Packing-Lean's Phase A migration.
 
 ## Automation attributes
 

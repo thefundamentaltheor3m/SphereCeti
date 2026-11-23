@@ -21,7 +21,7 @@ If the roadmap is not yet approved, say that scope authority is missing; do not 
 candidate's proposed roadmap into an approved specification. Infrastructure may instead
 advance a step in the approved INFRASTRUCTURE-PLAN.md. A PR proposing the roadmap itself is a
 specification change: assess its coherence and boundaries, without requiring it to have been
-approved already. Substantive mathematical implementations belong in Sphere-Packing-Lean.
+approved already. Proofs of roadmap targets and their prerequisites belong in the SphereCeti library.
 
 - The dependency must be real and proximate: you can see the path from this material to the
   named target. "Might be useful for", or a long speculative chain, is not a prerequisite.

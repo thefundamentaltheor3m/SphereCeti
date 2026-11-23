@@ -2,8 +2,7 @@
 
 SphereCeti adapts the TauCeti contributors' infrastructure around one cohesive sphere-packing
 roadmap. Keep mathematical statements, Layers 0–11, production PR IDs and the single
-`UPSTREAM.md` ledger in their existing form. This package states targets; substantive proofs
-belong in Sphere-Packing-Lean, TauCeti or Mathlib.
+`UPSTREAM.md` ledger in their existing form. SphereCeti hosts the specification and its proofs in separate Lean libraries.
 
 The [infrastructure tracking issue](https://github.com/thefundamentaltheor3m/SphereCeti/issues/23)
 owns the live dependency graph, review order, landing status and remaining milestones. Each

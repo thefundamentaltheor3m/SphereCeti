@@ -10,9 +10,11 @@ Read, in order:
 6. `VALIDATION.md`;
 7. `SphereCetiRoadmap/Suggested.lean`.
 
-The repository is a roadmap package, not the production proof.  Do not add completed mathematical
-implementations here unless they are tiny auxiliary definitions or lemmas needed only to state the
-targets.
+Roadmap proofs land in this repository. Add admission-free Lean modules under
+`SphereCeti/<Topic>/` and import their public entry points from `SphereCeti.lean`.
+Use `SphereCetiRoadmap/Suggested.lean` as the target specification. Keep proof bodies out of
+that file. Library modules must build independently of `SphereCetiRoadmap`, including its
+admitted targets and frozen compatibility model. Cite the target and any remaining prerequisites in the PR.
 
 `SphereCetiRoadmap/Pinned.lean` is temporary and frozen to the public semantics of
 `Sphere-Packing-Lean@bad3de916074748eb88b7d1ee6dbf9494361ad17`.  Do not extend it with new project
@@ -31,5 +33,4 @@ Never:
 - treat `gauss2` or PR #420 as a branch base.
 
 When adapting proofs from a source, record the exact commit and path.  For general material,
-consult `UPSTREAM.md`, but do not wait for upstream acceptance before making progress in
-production.
+consult `UPSTREAM.md`, but do not wait for upstream acceptance before proving roadmap results in SphereCeti.
