@@ -78,9 +78,15 @@ def assess_checks(statuses, run, jobs, context, settings):
         reasons.append('trusted workflow run is unavailable')
     else:
         rid, attempt = refs[0]
+        # GitHub reports a pull_request_target run's head_sha as the PR head, not the commit whose
+        # workflow ran. That commit is the base branch tip when the run started, which the run's PR
+        # association records as base.sha. So the run must name the exact PR head, and the
+        # association's base (required below to equal the surveyed base) must be the approved
+        # tooling. main only moves forward, so a base equal to current approved main means the run
+        # used exactly that tooling; once main advances, the evidence is stale until a fresh run.
         expected = {'id': rid, 'run_attempt': attempt, 'workflow_id': settings['workflow_id'],
                     'path': WORKFLOW, 'event': 'pull_request_target', 'status': 'completed',
-                    'conclusion': 'success', 'head_sha': context['tooling']}
+                    'conclusion': 'success', 'head_sha': context['head']}
         for key, value in expected.items():
             if run.get(key) != value or (type(value) is int and type(run.get(key)) is not int):
                 reasons.append(f'trusted run has wrong {key}')
@@ -92,6 +98,8 @@ def assess_checks(statuses, run, jobs, context, settings):
                 (p.get('head') or {}).get('sha') == context['head'] and
                 (p.get('base') or {}).get('sha') == context['base'] for p in associated):
             reasons.append('trusted run lacks the exact PR head/base association')
+        if context['base'] != context['tooling']:
+            reasons.append('trusted run base is not the approved tooling; refresh the trusted run')
         if not isinstance(jobs, list):
             reasons.append('trusted run jobs are unavailable')
         else:
