@@ -47,9 +47,13 @@ class ReviewError(ValueError):
 
 def add_parser(commands):
     p = commands.add_parser("review", help="review locally, inspect records, or explicitly publish when policy permits")
-    p.add_argument("pr", type=int)
+    p.add_argument("pr", type=int, nargs="?",
+                   help="PR number; omit it to review the open PR that most needs your review")
     p.add_argument("--dry-run", action="store_true", help="verify and list evidence without invoking providers")
-    p.add_argument("--post", action="store_true", help="explicitly publish a review record when approved policy permits")
+    posting = p.add_mutually_exclusive_group()
+    posting.add_argument("--post", action="store_true",
+                         help="publish the review record (the default for a live GitHub review); fail if policy forbids it")
+    posting.add_argument("--no-post", action="store_true", help="keep the review record local")
     p.add_argument("--read-records", action="store_true", help="inspect API-authenticated records without invoking providers")
     p.add_argument("--json", action="store_true")
     p.add_argument("--operator-config", type=Path, help="operator preferences (local subscription reviews default to ~/.config/sphereceti/operator.toml)")
@@ -75,9 +79,42 @@ def add_parser(commands):
     p.add_argument("--replies-json", type=Path, help="local untrusted author contests in the upstream format")
     p.add_argument("--shadow-budget-usd", type=float, help="explicit per-invocation shadow allowance, within the shared daily cap")
     p.add_argument("--shadow", metavar="LABEL", help="fresh advisory arm; preserves the normal case files")
-    for provider in ("claude", "codex", "kiro"):
-        p.add_argument(f"--{provider}-model")
+    p.add_argument("--claude-model")
+    p.add_argument("--codex-model", default="gpt-6.1-sol", help="exact Codex review model (default: %(default)s)")
+    p.add_argument("--kiro-model")
     return p
+
+
+def resolve_posting(args) -> None:
+    """The CLI default: a live GitHub review publishes its record unless --no-post is given.
+
+    Modes that never post (dry runs, record inspection, local sources, shadow and local reply
+    inputs) keep their behaviour without --no-post. Only an explicit --post fails when approved
+    policy forbids posting; the default then keeps the record local and says why.
+    """
+    args.post_default = False
+    if args.post or args.no_post or args.dry_run or args.read_records or args.local_sources \
+            or args.shadow or args.mode == "reply" or args.replies_json:
+        return
+    args.post = args.post_default = True
+
+
+def posting_note(args, report) -> str:
+    """Whether the record was published, where, or why not."""
+    posted = report.get("publication")
+    if posted and posted.get("state") == "confirmed":
+        url = (f"https://github.com/{report['repository']}/pull/{report['pr']}"
+               f"#issuecomment-{posted['comment_id']}")
+        who = ("authorized reviewer" if posted.get("authorized") else
+               f"advisory: {posted.get('identity')} is not an authorized reviewer")
+        return f"Posted: {url} ({who})."
+    if posted:
+        return f"Not posted: publication unconfirmed ({posted.get('reason')})."
+    reasons = ((report.get("not_posted"), report.get("not_posted")), (args.dry_run, "dry run"),
+               (args.no_post, "--no-post"), (args.read_records, "record inspection only"),
+               (args.local_sources, "local sources"), (args.shadow, "shadow run"),
+               (args.mode == "reply" or args.replies_json, "local reply input"))
+    return "Not posted: " + next((reason for flag, reason in reasons if flag), "local review") + "."
 
 
 def write_json(path: Path, value):
@@ -572,6 +609,15 @@ def run_review(args, project, prefs, *, guard=None) -> dict:
             policy_path = workspace / "approved/policy/automation.toml"
             selected_policy = parse_policy(policy_path.read_text()) if policy_path.is_file() else None
             client = GitHub()
+            not_posted = None
+            if args.post and getattr(args, "post_default", False):
+                # Posting by default degrades to a local record; an explicit --post still fails.
+                if not report["tooling_approved"] or selected_policy is None:
+                    not_posted = "approved repository policy is unavailable for this tooling revision"
+                elif not selected_policy.posting:
+                    not_posted = "posting is disabled by approved repository policy"
+                if not_posted:
+                    args.post = False
             if args.post or args.read_records:
                 if not report["tooling_approved"] or selected_policy is None:
                     raise ReviewError("posting/record inspection requires approved repository policy")
@@ -643,6 +689,8 @@ def run_review(args, project, prefs, *, guard=None) -> dict:
                             result["publication"] = {"state": "unconfirmed", "reason": str(error), "merge_eligible": False}
                             write_json(output / "result.json", result)
                             raise
+            if not_posted:
+                result["not_posted"] = not_posted
             if args.keep_workspace:
                 workspace.rename(output / "workspace")
             write_json(output / "result.json", result)
