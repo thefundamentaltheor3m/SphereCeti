@@ -14,16 +14,18 @@ The adapter extends [#10](https://github.com/thefundamentaltheor3m/SphereCeti/pu
 
 ```bash
 # Local review: creates result.json, advisory.md, record.json, and record.md.
-sphereceti review 9 --provider codex --budget-usd 5
+sphereceti review 9 --provider codex --budget-usd 5 --no-post
 
 # Inspect current records through GitHub without invoking a provider or posting.
 sphereceti review 9 --read-records --json
 
-# Explicitly review and publish, only when approved repository policy permits it.
+# Review and publish (the default); --post fails instead of degrading if policy forbids it.
 sphereceti review 9 --provider codex --budget-usd 5 --post
 ```
 
-`--post` is incompatible with dry runs and locally supplied source references. The approved
+A live review posts by default and `--no-post` keeps it local; see
+[posting by default](local-review.md#posting-by-default). `--post` is incompatible with dry runs
+and locally supplied source references. The approved
 remote-main policy must enable `posting`; a candidate policy or operator preference cannot
 enable it. The shipped policy still has `posting = false` and no authorized reviewers.
 No publishing occurs during tests or installation. No code in this PR merges anything,
