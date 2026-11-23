@@ -13,8 +13,7 @@ public import Mathlib.Analysis.Distribution.SchwartzSpace.Fourier
 
 A Schwartz function `f` on a finite-dimensional real inner product space whose Fourier transform
 has nonnegative real part, positive at some point, has positive real part at the origin.  This is
-the positivity of `f(0)` for a Cohn–Elkies certificate, and is stated in the form intended for
-Mathlib's Schwartz Fourier API (`UPSTREAM.md`, item A18).
+the positivity of `f(0)` for a Cohn–Elkies certificate.
 
 ## Main statements
 
