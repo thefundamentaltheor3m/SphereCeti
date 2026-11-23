@@ -50,13 +50,6 @@ open scoped Real FourierTransform
 
 namespace SphereCeti.Contour
 
-/-- If `φ * c` is almost everywhere strongly measurable for a measurable `c` that is almost
-everywhere nonzero, then so is `φ`. -/
-private lemma aestronglyMeasurable_of_mul_right {μ : Measure ℝ} {φ c : ℝ → ℂ} (hc : Measurable c)
-    (hc0 : ∀ᵐ t ∂μ, c t ≠ 0) (h : AEStronglyMeasurable (fun t ↦ φ t * c t) μ) :
-    AEStronglyMeasurable φ μ :=
-  (h.mul hc.inv.aestronglyMeasurable).congr (hc0.mono fun t ht ↦ mul_inv_cancel_right₀ ht (φ t))
-
 /-- The substitution `u = 1/t` carries an integral over the ray `(1, ∞)` onto one over `(0, 1]`. -/
 private lemma integral_Ioi_one_eq_integral_Ioc (h : ℝ → ℂ) :
     ∫ u in Ioi (1 : ℝ), h u = ∫ t in Ioc (0 : ℝ) 1, ((t : ℂ) ^ 2)⁻¹ * h t⁻¹ := by
@@ -144,19 +137,23 @@ theorem fourier_segment_gaussian_integral {k : ℕ} (hk : Module.finrank ℝ E =
         cexp (π * I * (‖x‖ ^ 2 : ℝ) * (a + t * (b - a))) * (b - a)) = 0 := by
       funext x
       refine integral_non_aestronglyMeasurable fun h ↦ hmeas ?_
-      refine aestronglyMeasurable_of_mul_right (c := fun t : ℝ ↦
-        cexp (π * I * (‖x‖ ^ 2 : ℝ) * (a + t * (b - a))) * (b - a)) (by fun_prop)
-        (ae_of_all _ fun t ↦ mul_ne_zero (exp_ne_zero _) (sub_ne_zero.mpr hba)) ?_
-      simpa only [mul_assoc] using h
+      refine (aestronglyMeasurable_fun_smul_iff₀ (c := fun t : ℝ ↦
+        cexp (π * I * (‖x‖ ^ 2 : ℝ) * (a + t * (b - a))) * (b - a))
+        (Measurable.aestronglyMeasurable (by fun_prop))
+        (ae_of_all _ fun t ↦ mul_ne_zero (exp_ne_zero _) (sub_ne_zero.mpr hba))).mp ?_
+      exact h.congr (ae_of_all _ fun t ↦ by simp only [smul_eq_mul]; ring)
     have hB : ∫ t in Ioc (0 : ℝ) 1, (I / (a + t * (b - a))) ^ k * g (a + t * (b - a)) *
         cexp (π * I * (‖ξ‖ ^ 2 : ℝ) * (-1 / (a + t * (b - a)))) * (b - a) = 0 := by
       refine integral_non_aestronglyMeasurable fun h ↦ hmeas ?_
-      refine aestronglyMeasurable_of_mul_right (c := fun t : ℝ ↦ (I / (a + t * (b - a))) ^ k *
-        cexp (π * I * (‖ξ‖ ^ 2 : ℝ) * (-1 / (a + t * (b - a)))) * (b - a)) (by fun_prop) ?_ ?_
-      · filter_upwards [ae_restrict_mem measurableSet_Ioc] with t ht
+      have hc0 : ∀ᵐ t : ℝ ∂(volume.restrict (Ioc (0 : ℝ) 1)), (I / (a + t * (b - a))) ^ k *
+          cexp (π * I * (‖ξ‖ ^ 2 : ℝ) * (-1 / (a + t * (b - a)))) * (b - a) ≠ 0 := by
+        filter_upwards [ae_restrict_mem measurableSet_Ioc] with t ht
         exact mul_ne_zero (mul_ne_zero (pow_ne_zero _ (div_ne_zero I_ne_zero (hz0 t ht)))
           (exp_ne_zero _)) (sub_ne_zero.mpr hba)
-      · exact h.congr (ae_of_all _ fun t ↦ by ring)
+      refine (aestronglyMeasurable_fun_smul_iff₀ (c := fun t : ℝ ↦ (I / (a + t * (b - a))) ^ k *
+        cexp (π * I * (‖ξ‖ ^ 2 : ℝ) * (-1 / (a + t * (b - a)))) * (b - a))
+        (Measurable.aestronglyMeasurable (by fun_prop)) hc0).mp ?_
+      exact h.congr (ae_of_all _ fun t ↦ by simp only [smul_eq_mul]; ring)
     rw [hA, hB, Real.fourier_eq]
     simp
 
