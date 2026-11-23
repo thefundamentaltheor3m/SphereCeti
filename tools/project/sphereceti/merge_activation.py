@@ -22,11 +22,22 @@ from .review_resources import tooling_files
 WORKFLOW = '.github/workflows/merge-controller.yml'
 
 
+LEGACY_CONTROLLER = {'schema_version','workflow_id','bot_user_id','checks_app_id','merge_method'}
+
+
 def parse_controller(text):
     value = tomllib.loads(text)
-    fields(value, {'schema_version','workflow_id','bot_user_id','checks_app_id','merge_method'}, 'merge controller')
+    if isinstance(value, dict) and set(value) == LEGACY_CONTROLLER:
+        # An approved main from before option A stays diagnosable, but it can never be ready.
+        version(value, 'merge controller')
+        if any(type(value[k]) is not int or value[k] < 0 for k in ('workflow_id','bot_user_id','checks_app_id')):
+            raise RecordError('controller IDs must be nonnegative integers')
+        if value['merge_method'] != 'squash': raise RecordError('only the reviewed squash transport is supported')
+        return {'schema_version': 1, 'workflow_id': value['workflow_id'], 'checks_app_id': value['checks_app_id'],
+                'merge_method': 'squash', 'legacy': True}
+    fields(value, {'schema_version','workflow_id','checks_app_id','merge_method'}, 'merge controller')
     version(value, 'merge controller')
-    if any(type(value[k]) is not int or value[k] < 0 for k in ('workflow_id','bot_user_id','checks_app_id')):
+    if any(type(value[k]) is not int or value[k] < 0 for k in ('workflow_id','checks_app_id')):
         raise RecordError('controller IDs must be nonnegative integers')
     if value['merge_method'] != 'squash': raise RecordError('only the reviewed squash transport is supported')
     return value
@@ -63,24 +74,6 @@ def classic(protection, repository, settings):
         if not isinstance(bypass,dict) or set(bypass)-{'users','teams','apps'} or any(bypass.values()):
             reasons.append('PR-review bypass allowances are present or unknown')
     return reasons
-
-
-def identity(settings, account, permission):
-    """The merge token must be the configured dedicated machine user with the plain write role."""
-    reasons = []
-    if (not isinstance(account,dict) or type(account.get('id')) is not int or
-            account['id'] != settings['bot_user_id'] or settings['bot_user_id'] <= 0 or
-            account.get('type') != 'User' or not isinstance(account.get('login'),str) or account.get('site_admin') is not False):
-        reasons.append('merge token is not the configured dedicated machine-user identity')
-    if (not isinstance(permission,dict) or permission.get('permission') != 'write' or permission.get('role_name') != 'write' or
-            (permission.get('user') or {}).get('id') != settings['bot_user_id']):
-        reasons.append('merge identity must have the standard write role, without admin/custom-role bypass')
-    return reasons
-
-
-def protections(protection, repository, settings, account, permission):
-    """Classic profile plus merge identity, as consumed by the classic activation path."""
-    return classic(protection, repository, settings) + identity(settings, account, permission)
 
 
 # Ruleset profile. Rule types, parameters and bypass actors outside these sets fail closed.
@@ -160,8 +153,10 @@ def rulesets(effective, listing, detail, repository, settings):
         if detail.get('enforcement') != 'active' or detail.get('target') != 'branch':
             missing.append(f'ruleset {rid} is not an active branch ruleset')
         if 'bypass_actors' not in detail:
-            missing.append(f'ruleset {rid} bypass actors are not visible to this reader; '
-                           'an administration-read token must confirm them')
+            # The workflow's job token never has administration access. The executor's own
+            # current_user_can_bypass view, a blocker of the automatic path, decides for it.
+            findings.append(f'ruleset {rid} bypass actors are not visible to this reader (administration access '
+                            "is needed); the job token's own current_user_can_bypass view decides for the executor")
         else: bypass = detail['bypass_actors']
     types = [r['type'] for r in effective]
     for name in sorted(set(types) - set(RULE_TYPES)):
@@ -223,10 +218,13 @@ def rulesets(effective, listing, detail, repository, settings):
 
 
 def executor_bypass(view, rid):
-    """The merge token's own view of the ruleset; GitHub resolves roles, teams and Apps for it."""
-    if not isinstance(view, dict) or view.get('id') != rid: return [f"merge identity cannot read ruleset {rid}"]
-    if view.get('current_user_can_bypass') != 'never':
-        return [f"merge identity may bypass ruleset {rid} (current_user_can_bypass: {view.get('current_user_can_bypass')!r})"]
+    """The job token's own view of the ruleset; GitHub resolves its bypass status, so nothing is guessed."""
+    if not isinstance(view, dict) or view.get('id') != rid: return [f'the job token cannot read ruleset {rid}']
+    if 'current_user_can_bypass' not in view:
+        return [f'GitHub omitted current_user_can_bypass for the job token on ruleset {rid}, '
+                'so whether the executor can bypass it is unknown']
+    if view['current_user_can_bypass'] != 'never':
+        return [f"the job token may bypass ruleset {rid} (current_user_can_bypass: {view['current_user_can_bypass']!r})"]
     return []
 
 
@@ -244,7 +242,7 @@ def server(client, repository, settings):
         if effective or listing:
             return {'source': 'classic+ruleset', **empty,
                     'missing': ['classic protection and rulesets both apply; a combined profile is unsupported']}
-        if any(not settings[k] for k in ('workflow_id', 'bot_user_id', 'checks_app_id')):
+        if any(not settings[k] for k in ('workflow_id', 'checks_app_id')):
             return {'source': 'classic', **empty,
                     'missing': ['classic protection is read only after controller IDs are configured']}
         found = classic(client.call(f'repos/{repository}/branches/main/protection'), repository, settings)
@@ -256,6 +254,7 @@ def server(client, repository, settings):
     detail = client.call(f'repos/{repository}/rulesets/{rid}') if type(rid) is int and rid > 0 else None
     found = rulesets(effective, listing, detail, repository, settings)
     if branch['protected'] is not True: found['missing'].append('GitHub does not report main as protected')
+    found['reader_view'] = detail.get('current_user_can_bypass', 'omitted') if isinstance(detail, dict) else None
     return found
 
 
@@ -266,48 +265,76 @@ def automatic(policy, checks, settings, roadmap):
     verifies = [f'trusted-build success: {producers}, bound to the exact PR head',
                 "the trusted run's PR base equals current approved main, so approved tooling produced it",
                 'trusted-scope success, meaning scope "mathematical" within policy mathematical_paths',
-                'authorized review records for the exact head from policy authorized_reviewers',
-                "GitHub's formal approval, enforced by the ruleset for every PR"]
+                'an accepted official review record for the exact head from policy authorized_reviewers, '
+                'published by someone other than the PR author',
+                'the PR is open, targets main, is up to date with approved main and has no conflicts',
+                "a qualifying formal approval: an opted-in maintainer's (approving_reviewers) latest review is APPROVE on the "
+                'exact head, the maintainer is not the PR author, and no reviewer has outstanding changes requested',
+                'one squash-merge PUT pinned to that head SHA']
     missing = []
     if not policy.merging: missing.append('global merging switch is off')
     if not policy.mathematical_paths: missing.append('no approved mathematical change class')
     if not policy.authorized_reviewers: missing.append('authorized reviewers are not configured')
     if not roadmap: missing.append('approved mathematical roadmap is missing')
     if not checks['workflow_id'] or not checks['status_creator_ids']: missing.append('trusted check producers are not configured')
-    for key, label in (('workflow_id', 'serialized controller workflow'), ('bot_user_id', 'dedicated merge identity'),
-                       ('checks_app_id', 'required-check integration')):
+    for key, label in (('workflow_id', 'serialized controller workflow'), ('checks_app_id', 'required-check integration')):
         if not settings[key]: missing.append(f'{label} is not configured (policy/merge-controller.toml {key} = 0)')
-    end_state = ['formal approvals come from a human maintainer for each PR, which suffices for the first merge canary; '
-                 'the end state, where eligible proof PRs land without a human click, also needs a dedicated '
-                 'approval bot distinct from the merge identity, which policy does not yet name']
+    if settings.get('legacy'):
+        missing.append('approved policy/merge-controller.toml predates option A (it has bot_user_id)')
+    if not policy.approving_reviewers:
+        missing.append('no opted-in approving maintainer (policy/automation.toml approving_reviewers is empty)')
+    end_state = ["the formal approval is an opted-in maintainer's own APPROVE, which their all-green `sphereceti review` "
+                 'submits under their account (built separately); the controller merges only after it, using the '
+                 "scheduled workflow's job token, never a bot or machine-user account"]
     return {'executor_verifies': verifies, 'missing': missing, 'end_state': end_state}
 
 
+EXECUTOR_CHECKS = (
+    'GITHUB_WORKFLOW_REF names .github/workflows/merge-controller.yml on refs/heads/main',
+    'GITHUB_WORKFLOW_SHA and GITHUB_SHA equal approved main, and GITHUB_REF is refs/heads/main',
+    'GITHUB_REPOSITORY is this repository and the event is workflow_dispatch or schedule',
+    'the live run (GITHUB_RUN_ID/ATTEMPT) is in progress for that workflow path, head and repository',
+    "the run's workflow_id equals policy/merge-controller.toml workflow_id",
+    'the merge credential is a GitHub App installation token (the job token passed by the approved workflow)',
+    "that token's own view of the ruleset reports current_user_can_bypass: \"never\"",
+)
+
+
 def executor(run, settings, revision, repository, environ):
-    """Runtime consistency checks, not an attestation for a caller already holding the merge token."""
+    """Runtime checks of the approved run. The approved workflow's bytes bind the token it passes."""
     reasons = []
     expected = {'GITHUB_ACTIONS':'true','GITHUB_REPOSITORY':repository,'GITHUB_REF':'refs/heads/main',
-                'GITHUB_SHA':revision,'GITHUB_WORKFLOW_REF':f'{repository}/{WORKFLOW}@refs/heads/main'}
-    if any(environ.get(k) != v for k,v in expected.items()): reasons.append('not the approved serialized workflow environment')
+                'GITHUB_SHA':revision,'GITHUB_WORKFLOW_SHA':revision,
+                'GITHUB_WORKFLOW_REF':f'{repository}/{WORKFLOW}@refs/heads/main'}
+    for key, value in expected.items():
+        if environ.get(key) != value: reasons.append(f'{key} is {environ.get(key)!r}, expected {value!r}')
+    if environ.get('GITHUB_EVENT_NAME') not in ('schedule','workflow_dispatch'):
+        reasons.append(f"GITHUB_EVENT_NAME is {environ.get('GITHUB_EVENT_NAME')!r}, expected schedule or workflow_dispatch")
     rid, attempt = environ.get('GITHUB_RUN_ID',''), environ.get('GITHUB_RUN_ATTEMPT','')
     if not re.fullmatch(r'[1-9][0-9]*',rid) or not re.fullmatch(r'[1-9][0-9]*',attempt):
         return reasons + ['missing exact workflow run/attempt']
     if not isinstance(run,dict): return reasons + ['controller run is unavailable']
-    expected_run = {'id':int(rid),'run_attempt':int(attempt),'workflow_id':settings['workflow_id'],
-                    'head_sha':revision,'head_branch':'main','path':WORKFLOW,'status':'in_progress'}
-    if any(run.get(k) != v or (type(v) is int and type(run.get(k)) is not int) for k,v in expected_run.items()):
-        reasons.append('controller run does not match the approved executor')
+    expected_run = {'id':int(rid),'run_attempt':int(attempt),'head_sha':revision,'head_branch':'main',
+                    'path':WORKFLOW,'status':'in_progress'}
+    for key, value in expected_run.items():
+        if run.get(key) != value or (type(value) is int and type(run.get(key)) is not int):
+            reasons.append(f'controller run has {key} {run.get(key)!r}, expected {value!r}')
     if run.get('event') not in ('schedule','workflow_dispatch') or (run.get('repository') or {}).get('full_name') != repository:
-        reasons.append('controller event/repository is not approved')
+        reasons.append('controller run event/repository is not approved')
+    if not settings['workflow_id']:
+        reasons.append(f"workflow_id is not configured; this run reports workflow_id {run.get('workflow_id')!r}")
+    elif run.get('workflow_id') != settings['workflow_id'] or type(run.get('workflow_id')) is not int:
+        reasons.append(f"controller run has workflow_id {run.get('workflow_id')!r}, expected {settings['workflow_id']}")
     return reasons
 
 
 class Activation:
     def __init__(self, args, project, writer):
         self.args, self.project, self.writer = args, project, writer
-        self.reader = None
+        self.reader = self.settings = self.policy = None
 
-    def inspect(self, *, applying=False):
+    def inspect(self, *, applying=False, verify_executor=False):
+        """Setup diagnosis. The executor is verified with the job token for --apply or `merge-doctor --executor`."""
         project, args = self.project, self.args
         client = self.reader = Reader(project.repository)
         current = client.call(f'repos/{project.repository}/commits/{quote(project.default_branch,safe="")}')['sha']
@@ -324,9 +351,9 @@ class Activation:
         selected = parse_project(data['sphereceti.toml'].decode())
         if selected.repository != project.repository or selected.implementation_repository != project.implementation_repository:
             raise RecordError('approved controller profile has another project identity')
-        policy = parse_policy(data['policy/automation.toml'].decode())
+        policy = self.policy = parse_policy(data['policy/automation.toml'].decode())
         checks = parse_checks(data['policy/merge-checks.toml'].decode())
-        settings = parse_controller(data['policy/merge-controller.toml'].decode())
+        settings = self.settings = parse_controller(data['policy/merge-controller.toml'].decode())
         result['merging_requested']=policy.merging
         path=automatic(policy,checks,settings,selected.roadmap_approved)
         template = resource_text('merge-controller.yml').encode()
@@ -342,22 +369,16 @@ class Activation:
         if repository.get('full_name') != project.repository or repository.get('allow_squash_merge') is not True:
             protection['missing'].append('repository identity or squash-merge setting is incompatible')
         else: protection['verified'].append('repository allows squash merges')
-        # The merge credential is consulted only for a configured identity, and only by GET.
-        if settings['bot_user_id']:
-            account=self.writer.identity()
-            permission=client.call(f'repos/{project.repository}/collaborators/{quote(account["login"],safe="")}/permission')
-            path['missing'] += identity(settings,account,permission)
-            if protection['source']=='ruleset' and protection['ruleset_id'] is not None:
-                path['missing'] += executor_bypass(self.writer.ruleset(protection['ruleset_id']),protection['ruleset_id'])
-            result['bot_user_id']=account['id']
-        if all(settings[k] for k in ('workflow_id','bot_user_id','checks_app_id')):
-            if applying:
-                rid=os.environ.get('GITHUB_RUN_ID','')
-                run=client.call(f'repos/{project.repository}/actions/runs/{rid}') if re.fullmatch(r'[1-9][0-9]*',rid) else None
-                denied=executor(run,settings,current,project.repository,os.environ)
-                path['missing'] += denied; result['executor_verified']=not denied
-        elif applying:
-            path['missing'].append('serialized executor cannot be verified without configured IDs')
+        reader_view=protection.pop('reader_view',None)
+        if applying or verify_executor:
+            path['missing'] += self.executor(protection,settings,current,result)
+        else:
+            result['executor']={'context':'local','requires_job_token':list(EXECUTOR_CHECKS),
+                                'stand_in':{'reader_current_user_can_bypass':reader_view,
+                                            'note':'the token running this diagnostic is not the executor; '
+                                                   'this view is informational and counts for nothing'}}
+            path['missing'].append('executor not verified: run `merge-doctor --executor` in the approved '
+                                   'workflow, where the job token is available')
         result['protection'],result['automatic_path']=protection,path
         result['reasons']=reasons=path['missing']+protection['missing']
         result['ready']=not reasons
@@ -365,8 +386,32 @@ class Activation:
         client.revalidate()
         return result
 
+    def executor(self, protection, settings, current, result):
+        """Verify this run and its job token; any gap is a blocker, and nothing is assumed."""
+        repository, rid = self.project.repository, os.environ.get('GITHUB_RUN_ID','')
+        run = self.reader.call(f'repos/{repository}/actions/runs/{rid}') if re.fullmatch(r'[1-9][0-9]*',rid) else None
+        denied = executor(run,settings,current,repository,os.environ)
+        view = None
+        if not self.writer.installation():
+            # Another credential is never sent anywhere, and its view would not describe the executor.
+            denied.append('the merge credential is not a GitHub App installation token; the approved workflow '
+                          'must pass its own job token')
+        elif protection['source'] == 'ruleset' and protection['ruleset_id'] is not None:
+            try: view = self.writer.ruleset(protection['ruleset_id'])
+            except RecordError: view = None
+            denied += executor_bypass(view,protection['ruleset_id'])
+        else:
+            denied.append('the job-token bypass check needs the single-ruleset profile')
+        run = run if isinstance(run,dict) else {}
+        result['executor'] = {'context':'github_actions','checks':list(EXECUTOR_CHECKS),'missing':denied,
+                              'run':{k:run.get(k) for k in ('id','run_attempt','workflow_id','path','head_sha','event')},
+                              'token_view':(view.get('current_user_can_bypass','omitted') if isinstance(view,dict)
+                                            else 'unreadable' if self.writer.installation() else 'not read')}
+        result['executor_verified'] = not denied
+        return denied
+
     def refresh(self):
         if self.reader is None: raise RecordError('no activation snapshot')
         self.reader.revalidate()
-        # The writer identity is not supplied by issue content or operator configuration.
-        self.writer.refresh_identity()
+        # The job token's ruleset view is read again; issue content or operator config never supplies it.
+        self.writer.refresh()

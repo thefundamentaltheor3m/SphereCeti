@@ -274,6 +274,29 @@ wedge set, and the two signed contour permutations are application geometry and 
 SphereCeti/Sphere-Packing (section E); Mathlib's Poincaré lemma takes the differentiability and
 closure-continuity hypotheses separately.
 
+### A14. Exact zero orders of functions of a real variable
+
+- [ ] **Destination:** TauCeti analysis, as the real-variable companion of
+  `TauCeti.IsZeroMultiplicity` in `TauCeti.Analysis.Complex.ZeroMultiplicity`, which records the
+  same continuous-cofactor factorization for functions on `ℂ`.
+- [ ] **Current source:** `SphereCeti/Analysis/ExactZeroOrder.lean`.
+- [ ] **Candidate declarations:**
+
+  ```lean
+  SphereCeti.HasExactZeroOrder
+  SphereCeti.hasExactZeroOrder_iff
+  SphereCeti.HasExactZeroOrder.quantitativeLowerBound
+  ```
+
+  The predicate says that `f : ℝ → ℂ` factors near `a` as `(x - a) ^ m * g x` with `g`
+  continuous at `a` and `g a ≠ 0`; the lower bound gives `c > 0` with `c * |x - a| ^ m ≤ ‖f x‖`
+  near `a`.
+- [ ] **Why general:** the statements involve only continuity and norms of a function of a real
+  variable; nothing refers to radial profiles or packings.
+- [ ] **SphereCeti use:** the Layer 7 predicate `MagicFunction.HasExactZeroOrder` and its
+  quantitative lower bound, for the exact zeros of the E8 and Leech radial profiles at the shells
+  (Layer 9) and the quantitative stability estimates of D3.
+
 ### A15. Finite index of a full sublattice
 
 - [ ] **Destination:** Mathlib `Mathlib/Algebra/Module/ZLattice/Covolume.lean`, beside
@@ -287,6 +310,7 @@ closure-continuity hypotheses separately.
   packings.
 - [ ] **SphereCeti use:** the Layer 10 embedding of the center orbits of an optimal periodic
   packing into the quotient of the generated lattice by the period lattice.
+
 - [ ] **Fallback:** the local SphereCeti declarations.
 - [ ] **Upstream test:** no project import remains in a minimal reproduction.
 
