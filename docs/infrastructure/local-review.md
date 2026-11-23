@@ -94,7 +94,9 @@ The command never starts the engine or a provider. In order, it:
      them. A run saved before contest provenance was recorded is refused only when it carries
      nonzero watermarks.
 
-   A partial run is published as the advisory record it already says it is. A run that was
+   A daily budget stop keeps the run local, even with `--post`. The CLI saves any completed
+   findings and explains why it skipped publication. Run the review again when budget is available.
+   Other eligible partial runs can publish an advisory record. A run that was
    already confirmed on GitHub is never published again, even if that comment was deleted.
 3. **Checks the identity.** It reads the `gh` identity. A posting run records the identity that
    was about to post, and a publication attempt records the identity it used. A different
@@ -228,6 +230,49 @@ sphereceti review 9 --dry-run --local-sources --source-repo . \
 `--local-sources` disables GitHub queries and fetching, not an explicitly requested provider
 call. Combine it with `--dry-run` to make no inference calls. Local references and an explicit
 prospective `--tooling` override cannot establish that context was approved on GitHub.
+
+## What the terminal says
+
+Before any provider call (after the exact evidence is prepared), `review N` and bare `review`
+print one plan line with the PR, short head and base, each selected provider with its effective
+model after defaults (from the packaged engine's pricing table, or `--codex-model` /
+`--claude-model` / `--kiro-model`), and whether the result will post:
+
+```text
+Review #54: head 8cdec1b, base 5db3655 · codex gpt-5.6-sol (falls back to gpt-5.6-terra) · will post
+```
+
+The posting part is `will post`, `will not post (--no-post)`, `will not post (approved policy
+disables posting)`, or `dry run: no model call, nothing posted`.
+
+At the end it prints one summary line and a concrete next action:
+
+```text
+10/10 approve · posted https://github.com/thefundamentaltheor3m/SphereCeti/pull/54#issuecomment-1 · official
+4/10 reviewed · stopped: blocked on attribution · posted <URL> · advisory
+Next: author: address attribution (see record); rerun after the head changes
+```
+
+- **Counts:** rubrics with a verdict on this head out of those requested; `approve` when all of
+  them approve, else `reviewed`. A review that stops early names the first blocking rubric and
+  the stop reason from the run's receipt: `usage unknown` (the engine's usage stop), `provider
+  unavailable (not authenticated|quota exhausted|rate limited)` from the archived attempts'
+  error kinds, `provider failed to start` (every rubric ended without a verdict and without the
+  model touching a file), `blocked on <rubric>`, an engine error, or `budget or round limit
+  reached`. A complete review with requested changes says `changes requested: <rubrics>`.
+- **Posting:** `posted <URL> · official` (an authorized reviewer's record) or `· advisory`,
+  `not posted: <reason>`, or `publication interrupted`.
+- **Next action:** `author: address <rubric> (see record); rerun after the head changes`;
+  ``run `sphereceti review-check-sandbox --compare-path --compare-tmpdir` `` after a provider
+  startup failure; sign in again, wait for the usage window, or rerun later for a provider that
+  is down; ``publication was interrupted; run `sphereceti review-publish RUN` `` (RUN is the run id
+  under the operator store, or the run directory for an `--output` run, as `sphereceti review-publish`
+  takes it); `rerun without --no-post to publish
+  the record`; `run again without --dry-run to review`; or `none: every rubric approves`.
+
+`--json` carries the same as `plan` (`line`, `pr`, `head`, `base`, `providers`, `models`,
+`posting`) and `summary` (`line`, `reviewed`, `total`, `first_blocking`, `stop`, `posted`,
+`official`, `next_action`); bare `review` adds both at the top level of its selection report.
 
 ## Evidence and authority
 
