@@ -1,0 +1,39 @@
+# Area labels for pull requests, applied by .github/workflows/area-labels.yml (actions/labeler).
+# Labels describe a PR's purpose; these path rules give a first guess. Maintainers may adjust labels
+# by hand, and the labeller never removes a label (sync-labels is off).
+
+# Changes what we intend to prove: target statements, hypotheses, conventions, dependencies.
+area:roadmap:
+- changed-files:
+  - any-glob-to-any-file:
+    - 'SphereCetiRoadmap/**'
+    - 'SphereCetiRoadmap.lean'
+    - 'CONVENTIONS.md'
+    - 'MIGRATION.md'
+    - 'UPSTREAM.md'
+    - 'PROVENANCE.md'
+
+# Implements mathematics in the SphereCeti/ library: definitions, lemmas, proofs.
+# A changed Lean file in the library other than the bootstrap module SphereCeti/Basic.lean.
+area:proof-library:
+- changed-files:
+  - all-globs-to-any-file:
+    - 'SphereCeti/**/*.lean'
+    - '!SphereCeti/Basic.lean'
+
+# Changes how we build, test, review or contribute: CLI, CI, audits, workers, tooling.
+area:infrastructure:
+- changed-files:
+  - any-glob-to-any-file:
+    - '.github/**'
+    - 'tools/**'
+    - 'scripts/**'
+    - 'tests/**'
+    - 'docs/infrastructure/**'
+    - 'policy/**'
+    - 'lakefile.toml'
+    - 'lake-manifest.json'
+    - 'lean-toolchain'
+    - 'pyproject.toml'
+    - 'uv.lock'
+    - 'sphereceti.toml'
