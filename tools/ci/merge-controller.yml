@@ -1,17 +1,20 @@
-# Inactive template: install these exact bytes as .github/workflows/merge-controller.yml
-# only through a reviewed activation change. TauCetiReview afb424e merge-only/merge-sweep design.
-name: Serialized merge controller
+# Serialized merge controller, installed READ-ONLY. tools/ci/merge-controller.yml is the packaged
+# copy; merge-doctor requires both to be byte-identical. TauCetiReview afb424e merge-only/merge-sweep design.
+#
+# Option A: the executor is this job's own GITHUB_TOKEN, never a bot or machine-user account.
+# While policy/automation.toml has `merging = false`, this job only runs `merge-doctor --executor`.
+# That verifies this run and its job token (workflow ref and SHA, main, the token's own
+# current_user_can_bypass on the ruleset) and the server rules, then prints the JSON result.
+# It cannot merge: the token is read-only and no merge command runs. A separate reviewed activation
+# change grants contents/pull-requests write, runs `merge-control --apply` and enables the schedule.
+name: Merge controller
 on:
   workflow_dispatch:
-    inputs:
-      pr:
-        description: PR number; leave empty for a sweep
-        type: string
-        default: ''
-  schedule:
-    - cron: '17 * * * *'
+  # schedule:
+  #   - cron: '17 * * * *'
 permissions:
   contents: read
+  actions: read
 concurrency:
   group: sphereceti-merge-main
   cancel-in-progress: false
@@ -21,23 +24,19 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
+      # Only main's tooling is checked out; PR code is never checked out, built or executed.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
           fetch-depth: 0
-      - name: Reconcile through the shared controller and stop switch
+      - name: Verify the executor and server rules (read-only)
         env:
-          GH_TOKEN: ${{ secrets.SPHERECETI_OBSERVER_TOKEN }}
-          SPHERECETI_MERGE_TOKEN: ${{ secrets.SPHERECETI_MERGE_TOKEN }}
-          PR_NUMBER: ${{ inputs.pr }}
+          GH_TOKEN: ${{ github.token }}
+          SPHERECETI_MERGE_TOKEN: ${{ github.token }}
           PYTHONPATH: tools/project
         shell: bash
         run: |
           set -euo pipefail
-          if [ -n "$PR_NUMBER" ]; then
-            [[ "$PR_NUMBER" =~ ^[1-9][0-9]*$ ]]
-            python3 -m sphereceti.cli merge-control --pr "$PR_NUMBER" --apply --json
-          else
-            python3 -m sphereceti.cli merge-control --sweep --apply --json
-          fi
+          python3 -m sphereceti.cli merge-doctor --executor --json \
+            --source-repo . --cache-dir "$RUNNER_TEMP/merge-controller"
