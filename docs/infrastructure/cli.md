@@ -26,6 +26,7 @@ The `sphereceti` command supplies project diagnostics and the adapters credited 
 | `merge-doctor / merge-control` | [Controller diagnostics and gated action](merge-controller.md) |
 | `maintenance` | [Lifecycle diagnostics and labels](lifecycle.md) |
 | `profile-plan / profile-run` | [Advisory profiling](profiling.md) |
+| `verify` | [Check a proof branch the way CI does, before opening the PR](#verifying-a-proof-branch) |
 
 For installation smoke tests, one-PR review rehearsal, and the boundary between contributor
 credentials and official merge workers, see the [rollout guide](rollout.md).
@@ -105,3 +106,49 @@ both distributions into separate temporary environments and tests them from a fo
 containing an untrusted `sphereceti.toml` and policy file. Review resources (engine, rubrics,
 references, project overlays, source manifest, and license) are also bundled; both installations
 run dry and full advisory reviews with a fake provider.
+
+## Verifying a proof branch
+
+Run `sphereceti verify` in your SphereCeti checkout before opening or updating a proof PR:
+
+```bash
+lake exe cache get          # once per dependency pin; verify exits 2 without the Mathlib cache
+sphereceti verify           # or: uv run --locked sphereceti verify
+```
+
+It checks the working tree, including uncommitted and untracked files, against its merge base
+with `origin/main` (`--base REF` to change it; run `git fetch origin` first). Each step runs
+what CI already runs, from your checkout:
+
+| Step | What runs | Fails when |
+|---|---|---|
+| `changes` | `git diff` against the merge base, plus untracked files; or `--module M` (repeatable) | the base or a named module does not exist (exit 2) |
+| `roadmap` | `python3 -I scripts/check_roadmap.py` (CI's "Check roadmap contracts") | a static contract fails |
+| `build` | `lake build +Module` for each changed library/roadmap module; `lake build @/SphereCeti` when `SphereCeti.lean` changed or a module was deleted; bare `lake build` when no Lean source changed or the dependency configuration changed | Lean reports an error; each is listed as `file:line:column` |
+| `boundaries` | `lake env python3 -I scripts/check_modules.py --json` (CI's "Check module boundaries") | an import crosses the library/roadmap boundary |
+| `root_imports` | The auto-approval rule for `SphereCeti.lean` (`auto_approval.root_imports`): it may only gain `public import SphereCeti.<Topic>...` lines. Sorting existing lines passes, as in CI, with a note that `auto-approve-check` requires them unchanged and in order. Every new `SphereCeti/` module must also be reachable from the root in the boundary check's import graph | the root removes or edits a line or adds a non-import line, or a new module is not exported |
+| `audit` | `lake env python3 -I scripts/check_audits.py` (CI's "Build and audit every classified source"), with its verdict read back | a new `sorryAx` dependency (listed as a new admission), roadmap ledger drift, an unapproved axiom, lint finding, or empty module, or a warning in a library module |
+
+Each step prints one line: `PASS`, `FAIL` or `SKIPPED` with the reason. Then come the verdict
+and the next action. A skipped step is never a pass: `--skip-audit`, a failed build or a failed
+boundary check skips the audit, and the verdict is then `incomplete` or `fail`. A change to
+`policy/audits.json` is flagged, because the trusted build applies main's policy.
+
+| Exit | Verdict |
+|---|---|
+| 0 | `pass`: every step passed |
+| 1 | `fail` (a check failed) or `incomplete` (a step was skipped) |
+| 2 | `environment_error`: not a SphereCeti checkout, no `lake`, base missing, dependencies not at the manifest pins, or no Mathlib cache. The message names the fix, usually `lake exe cache get` |
+
+`--json` prints exactly one JSON document on stdout; progress and Lake's log go to stderr. The
+document has `schema` `sphereceti.verify/v1`, `verdict`, `exit_code`, `next_action`, `root`, `head`,
+`base` (`ref`, `merge_base`), `environment`, `modules` (changed paths, library/roadmap/deleted/new
+modules, build targets), `steps` (each with `name`, `status`, `summary`, `seconds`, `command`,
+`failures`, `details`), a flattened `failures` list (`step`, `message`, and `file`, `line`,
+`column` where known) and the total `seconds`.
+
+`verify` is advisory. It runs your checkout's own scripts, as the ordinary `CI` workflow does,
+not approved main's tooling in the sandbox, so `trusted-build` remains the merge evidence. It does
+not fetch, push, post or call a model provider. Its only repository writes are `git hash-object -w`
+of a locally modified `SphereCeti.lean`, so the root-import rule can read it as a Git object.
+With the Mathlib cache present, the first run on main took about 100 seconds, and later runs about 40 seconds.
