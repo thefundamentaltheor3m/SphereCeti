@@ -8,6 +8,7 @@ module
 
 public import SphereCeti.Basic
 public import SphereCeti.CohnElkies.Defects
+public import SphereCeti.CohnElkies.Sharpness
 public import SphereCeti.CohnElkies.StructureFactor
 
 /-!
