@@ -48,6 +48,11 @@ therefore apply to the lattice in Gram coordinates: it is positive definite, and
   `SphereCeti.EuclideanLattice.IntegralPresentation.isUnimodular_real_iff`: `Λ` is even
   (unimodular) exactly when the presentation is; `isEven_real` and `isUnimodular_real` are the
   forward directions.
+* `SphereCeti.EuclideanLattice.IntegralPresentation.covolume_sq_eq_discriminant`: the squared
+  covolume of `Λ` is the discriminant of the presentation.
+* `SphereCeti.EuclideanLattice.IntegralPresentation.isUnimodular_iff_covolume_eq_one`,
+  `SphereCeti.EuclideanLattice.IntegralPresentation.dual_eq_self_of_isUnimodular`: a presentation
+  is unimodular exactly when `Λ` has covolume one, and then `Λ` is its own real dual.
 
 ## References
 
@@ -226,6 +231,23 @@ own dual lattice. -/
 theorem isUnimodular_real (P : IntegralPresentation Λ) (hunimodular : P.IsUnimodular) :
     ZLattice.IsUnimodular Λ :=
   P.isUnimodular_real_iff.mpr hunimodular
+
+/-- The squared covolume of `Λ` is the discriminant of its presentation, the absolute value of the
+determinant of the Gram matrix. -/
+theorem covolume_sq_eq_discriminant (P : IntegralPresentation Λ) :
+    ZLattice.covolume Λ ^ 2 = P.toIntegralLattice.discriminant := by
+  rw [← ZLattice.det_def, ← ZLattice.discriminant_ratModel P.isIntegral_real,
+    P.ratModelIsometry.discriminant_eq]
+
+/-- A presentation is unimodular exactly when `Λ` has covolume one. -/
+theorem isUnimodular_iff_covolume_eq_one (P : IntegralPresentation Λ) :
+    P.IsUnimodular ↔ ZLattice.covolume Λ = 1 :=
+  P.isUnimodular_real_iff.symm.trans P.isIntegral_real.isUnimodular_iff_covolume_eq_one
+
+/-- The real dual lattice of a lattice with a unimodular presentation is the lattice itself. -/
+theorem dual_eq_self_of_isUnimodular (P : IntegralPresentation Λ) (h : P.IsUnimodular) :
+    ZLattice.dual Λ = Λ :=
+  (P.isUnimodular_real h).dual_eq
 
 end IntegralPresentation
 
