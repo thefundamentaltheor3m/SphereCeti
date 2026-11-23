@@ -1,12 +1,13 @@
-# Adds area labels from .github/labeler.yml to pull requests into main.
+# Adds area labels from .github/labeler.yml to pull requests, including stacked ones.
 # pull_request_target runs this workflow and its configuration from main, never from the PR, and
 # nothing here checks out or runs PR code. The token can only read contents and edit PR labels.
 name: Area labels
 
 on:
+  # No branch filter, so every PR in a stack is labelled; pull_request_target still runs this
+  # workflow and its configuration from the default branch. `edited` reruns it after a retarget.
   pull_request_target:
-    branches: [main]
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [opened, synchronize, reopened, ready_for_review, edited]
 
 permissions: {}
 
