@@ -14,12 +14,13 @@ public import SphereCeti.CohnElkies.StructureFactor
 Let `L` be a full lattice in a finite-dimensional real inner product space `E`, let `p : ι → E`
 be a family of `N` points that are pairwise incongruent modulo `L`, such as representatives of
 the orbits of the centers of a periodic sphere packing under its period lattice, and let `f` be a
-Schwartz function.  Taking real parts in the structure-factor form of Poisson summation
-`SphereCeti.CohnElkies.tsum_sum_sum_eq_tsum_dual_fourier_mul_structureFactor`, and separating the
-`N` vanishing differences `z + p q - p q'` on the direct side and the zero frequency, where the
-structure factor is `N²`, on the Fourier side, gives the exact identity
+Schwartz function.  The real part of the structure-factor form of Poisson summation
+`SphereCeti.CohnElkies.tsum_sum_sum_eq_tsum_dual_fourier_mul_structureFactor` is the exact identity
 
-`N * Re f(0) - N² / covol(L) * Re 𝓕 f(0) = D_Fourier + D_direct`.
+`N * Re f(0) - N² / covol(L) * Re 𝓕 f(0) = D_Fourier + D_direct`,
+
+in which the terms of the `N` vanishing differences `z + p q - p q'` and of the zero frequency,
+where the structure factor is `N²`, appear on the left.
 
 The Fourier defect `D_Fourier` is `covol(L)⁻¹` times the sum of `Re 𝓕 f(y) * S_p(y)` over the
 nonzero dual frequencies `y`; it is nonnegative when `Re 𝓕 f ≥ 0` there.  The direct defect
