@@ -295,7 +295,8 @@ EXECUTOR_CHECKS = (
     'GITHUB_REPOSITORY is this repository and the event is workflow_dispatch or schedule',
     'the live run (GITHUB_RUN_ID/ATTEMPT) is in progress for that workflow path, head and repository',
     "the run's workflow_id equals policy/merge-controller.toml workflow_id",
-    'the merge credential is a GitHub App installation token (the job token passed by the approved workflow)',
+    'the merge credential behaves as this repository\'s installation token: GET /installation/repositories '
+    'with it lists exactly this repository (personal, OAuth and user-token prefixes are refused unsent)',
     "that token's own view of the ruleset reports current_user_can_bypass: \"never\"",
 )
 
@@ -391,11 +392,13 @@ class Activation:
         repository, rid = self.project.repository, os.environ.get('GITHUB_RUN_ID','')
         run = self.reader.call(f'repos/{repository}/actions/runs/{rid}') if re.fullmatch(r'[1-9][0-9]*',rid) else None
         denied = executor(run,settings,current,repository,os.environ)
-        view = None
-        if not self.writer.installation():
-            # Another credential is never sent anywhere, and its view would not describe the executor.
-            denied.append('the merge credential is not a GitHub App installation token; the approved workflow '
-                          'must pass its own job token')
+        view, token = None, self.writer.installation()
+        if not token['installation']:
+            # Its view would not describe the executor; a user-token prefix is never sent at all.
+            shape = token['shape']
+            denied.append(f"the merge credential is not this repository's installation token: {token['reason']} "
+                          f"(non-secret shape: prefix {shape['prefix']!r}, length {shape['length']}, "
+                          f"characters {', '.join(shape['classes']) or 'none'})")
         elif protection['source'] == 'ruleset' and protection['ruleset_id'] is not None:
             try: view = self.writer.ruleset(protection['ruleset_id'])
             except RecordError: view = None
@@ -405,8 +408,9 @@ class Activation:
         run = run if isinstance(run,dict) else {}
         result['executor'] = {'context':'github_actions','checks':list(EXECUTOR_CHECKS),'missing':denied,
                               'run':{k:run.get(k) for k in ('id','run_attempt','workflow_id','path','head_sha','event')},
+                              'token':token,
                               'token_view':(view.get('current_user_can_bypass','omitted') if isinstance(view,dict)
-                                            else 'unreadable' if self.writer.installation() else 'not read')}
+                                            else 'unreadable' if token['installation'] else 'not read')}
         result['executor_verified'] = not denied
         return denied
 
