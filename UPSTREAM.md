@@ -296,6 +296,21 @@ closure-continuity hypotheses separately.
 - [ ] **SphereCeti use:** the Layer 7 predicate `MagicFunction.HasExactZeroOrder` and its
   quantitative lower bound, for the exact zeros of the E8 and Leech radial profiles at the shells
   (Layer 9) and the quantitative stability estimates of D3.
+
+### A15. Finite index of a full sublattice
+
+- [ ] **Destination:** Mathlib `Mathlib/Algebra/Module/ZLattice/Covolume.lean`, beside
+  `ZLattice.covolume_div_covolume_eq_relIndex'`.
+- [ ] **Current source:** `SphereCeti/ZLattice/RelativeQuotient.lean`.
+- [ ] **Candidate declaration:** for full lattices `Λ ≤ Γ` in a finite-dimensional real inner
+  product space, the quotient `Γ / Λ` is finite (`SphereCeti.ZLattice.finite_relativeQuotient`),
+  equivalently `Λ.toAddSubgroup.relIndex Γ.toAddSubgroup ≠ 0`.  The abbreviation
+  `SphereCeti.ZLattice.RelativeQuotient` for the quotient is local notation and is not proposed.
+- [ ] **Why general:** it involves only the two lattices and their covolumes; nothing refers to
+  packings.
+- [ ] **SphereCeti use:** the Layer 10 embedding of the center orbits of an optimal periodic
+  packing into the quotient of the generated lattice by the period lattice.
+
 - [ ] **Fallback:** the local SphereCeti declarations.
 
 ### A18. Positivity at the origin from a nonnegative Fourier transform
