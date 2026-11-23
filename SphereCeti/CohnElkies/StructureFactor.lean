@@ -6,6 +6,7 @@ Authors: SphereCeti contributors
 
 module
 
+public import SphereCeti.ZLattice.DualPhase
 public import TauCeti.Analysis.Fourier.PoissonSummation
 
 /-!
@@ -36,8 +37,6 @@ the points `p q` in their classes.
   when the structure amplitude does.
 * `SphereCeti.CohnElkies.ofReal_structureFactor_eq_sum_sum`: the structure factor is the double
   sum of the phases of the differences of the points.
-* `SphereCeti.CohnElkies.phase_eq_of_sub_mem_lattice`: at a dual frequency, two points that differ
-  by a lattice vector have the same phase.
 * `SphereCeti.CohnElkies.structureAmplitude_eq_of_sub_mem`: at a dual frequency, the structure
   amplitude does not change when each point moves by a lattice vector.
 * `SphereCeti.CohnElkies.tsum_sum_sum_eq_tsum_dual_fourier_mul_structureFactor`: Poisson summation
@@ -100,18 +99,13 @@ theorem ofReal_structureFactor_eq_sum_sum (p : ι → E) (y : E) :
   ring
 
 /-- At the zero frequency the structure factor is the square of the number of points. -/
+@[simp]
 theorem structureFactor_zero (p : ι → E) : structureFactor p 0 = (Fintype.card ι : ℝ) ^ 2 := by
   simp [structureFactor_def, structureAmplitude_def]
 
-/-- At a frequency `y` in the dual of `L`, two points that differ by a vector of `L` have the same
-phase `exp (2πi ⟪y, ·⟫)`. -/
-theorem phase_eq_of_sub_mem_lattice {L : Submodule ℤ E} {y : E} (hy : y ∈ ZLattice.dual L)
-    {s t : E} (hst : s - t ∈ L) :
-    cexp (2 * π * I * ⟪y, s⟫) = cexp (2 * π * I * ⟪y, t⟫) := by
-  obtain ⟨m, hm⟩ := ZLattice.mem_dual.mp hy (s - t) hst
-  rw [inner_sub_right, sub_eq_iff_eq_add] at hm
-  rw [hm, ofReal_add, mul_add, exp_add, ofReal_intCast, mul_comm _ (m : ℂ),
-    exp_int_mul_two_pi_mul_I, one_mul]
+/-- Check that `simp` evaluates the structure factor at the zero frequency. -/
+example (p : ι → E) (c : ℝ) : c * structureFactor p 0 = c * (Fintype.card ι : ℝ) ^ 2 := by
+  simp
 
 /-- At a frequency `y` in the dual of `L`, the structure amplitude does not change when each point
 moves by a vector of `L`. -/
@@ -119,7 +113,7 @@ theorem structureAmplitude_eq_of_sub_mem {L : Submodule ℤ E} {y : E} (hy : y �
     {p p' : ι → E} (h : ∀ q, p q - p' q ∈ L) :
     structureAmplitude p y = structureAmplitude p' y := by
   simp only [structureAmplitude_def]
-  exact Finset.sum_congr rfl fun q _ ↦ phase_eq_of_sub_mem_lattice hy (h q)
+  exact Finset.sum_congr rfl fun q _ ↦ ZLattice.phase_eq_of_sub_mem_lattice hy (h q)
 
 variable [FiniteDimensional ℝ E]
 
