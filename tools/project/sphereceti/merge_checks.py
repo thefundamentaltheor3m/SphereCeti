@@ -12,6 +12,10 @@ from .review_records import RecordError
 
 WORKFLOW = '.github/workflows/pr-build.yml'
 CONTEXTS = ('trusted-build', 'trusted-scope')
+# pr-build.yml's status job publishes the commit whose workflow ran (github.workflow_sha) in the
+# trusted-build description. A run's PR association reports the PR's current base, not the base when
+# the run happened, so this attestation is what binds a run to its tooling.
+TOOLING_ATTESTATION = re.compile(r'Approved tooling build: [a-z_]+; tooling ([0-9a-f]{40})')
 
 
 def parse_checks(text):
@@ -79,11 +83,10 @@ def assess_checks(statuses, run, jobs, context, settings):
     else:
         rid, attempt = refs[0]
         # GitHub reports a pull_request_target run's head_sha as the PR head, not the commit whose
-        # workflow ran. That commit is the base branch tip when the run started, which the run's PR
-        # association records as base.sha. So the run must name the exact PR head, and the
-        # association's base (required below to equal the surveyed base) must be the approved
-        # tooling. main only moves forward, so a base equal to current approved main means the run
-        # used exactly that tooling; once main advances, the evidence is stale until a fresh run.
+        # workflow ran, so the run must name the exact PR head. The tooling is bound by the
+        # trusted-build attestation checked below. The run's PR association reflects the PR's current
+        # state, so its base proves only that the PR is up to date with approved main, not which
+        # tooling an older run used.
         expected = {'id': rid, 'run_attempt': attempt, 'workflow_id': settings['workflow_id'],
                     'path': WORKFLOW, 'event': 'pull_request_target', 'status': 'completed',
                     'conclusion': 'success', 'head_sha': context['head']}
@@ -99,7 +102,7 @@ def assess_checks(statuses, run, jobs, context, settings):
                 (p.get('base') or {}).get('sha') == context['base'] for p in associated):
             reasons.append('trusted run lacks the exact PR head/base association')
         if context['base'] != context['tooling']:
-            reasons.append('trusted run base is not the approved tooling; refresh the trusted run')
+            reasons.append('PR base is not approved main; update the PR and refresh the trusted run')
         if not isinstance(jobs, list):
             reasons.append('trusted run jobs are unavailable')
         else:
@@ -118,6 +121,13 @@ def assess_checks(statuses, run, jobs, context, settings):
                         reasons.append('status was not published during this attempt')
                 except (ValueError, TypeError):
                     reasons.append('invalid status/job timestamp')
+    build = latest.get('trusted-build')
+    if build is not None:
+        attested = TOOLING_ATTESTATION.fullmatch(build.get('description') or '')
+        if attested is None:
+            reasons.append('trusted-build does not attest its tooling commit; refresh the trusted run')
+        elif attested.group(1) != context['tooling']:
+            reasons.append('trusted-build ran with tooling other than approved main; refresh the trusted run')
     return {'passed': not reasons, 'reasons': reasons,
             **{k:context[k] for k in ('repository','head','base','tooling')},
             'status_ids': {k:v['id'] for k,v in latest.items()},

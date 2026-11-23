@@ -30,6 +30,8 @@ def evidence():
           'user':{'id':99},'title':'Math', 'body':''}
     settings = {'schema_version':1,'workflow_id':71,'status_creator_ids':[42]}
     statuses = [{'id':i,'context':name,'state':'success','creator':{'id':42,'type':'Bot'},
+                 'description':f"Approved tooling build: success; tooling {context['tooling']}"
+                               if name == 'trusted-build' else 'Scope: mathematical; no merge authorization',
                  'url':f'https://api.github.com/repos/{REPO}/statuses/{context["head"]}',
                  'target_url':f'https://github.com/{REPO}/actions/runs/100/attempts/1',
                  'created_at':'2026-09-12T10:01:00Z'} for i,name in enumerate(('trusted-build','trusted-scope'),1)]
@@ -125,6 +127,16 @@ class DecisionTests(unittest.TestCase):
         self.statuses=[];self.assertEqual(self.decision()['eligibility'],'blocked')
         self.statuses=[{'id':1,'context':'x'}]*2
         with self.assertRaises(RecordError):self.decision()
+
+    def test_trusted_build_must_attest_the_approved_tooling(self):
+        # The association base reflects the PR's current state; the attestation binds the tooling.
+        original = deepcopy(self.statuses)
+        for description in ('Approved tooling build: success', f"Approved tooling build: success; tooling {'e'*40}"):
+            self.statuses = deepcopy(original)
+            self.statuses[0]['description'] = description
+            with self.subTest(description=description):
+                self.assertEqual(self.decision()['eligibility'], 'blocked')
+        self.statuses = original
 
     def test_trusted_run_binds_tooling_through_the_pr_base(self):
         # A pull_request_target run reports the PR head as head_sha; the tooling is the PR base.

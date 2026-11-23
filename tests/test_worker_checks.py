@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Advisory scope exceptions never authenticate from a check's display name."""
 from copy import deepcopy
+import json
 from pathlib import Path
 import sys
 import unittest
@@ -23,7 +24,8 @@ def evidence():
               {'__typename': 'StatusContext', 'context': 'trusted-scope', 'state': 'FAILURE',
                'targetUrl': url}]
     statuses = [{'id': i, 'context': name, 'state': 'success' if name == 'trusted-build' else 'failure',
-                 'description': 'Build passed' if name == 'trusted-build' else HUMAN_SCOPE,
+                 'description': (f"Approved tooling build: success; tooling {'b'*40}"
+                                 if name == 'trusted-build' else HUMAN_SCOPE),
                  'creator': {'id': 42, 'type': 'Bot'},
                  'url': f'https://api.github.com/repos/{repository}/statuses/{"a"*40}',
                  'target_url': url, 'created_at': '2026-09-12T10:01:00Z'}
@@ -156,6 +158,25 @@ class WorkerCheckTests(unittest.TestCase):
             mutate(changed)
             with self.subTest(wrong=label):
                 self.assertEqual(self.readiness(raw, changed)[0], 'failed')
+
+    def test_old_run_whose_association_shows_the_new_base_is_rejected(self):
+        """Regression: GitHub reports a run's PR association with the PR's CURRENT base (all of #36's
+        trusted runs since 2026-11-21 reported base 495ebff on 2026-11-23). An old successful run with
+        an unchanged head therefore looks current through the association; only the published tooling
+        attestation tells it apart."""
+        raw, responses = evidence()
+        self.assertEqual(self.readiness(raw, responses)[0], 'passed')
+        old_tooling = 'e'*40
+        stale = json.loads(json.dumps(responses))
+        stale[0][0]['description'] = f'Approved tooling build: success; tooling {old_tooling}'
+        self.assertEqual(stale[2]['pull_requests'][0]['base']['sha'], stale[1]['sha'])
+        self.assertEqual(self.readiness(raw, stale)[0], 'failed')
+        for description in ('Approved tooling build: success', '', 'Approved tooling build: success; tooling ',
+                            f"Approved tooling build: success; tooling {'b'*39}"):
+            absent = json.loads(json.dumps(responses))
+            absent[0][0]['description'] = description
+            with self.subTest(description=description):
+                self.assertEqual(self.readiness(raw, absent)[0], 'failed')
 
     def test_run_reporting_the_tooling_as_head_sha_is_rejected(self):
         # The earlier assumption: head_sha equal to approved main. GitHub never reports that for a
