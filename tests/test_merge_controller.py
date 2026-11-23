@@ -3,6 +3,7 @@ from copy import deepcopy
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -11,11 +12,13 @@ import unittest
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'tools/project'))
 from types import SimpleNamespace
-from sphereceti.merge_activation import (HUMAN_ROUTE, WORKFLOW, admits, automatic, executor, executor_bypass,
-                                         pages, parse_controller, protections, server)
-from sphereceti.merge_controller import Writer, local_lock, reconcile
+from sphereceti.merge_activation import (EXECUTOR_CHECKS, HUMAN_ROUTE, WORKFLOW, Activation, admits, automatic, classic,
+                                         executor, executor_bypass, pages, parse_controller, server)
+from sphereceti.merge_controller import Backend, Writer, formal_approval, local_lock, reconcile
+from sphereceti.review_post import GitHub
 from sphereceti.review_records import RecordError
-from review_fixture import DISABLED_CONTROLLER
+from review_fixture import DISABLED_CONTROLLER, ROOT, git
+from sphereceti.config import ConfigError, parse_policy
 from ruleset_fixture import GITHUB_ACTIONS_APP, LIVE_EFFECTIVE, live
 
 REPO='thefundamentaltheor3m/SphereCeti'
@@ -23,19 +26,18 @@ T='1'*40;H='2'*40;M='3'*40
 
 
 def setup_data():
-    settings={'schema_version':1,'workflow_id':10,'bot_user_id':7,'checks_app_id':9,'merge_method':'squash'}
-    account={'id':7,'type':'User','login':'dedicated-machine','site_admin':False}
-    permission={'permission':'write','role_name':'write','user':{'id':7}}
+    settings={'schema_version':1,'workflow_id':10,'checks_app_id':9,'merge_method':'squash'}
     protection={'url':f'https://api.github.com/repos/{REPO}/branches/main/protection',
                 'required_status_checks':{'strict':True,'checks':[{'context':c,'app_id':9} for c in ('trusted-build','trusted-scope')]},
                 'enforce_admins':{'enabled':True},'allow_force_pushes':{'enabled':False},'allow_deletions':{'enabled':False},
                 'required_pull_request_reviews':{'required_approving_review_count':1,'dismiss_stale_reviews':True,
                                                  'bypass_pull_request_allowances':{'users':[],'teams':[],'apps':[]}}}
     env={'GITHUB_ACTIONS':'true','GITHUB_REPOSITORY':REPO,'GITHUB_REF':'refs/heads/main','GITHUB_SHA':T,
-         'GITHUB_WORKFLOW_REF':f'{REPO}/{WORKFLOW}@refs/heads/main','GITHUB_RUN_ID':'100','GITHUB_RUN_ATTEMPT':'1'}
+         'GITHUB_WORKFLOW_SHA':T,'GITHUB_WORKFLOW_REF':f'{REPO}/{WORKFLOW}@refs/heads/main',
+         'GITHUB_EVENT_NAME':'workflow_dispatch','GITHUB_RUN_ID':'100','GITHUB_RUN_ATTEMPT':'1'}
     run={'id':100,'run_attempt':1,'workflow_id':10,'head_sha':T,'head_branch':'main','path':WORKFLOW,
          'status':'in_progress','event':'workflow_dispatch','repository':{'full_name':REPO}}
-    return settings,account,permission,protection,env,run
+    return settings,protection,env,run
 
 
 class FakeBackend:
@@ -147,50 +149,70 @@ class ControllerTests(unittest.TestCase):
 
 
 class ActivationTests(unittest.TestCase):
-    def test_conservative_classic_protection_and_dedicated_write_identity(self):
-        s,a,p,b,env,run=setup_data()
-        self.assertEqual(protections(b,REPO,s,a,p),[])
-        for role in ('admin','maintain','custom'):
-            self.assertTrue(protections(b,REPO,s,a,{**p,'role_name':role}))
-        self.assertTrue(protections(b,REPO,s,{**a,'id':8},p))
-        self.assertTrue(protections(b,REPO,s,{**a,'type':'Bot'},p))
-        self.assertTrue(protections(b,REPO,s,{**a,'site_admin':True},p))
+    def test_conservative_classic_protection(self):
+        s,b,env,run=setup_data()
+        self.assertEqual(classic(b,REPO,s),[])
 
     def test_protection_and_producer_weakening_never_pass(self):
-        s,a,p,b,env,run=setup_data()
+        s,b,env,run=setup_data()
         changes=[('url','wrong'),('enforce_admins',{'enabled':False}),('allow_force_pushes',{'enabled':True}),
                  ('allow_deletions',{}),('required_pull_request_reviews',None),
                  ('required_status_checks',{'strict':False,'checks':b['required_status_checks']['checks']}),
                  ('required_status_checks',{'strict':True,'checks':[{'context':c,'app_id':-1} for c in ('trusted-build','trusted-scope')]}),
                  ('required_status_checks',{'strict':True,'contexts':['trusted-build','trusted-scope']})]
         for key,value in changes:
-            with self.subTest(key=key,value=value):self.assertTrue(protections({**b,key:value},REPO,s,a,p))
+            with self.subTest(key=key,value=value):self.assertTrue(classic({**b,key:value},REPO,s))
         for change in ({'dismiss_stale_reviews':False},{'required_approving_review_count':0},
                        {'required_approving_review_count':True},{'bypass_pull_request_allowances':{'users':[7]}},
                        {'bypass_pull_request_allowances':{'teams':[1]}},{'bypass_pull_request_allowances':{'apps':[9]}}):
             changed=deepcopy(b);changed['required_pull_request_reviews'].update(change)
-            self.assertTrue(protections(changed,REPO,s,a,p))
+            self.assertTrue(classic(changed,REPO,s))
 
     def test_run_environment_is_consistent_with_exact_live_workflow(self):
-        s,a,p,b,env,run=setup_data()
+        s,b,env,run=setup_data()
         self.assertEqual(executor(run,s,T,REPO,env),[])
         for key in env:
-            self.assertTrue(executor(run,s,T,REPO,{**env,key:'wrong'}))
+            with self.subTest(key=key):self.assertTrue(executor(run,s,T,REPO,{**env,key:'wrong'}))
         for key,value in [('event','pull_request'),('head_sha','4'*40),('workflow_id',11),('status','completed'),
                           ('path','.github/workflows/other.yml'),('run_attempt',2),('repository',{'full_name':'other/repo'})]:
-            self.assertTrue(executor({**run,key:value},s,T,REPO,env))
+            with self.subTest(key=key):self.assertTrue(executor({**run,key:value},s,T,REPO,env))
+        # A first run, before workflow_id is recorded, reports the ID GitHub assigned.
+        self.assertEqual(executor({**run,'workflow_id':215000000},{**s,'workflow_id':0},T,REPO,env),
+                         ['workflow_id is not configured; this run reports workflow_id 215000000'])
 
     def test_unconfigured_policy_fixture_and_unknown_escape_hatches(self):
         data=parse_controller(DISABLED_CONTROLLER)
-        self.assertEqual(data['workflow_id'],0);self.assertEqual(data['bot_user_id'],0)
-        for extra in ('\nbypass = true','\nprovider = "codex"'):
+        self.assertEqual((data['workflow_id'],data['checks_app_id']),(0,0))
+        self.assertEqual(parse_controller((ROOT/'policy/merge-controller.toml').read_text()),data)
+        legacy=parse_controller('schema_version = 1\nworkflow_id = 0\nbot_user_id = 0\nchecks_app_id = 0\nmerge_method = "squash"\n')
+        self.assertTrue(legacy['legacy'])
+        policy=SimpleNamespace(merging=False,mathematical_paths=(),authorized_reviewers=('user:2009342',),approving_reviewers=())
+        self.assertIn('approved policy/merge-controller.toml predates option A (it has bot_user_id)',
+                      automatic(policy,{'workflow_id':1,'status_creator_ids':[1]},legacy,True)['missing'])
+        # The formal-approval list exists once, in the automation policy, never in the controller file.
+        for extra in ('\nbypass = true','\nprovider = "codex"','\napprovers = []','\nbot_user_id = 7\napprovers = []'):
             with self.assertRaises(ValueError):parse_controller(DISABLED_CONTROLLER+extra)
         with self.assertRaises(ValueError):parse_controller(DISABLED_CONTROLLER.replace('workflow_id = 0','workflow_id = true'))
         with self.assertRaises(ValueError):parse_controller(DISABLED_CONTROLLER.replace('"squash"','"merge"'))
 
+    def test_approving_reviewers_is_optional_user_ids_within_authorized_reviewers(self):
+        shipped=parse_policy((ROOT/'policy/automation.toml').read_text())
+        self.assertEqual((shipped.merging,shipped.approving_reviewers),(False,()))
+        self.assertIn('approving_reviewers = []\n',(ROOT/'policy/automation.toml').read_text())
+        base=''.join(f'{k} = {v}\n' for k,v in (('schema_version',1),('review_generation','true'),('posting','true'),
+            ('authoring','false'),('reporting','false'),('merging','false'),('mathematical_paths','[]'),
+            ('authorized_reviewers','["user:7", "app:9"]')))
+        self.assertEqual(parse_policy(base).approving_reviewers,())  # Absent means empty.
+        self.assertEqual(parse_policy(base+'approving_reviewers = ["user:7"]\n').approving_reviewers,('user:7',))
+        for extra in ('approving_reviewers = ["user:8"]\n','approving_reviewers = ["app:9"]\n',
+                      'approving_reviewers = ["user:7", "user:7"]\n','approving_reviewers = "user:7"\n',
+                      'approving_reviewers = ["cameronfreer"]\n','approvers = ["user:7"]\n'):
+            with self.subTest(extra=extra),self.assertRaises(ConfigError):parse_policy(base+extra)
+        with self.assertRaises(ConfigError):parse_policy(base.replace('posting = true\n',''))  # Others stay required.
 
-UNCONFIGURED={'schema_version':1,'workflow_id':0,'bot_user_id':0,'checks_app_id':0,'merge_method':'squash'}
-CONFIGURED={**UNCONFIGURED,'workflow_id':10,'bot_user_id':7,'checks_app_id':GITHUB_ACTIONS_APP}
+
+UNCONFIGURED={'schema_version':1,'workflow_id':0,'checks_app_id':0,'merge_method':'squash'}
+CONFIGURED={**UNCONFIGURED,'workflow_id':10,'checks_app_id':GITHUB_ACTIONS_APP}
 ADMIN_BYPASS=[{'actor_id':5,'actor_type':'RepositoryRole','bypass_mode':'always'}]
 
 
@@ -242,10 +264,12 @@ class RulesetTests(unittest.TestCase):
             'review threads must be resolved',
             'human-reviewed policy and dependency PRs can land with an approval and a passing build'])
         self.assertEqual(found['findings'],[
+            "ruleset 21449770 bypass actors are not visible to this reader (administration access is needed); "
+            "the job token's own current_user_can_bypass view decides for the executor",
             'dismiss_stale_reviews_on_push is false: approvals survive later pushes (recommended, not yet required)',
             'require_last_push_approval is false: the last pusher may supply the approval (recommended, not yet required)'])
+        self.assertEqual(found['reader_view'],'never')
         self.assertEqual(found['missing'],[
-            'ruleset 21449770 bypass actors are not visible to this reader; an administration-read token must confirm them',
             'build is required from integration 15368, but checks_app_id is unconfigured',
             'strict_required_status_checks_policy is false: GitHub would accept a merge after main advances '
             'past the base the executor verified (humans can still update a branch and merge)'])
@@ -253,16 +277,17 @@ class RulesetTests(unittest.TestCase):
         self.assertFalse([x for x in found['missing']+found['findings'] if 'trusted-' in x])
 
     def test_automatic_path_lists_executor_evidence_and_unconfigured_items(self):
-        policy=SimpleNamespace(merging=False,mathematical_paths=(),authorized_reviewers=('user:2009342',))
+        policy=SimpleNamespace(merging=False,mathematical_paths=(),authorized_reviewers=('user:2009342',),approving_reviewers=())
         path=automatic(policy,{'workflow_id':358051984,'status_creator_ids':[41898282]},UNCONFIGURED,True)
         self.assertEqual(path['missing'],[
             'global merging switch is off','no approved mathematical change class',
             'serialized controller workflow is not configured (policy/merge-controller.toml workflow_id = 0)',
-            'dedicated merge identity is not configured (policy/merge-controller.toml bot_user_id = 0)',
-            'required-check integration is not configured (policy/merge-controller.toml checks_app_id = 0)'])
+            'required-check integration is not configured (policy/merge-controller.toml checks_app_id = 0)',
+            'no opted-in approving maintainer (policy/automation.toml approving_reviewers is empty)'])
+        self.assertTrue(any('qualifying formal approval' in x for x in path['executor_verifies']))
         self.assertIn('358051984',path['executor_verifies'][0]);self.assertIn('41898282',path['executor_verifies'][0])
         self.assertTrue(any('"mathematical"' in x for x in path['executor_verifies']))
-        self.assertIn('first merge canary',path['end_state'][0])
+        self.assertIn('never a bot or machine-user account',path['end_state'][0])
 
     def test_proposed_ruleset_admits_human_policy_and_dependency_prs(self):
         data=ruleset(strict,ADMIN_BYPASS)
@@ -375,7 +400,7 @@ class RulesetTests(unittest.TestCase):
             with self.assertRaises(RecordError):server(client(summary,effective,listing,detail),REPO,CONFIGURED)
 
     def test_classic_protection_path_still_works(self):
-        s,a,p,b,env,run=setup_data()
+        s,b,env,run=setup_data()
         enabled={'name':'main','protected':True,'protection':{'enabled':True}}
         found=server(client(enabled,[[]],[[]],None,b),REPO,s)
         self.assertEqual((found['source'],found['missing']),('classic',[]))
@@ -405,8 +430,8 @@ class TransportTests(unittest.TestCase):
             with self.assertRaises(RecordError):w.call(f'repos/{REPO}/issues/1/comments',{})
             self.assertEqual(call.call_count,1)
 
-    def test_merge_token_reads_only_identity_and_its_own_ruleset_view(self):
-        w=Writer(REPO,'writer-fixture-secret')
+    def test_job_token_reads_only_its_own_ruleset_view_and_never_user(self):
+        w=Writer(REPO,'ghs_fixturejobtoken')
         view={'id':21449770,'current_user_can_bypass':'never'}
         response=subprocess.CompletedProcess([],0,json.dumps(view),'')
         with patch('sphereceti.merge_controller.subprocess.run',return_value=response) as call:
@@ -414,15 +439,17 @@ class TransportTests(unittest.TestCase):
             self.assertEqual(call.call_args.args[0][-1],f'repos/{REPO}/rulesets/21449770')
             self.assertNotIn('--method',call.call_args.args[0])
             for endpoint,payload in ((f'repos/{REPO}/rulesets/21449770',{'sha':H,'merge_method':'squash'}),
-                                     (f'repos/{REPO}/rulesets',None),(f'repos/{REPO}/rulesets/0',None),
-                                     (f'repos/{REPO}/branches/main/protection',None)):
+                                     ('installation/repositories?per_page=100',{'sha':H,'merge_method':'squash'}),
+                                     ('installation/repositories',None),('user/installations',None),
+                                     (f'repos/{REPO}/rulesets',None),(f'repos/{REPO}/rulesets/0',None),('user',None),
+                                     (f'repos/{REPO}/pulls/1/merge',None),(f'repos/{REPO}/branches/main/protection',None)):
                 with self.assertRaises(RecordError):w.call(endpoint,payload)
             with self.assertRaises(RecordError):w.ruleset('21449770')
             self.assertEqual(call.call_count,1)
-            w.refresh_identity()
+            w.refresh()
         changed=subprocess.CompletedProcess([],0,json.dumps({**view,'current_user_can_bypass':'always'}),'')
         with patch('sphereceti.merge_controller.subprocess.run',return_value=changed):
-            with self.assertRaises(RecordError):w.refresh_identity()
+            with self.assertRaises(RecordError):w.refresh()
 
     def test_timeout_does_not_leak_tokens_or_retry(self):
         w=Writer(REPO,'secret-never-in-error')
@@ -430,6 +457,282 @@ class TransportTests(unittest.TestCase):
             with self.assertRaises(RecordError) as error:w.merge(1,H)
             self.assertNotIn('secret-never',str(error.exception));self.assertEqual(call.call_count,1)
 
+
+
+PROBE='installation/repositories?per_page=100'
+JOB_INSTALLATION={'total_count':1,'repository_selection':'selected','repositories':[{'id':1346330495,'full_name':REPO}]}
+
+
+class FakeWriter(Writer):
+    """The real Writer's validation with a recorded transport: the probe, GET views and the one PUT."""
+    def __init__(self,token='ghs_fixturejobtoken',view=None,on_put=None,installation=JOB_INSTALLATION):
+        super().__init__(REPO,token)
+        self.requests,self.view_response,self.on_put,self.installation_response=[],view,on_put,installation
+    def run(self,command,payload,env):
+        self.requests.append((command[4],payload))
+        assert command[:4]==['gh','api','--hostname','github.com'] and env['GH_HOST']=='github.com'
+        assert env['GH_TOKEN']==self._token and 'SPHERECETI_MERGE_TOKEN' not in env
+        if command[4]==PROBE:
+            if self.installation_response is None:return subprocess.CompletedProcess(command,1,'','403 installation token required')
+            return subprocess.CompletedProcess(command,0,json.dumps(self.installation_response),'')
+        if payload is None:
+            if isinstance(self.view_response,Exception):return subprocess.CompletedProcess(command,1,'','denied')
+            return subprocess.CompletedProcess(command,0,json.dumps(self.view_response),'')
+        receipt=self.on_put(payload) if self.on_put else {'merged':True,'sha':M}
+        return subprocess.CompletedProcess(command,0,json.dumps(receipt),'')
+
+
+def executor_result(view=None,token='ghs_fixturejobtoken',env_change=None,run_change=None,source='ruleset'):
+    """Activation.executor in a fake Actions run: the job token's view and the run read by the reader."""
+    s,b,env,run=setup_data()
+    writer=FakeWriter(token,{'id':21449770,'current_user_can_bypass':'never'} if view is None else view)
+    activation=Activation(SimpleNamespace(),SimpleNamespace(repository=REPO),writer)
+    activation.reader=FakeClient({f'repos/{REPO}/actions/runs/100':{**run,**(run_change or {})}})
+    result={}
+    with patch.dict(os.environ,{**env,**(env_change or {})}):
+        denied=activation.executor({'source':source,'ruleset_id':21449770 if source=='ruleset' else None},s,T,result)
+    return denied,result,writer
+
+
+class ExecutorTests(unittest.TestCase):
+    def test_job_token_is_accepted_only_when_it_cannot_bypass(self):
+        denied,result,writer=executor_result()
+        self.assertEqual(denied,[]);self.assertTrue(result['executor_verified'])
+        self.assertEqual((result['executor']['context'],result['executor']['token_view']),('github_actions','never'))
+        self.assertEqual(result['executor']['run']['workflow_id'],10)
+        self.assertEqual(writer.requests,[(PROBE,None),(f'repos/{REPO}/rulesets/21449770',None)])
+        self.assertEqual(result['executor']['token'],{'installation':True,'reason':None,'repositories':1,
+            'shape':{'prefix':'ghs_','length':19,'classes':['lowercase','underscore']}})
+        for value in ('always','pull_requests_only','exempt',None):
+            with self.subTest(value=value):
+                denied,result,_=executor_result({'id':21449770,'current_user_can_bypass':value})
+                self.assertEqual(denied,[f"the job token may bypass ruleset 21449770 (current_user_can_bypass: {value!r})"])
+                self.assertFalse(result['executor_verified'])
+
+    def test_missing_or_unreadable_bypass_view_is_the_blocker(self):
+        denied,result,_=executor_result({'id':21449770,'name':'main','enforcement':'active'})
+        self.assertEqual(denied,['GitHub omitted current_user_can_bypass for the job token on ruleset 21449770, '
+                                 'so whether the executor can bypass it is unknown'])
+        self.assertEqual(result['executor']['token_view'],'omitted');self.assertFalse(result['executor_verified'])
+        denied,result,_=executor_result(RecordError('403'))
+        self.assertEqual(denied,['the job token cannot read ruleset 21449770']);self.assertEqual(result['executor']['token_view'],'unreadable')
+        denied,_,_=executor_result({'id':1,'current_user_can_bypass':'never'})
+        self.assertEqual(denied,['the job token cannot read ruleset 21449770'])
+        denied,_,_=executor_result(source='classic')
+        self.assertEqual(denied,['the job-token bypass check needs the single-ruleset profile'])
+
+    def test_other_credentials_are_refused_and_never_sent(self):
+        for token in ('ghp_personaltoken','github_pat_fine',None):
+            with self.subTest(token=token):
+                denied,result,writer=executor_result(token=token)
+                self.assertTrue(any(d.startswith("the merge credential is not this repository's installation token") for d in denied))
+                self.assertEqual(writer.requests,[]);self.assertEqual(result['executor']['token_view'],'not read')
+
+    def test_wrong_workflow_ref_sha_or_run_is_refused(self):
+        other=f'{REPO}/.github/workflows/ci.yml@refs/heads/main'
+        for change,reason in (({'GITHUB_WORKFLOW_REF':other},f"GITHUB_WORKFLOW_REF is {other!r}, expected '{REPO}/{WORKFLOW}@refs/heads/main'"),
+                              ({'GITHUB_WORKFLOW_REF':f'{REPO}/{WORKFLOW}@refs/heads/feature'},'GITHUB_WORKFLOW_REF'),
+                              ({'GITHUB_WORKFLOW_SHA':'4'*40},f"GITHUB_WORKFLOW_SHA is {'4'*40!r}, expected {T!r}"),
+                              ({'GITHUB_SHA':'4'*40},'GITHUB_SHA'),({'GITHUB_REF':'refs/pull/1/merge'},'GITHUB_REF'),
+                              ({'GITHUB_REPOSITORY':'fork/SphereCeti'},'GITHUB_REPOSITORY'),
+                              ({'GITHUB_EVENT_NAME':'pull_request_target'},'GITHUB_EVENT_NAME')):
+            with self.subTest(change=change):
+                denied,result,_=executor_result(env_change=change)
+                self.assertTrue(any(d.startswith(reason) for d in denied),denied);self.assertFalse(result['executor_verified'])
+        for change in ({'head_sha':'4'*40},{'path':'.github/workflows/ci.yml'},{'status':'completed'},{'workflow_id':11}):
+            with self.subTest(change=change):
+                denied,_,_=executor_result(run_change=change)
+                self.assertTrue(any(d.startswith('controller run has') for d in denied),denied)
+
+
+class TokenIdentificationTests(unittest.TestCase):
+    """The job token is identified by behaviour; its format is never trusted or reported beyond its shape."""
+    # A long modern-format installation token: GitHub does not fix the length or character set.
+    MODERN='ghs_'+'Zx9-q.R_'*64+'tail'
+
+    def test_long_modern_installation_token_is_accepted_when_github_confirms_it(self):
+        for token in (self.MODERN,'ghs_fixturejobtoken','v2.installation-token_without_known_prefix'):
+            with self.subTest(length=len(token)):
+                writer=FakeWriter(token)
+                identity=writer.installation()
+                self.assertTrue(identity['installation'],identity);self.assertIsNone(identity['reason'])
+                self.assertEqual(writer.requests,[(PROBE,None)])
+                writer.installation();self.assertEqual(len(writer.requests),1)  # One probe per run.
+        denied,result,writer=executor_result(token=self.MODERN)
+        self.assertEqual(denied,[]);self.assertEqual(result['executor']['token_view'],'never')
+        self.assertEqual(result['executor']['token']['shape'],
+                         {'prefix':'ghs_','length':len(self.MODERN),
+                          'classes':['digit','hyphen','lowercase','period','underscore','uppercase']})
+
+    def test_user_token_prefixes_and_malformed_values_are_refused_without_any_request(self):
+        for token in ('ghp_'+'a'*36,'github_pat_11ABCDEFG_'+'b'*59,'gho_'+'c'*36,'ghu_'+'d'*36,'ghr_'+'e'*76,
+                      'ghs_bad token','ghs_été','ghs_'+'x'*5000,'',None):
+            with self.subTest(token=(token or '')[:12]):
+                denied,result,writer=executor_result(token=token)
+                self.assertEqual(writer.requests,[])
+                self.assertFalse(result['executor']['token']['installation'])
+                self.assertEqual(result['executor']['token_view'],'not read');self.assertFalse(result['executor_verified'])
+        self.assertIn('personal, OAuth or user-token prefix',executor_result(token='ghp_'+'a'*36)[0][-1])
+        self.assertIn('SPHERECETI_MERGE_TOKEN is unset or empty',executor_result(token=None)[0][-1])
+
+    def test_only_an_installation_listing_exactly_this_repository_passes(self):
+        other={'total_count':2,'repositories':[{'full_name':REPO},{'full_name':'other/repo'}]}
+        for response,reason in ((None,'GitHub refused GET /installation/repositories'),
+                                ({'message':'Bad credentials'},'GitHub refused GET /installation/repositories'),
+                                (other,f'its installation lists 2 repositories, not exactly {REPO}'),
+                                ({'total_count':1,'repositories':[{'full_name':'fork/SphereCeti'}]},'not exactly')):
+            with self.subTest(response=response):
+                writer=FakeWriter(self.MODERN,installation=response)
+                identity=writer.installation()
+                self.assertFalse(identity['installation']);self.assertIn(reason,identity['reason'])
+                self.assertEqual(writer.requests,[(PROBE,None)])  # The ruleset view is never read.
+
+    def test_refusal_diagnostics_contain_no_secret(self):
+        for token,kwargs in ((self.MODERN,{'installation':None}),('ghp_SECRETPERSONALTOKENVALUE0123456789',{}),
+                             ('ghs_SECRET VALUE',{})):
+            with self.subTest(prefix=token[:4]):
+                s,b,env,run=setup_data()
+                writer=FakeWriter(token,**kwargs)
+                activation=Activation(SimpleNamespace(),SimpleNamespace(repository=REPO),writer)
+                activation.reader=FakeClient({f'repos/{REPO}/actions/runs/100':run})
+                result={}
+                with patch.dict(os.environ,env):
+                    denied=activation.executor({'source':'ruleset','ruleset_id':21449770},s,T,result)
+                text=json.dumps([denied,result])
+                self.assertIn(f"prefix '{token[:4]}', length {len(token)}",text)
+                for start in range(4,len(token)-5):self.assertNotIn(token[start:start+6],text)
+                self.assertNotIn(token,text)
+
+    def test_cli_hands_the_token_to_the_writer_before_any_reader_runs(self):
+        import sphereceti.merge_controller as controller
+        seen={}
+        class Probe:
+            def __init__(self,args,project,writer):
+                seen['writer_token']=writer._token;seen['env']='SPHERECETI_MERGE_TOKEN' in os.environ
+                seen['reader_token']=os.environ.get('GH_TOKEN')
+            def setup(self,applying,*,verify_executor=False):return {'verify_executor':verify_executor}
+        with tempfile.TemporaryDirectory() as t,patch.dict(os.environ,{'SPHERECETI_MERGE_TOKEN':self.MODERN,'GH_TOKEN':'reader'}), \
+                patch.object(controller,'Backend',Probe):
+            args=SimpleNamespace(command='merge-doctor',executor=True,cache_dir=Path(t))
+            self.assertEqual(controller.run(args,SimpleNamespace(repository=REPO)),{'verify_executor':True})
+            self.assertNotIn('SPHERECETI_MERGE_TOKEN',os.environ)
+        self.assertEqual(seen,{'writer_token':self.MODERN,'env':False,'reader_token':'reader'})
+
+
+def reviews_for(head,*entries):
+    return [{'id':i+1,'user':{'id':user,'type':kind},'state':state,'commit_id':commit or head,
+             'author_association':association} for i,(user,state,commit,kind,association) in enumerate(entries)]
+
+
+class ApprovalTests(unittest.TestCase):
+    def test_qualifying_formal_approval_rules(self):
+        ok=('user:7',);author='user:99'
+        approve=lambda user=7,commit=None,kind='User',association='COLLABORATOR':(user,'APPROVED',commit,kind,association)
+        self.assertEqual(formal_approval(reviews_for(H,approve()),author,H,ok)['reasons'],[])
+        self.assertEqual(formal_approval(reviews_for(H,approve()),author,H,ok)['qualifying'],
+                         [{'identity':'user:7','review_id':1,'commit_id':H}])
+        cases=[([],''),([(7,'COMMENTED',None,'User','COLLABORATOR')],''),([approve(commit='4'*40)],'user:7 approved 444444444444, not the head'),
+               ([approve(user=8)],'user:8 is not in approving_reviewers'),([approve(association='CONTRIBUTOR')],'user:7 is not a maintainer account'),
+               ([approve(kind='Bot')],'user:7 is not a maintainer account'),
+               ([approve(),(7,'DISMISSED',None,'User','COLLABORATOR')],''),([approve(),(7,'CHANGES_REQUESTED',None,'User','COLLABORATOR')],'')]
+        for entries,detail in cases:
+            with self.subTest(entries=entries):
+                reasons=formal_approval(reviews_for(H,*entries),author,H,ok)['reasons']
+                self.assertTrue(reasons[-1].startswith('no qualifying approval'),reasons);self.assertIn(detail,reasons[-1])
+        self.assertIn('user:99 is the PR author',formal_approval(reviews_for(H,approve(user=99)),author,H,('user:99',))['reasons'][0])
+        # A later comment does not withdraw an approval; another reviewer's change request blocks.
+        self.assertEqual(formal_approval(reviews_for(H,approve(),(7,'COMMENTED',None,'User','COLLABORATOR')),author,H,ok)['reasons'],[])
+        self.assertEqual(formal_approval(reviews_for(H,approve(),(8,'CHANGES_REQUESTED',None,'User','COLLABORATOR')),author,H,ok)['reasons'],
+                         ['changes requested by user:8'])
+        for bad in ([{'id':1}],[{'id':1,'user':{'id':7},'state':'APPROVED'}]*2,None):
+            with self.assertRaises(RecordError):formal_approval(bad,author,H,ok)
+
+
+class ControllerDecisionTests(unittest.TestCase):
+    """The real auto-approval decision over disposable Git, plus the formal approval, then reconcile."""
+    def setUp(self):
+        from test_auto_approval import AUTHOR, REVIEWER, Harness
+        self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup)
+        # merging = true exists only in this fixture's approved policy; the repository keeps false.
+        self.h=Harness(Path(self.tmp.name),policy_paths=('SphereCeti/E8',),merging=True,
+                       approving_reviewers=(f'user:{REVIEWER}',))
+        self.reviewer,self.author=REVIEWER,AUTHOR
+        self.reviews=[]
+        respond=self.h.respond
+        def github(endpoint,**kwargs):
+            if endpoint==f'repos/{REPO}/pulls/1/reviews?per_page=100':return [deepcopy(self.reviews)]
+            return respond(endpoint,**kwargs)
+        self.github=github
+
+    def reconcile(self,applying=True):
+        h=self.h
+        def merged(payload):
+            h.pr.update(merged=True,state='closed',merge_commit_sha=M)
+            return {'merged':True,'sha':M}
+        writer=FakeWriter(on_put=merged)
+        args=SimpleNamespace(cache_dir=Path(self.tmp.name)/'cache',source_repo=h.repo,dependencies_dir=None)
+        backend=Backend(args,h.project,writer)
+        ready={'ready':True,'merging_requested':True,'executor_verified':True,'tooling':h.tooling}
+        # The approved automation policy on the fixture's main, as Activation.inspect parses it.
+        policy=parse_policy(git(h.repo,'show',f'{h.tooling}:policy/automation.toml')+'\n')
+        self.assertEqual(policy.approving_reviewers,(f'user:{self.reviewer}',))
+        backend.activation=SimpleNamespace(policy=policy,inspect=lambda **kw:dict(ready),refresh=lambda:None)
+        with patch.object(GitHub,'call',side_effect=self.github), \
+                patch('sphereceti.merge_observation.prepare',side_effect=h.prepared):
+            return reconcile(backend,lambda:[1],applying=applying),writer
+
+    def test_all_green_record_without_formal_approval_leaves_the_pr_open(self):
+        # The opted-in maintainer's complete record is posted (with --no-approve): a comment, no review.
+        self.reviews=reviews_for(self.h.head,(self.reviewer,'COMMENTED',None,'User','COLLABORATOR'))
+        result,writer=self.reconcile()
+        item=result['results'][0]
+        self.assertEqual(item['state'],'blocked');self.assertFalse(result['merge_attempted'])
+        self.assertEqual(len(item['reasons']),1);self.assertTrue(item['reasons'][0].startswith('no qualifying approval'))
+        self.assertEqual(writer.requests,[]);self.assertEqual(self.h.pr['state'],'open')
+
+    def test_formal_approval_and_passing_decision_merge_once_pinned_to_the_head(self):
+        self.reviews=reviews_for(self.h.head,(self.reviewer,'APPROVED',None,'User','COLLABORATOR'))
+        preview,writer=self.reconcile(applying=False)
+        self.assertEqual(preview['results'],[{'pr':1,'state':'would_merge','head':self.h.head}]);self.assertEqual(writer.requests,[])
+        result,writer=self.reconcile()
+        self.assertEqual(writer.requests,[(f'repos/{REPO}/pulls/1/merge',{'sha':self.h.head,'merge_method':'squash'})])
+        self.assertEqual(result['results'][0],{'pr':1,'head':self.h.head,'state':'merged','merge_commit':M})
+
+    def test_formal_approval_does_not_replace_the_decision(self):
+        self.reviews=reviews_for(self.h.head,(self.reviewer,'APPROVED',None,'User','COLLABORATOR'))
+        self.h.comments=[]  # No official review record: the formal approval alone cannot merge.
+        result,writer=self.reconcile()
+        self.assertEqual(result['results'][0]['state'],'blocked');self.assertEqual(writer.requests,[])
+        self.assertTrue(any(r.startswith('official_review') for r in result['results'][0]['reasons']))
+
+    def test_merging_false_is_read_only(self):
+        h=self.h
+        writer=FakeWriter()
+        backend=Backend(SimpleNamespace(cache_dir=Path(self.tmp.name)/'c',source_repo=h.repo,dependencies_dir=None),h.project,writer)
+        backend.activation=SimpleNamespace(policy=None,refresh=lambda:None,
+            inspect=lambda **kw:{'ready':False,'merging_requested':False,'executor_verified':True})
+        with patch.object(GitHub,'call',side_effect=AssertionError('no GitHub read after a disabled setup')):
+            for applying in (False,True):
+                result=reconcile(backend,lambda:(_ for _ in ()).throw(AssertionError('enumerated')),applying=applying)
+                self.assertEqual(result['state'],'disabled')
+        self.assertEqual(writer.requests,[])
+
+
+class WorkflowTests(unittest.TestCase):
+    def test_installed_workflow_is_the_read_only_packaged_template(self):
+        installed=(ROOT/WORKFLOW).read_bytes()
+        self.assertEqual(installed,(ROOT/'tools/ci/merge-controller.yml').read_bytes())
+        text=installed.decode()
+        self.assertIn('permissions:\n  contents: read\n  actions: read\nconcurrency:',text)
+        self.assertNotIn('write',text.split('\njobs:')[1])
+        self.assertNotRegex(text,r'(?m)^\s+schedule:')  # Scheduled runs stay commented out.
+        self.assertIn('  workflow_dispatch:\n',text)
+        self.assertIn("if: github.ref == 'refs/heads/main'",text)
+        self.assertIn('ref: ${{ github.sha }}\n          persist-credentials: false',text)
+        self.assertIn('merge-doctor --executor --json',text);self.assertIsNone(re.search(r'merge-control(?![a-z])',text.split('\njobs:')[1]))
+        self.assertNotIn('secrets.',text);self.assertNotIn('pull_request',text)
+        self.assertIn('SPHERECETI_MERGE_TOKEN: ${{ github.token }}',text)
+        for use in re.findall(r'uses: (\S+)',text):self.assertRegex(use,r'@[0-9a-f]{40}$')
 
 
 class InstalledFlowTests(unittest.TestCase):

@@ -87,10 +87,28 @@ Older links without attempts cannot satisfy this observer. Build/scope context n
 separate status-writing job remain unchanged.
 
 The reader checks the run's repository, configured workflow ID, exact workflow path, event,
-tooling revision, completed success, and associated PR head/base. It then verifies both expected
-jobs, their attempt/run IDs, and status publication timestamps within the status job. Missing
-associations or incomplete API fields fail closed, including fork cases where GitHub omits PR
-association metadata. A rerun cannot reuse statuses from an earlier attempt. The latest run
+tooling revision, completed success, head repository, and PR binding. It then verifies both
+expected jobs, their attempt/run IDs, and status publication timestamps within the status job.
+
+**PR binding.** GitHub reports a fork PR's `pull_request_target` run with an empty
+`pull_requests` association (SphereCeti #54, run 45224210603), so the trusted workflow's status
+job also attests the event's own binding in the `trusted-build` description, taken from the
+`pull_request_target` payload in main's workflow, never from candidate code:
+
+```text
+Approved tooling build: success; tooling <workflow_sha>; pr <number>; base <event base sha>
+```
+
+The head is the status's own commit (the status URL must name the PR head), and the run's
+`head_sha` must equal it. GitHub caps a status description at 140 characters, so the head is not
+repeated. A run is bound when its event is `pull_request_target` with the approved workflow ID,
+its `head_sha` is the PR head, its `head_repository` equals the PR's head repository (from the PR
+API, or the survey's `headRepository`), and the attested PR number and base match. An
+association, when GitHub reports one for this PR, must agree. The older description without
+`pr`/`base` remains accepted only together with the exact association, so same-repository PRs
+keep working until their trusted run is refreshed; fork PRs need a refreshed run. A status on the
+same commit attesting another PR number is refused for this PR. Incomplete API fields fail
+closed. A rerun cannot reuse statuses from an earlier attempt. The latest run
 must use the exact current tooling revision; unrelated main advancement conservatively requires
 fresh base/build validation even if #11 can reuse unchanged review context.
 
@@ -106,6 +124,46 @@ ancestry comparisons, statuses, runs, and jobs. Changed evidence aborts observat
 no atomic multi-endpoint snapshot, so a change after those reads remains possible. A later
 controller must rerun observation immediately before acting and use server-enforced checks and
 an expected-head condition; an old observation file cannot authorize a merge.
+
+## Auto-approval decision
+
+`sphereceti auto-approve-check N` answers one question read-only: would SphereCeti automatically
+approve this proof PR, and why or why not? It is the decision a future review bot would consult
+before submitting a GitHub APPROVE review on the exact head; a separate non-bypass worker would
+merge. It reviews, approves, posts and merges nothing, and calls no model provider.
+
+```bash
+sphereceti auto-approve-check 50 --assume-proof-paths 'SphereCeti/E8/**' --json
+```
+
+The approved `mathematical_paths` list is empty, so a decision today needs an explicit
+**hypothetical** allowlist. `--assume-proof-paths` never changes policy. The output then sets
+`hypothetical: true`, repeats the assumed globs, and starts its note with `HYPOTHETICAL`.
+Globs must lie under `SphereCeti/`; `*` and `?` stay within a segment, and `**` is a whole
+segment. Without the flag, the approved policy's prefixes apply.
+
+The command reuses `collect` (this observer's GET-only evidence gathering and end-of-run refresh),
+`gate.evaluate`, `merge_checks.assess_checks` and `review_records.assess_records`. It reports
+`would_approve`, every requirement with its evidence, the exact head/base/tooling, the PR
+author against the review publishers, and the reasons for any refusal. A computed decision exits
+0 either way. Incomplete evidence exits 2.
+
+| Requirement | Evidence and binding |
+|---|---|
+| `paths` | The PR's complete file list from the API; a count differing from `changed_files`, GitHub's 3000-file cap, or a list differing from the exact Git diff fails closed. Each path must be an added or modified regular `SphereCeti/**/*.lean` library file under the allowlist; protected library modules are excluded. Renames, deletions, mode changes, symlinks and submodules are ineligible. Roadmap/specification, dependency, CI, policy, review and machinery paths are listed with their human route. |
+| library root | `SphereCeti.lean` may only gain `public import SphereCeti.<Topic>…` lines naming eligible modules present at the head. Every existing line must remain byte-for-byte and in order. |
+| `trusted_checks` | `assess_checks`: `trusted-build` success and `trusted-scope` present from the approved producer and one exact `pull_request_target` run attempt. The run's `head_sha` is the PR head, its head repository is the PR's, and the attested PR binding (or, for older runs, the PR association) names this PR and base. The gate reports `human_review` while the allowlist is empty, and it also protects the library root. That status is replaced by the stricter path rule only under the hypothesis or for a root import. |
+| `compiled_audit` | The `candidate` job of that same run attempt. It ran the approved tooling's `scripts/check_audits.py` through `scripts/sandbox-build.sh` on the exact head. The tooling is bound by #48's attestation: `trusted-build` publishes the run's `github.workflow_sha`, and `assess_checks` requires it to equal current main. The output reports the attested SHA. The ordinary `build` check runs candidate-controlled scripts, and its name alone is not used. |
+| `official_review` | `assess_records` accepts a complete, non-advisory record covering all ten rubrics. Its exact head, base, diff base and context digests come from an authorized reviewer. Run it from installed tooling equal to main; otherwise the installed-tooling comparison fails. |
+| `independent_reviewer` | At least one accepted publisher is not the PR author, by API user ID. The author can never supply the sole approval. |
+| `pull_request` | Open, not draft, targets main, base equals current main and is the diff base, and not conflicting. No GitHub approving review is read or required. `mergeable_state` `blocked` or `unstable` is accepted, while `dirty`, `behind` and `unknown` are not. |
+| `policy` | Reports the real `merging`, `mathematical_paths` and authorized reviewers, and the hypothesis if one was used. |
+
+GitHub reports a workflow run's `pull_requests[].base.sha` from the PR's live state, not from
+the time of the run. On 2026-11-23, PR #36's run 44856402521, created on 2026-11-21, reported
+base `495ebff`, a main commit merged two days later. So only the attestation binds the tooling.
+For diagnosis, the output also compares the run's creation time with the default branch's last
+move, from the repository activity API. That timestamp comparison never decides.
 
 ## Review and validation
 

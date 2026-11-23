@@ -1,4 +1,6 @@
-"""Disabled-by-policy serialized controller, sharing #15's observer for all entry points.
+"""Disabled-by-policy serialized controller: the auto-approval decision plus a formal approval.
+
+The executor is the approved workflow's own job token (option A): no bot or machine-user account.
 
 Adapted from TauCetiReview@afb424eda89e8ac96d9eb69f6a88972055a4cd1b
 .github/workflows/{merge-only,merge-sweep}.yml; Apache-2.0, TauCetiReview contributors.
@@ -13,25 +15,82 @@ import re
 import stat
 import subprocess
 
-from .merge_activation import Activation
-from .merge_observation import Reader, observe, pull
+from .auto_approval import auto_approval
+from .merge_activation import Activation, pages
+from .merge_observation import Reader, pull
 from .review_records import RecordError
 
 
-class Writer:
-    """Dedicated credential, excluded from inherited reader/Git environments; one narrow PUT.
+# Personal (classic and fine-grained), OAuth, user-to-server and refresh tokens. They are never
+# installation tokens, so they are refused before any request is made with them.
+USER_TOKEN_PREFIXES = ('ghp_', 'github_pat_', 'gho_', 'ghu_', 'ghr_')
+INSTALLATION_PROBE = 'installation/repositories?per_page=100'
 
-    Besides the PUT it reads only its own identity and its own view of the ruleset's bypass status.
+
+def token_shape(token):
+    """Non-secret diagnostics: the first 4 characters, the length and the character classes present."""
+    if not isinstance(token, str): return {'prefix': None, 'length': 0, 'classes': []}
+    classes = {'lowercase': str.islower, 'uppercase': str.isupper, 'digit': str.isdigit,
+               'underscore': lambda c: c == '_', 'hyphen': lambda c: c == '-', 'period': lambda c: c == '.',
+               'whitespace': str.isspace, 'non-ascii': lambda c: not c.isascii()}
+    present = {name for c in token for name, test in classes.items() if test(c)}
+    if any(c.isascii() and not (c.isalnum() or c.isspace() or c in '_-.') for c in token): present.add('other-ascii')
+    return {'prefix': token[:4], 'length': len(token), 'classes': sorted(present)}
+
+
+class Writer:
+    """The job token, excluded from inherited reader/Git environments; one narrow PUT.
+
+    Besides the PUT it reads only GitHub's answer to whether it is an installation token for this
+    repository, and its own view of the ruleset's bypass status. It never calls `user`: an
+    installation token has no user, and a login would establish nothing.
     """
     def __init__(self, repository, token):
-        self.repository, self._token, self.account, self.view = repository, token, None, None
+        self.repository, self._token, self.view, self.identity = repository, token, None, None
+
+    def installation(self):
+        """Identify the token by behaviour, never by format alone; cached for this run.
+
+        GitHub does not document a stable character set or length for installation tokens, so the
+        only static rule refuses known non-installation prefixes and malformed values, without any
+        request. Any other token makes one GET to api.github.com: `installation/repositories`. Only an
+        installation token can call it. It must list exactly this repository, as the job token does.
+        """
+        if self.identity is not None: return self.identity
+        token, reason, listed = self._token, None, None
+        if not isinstance(token, str) or not token:
+            reason = 'no token reached the controller (SPHERECETI_MERGE_TOKEN is unset or empty)'
+        elif token.startswith(USER_TOKEN_PREFIXES):
+            reason = 'it has a personal, OAuth or user-token prefix; no request was made with it'
+        elif len(token) > 4096 or not token.isascii() or any(c.isspace() or not c.isprintable() for c in token):
+            reason = 'it is malformed (whitespace, control or non-ASCII characters, or over 4096 characters)'
+        else:
+            try: value = self.call(INSTALLATION_PROBE)
+            except RecordError: value = None
+            repos = value.get('repositories') if isinstance(value, dict) else None
+            if not isinstance(repos, list):
+                reason = 'GitHub refused GET /installation/repositories for it, so it is not an installation token'
+            else:
+                listed = [r.get('full_name') if isinstance(r, dict) else None for r in repos]
+                if value.get('total_count') != 1 or listed != [self.repository]:
+                    reason = (f"its installation lists {value.get('total_count')!r} repositories, "
+                              f'not exactly {self.repository}')
+        self.identity = {'installation': reason is None, 'reason': reason, 'shape': token_shape(token),
+                         'repositories': len(listed) if listed is not None else None}
+        return self.identity
+
+    def run(self, command, payload, env):
+        return subprocess.run(command,input=json.dumps(payload) if payload is not None else None,
+                              text=True,capture_output=True,timeout=45,env=env)
 
     def call(self, endpoint, payload=None):
-        if not self._token: raise RecordError('dedicated merge token is unavailable')
+        if not self._token: raise RecordError('the job token is unavailable to the controller')
         merge=re.fullmatch(re.escape(f'repos/{self.repository}/pulls/')+r'[1-9][0-9]*/merge',endpoint)
-        if endpoint != 'user' and not merge and not re.fullmatch(re.escape(f'repos/{self.repository}/rulesets/')+r'[1-9][0-9]*',endpoint):
+        ruleset=re.fullmatch(re.escape(f'repos/{self.repository}/rulesets/')+r'[1-9][0-9]*',endpoint)
+        read=ruleset or endpoint==INSTALLATION_PROBE
+        if not (merge and payload is not None) and not (read and payload is None):
             raise RecordError('unsupported merge-token operation')
-        if payload is not None and (not merge or set(payload)!={'sha','merge_method'} or
+        if payload is not None and (set(payload)!={'sha','merge_method'} or not isinstance(payload['sha'],str) or
                 not re.fullmatch(r'[0-9a-f]{40}',payload['sha']) or payload['merge_method']!='squash'):
             raise RecordError('invalid expected-head merge request')
         command=['gh','api','--hostname','github.com',endpoint]
@@ -39,27 +98,24 @@ class Writer:
         env={'PATH':os.environ.get('PATH',os.defpath),'GH_TOKEN':self._token,'GH_HOST':'github.com',
              'GH_PROMPT_DISABLED':'1'}
         try:
-            response=subprocess.run(command,input=json.dumps(payload) if payload is not None else None,
-                                    text=True,capture_output=True,timeout=45,env=env)
+            response=self.run(command,payload,env)
             if response.returncode: raise RecordError('merge-token request failed; result is unconfirmed')
             return json.loads(response.stdout)
         except (OSError,subprocess.SubprocessError,ValueError) as error:
             raise RecordError('merge-token request failed; result is unconfirmed') from error
-
-    def identity(self):
-        self.account=self.call('user')
-        return self.account
 
     def ruleset(self, rid):
         if type(rid) is not int or rid<=0: raise RecordError('invalid ruleset ID')
         self.view=(rid,self.call(f'repos/{self.repository}/rulesets/{rid}'))
         return self.view[1]
 
-    def refresh_identity(self):
-        if self.account is not None and self.call('user') != self.account:
-            raise RecordError('merge-token identity changed')
+    def refresh(self):
+        if (self.identity or {}).get('installation'):
+            repos = self.call(INSTALLATION_PROBE).get('repositories')
+            if not isinstance(repos, list) or [r.get('full_name') for r in repos] != [self.repository]:
+                raise RecordError('job-token installation changed')
         if self.view is not None and self.call(f'repos/{self.repository}/rulesets/{self.view[0]}') != self.view[1]:
-            raise RecordError('merge-token ruleset view changed')
+            raise RecordError('job-token ruleset view changed')
 
     def merge(self, number, head):
         if type(number) is not int or number<=0: raise RecordError('invalid PR number')
@@ -80,20 +136,68 @@ def local_lock(cache):
     finally: os.close(fd)
 
 
+MAINTAINERS = ('OWNER', 'MEMBER', 'COLLABORATOR')
+
+
+def formal_approval(reviews, author, head, approvers):
+    """A qualifying formal GitHub approval: an opted-in maintainer's current APPROVE on the exact head.
+
+    `approvers` is the approved automation policy's approving_reviewers (a subset of authorized_reviewers).
+
+    Each reviewer's latest APPROVED, CHANGES_REQUESTED or DISMISSED review is their current state, as
+    on GitHub; comments do not change it. An all-green review record without this review does not
+    qualify, and any outstanding change request blocks.
+    """
+    if not isinstance(reviews,list) or any(
+            not isinstance(r,dict) or type(r.get('id')) is not int or not isinstance(r.get('user'),dict) or
+            type(r['user'].get('id')) is not int or not isinstance(r.get('state'),str) for r in reviews):
+        raise RecordError('invalid review inventory')
+    if len({r['id'] for r in reviews}) != len(reviews): raise RecordError('duplicate review inventory')
+    latest={}
+    for review in sorted(reviews,key=lambda r:r['id']):
+        if review['state'] in ('APPROVED','CHANGES_REQUESTED','DISMISSED'): latest[review['user']['id']]=review
+    reasons,qualifying,rejected=[],[],[]
+    changes=[f'user:{u}' for u,r in sorted(latest.items()) if r['state']=='CHANGES_REQUESTED']
+    if changes: reasons.append('changes requested by '+', '.join(changes))
+    for user,review in sorted(latest.items()):
+        who=f'user:{user}'
+        if review['state']!='APPROVED': continue
+        if who not in approvers: rejected.append(f'{who} is not in approving_reviewers')
+        elif who==author: rejected.append(f'{who} is the PR author')
+        elif review.get('commit_id')!=head: rejected.append(f"{who} approved {str(review.get('commit_id'))[:12]}, not the head")
+        elif review['user'].get('type')!='User' or review.get('author_association') not in MAINTAINERS:
+            rejected.append(f'{who} is not a maintainer account')
+        else: qualifying.append({'identity':who,'review_id':review['id'],'commit_id':head})
+    if not qualifying:
+        reasons.append('no qualifying approval: an opted-in maintainer (policy/automation.toml approving_reviewers) '
+                       'other than the PR author must APPROVE the exact head'+(f" ({'; '.join(rejected)})" if rejected else ''))
+    return {'qualifying':qualifying,'reasons':reasons}
+
+
 class Backend:
     def __init__(self,args,project,writer):
         self.args,self.project,self.writer=args,project,writer
         self.activation=Activation(args,project,writer)
         self.observer=None
 
-    def setup(self, applying): return self.activation.inspect(applying=applying)
+    def setup(self, applying, *, verify_executor=False):
+        return self.activation.inspect(applying=applying,verify_executor=verify_executor)
 
     def state(self, number): return pull(Reader(self.project.repository),self.project,number)
 
     def observation(self, number):
-        args=copy(self.args);args.pr=number
-        self.observer=Reader(self.project.repository)
-        return observe(args,self.project,client=self.observer)
+        """The auto-approval decision under approved policy (never hypothetical) and a formal approval."""
+        args=copy(self.args);args.pr=number;args.assume_proof_paths=None
+        if self.activation.policy is None: raise RecordError('no activation snapshot')
+        client=self.observer=Reader(self.project.repository)
+        decision=auto_approval(args,self.project,client=client)
+        reviews=pages(client.call(f'repos/{self.project.repository}/pulls/{number}/reviews?per_page=100',paginate=True),'review')
+        approval=formal_approval(reviews,decision['author']['identity'],decision['head'],
+                                 self.activation.policy.approving_reviewers)
+        eligible=decision['would_approve'] is True and decision['hypothetical'] is False and not approval['reasons']
+        return {'eligibility':'eligible' if eligible else 'blocked','head':decision['head'],'base':decision['base'],
+                'tooling':decision['tooling'],'reasons':decision['reasons']+approval['reasons'],
+                'approval':approval['qualifying'],'decision_digest':decision['evidence_digest']}
 
     def refresh(self):
         self.observer.revalidate()
@@ -164,7 +268,7 @@ def run(args,project):
     writer=Writer(project.repository,os.environ.pop('SPHERECETI_MERGE_TOKEN',None))
     backend=Backend(args,project,writer)
     with local_lock(args.cache_dir):
-        if args.command=='merge-doctor': return backend.setup(False)
+        if args.command=='merge-doctor': return backend.setup(False,verify_executor=args.executor)
         if args.pr is not None and args.pr<=0: raise RecordError('PR number must be positive')
         return reconcile(backend,(lambda:[args.pr]) if args.pr is not None else backend.queue,applying=args.apply)
 
@@ -177,6 +281,9 @@ def add_parser(commands):
         p.add_argument('--dependencies-dir',type=Path)
         p.add_argument('--cache-dir',type=Path,default=Path('~/.cache/sphereceti/merge-controller'))
         p.add_argument('--operator-config',type=Path,help='preferences only; cannot enable merging')
+        if name=='merge-doctor':
+            p.add_argument('--executor',action='store_true',
+                           help='also verify this GitHub Actions run and its job token (the approved workflow passes it)')
         if name=='merge-control':
             group=p.add_mutually_exclusive_group(required=True)
             group.add_argument('--pr',type=int)

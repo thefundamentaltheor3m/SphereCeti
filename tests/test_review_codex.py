@@ -107,9 +107,9 @@ class CodexReviewTests(unittest.TestCase):
     def spent_today(self):
         return self.fixture.ledger()["days"][str(datetime.date.today())]
 
-    def test_explicit_sol61_subscription_review_is_admitted_and_estimated(self):
+    def test_default_sol61_subscription_review_is_admitted_and_estimated(self):
         self.fixture.codex_subscription()
-        result = self.review("--auth", "subscription", "--codex-model", "gpt-6.1-sol")
+        result = self.review("--auth", "subscription")
         self.assertEqual(result["verdicts"]["correctness"], "approve")
         [call] = self.fixture.codex_calls()
         self.assertEqual(model(call["argv"]), "gpt-6.1-sol")
@@ -127,9 +127,9 @@ class CodexReviewTests(unittest.TestCase):
         [state] = self.fixture.ledger()["prs"].values()
         self.assertEqual(state["rounds"][-1]["tokens"], NORMALIZED)
 
-    def test_default_codex_model_is_unchanged_and_bills_its_corrected_window(self):
+    def test_explicit_sol56_override_bills_its_corrected_window(self):
         self.fixture.codex_subscription()
-        self.review("--auth", "subscription")
+        self.review("--auth", "subscription", "--codex-model", "gpt-5.6-sol")
         [call] = self.fixture.codex_calls()
         self.assertEqual(model(call["argv"]), "gpt-5.6-sol")
         # TauCetiReview #175's 2026-08-21 window: 4.00 input, 0.40 cached, 20.00 output.

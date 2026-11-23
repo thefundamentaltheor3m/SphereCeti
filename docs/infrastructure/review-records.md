@@ -14,16 +14,18 @@ The adapter extends [#10](https://github.com/thefundamentaltheor3m/SphereCeti/pu
 
 ```bash
 # Local review: creates result.json, advisory.md, record.json, and record.md.
-sphereceti review 9 --provider codex --budget-usd 5
+sphereceti review 9 --provider codex --budget-usd 5 --no-post
 
 # Inspect current records through GitHub without invoking a provider or posting.
 sphereceti review 9 --read-records --json
 
-# Explicitly review and publish, only when approved repository policy permits it.
+# Review and publish (the default); --post fails instead of degrading if policy forbids it.
 sphereceti review 9 --provider codex --budget-usd 5 --post
 ```
 
-`--post` is incompatible with dry runs and locally supplied source references. The approved
+A live review posts by default and `--no-post` keeps it local; see
+[posting by default](local-review.md#posting-by-default). `--post` is incompatible with dry runs
+and locally supplied source references. The approved
 remote-main policy must enable `posting`; a candidate policy or operator preference cannot
 enable it. The shipped policy still has `posting = false` and no authorized reviewers.
 No publishing occurs during tests or installation. No code in this PR merges anything,
@@ -41,10 +43,24 @@ Provider-specific isolation limits remain those documented for the [local adapte
 repository/PR, head, integration base, diff base, dependency digest, full tooling revision,
 installed tooling digest, effective engine/rubric/policy digests, review-context and PR-description digests,
 completion, execution mode, ten verdicts, and per-rubric contest watermarks. The content ID
-binds those fields and the exact rendered summaries/findings. Provider prose is escaped so it
-cannot inject another machine marker. Duplicate fields/markers, unknown schemas, bad types,
-and altered rendered bodies are rejected; there is no legacy-table fallback. Oversized
-records fail instead of publishing truncated evidence.
+binds those fields and the exact rendered summaries/findings. Duplicate fields/markers, unknown
+schemas, bad types, and altered rendered bodies are rejected; there is no legacy-table fallback.
+
+The visible body follows the pinned scoreboard's layout (`runner/render.py`): an advisory
+warning when the record cannot qualify, one overall line, then a table with the scoreboard's
+icons (✅ approve, 🟡 changes, ⛔ block, ⚠️ error, ▫️ not run), a rubric link to the pinned upstream
+rubric, the verdict, and the first sentence of the reasoning. Each reviewed rubric then has a
+collapsed `<details>` section with the full reasoning and each finding's location, issue, fix and
+evidence as a list. Provider code and file:line references render as literal inline or fenced
+code, never HTML entities. Prose is escaped so it cannot open HTML, links, mentions, or blocks.
+No provider text can form `<!--`, so it cannot inject another machine marker.
+
+Rendering is deterministic but presentation only. `body_sha256` covers the published text,
+and readers hash that stored text rather than re-rendering it. Records published by an earlier
+renderer therefore remain valid under the same schema; tests keep the #36 and #53 records.
+A comment, including its envelope, stays within 60,000 UTF-8 bytes (GitHub allows 65,536
+characters). An oversized record shortens provider fields deterministically and then omits
+the details. A visible note points to the publisher's local `result.json` for the full text.
 
 A local file is only an attestation proposal. A content hash provides integrity, not identity
 or proof that inference ran. A trusted publisher is responsible for the attestation it posts.
@@ -86,7 +102,8 @@ reviewer's comment, publishes the old TauCeti scoreboard marker, or runs a model
 publication. Before a write, an exact unedited authorized record can be adopted after an
 ambiguous earlier POST. Independent machines can still produce cosmetic duplicates; the
 same content ID does not reset contests or change the decision. Local artifacts survive a
-publication failure. The [archive adapter](review-archive.md) queues metadata before posting and synchronizes its
+publication failure, and [`review-publish`](local-review.md#publishing-a-saved-run) can publish that saved
+record later without running inference again. The [archive adapter](review-archive.md) queues metadata before posting and synchronizes its
 immutable outbox separately; archive failure does not undo a review comment.
 
 ## Replacement reviews and contests
@@ -132,7 +149,8 @@ See [tracking issue #23](https://github.com/thefundamentaltheor3m/SphereCeti/iss
 
 ## Validation
 
-Pure regression tests cover schema/body forgery, API user/App identity, every stale binding,
+Pure regression tests cover the rendered layout, code and HTML escaping, deterministic size
+truncation, earlier published records, schema/body forgery, API user/App identity, every stale binding,
 policy revocation, unapproved tooling, advisory modes, edited records, per-publisher replacement,
 and authenticated contests. Fake-GitHub/fake-provider CLI tests exercise explicit publication,
 read-only inspection, policy denial before inference, and head advancement before POST. Both
