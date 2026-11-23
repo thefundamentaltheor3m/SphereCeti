@@ -29,6 +29,9 @@ which turns the centers of an optimal periodic packing into an even lattice.
   the points of `S` have even squared norms.
 * `SphereCeti.EuclideanLattice.isEven_span_of_even_sq_dist`: a set containing `0` with even integral
   squared distances spans an even lattice.
+* `SphereCeti.EuclideanLattice.integral_inner_of_even_distanceSpectrum`: if a set has even
+  integral squared distances, then after translating any of its points to the origin, the inner
+  products of its points are integers.
 * `SphereCeti.EuclideanLattice.generatedSubmodule_evenIntegral_full`: if such a set also spans
   `ℝ^d`, its `ℤ`-span is a discrete full lattice with an even integral presentation.
 
@@ -109,6 +112,19 @@ theorem isEven_span_of_even_sq_dist (hzero : 0 ∈ S)
   rw [sub_zero] at ha hb
   rw [norm_sub_sq_real] at hc
   exact ⟨a + b - c, by push_cast; linarith⟩
+
+/-- If all squared distances between points of `X` are even integers, then for any `x₀ ∈ X` the
+inner products `⟪x - x₀, y - x₀⟫` of points of `X` translated by `-x₀` are integers. -/
+theorem integral_inner_of_even_distanceSpectrum (X : Set E) (x₀ : E) (hx₀ : x₀ ∈ X)
+    (heven : ∀ x ∈ X, ∀ y ∈ X, ∃ n : ℤ, ‖x - y‖ ^ 2 = 2 * n) :
+    ∀ x ∈ X, ∀ y ∈ X, ∃ n : ℤ, ⟪x - x₀, y - x₀⟫_ℝ = n := by
+  -- The translated set contains `0` and has the same pairwise distances.
+  have hS : ZLattice.IsEven (span ℤ ((fun x ↦ x - x₀) '' X)) := by
+    refine isEven_span_of_even_sq_dist ⟨x₀, hx₀, sub_self x₀⟩ ?_
+    rintro _ ⟨x, hx, rfl⟩ _ ⟨y, hy, rfl⟩
+    simpa using heven x hx y hy
+  intro x hx y hy
+  exact isIntegral_span_iff.mp hS.isIntegral _ ⟨x, hx, rfl⟩ _ ⟨y, hy, rfl⟩
 
 /-- **Cohn–Elkies, Lemma 8.2.**  A set of points of `ℝ^d` that contains `0`, spans `ℝ^d`, and in
 which every squared distance between two points is an even integer generates over `ℤ` a discrete
