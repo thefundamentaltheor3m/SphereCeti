@@ -60,6 +60,8 @@ def main(argv: list[str] | None = None) -> int:
     from .gate import GateError
     from .review_records import RecordError
     add_parser(commands)
+    from .review_publish import add_parser as add_publish_parser
+    add_publish_parser(commands)
     from .review_sandbox import add_parser as add_sandbox_parser, check_sandbox
     add_sandbox_parser(commands)
     from .archive_cli import add_parser as add_archive_parser, run_archive
@@ -117,8 +119,8 @@ def main(argv: list[str] | None = None) -> int:
         policy = parse_policy(resource_text("automation.toml"))
         sources = parse_source_lock(resource_text("upstream-lock.toml"))
         operator_path = getattr(args, "operator_config", None)
-        if (operator_path is None and args.command == "review" and args.auth == "subscription"
-                and not args.shadow):
+        if operator_path is None and (args.command == "review-publish" or (
+                args.command == "review" and args.auth == "subscription" and not args.shadow)):
             default_path = Path.home() / ".config/sphereceti/operator.toml"
             if default_path.is_file():
                 operator_path = default_path
@@ -192,6 +194,26 @@ def main(argv: list[str] | None = None) -> int:
         # JSON escaping keeps launcher stderr from becoming terminal or workflow commands.
         print(json.dumps(report, indent=2))
         return 0 if report["ok"] else 1
+
+    if args.command == "review-publish":
+        from .review_publish import PublishRefused, publish_saved, render as render_publish
+        try:
+            report = publish_saved(args, project, preferences)
+        except PublishRefused as error:
+            if args.json:
+                print(json.dumps({"schema": "sphereceti.review-publish/v1", "state": "refused",
+                                  "reasons": error.reasons, "merge_eligible": False}, indent=2))
+                return 2
+            parser.exit(2, "sphereceti review-publish: not published:\n"
+                        + "".join(f"- {reason}\n" for reason in error.reasons))
+        except (ReviewError, RecordError, GateError, ConfigError, OSError, ValueError, KeyError,
+                TypeError, subprocess.SubprocessError) as error:
+            reason = (str(error) if isinstance(error, (ReviewError, RecordError, ConfigError)) else
+                      f"source or GitHub operation failed ({type(error).__name__}); nothing was posted")
+            parser.exit(2, f"sphereceti review-publish: {reason}\n")
+        run = args.run if args.run is not None else f"--latest {args.latest}"
+        print(json.dumps(report, indent=2) if args.json else "\n".join(render_publish(report, run)))
+        return 0 if report["state"] in ("published", "already_published") else 2
 
     if args.command == "review" and args.pr is None:
         from .review_select import render as render_selection, run_bare

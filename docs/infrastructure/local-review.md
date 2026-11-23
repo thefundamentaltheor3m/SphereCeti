@@ -62,6 +62,60 @@ explicit form; `--post --no-post` is a usage error (exit 2).
 
 The worker (`worker run --execute`) is unchanged: it posts only with `--post-review`.
 
+## Publishing a saved run
+
+A review that finished but was not posted keeps its exact record in the run directory
+(`record.md`, with `record.json` and `result.json` beside it). The record may be unposted because
+the POST was interrupted, the network failed, policy was unavailable or disabled, or the review ran
+with `--no-post`. Publish it later without spending provider usage again:
+
+```bash
+sphereceti review-publish 0123456789abcdef0123456789abcdef   # run id under the review storage
+sphereceti review-publish /path/to/run-directory             # for example an --output directory
+sphereceti review-publish --latest 53                        # the newest saved run for PR #53
+```
+
+`--latest` takes only the newest saved run for that PR. If that run is ineligible, the command
+says why. It never falls back to an older run. `--source-repo` and `--dependencies-dir` work as
+for `review`. `--json` prints `schema: sphereceti.review-publish/v1` with `state` (`published`,
+`already_published`, `unconfirmed` or `refused`) and, when refused, the list of `reasons`.
+
+The command never starts the engine or a provider. In order, it:
+
+1. **Loads the saved run** and checks that `record.md`, `record.json` and `result.json` agree,
+   as archive capture does. It publishes those exact bytes. A record saved by an earlier renderer
+   stays valid, because readers hash the published text.
+2. **Checks eligibility.** Only a run that `review --post` could have published is eligible:
+   - a live GitHub review against approved main (not `--local-sources`, not a prospective `--tooling`);
+   - commit or manual mode (shadow and reply runs never publish);
+   - complete or partial completion (an errored run has nothing to publish);
+   - no local reply inputs (`--replies-json` or `--reply-file`). Such inputs are untrusted text,
+     and the record's contest watermarks must not claim to have answered a GitHub contest from
+     them. A run saved before contest provenance was recorded is refused only when it carries
+     nonzero watermarks.
+
+   A partial run is published as the advisory record it already says it is. A run that was
+   already confirmed on GitHub is never published again, even if that comment was deleted.
+3. **Checks the identity.** It reads the `gh` identity. A posting run records the identity that
+   was about to post, and a publication attempt records the identity it used. A different
+   identity is refused. A `--no-post` run is published under the identity that runs this command.
+4. **Reconciles with GitHub.** If a comment by this identity already carries this record (same
+   body, hence the same record ID), it reports `Already published: <URL>` and writes nothing.
+5. **Revalidates** as `review --post` does immediately before its POST. The PR must still be
+   open with the same head and base. A moved head means the saved run reviews an older head and
+   cannot be published as current: run a new review. The command also materializes approved main
+   again and requires every bound digest to match: dependencies, engine, effective rubrics,
+   installed tooling, policy, review context and PR description. Whether the installed tooling
+   matches T must be unchanged. The run's T must be an ancestor of approved main, and approved
+   main's policy must still set `posting = true`. Every failed check is listed.
+6. **Publishes once** through the same publisher as `review --post`. That means confirmed
+   readback and the API identity receipt. The local archive entry is captured idempotently. The
+   receipt is saved in `result.json`. A POST whose outcome is unknown is reported as `unconfirmed`
+   and never retried. Run the same command again: it finds the comment if GitHub created it, and
+   posts only if GitHub did not.
+
+The command exits 0 when the record is published or already on the PR, and 2 otherwise.
+
 ## Choosing what to review
 
 `sphereceti review` without a number selects one PR, prints one line explaining the choice,
@@ -92,7 +146,9 @@ scope exception with main-only skipped jobs). Then it skips:
 - **Reviewed by you:** a complete commit/manual record for this head and base that you posted
   (comment author login equals yours, advisory or not), or that you produced locally: a
   `record.json` under your storage's `runs/`, or a record in the local archive journal, which
-  also covers runs with `--output`. Dry runs, partial and errored runs do not count.
+  also covers runs with `--output`. Dry runs, partial and errored runs do not count. A local
+  record that was never posted is published with
+  [`review-publish`](#publishing-a-saved-run), not by reviewing again.
 
 **Priority** comes from the planner. Every eligible PR is at the `review-assessment` stage, so
 they tie, and the planner's tie-break decides: **longest waiting first**, by the PR's GitHub
