@@ -299,6 +299,24 @@ closure-continuity hypotheses separately.
 - [ ] **Fallback:** the local SphereCeti declarations.
 - [ ] **Upstream test:** no project import remains in a minimal reproduction.
 
+### A19. Integrability of parameterized Gaussian kernels
+
+- [ ] **Destination:** Mathlib `Mathlib/Analysis/SpecialFunctions/Gaussian/FourierTransform.lean`,
+  beside `GaussianFourier.integral_rexp_neg_mul_sq_norm`.
+- [ ] **Current source:** `SphereCeti/Analysis/GaussianKernel.lean`.
+- [ ] **Candidate declarations:** for `y > 0`, the integral of `exp(-π ‖x‖² y)` over a real inner
+  product space of dimension `n` is `y^(-n/2)`; for `y` measurable and positive on a measurable
+  set `s` and `φ` measurable, `(x, t) ↦ φ(t) exp(-π ‖x‖² y(t))` is integrable on `E × s` exactly
+  when `t ↦ φ(t) y(t)^(-n/2)` is integrable on `s`
+  (`SphereCeti.integrable_mul_rexp_neg_pi_mul_sq_norm_prod_iff`).
+- [ ] **Why general:** it uses only Tonelli's theorem and the Gaussian integral; nothing refers
+  to contours or magic functions.
+- [ ] **SphereCeti use:** the product integrability hypotheses `ComponentIntegrable` and
+  `CentralIntegrable` of the Layer 8 component identities, reduced to one-variable conditions on
+  the kernels (MIGRATION J3).
+- [ ] **Fallback:** the local SphereCeti declarations.
+- [ ] **Upstream test:** no project import remains in a minimal reproduction.
+
 ## B. TauCeti IntegralLattices roadmap extensions
 
 These are general algebraic lattice results.  Their sphere-packing consequences remain in
