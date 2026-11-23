@@ -91,7 +91,8 @@ def human_review_scope(api, project, pr, scope_check, settings):
         require(all(isinstance(j, dict) and type(j.get('id')) is int and j['id'] > 0 for j in jobs) and
                 len({j['id'] for j in jobs}) == len(jobs), 'invalid or duplicate worker jobs')
         context = {'repository': project.repository, 'pr': pr['number'], 'head': head,
-                   'base': base, 'tooling': tooling}
+                   'base': base, 'tooling': tooling,
+                   'head_repository': (pr.get('headRepository') or {}).get('nameWithOwner')}
         reasons = assess_checks(statuses, run, jobs, context, settings)['reasons']
         if SCOPE_FAILURE not in reasons:
             return False
