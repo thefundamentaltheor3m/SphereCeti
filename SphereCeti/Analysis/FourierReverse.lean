@@ -19,8 +19,7 @@ recovers an integrable function with integrable transform only almost everywhere
 
 The magic functions of dimensions 8 and 24 are assembled from pieces whose Fourier transforms
 are exchanged in pairs up to a sign `s = ±1`; this gives each exchange in the reverse direction
-from the forward one.  The result is general Fourier analysis, stated in the form intended for
-Mathlib's Fourier inversion API (`UPSTREAM.md`, item A17).
+from the forward one.
 
 ## Main statements
 
