@@ -129,7 +129,9 @@ The command never starts the engine or a provider. In order, it:
      them. A run saved before contest provenance was recorded is refused only when it carries
      nonzero watermarks.
 
-   A partial run is published as the advisory record it already says it is. A run that was
+   A daily budget stop keeps the run local, even with `--post`. The CLI saves any completed
+   findings and explains why it skipped publication. Run the review again when budget is available.
+   Other eligible partial runs can publish an advisory record. A run that was
    already confirmed on GitHub is never published again, even if that comment was deleted.
 3. **Checks the identity.** It reads the `gh` identity. A posting run records the identity that
    was about to post, and a publication attempt records the identity it used. A different
@@ -209,13 +211,26 @@ A review that will post announces itself so contributors do not race each other.
 `authorized_reviewers` entry. Dry runs, `--no-post`, `--read-records`, local-source, shadow
 and reply runs, and runs whose posting policy degraded to a local record, post no claim.
 
+**Budget first.** Before posting a claim, the run applies the engine's own check before each
+rubric: today's recorded spend plus one `--max-call-cost` reservation must fit the daily budget.
+If not even the first rubric can start, nothing is posted: the PR stays silent and the run
+reports the budget stop as usual (`Not posted: daily review budget reached (run saved locally)`).
+
 **Marker.** After evidence preparation and before any provider call, the run posts one PR
 comment under your `gh` identity:
 
 ```text
 <!--sphereceti-review-claim:v1 {"actor":"user:7","base":"…","claim":"<32 hex>","detail":null,"expires_at":"2026-11-23T15:35:00Z","head":"…","login":"yvonne","pr":50,"repository":"thefundamentaltheor3m/SphereCeti","started_at":"2026-11-23T15:05:00Z","state":"in_progress"}-->
-SphereCeti review in progress by @yvonne on head 8cdec1b (started 15:05 UTC, expires 15:35 UTC).
+Reviewing 8cdec1b now · `yvonne` (started 15:05 UTC, expires 15:35 UTC)
 ```
+
+Logins are rendered as code, never as `@` mentions: GitHub does not notify you of your own
+mention, but an edited claim that mentioned another contributor (`yielded to ...`) would notify
+them for nothing.
+
+The notice shows the selected provider and model, including defaults. On completion it shows
+the models recorded for the attempts and the estimated USD cost of this run, including retries.
+Subscription estimates use list prices. Missing usage is displayed as unavailable.
 
 The claim lasts `TTL = 1800` seconds, the review's whole-run deadline (`RUN_TIMEOUT`).
 
@@ -224,14 +239,14 @@ The claim lasts `TTL = 1800` seconds, the review's whole-run deadline (`RUN_TIME
 `in_progress`, it names the PR's current head, and it has not expired. Its expiry must also lie
 within 30 minutes (plus 60 seconds of clock slack) of the comment's GitHub `updated_at`, so no
 claim outlives one run. Claims on an older head, expired claims and claims edited to
-`finished`, `abandoned` or `yielded` are ignored.
+`finished`, `abandoned`, `yielded` or `paused` are ignored.
 
 **Race rule: post, then confirm.** Before posting, a live claim by another contributor stops
 the run (below). After posting, the run reads the readback and then all PR comments again
 (paginated; an incomplete or duplicated listing fails closed, before any spend, and the claim
 is marked abandoned). The **earliest live claim wins: lowest comment ID**, then `created_at`.
 If another contributor's live claim is earlier, the run edits its own claim to
-`yielded to @other` and stops with nothing spent: explicit `review N` exits 2; bare `review`
+`yielded to <other>` and stops with nothing spent: explicit `review N` exits 2; bare `review`
 records the PR as skipped (`claimed`) and moves on to the next candidate (with `--output`,
 later attempts use `<output>-pr<N>`). If yours is earliest, the review proceeds.
 
@@ -249,9 +264,11 @@ the run refreshes your earliest live claim in place, with a new claim ID and a f
 expiry, instead of posting another comment. It keeps that comment's position in the race.
 
 **On finish** the run edits the same comment, never adds another: `finished: <link to the
-posted review record>` for a complete, posted review; `abandoned (<reason>)` for an error,
-timeout, budget or unknown-usage stop, a partial review, a failed publication, Ctrl-C or
-SIGTERM. If that edit fails, the result says so (`Claim comment N could not be marked finished
+posted review record>` for a complete, posted review; `Review paused · k of N rubrics completed
+(daily budget reached)` when the daily budget runs out partway (the record stays local, as for
+any budget stop; the paused claim is no longer live, so others are not blocked); and
+`abandoned (<reason>)` for an error, timeout, unknown-usage stop, another partial review, a
+failed publication, Ctrl-C or SIGTERM. If that edit fails, the result says so (`Claim comment N could not be marked finished
 (...); it expires on its own at HH:MM UTC.`) and the claim simply expires. `--json` reports
 the outcome under `claim` (`comment_id`, `url`, `state`, `detail`, `edit`, `expires_at`).
 

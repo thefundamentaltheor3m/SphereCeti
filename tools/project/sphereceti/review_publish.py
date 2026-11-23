@@ -14,7 +14,7 @@ import tempfile
 from types import SimpleNamespace
 
 from .config import parse_policy
-from .local_review import ReviewError, poster_identity, prepare, revisions, store_lock, write_json
+from .local_review import BUDGET_STOP_NOTE, ReviewError, poster_identity, prepare, revisions, store_lock, write_json
 from .review_records import BINDINGS, RecordError, identity, intact, parse_json, parse_record
 from .review_post import GitHub, publish
 
@@ -90,6 +90,8 @@ def load_run(directory: Path, repository: str):
 def eligibility(result, record) -> list[str]:
     """Only a run that `review --post` could have published, and that was not already published."""
     reasons = []
+    if result.get("stop_reason") == "daily_budget":
+        reasons.append(BUDGET_STOP_NOTE)
     if result.get("source_mode") != "github":
         reasons.append("the run used local sources; only a live GitHub review can be published")
     if not result.get("tooling_approved"):
