@@ -220,8 +220,30 @@ def rulesets(effective, listing, detail, repository, settings):
         if not bypass: verified.append('ruleset has no bypass actors')
     # Strict (with a required check, so it takes effect) is what makes GitHub refuse a head behind main:
     # the merge API pins only the head, so this is how the tested merge tree is the tree that lands.
+    squash_only = len(reviews) == 1 and isinstance(reviews[0], dict) and reviews[0].get('allowed_merge_methods') == ['squash']
     return {'source': 'ruleset', 'ruleset_id': rid, 'verified': verified, 'findings': findings, 'missing': missing,
-            'tested_tree_enforced': strict and not missing}
+            'tested_tree_enforced': strict and not missing, 'squash_only': squash_only}
+
+
+def merge_setting(repository, name, protection):
+    """The squash-merge setting. The single ruleset's allowed_merge_methods is the authority when it is
+    exactly ["squash"]: GitHub enforces it at merge time, and the job token can read it. The repository
+    flag is omitted for a token without push access (the read-only job token, run 45274799597). When
+    visible it must be true. When hidden it is advisory, but only under that ruleset. A disabled flag
+    could only make GitHub refuse the executor's squash PUT, which is a stop, never another landing."""
+    found = {'verified': [], 'findings': [], 'missing': []}
+    if not isinstance(repository, dict) or repository.get('full_name') != name:
+        found['missing'].append('repository identity is incompatible')
+    elif 'allow_squash_merge' in repository:
+        if repository['allow_squash_merge'] is True: found['verified'].append('repository allows squash merges')
+        else: found['missing'].append('repository does not allow squash merges')
+    elif protection.get('source') == 'ruleset' and protection.get('squash_only') is True:
+        found['findings'].append('repository merge settings are not visible to this token; the ruleset\'s '
+                                 'allowed_merge_methods ["squash"] is the authority')
+    else:
+        found['missing'].append('the squash-merge setting is not visible to this token, and no ruleset restricts '
+                                'merges to squash')
+    return found
 
 
 def executor_bypass(view, rid):
@@ -376,10 +398,8 @@ class Activation:
         result['policy_digest']=hashlib.sha256(b'\0'.join(data[p] for p in paths)).hexdigest()
         # Server rules and repository settings need no administrative credential; bypass actors do.
         protection=server(client,project.repository,settings)
-        repository=client.call(f'repos/{project.repository}')
-        if repository.get('full_name') != project.repository or repository.get('allow_squash_merge') is not True:
-            protection['missing'].append('repository identity or squash-merge setting is incompatible')
-        else: protection['verified'].append('repository allows squash merges')
+        found=merge_setting(client.call(f'repos/{project.repository}'),project.repository,protection)
+        for key in ('verified','findings','missing'): protection[key]+=found[key]
         reader_view=protection.pop('reader_view',None)
         if applying or verify_executor:
             path['missing'] += self.executor(protection,settings,current,result)

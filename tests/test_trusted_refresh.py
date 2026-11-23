@@ -527,6 +527,44 @@ class DispatchTransportTests(unittest.TestCase):
             self.assertIn(line, text)
 
 
+class MergeSettingTests(unittest.TestCase):
+    """The squash setting: the squash-only ruleset is the authority when the repository flag is hidden."""
+
+    def test_ruleset_authority_and_visible_repository_flag(self):
+        from sphereceti.merge_activation import merge_setting
+        ruleset = {'source': 'ruleset', 'squash_only': True}
+        # Run 45274799597: the read-only job token's repository response has no merge settings.
+        self.assertEqual(merge_setting({'full_name': REPO}, REPO, ruleset)['findings'],
+                         ['repository merge settings are not visible to this token; the ruleset\'s '
+                          'allowed_merge_methods ["squash"] is the authority'])
+        self.assertEqual(merge_setting({'full_name': REPO}, REPO, ruleset)['missing'], [])
+        self.assertEqual(merge_setting({'full_name': REPO, 'allow_squash_merge': True}, REPO, ruleset)['verified'],
+                         ['repository allows squash merges'])
+        # A visible disabled flag still fails; hidden without a squash-only ruleset fails closed.
+        self.assertEqual(merge_setting({'full_name': REPO, 'allow_squash_merge': False}, REPO, ruleset)['missing'],
+                         ['repository does not allow squash merges'])
+        for protection in ({'source': 'ruleset', 'squash_only': False}, {'source': 'classic'}):
+            self.assertTrue(merge_setting({'full_name': REPO}, REPO, protection)['missing'])
+        self.assertEqual(merge_setting({'full_name': 'other/repo'}, REPO, ruleset)['missing'],
+                         ['repository identity is incompatible'])
+
+    def test_only_exactly_squash_is_squash_only(self):
+        from sphereceti.merge_activation import rulesets
+        from ruleset_fixture import live
+        from test_merge_controller import UNCONFIGURED
+        branch, effective, listing, detail = live()
+        self.assertTrue(rulesets(effective[0], listing[0], detail, REPO, UNCONFIGURED)['squash_only'])
+        for methods in (['squash', 'merge'], ['merge'], None):
+            changed = deepcopy(detail)
+            rule = next(r for r in changed['rules'] if r['type'] == 'pull_request')
+            if methods is None: del rule['parameters']['allowed_merge_methods']
+            else: rule['parameters']['allowed_merge_methods'] = methods
+            eff = [{**r, 'ruleset_source_type': 'Repository', 'ruleset_source': REPO, 'ruleset_id': changed['id']}
+                   for r in changed['rules']]
+            with self.subTest(methods=methods):
+                self.assertFalse(rulesets(eff, listing[0], changed, REPO, UNCONFIGURED)['squash_only'])
+
+
 def step_script(name):
     """The `run: |` block of the named step in pr-build.yml, dedented."""
     lines = WORKFLOW_TEXT.splitlines()

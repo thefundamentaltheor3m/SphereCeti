@@ -319,7 +319,13 @@ every PR, so it does not fit SphereCeti's human route for protected changes.
 
 - The executor is the approved workflow's job token ([identity model](#identity-model-option-a)).
   The job-token bypass check is implemented for the ruleset profile only.
-- Squash merging is enabled for the repository. The controller neither bypasses rules nor drains a
+- Squash merging is enabled. Under the ruleset profile, the authority is the single ruleset's
+  `allowed_merge_methods`, which must be exactly `["squash"]`: GitHub enforces it at merge time, and
+  the job token can read it. The repository flag `allow_squash_merge` must be true when visible. The
+  read-only job token cannot see it (probe run 45274799597), so then it is an advisory finding.
+  Without a squash-only ruleset, an invisible flag fails closed. The executor sends only squash
+  PUTs, so a disabled setting could only make GitHub refuse the PUT (`rejected_unexpected`, a stop),
+  never land anything else. The controller neither bypasses rules nor drains a
   merge queue.
 
 ### Remaining activation prerequisites for SphereCeti
