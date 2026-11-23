@@ -22,9 +22,10 @@ when all of its terms do:
 * the Fourier defect vanishes exactly when `Re 𝓕 f(y) * S_p(y)` vanishes at every nonzero
   frequency `y` of the dual lattice, where `S_p` is the structure factor of `p`.
 
-If the points are pairwise incongruent modulo `L` and the periodic bound is attained, that is
-`N * Re f(0) = N² / covol(L) * Re 𝓕 f(0)` for `N` points, then both defects vanish.  This is how
-equality in the periodic Cohn–Elkies bound forces the zero sets of `f` and `𝓕 f`.
+If the points are pairwise incongruent modulo `L`, both defects vanish exactly when the periodic
+bound is attained, that is `N * Re f(0) = N² / covol(L) * Re 𝓕 f(0)` for `N` points.  This is how
+equality in the periodic Cohn–Elkies bound forces the zero sets of `f` and `𝓕 f`, and conversely
+how these zero sets give equality.
 
 ## Main statements
 
@@ -32,8 +33,8 @@ equality in the periodic Cohn–Elkies bound forces the zero sets of `f` and `�
   vanishes at the nonzero differences.
 * `SphereCeti.CohnElkies.fourierDefect_eq_zero_iff`: the Fourier defect vanishes exactly when
   `Re 𝓕 f * S_p` vanishes at the nonzero dual frequencies.
-* `SphereCeti.CohnElkies.defects_eq_zero_of_gap_eq_zero`: when the periodic bound is attained,
-  both defects vanish.
+* `SphereCeti.CohnElkies.directDefect_eq_zero_and_fourierDefect_eq_zero_iff`: both defects vanish
+  exactly when the periodic bound is attained.
 
 ## References
 
@@ -127,19 +128,17 @@ theorem fourierDefect_eq_zero_iff (L : Submodule ℤ E) [DiscreteTopology L] [Is
 /-- **Equality in the periodic Cohn–Elkies bound.**  For a family of `N` points pairwise
 incongruent modulo `L` and a Schwartz function `f` with the sign conditions of a Cohn–Elkies
 certificate of radius `r`, where every nonzero difference `z + p q - p q'` has norm at least `r`,
-the equality `N * Re f(0) = N² / covol(L) * Re 𝓕 f(0)` forces both defects to vanish. -/
-theorem defects_eq_zero_of_gap_eq_zero (L : Submodule ℤ E) [DiscreteTopology L]
-    [IsZLattice ℝ L] {p : ι → E} (hp : ∀ q q', p q - p q' ∈ L → q = q') {f : 𝓢(E, ℂ)} {r : ℝ}
-    (hf : ∀ x, r ≤ ‖x‖ → (f x).re ≤ 0)
+both defects vanish exactly when the periodic bound is attained:
+`N * Re f(0) = N² / covol(L) * Re 𝓕 f(0)`. -/
+theorem directDefect_eq_zero_and_fourierDefect_eq_zero_iff (L : Submodule ℤ E)
+    [DiscreteTopology L] [IsZLattice ℝ L] {p : ι → E} (hp : ∀ q q', p q - p q' ∈ L → q = q')
+    {f : 𝓢(E, ℂ)} {r : ℝ} (hf : ∀ x, r ≤ ‖x‖ → (f x).re ≤ 0)
     (hsep : ∀ (z : L) (q q' : ι), (z : E) + p q - p q' ≠ 0 → r ≤ ‖(z : E) + p q - p q'‖)
-    (hfourier : ∀ y : ZLattice.dual L, y ≠ 0 → 0 ≤ (𝓕 (f : E → ℂ) (y : E)).re)
-    (hgap : (Fintype.card ι : ℝ) * (f 0).re =
-      (Fintype.card ι : ℝ) ^ 2 / ZLattice.covolume L * (𝓕 f 0).re) :
-    directDefect L p f = 0 ∧ fourierDefect L p f = 0 := by
-  have hsum : fourierDefect L p f + directDefect L p f = 0 := by
-    rw [← defect_identity L hp f, hgap, sub_self]
-  have h := (add_eq_zero_iff_of_nonneg (fourierDefect_nonneg hfourier)
-    (directDefect_nonneg hf hsep)).mp hsum
-  exact ⟨h.2, h.1⟩
+    (hfourier : ∀ y : ZLattice.dual L, y ≠ 0 → 0 ≤ (𝓕 (f : E → ℂ) (y : E)).re) :
+    directDefect L p f = 0 ∧ fourierDefect L p f = 0 ↔
+      (Fintype.card ι : ℝ) * (f 0).re =
+        (Fintype.card ι : ℝ) ^ 2 / ZLattice.covolume L * (𝓕 f 0).re := by
+  rw [iff_comm, ← sub_eq_zero, defect_identity L hp f, add_eq_zero_iff_of_nonneg
+    (fourierDefect_nonneg hfourier) (directDefect_nonneg hf hsep), and_comm]
 
 end SphereCeti.CohnElkies
