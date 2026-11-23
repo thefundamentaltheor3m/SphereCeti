@@ -151,7 +151,7 @@ def main(argv: list[str] | None = None) -> int:
             reason = str(error) if isinstance(error, (RecordError, ConfigError, ReviewError)) else 'incomplete or unavailable controller evidence'
             parser.exit(2, f"sphereceti {args.command}: {reason}\n")
         print(json.dumps(report, indent=2) if args.json else render_controller(report))
-        return 2 if report.get('state') == 'unconfirmed' else 0
+        return 2 if report.get('state') in ('unconfirmed', 'stopped') else 0
     if args.command == 'maintenance':
         try:
             report = run_maintenance(args, project)

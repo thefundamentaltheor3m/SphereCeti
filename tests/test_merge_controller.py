@@ -42,9 +42,11 @@ def setup_data():
 
 class FakeBackend:
     def __init__(self):
-        self.activation={'ready':True,'executor_verified':True,'tooling':T,'policy_digest':'a','merging_requested':True}
+        self.activation={'ready':True,'executor_verified':True,'tooling':T,'policy_digest':'a','merging_requested':True,
+                         'protection':{'tested_tree_enforced':True}}
         self.pr={'number':1,'state':'open','merged':False,'draft':False,'head':{'sha':H},'merge_commit_sha':None}
-        self.decision={'eligibility':'eligible','action':'merge','head':H,'base':T,'tooling':T,'reasons':[]}
+        self.decision={'eligibility':'eligible','action':'merge','head':H,'base':T,'tooling':T,'reasons':[],
+                       'tested_tree':'5'*40,'head_tree':'5'*40}
         self.setups=0;self.observations=0;self.puts=[];self.refreshed=0
         self.change_setup=None;self.change_observation=None;self.on_refresh=None;self.ambiguous=False;self.reject=False
     def setup(self,applying):
@@ -389,7 +391,10 @@ class RulesetTests(unittest.TestCase):
         self.assertEqual(found['missing'],['build is required from integration 15368, not checks_app_id 9'])
         def none(rules):rule(rules,'required_status_checks')['parameters']['required_status_checks']=[]
         found=server(client(*ruleset(lambda r:(strict(r),none(r)),ADMIN_BYPASS)),REPO,CONFIGURED)
-        self.assertEqual(found['missing'],['no status check is required for every PR'])
+        self.assertEqual(found['missing'],['no status check is required for every PR',
+                                           'up-to-date branches are not enforced: GitHub ignores '
+                                           'strict_required_status_checks_policy without a required status check'])
+        self.assertFalse(found['tested_tree_enforced'])
 
     def test_truncated_or_malformed_inventories_fail_closed(self):
         for value in ([],[{}],[[1]],[[{}]*99,[{}]],[[{}]*101],None):
@@ -613,7 +618,7 @@ class TokenIdentificationTests(unittest.TestCase):
             def setup(self,applying,*,verify_executor=False):return {'verify_executor':verify_executor}
         with tempfile.TemporaryDirectory() as t,patch.dict(os.environ,{'SPHERECETI_MERGE_TOKEN':self.MODERN,'GH_TOKEN':'reader'}), \
                 patch.object(controller,'Backend',Probe):
-            args=SimpleNamespace(command='merge-doctor',executor=True,cache_dir=Path(t))
+            args=SimpleNamespace(command='merge-doctor',executor=True,pr=None,cache_dir=Path(t))
             self.assertEqual(controller.run(args,SimpleNamespace(repository=REPO)),{'verify_executor':True})
             self.assertNotIn('SPHERECETI_MERGE_TOKEN',os.environ)
         self.assertEqual(seen,{'writer_token':self.MODERN,'env':False,'reader_token':'reader'})
@@ -672,7 +677,8 @@ class ControllerDecisionTests(unittest.TestCase):
         writer=FakeWriter(on_put=merged)
         args=SimpleNamespace(cache_dir=Path(self.tmp.name)/'cache',source_repo=h.repo,dependencies_dir=None)
         backend=Backend(args,h.project,writer)
-        ready={'ready':True,'merging_requested':True,'executor_verified':True,'tooling':h.tooling}
+        ready={'ready':True,'merging_requested':True,'executor_verified':True,'tooling':h.tooling,
+               'protection':{'tested_tree_enforced':True}}
         # The approved automation policy on the fixture's main, as Activation.inspect parses it.
         policy=parse_policy(git(h.repo,'show',f'{h.tooling}:policy/automation.toml')+'\n')
         self.assertEqual(policy.approving_reviewers,(f'user:{self.reviewer}',))

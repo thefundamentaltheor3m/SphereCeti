@@ -22,6 +22,15 @@ CONTEXTS = ('trusted-build', 'trusted-scope')
 TOOLING_ATTESTATION = re.compile(r'Approved tooling (?:build|refresh): [a-z_]+; tooling ([0-9a-f]{40})'
                                  r'(?:; pr ([1-9][0-9]{0,8}); base ([0-9a-f]{40}))?')
 REFRESH_PREFIX = 'Approved tooling refresh: '
+# The trusted run builds and audits the PR head merged with the main commit whose workflow ran, and
+# publishes that tested tree in a third status on the head (140 characters do not fit it in the
+# trusted-build description). Main is the run's own workflow_sha, also attested as `tooling`.
+MERGE_CONTEXT = 'trusted-merge'
+MERGE_ATTESTATION = re.compile(r'Tested merge tree ([0-9a-f]{40}) with main ([0-9a-f]{40})')
+MERGE_MISSING = 'trusted-merge is missing; rebuild the merge with current main'
+MERGE_STALE = 'trusted-merge tested an older main; rebuild the merge with current main'
+MERGE_MISMATCH = 'trusted-merge tested another tree than the merge of current main and the head'
+MERGE_CONFLICT = 'the head does not merge cleanly with current main'
 
 
 def refresh_title(pr, head):
@@ -57,7 +66,7 @@ def latest_statuses(statuses):
             raise RecordError('invalid or duplicate commit status')
         seen.add(status['id'])
         context = status['context']
-        if context in CONTEXTS and status['id'] > latest.get(context, {}).get('id', 0):
+        if context in (*CONTEXTS, MERGE_CONTEXT) and status['id'] > latest.get(context, {}).get('id', 0):
             latest[context] = status
     return latest
 
@@ -67,6 +76,41 @@ def run_reference(url, repository):
     match = re.fullmatch(re.escape(f'https://github.com/{repository}/actions/runs/') +
                          r'([1-9][0-9]*)/attempts/([1-9][0-9]*)', url or '')
     return tuple(map(int, match.groups())) if match else None
+
+
+def assess_merge(statuses, context, expected_tree, settings):
+    """The tested merge must be current main merged with this head, from the same trusted run.
+
+    `expected_tree` is the tree of the head merged into current main, computed by the caller from
+    Git objects (None when they conflict). The trusted run's other provenance checks (producer,
+    exact run attempt, status job window) are assess_checks', which reads this status too.
+    """
+    latest = latest_statuses(statuses)
+    status, build = latest.get(MERGE_CONTEXT), latest.get('trusted-build') or {}
+    if expected_tree is None:
+        return [MERGE_CONFLICT]
+    if status is None:
+        return [MERGE_MISSING]
+    reasons = []
+    attested = MERGE_ATTESTATION.fullmatch(status.get('description') or '')
+    creator = status.get('creator') or {}
+    if (creator.get('type') != 'Bot' or type(creator.get('id')) is not int or
+            creator['id'] not in settings['status_creator_ids']):
+        reasons.append('trusted-merge has an unapproved producer')
+    if status.get('url') != f"https://api.github.com/repos/{context['repository']}/statuses/{context['head']}":
+        reasons.append('trusted-merge has a wrong head/location')
+    if run_reference(status.get('target_url'), context['repository']) != run_reference(
+            build.get('target_url'), context['repository']):
+        reasons.append('trusted-merge and trusted-build come from different run attempts')
+    if attested is None:
+        reasons.append('trusted-merge does not attest its tested tree')
+    elif attested.group(2) != context['tooling']:
+        reasons.append(MERGE_STALE)
+    elif attested.group(1) != expected_tree:
+        reasons.append(MERGE_MISMATCH)
+    if status.get('state') != 'success':
+        reasons.append('trusted-merge is not successful')
+    return reasons
 
 
 def refresh_binding(run, description, context):

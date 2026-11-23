@@ -22,11 +22,12 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools/project'))
 from sphereceti.config import parse_policy
-from sphereceti.merge_checks import TOOLING_ATTESTATION, assess_checks, refresh_title
+from sphereceti.merge_checks import (MERGE_CONFLICT, MERGE_MISMATCH, MERGE_MISSING, MERGE_STALE,
+                                     TOOLING_ATTESTATION, assess_checks, assess_merge, refresh_title)
 from sphereceti.merge_controller import Backend, Writer, classify, reconcile
 from sphereceti.review_post import GitHub
 from sphereceti.review_records import RecordError
-from review_fixture import git
+from review_fixture import commit, git
 from test_merge_observation import evidence
 from test_review_records import REPO
 
@@ -133,7 +134,7 @@ class ClassificationTests(unittest.TestCase):
         # merging = true exists only in this fixture's approved policy; the repository keeps false.
         self.h = Harness(Path(self.tmp.name), policy_paths=('SphereCeti/E8',), merging=True,
                          approving_reviewers=(f'user:{REVIEWER}',))
-        self.reviewer = REVIEWER
+        self.reviewer, self.enforced = REVIEWER, True
         self.reviews = [{'id': 1, 'user': {'id': REVIEWER, 'type': 'User'}, 'state': 'APPROVED',
                          'commit_id': self.h.head, 'author_association': 'COLLABORATOR'}]
         respond = self.h.respond
@@ -150,7 +151,8 @@ class ClassificationTests(unittest.TestCase):
         args = SimpleNamespace(cache_dir=Path(self.tmp.name) / 'cache', source_repo=h.repo, dependencies_dir=None)
         backend = Backend(args, h.project, writer)
         policy = parse_policy(git(h.repo, 'show', f'{h.tooling}:policy/automation.toml') + '\n')
-        setup = {'ready': ready, 'merging_requested': ready, 'executor_verified': ready, 'tooling': h.tooling}
+        setup = {'ready': ready, 'merging_requested': ready, 'executor_verified': ready, 'tooling': h.tooling,
+                 'protection': {'tested_tree_enforced': self.enforced}}
         backend.activation = SimpleNamespace(policy=policy, checks={'workflow_id': 358051984},
                                              inspect=lambda **kw: dict(setup), refresh=lambda: None)
         return backend, writer
@@ -165,10 +167,19 @@ class ClassificationTests(unittest.TestCase):
         build = next(s for s in self.h.statuses if s['context'] == 'trusted-build')
         build['description'] = f"Approved tooling build: success; tooling {'e'*40}"
 
-    def move_main(self):
-        """Main advances to a new commit M2; the PR's base.sha (GitHub's snapshot) stays at T."""
-        tree = git(self.h.repo, 'rev-parse', f'{self.h.tooling}^{{tree}}')
-        self.h.current = git(self.h.repo, 'commit-tree', tree, '-p', self.h.tooling, '-m', 'main moves')
+    def move_main(self, files=None):
+        """Main advances to M2 (a child of T) changing `files`; the PR head and its base.sha snapshot stay."""
+        if not files:
+            tree = git(self.h.repo, 'rev-parse', f'{self.h.tooling}^{{tree}}')
+            self.h.current = git(self.h.repo, 'commit-tree', tree, '-p', self.h.tooling, '-m', 'main moves')
+            return
+        git(self.h.repo, 'checkout', '-q', '--detach', self.h.tooling)
+        for name, text in files.items():
+            path = self.h.repo / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(path.read_text() + text if path.exists() else text)
+        self.h.current = commit(self.h.repo)
+        git(self.h.repo, 'checkout', '-q', 'proof/e8')
 
     def test_current_pr_takes_the_unchanged_merge_path(self):
         result, writer = self.reconcile()
@@ -195,13 +206,169 @@ class ClassificationTests(unittest.TestCase):
         self.assertEqual((applied['state'], applied['results']), ('disabled', []))
         self.assertEqual(writer.requests + writer2.requests, [])
 
-    def test_stale_review_base_needs_review_even_with_an_unchanged_diff(self):
-        self.move_main()  # Same PR, same diff, same review record; only main moved.
+    def test_same_head_with_a_changed_review_input_needs_review(self):
+        for name, text, category in (('README.md', '\nA clarified specification.\n', 'specification'),
+                                     ('SphereCetiRoadmap/Suggested.lean', '-- new target\n', 'specification'),
+                                     ('lake-manifest.json', '\n', 'dependencies'),
+                                     ('policy/automation.toml', '# reviewed policy note\n', 'policy'),
+                                     ('tools/review/rubric.md', 'stricter\n', 'review tooling'),
+                                     ('SphereCeti/E8/Basic.lean', '-- main changed a library module\n', 'library')):
+            with self.subTest(name):
+                self.setUp()
+                self.move_main({name: text})
+                result, writer = self.reconcile()
+                item = result['results'][0]
+                self.assertEqual(item['state'], 'needs_review', item)
+                self.assertIn(f'{category} changed on main since the review: {name}', item['reasons'])
+                self.assertEqual(item['review_inputs']['changed_inputs'], {category: [name]})
+                self.assertEqual(writer.requests, [])
+
+    def test_library_root_only_main_change_needs_review_and_is_measured(self):
+        # Another proof landed: main only added its import line to the shared library root.
+        self.move_main({'SphereCeti.lean': 'public import SphereCeti.Other\n'})
         result, writer = self.reconcile()
         item = result['results'][0]
         self.assertEqual(item['state'], 'needs_review')
-        self.assertIn(f'the PR base {self.h.tooling[:12]} that a review binds is not current main {self.h.current[:12]}',
-                      item['reasons'])
+        self.assertIn('measurement: only SphereCeti.lean changed on main since the review; '
+                      'it still forces re-review for now', item['reasons'])
+        self.assertEqual(item['review_inputs']['changed_inputs'], {'library root': ['SphereCeti.lean']})
+        self.assertTrue(item['review_inputs']['library_root_only'])
+        self.assertTrue(item['review_inputs']['change_identical'])
+        self.assertEqual(writer.requests, [])
+
+    def test_main_advancing_after_the_build_needs_a_rebuild_and_never_merges(self):
+        # Main moved with no review input changed: the review stays valid (option 2), but the tested
+        # merge used the old main and the head does not contain the new one, so nothing merges.
+        self.move_main({'docs/infrastructure/notes.md': 'unrelated\n'})
+        result, writer = self.reconcile()
+        item = result['results'][0]
+        self.assertEqual(item['state'], 'needs_update', item)
+        self.assertEqual(writer.requests, []);self.assertFalse(result['merge_attempted'])
+        self.move_main()  # The same with an empty main commit.
+        self.assertEqual(self.reconcile()[0]['results'][0]['state'], 'needs_update')
+
+    def test_executor_refuses_without_enforcement(self):
+        self.enforced = False
+        result, writer = self.reconcile()
+        self.assertEqual(result['state'], 'refused')
+        self.assertIn('the merge API pins only the head', result['results'][0]['reason'])
+        self.assertEqual(writer.requests, []);self.assertFalse(result['merge_attempted'])
+
+    def test_decisive_main_advances_between_the_final_check_and_the_put_and_github_refuses(self):
+        """The actual race. (1) The controller finishes its final eligibility check, the last refresh,
+        with main at T and the head containing it. (2) Only then does another PR land on main.
+        (3) The executor sends its one head-pinned PUT. (4) The fake GitHub applies the ruleset's
+        server-side strict check at merge time and refuses."""
+        h = self.h
+        tested = git(h.repo, 'rev-parse', f'{h.head}^{{tree}}')
+        server = {'main': h.tooling, 'events': []}
+        # Start from a PR that otherwise fully qualifies: in scope, a current review, a qualifying
+        # formal approval and a passing merged-tree build, so a refusal can only be the race.
+        preview, _ = self.reconcile(applying=False)
+        self.assertEqual(preview['results'][0]['state'], 'would_merge')
+
+        def land_another_pr():
+            git(h.repo, 'checkout', '-q', '--detach', h.tooling)
+            (h.repo / 'SphereCeti/E8/Basic.lean').write_text('module\n-- another proof landed\n')
+            server['main'] = h.current = commit(h.repo)  # GitHub's main moves; later reads see it.
+            git(h.repo, 'checkout', '-q', 'proof/e8')
+
+        def github_merge(strict):
+            """GitHub's merge of the pinned head against its main at the moment of the PUT."""
+            if strict and git(h.repo, 'merge-base', server['main'], h.head) != server['main']:
+                return None  # 405: the head branch is not up to date with the base branch.
+            return git(h.repo, 'merge-tree', '--write-tree', server['main'], h.head)
+
+        class StrictGitHub(RecordingWriter):
+            def run(writer, command, payload, env):
+                writer.requests.append((command[4], command[6] if '--method' in command else 'GET', payload))
+                server['events'].append(('put', server['main']))
+                if github_merge(strict=True) is None:
+                    return subprocess.CompletedProcess(command, 1, '', 'gh: Head branch is not up to date with the base branch (HTTP 405)')
+                h.pr.update(merged=True, state='closed', merge_commit_sha=M)
+                return subprocess.CompletedProcess(command, 0, json.dumps({'merged': True, 'sha': M}), '')
+
+        backend, _ = self.backend()
+        backend.writer = writer = StrictGitHub()
+
+        def final_check_then_main_advances():
+            server['events'].append(('final check done', server['main']))
+            land_another_pr()  # Strictly after the controller's last read, before its PUT.
+        backend.activation.refresh = final_check_then_main_advances
+        with patch.object(GitHub, 'call', side_effect=self.github), \
+                patch('sphereceti.merge_observation.prepare', side_effect=self.h.prepared):
+            result = reconcile(backend, lambda: [1], applying=True)
+        advanced = server['main']
+        self.assertEqual(server['events'], [('final check done', h.tooling), ('put', advanced)])
+        # Exactly one head-pinned PUT by the executor's identity, refused; nothing landed; no retry.
+        self.assertEqual(writer.requests, [(f'repos/{REPO}/pulls/1/merge', 'PUT', {'sha': h.head, 'merge_method': 'squash'})])
+        item = result['results'][0]
+        self.assertEqual((result['state'], item['state'], item['merge_commit']), ('rejected', 'rejected_stale', None))
+        self.assertEqual(item['refusal'], {'status': '405', 'message': 'Head branch is not up to date with the base branch'})
+        self.assertIn('the next run re-evaluates', item['reason'])
+        # The PR is still open, and main (reread after the refusal) does not contain its change.
+        self.assertEqual((h.pr['state'], h.pr['merged']), ('open', False))
+        self.assertEqual(item['main_after'], advanced)
+        self.assertEqual(git(h.repo, 'ls-tree', advanced, 'SphereCeti/E8/Lattice.lean'), '')
+        # Without strict, the same PUT would have landed a tree nobody tested.
+        self.assertNotEqual(github_merge(strict=False), tested)
+        # The next run reads the new main and does not attempt the stale combination again.
+        h.current = advanced
+        again, writer2 = self.reconcile()
+        self.assertNotIn(again['results'][0]['state'], ('merged', 'rejected_by_github'))
+        self.assertEqual(writer2.requests, [])
+
+    def test_an_unexpected_refusal_stops_and_reports_without_retrying(self):
+        # Neither a permissions 403 nor an unrelated missing approval tests the race: stop and report.
+        for status, message in (('403', 'Resource not accessible by integration'),
+                                ('405', 'At least 1 approving review is required by reviewers with write access.')):
+            with self.subTest(status=status):
+                self.setUp()
+
+                class Refusing(RecordingWriter):
+                    def run(writer, command, payload, env):
+                        writer.requests.append((command[4], command[6] if '--method' in command else 'GET', payload))
+                        return subprocess.CompletedProcess(command, 1, '', f'gh: {message} (HTTP {status})')
+                backend, _ = self.backend()
+                backend.writer = writer = Refusing()
+                with patch.object(GitHub, 'call', side_effect=self.github), \
+                        patch('sphereceti.merge_observation.prepare', side_effect=self.h.prepared):
+                    result = reconcile(backend, lambda: [1, 1], applying=True)
+                item = result['results'][0]
+                self.assertEqual((result['state'], item['state']), ('stopped', 'rejected_unexpected'))
+                self.assertEqual(item['refusal'], {'status': status, 'message': message})
+                self.assertIn('stops and reports', item['reason'])
+                self.assertEqual(len(writer.requests), 1);self.assertEqual(len(result['results']), 1)
+                self.assertEqual((self.h.pr['state'], self.h.pr['merged']), ('open', False))
+
+    def test_only_a_definite_refusal_with_nothing_landed_is_reported_as_rejected(self):
+        writer = RecordingWriter()
+        writer.run = lambda command, payload, env: subprocess.CompletedProcess(command, 1, '', 'gh: Not Found (HTTP 404)')
+        with self.assertRaises(RecordError) as error:
+            writer.merge(1, 'b' * 40)
+        self.assertEqual(str(error.exception), 'GitHub refused the request (HTTP 404): Not Found')
+        writer.run = lambda command, payload, env: subprocess.CompletedProcess(command, 1, '', 'connection reset')
+        with self.assertRaises(RecordError) as error:
+            writer.merge(1, 'b' * 40)
+        self.assertIn('unconfirmed', str(error.exception))
+
+    def test_executor_refuses_a_head_that_is_not_the_tested_tree(self):
+        from test_merge_controller import FakeBackend
+        for change in ({'head_tree': '6' * 40}, {'tested_tree': None}):
+            with self.subTest(change=change):
+                backend = FakeBackend();backend.decision.update(change)
+                result = reconcile(backend, lambda: [1], applying=True)
+                self.assertEqual((result['state'], backend.puts), ('refused', []))
+        backend = FakeBackend();backend.activation['protection'] = {'tested_tree_enforced': False}
+        self.assertEqual(reconcile(backend, lambda: [1], applying=True)['state'], 'refused')
+        self.assertEqual(backend.puts, [])
+
+    def test_a_tampered_tested_tree_is_refused_not_refreshed(self):
+        merge = next(s for s in self.h.statuses if s['context'] == 'trusted-merge')
+        merge['description'] = f"Tested merge tree {'9'*40} with main {self.h.tooling}"
+        result, writer = self.reconcile()
+        self.assertEqual(result['results'][0]['state'], 'blocked')
+        self.assertTrue(any(MERGE_MISMATCH in r for r in result['results'][0]['reasons']))
         self.assertEqual(writer.requests, [])
 
     def test_no_review_needs_review(self):
@@ -237,10 +404,12 @@ class ClassifyUnitTests(unittest.TestCase):
     def decision(self, **changes):
         T, H = '1' * 40, '2' * 40
         req = {n: requirement(n) for n in ('paths', 'trusted_checks', 'compiled_audit', 'official_review',
-                                             'independent_reviewer', 'pull_request', 'policy')}
+                                             'independent_reviewer', 'pull_request', 'policy', 'review_inputs')}
         for name, value in changes.items():
             req[name] = value
+        req.setdefault('review_inputs', requirement('review_inputs'))
         return {'pr': 1, 'tooling': T, 'base': T, 'diff_base': T, 'head': H, 'hypothetical': False,
+                'merge': {'main': T, 'tree': '4' * 40, 'head_tree': '4' * 40, 'head_contains_main': True},
                 'would_approve': all(r['status'] == 'pass' for r in req.values()),
                 'reasons': [f'{n}: x' for n, r in req.items() if r['status'] != 'pass'], 'requirements': list(req.values())}
 
@@ -254,13 +423,58 @@ class ClassifyUnitTests(unittest.TestCase):
         self.assertEqual(classify(self.decision(trusted_checks=checks, compiled_audit=audit), {'reasons': []})[0],
                          'refresh_build')
 
-    def test_human_route_and_behind_prs(self):
+    def test_human_route_behind_and_stale_merge(self):
         self.assertEqual(classify(self.decision(paths=requirement('paths', 'fail')), {'reasons': []})[0], 'blocked')
-        behind = self.decision();behind['diff_base'] = '0' * 40
-        action, reasons = classify(behind, {'reasons': []})
-        self.assertEqual(action, 'needs_review');self.assertIn('the PR must contain current main', reasons[0])
+        behind = self.decision();behind['merge']['head_contains_main'] = False
+        self.assertEqual(classify(behind, {'reasons': []})[0], 'needs_update')
+        conflict = self.decision();conflict['merge']['tree'] = None
+        self.assertEqual(classify(conflict, {'reasons': []})[0], 'blocked')
+        inputs = requirement('review_inputs', 'fail', reasons=['library root changed on main since the review: SphereCeti.lean'],
+                             library_root_only=True)
+        action, reasons = classify(self.decision(review_inputs=inputs), {'reasons': []})
+        self.assertEqual(action, 'needs_review');self.assertTrue(reasons[-1].startswith('measurement:'))
+        for reason in (MERGE_STALE, MERGE_MISSING):  # Main advanced after the build: rebuild the merge.
+            stale = self.decision(trusted_checks=requirement('trusted_checks', 'fail', reasons=[reason]),
+                                  compiled_audit=requirement('compiled_audit', 'fail', reasons=[reason]))
+            self.assertEqual(classify(stale, {'reasons': []}), ('refresh_build', [reason]))
+        mismatch = self.decision(trusted_checks=requirement('trusted_checks', 'fail', reasons=[MERGE_MISMATCH]))
+        self.assertEqual(classify(mismatch, {'reasons': []})[0], 'blocked')
         self.assertEqual(classify(self.decision(), {'reasons': ['no qualifying approval: x']})[0], 'blocked')
         self.assertEqual(classify(self.decision(), {'reasons': []}), ('merge', []))
+
+
+class MergeAttestationTests(unittest.TestCase):
+    """The tested merge tree binding: current main merged with this head, from the same trusted run."""
+
+    def setUp(self):
+        self.context, _, _, _, self.settings, self.statuses, _, _ = evidence()
+        self.tree = '4' * 40
+        self.statuses.append({'id': 3, 'context': 'trusted-merge', 'state': 'success', 'creator': {'id': 42, 'type': 'Bot'},
+                              'description': f"Tested merge tree {self.tree} with main {self.context['tooling']}",
+                              'url': self.statuses[0]['url'], 'target_url': self.statuses[0]['target_url'],
+                              'created_at': self.statuses[0]['created_at']})
+
+    def reasons(self, expected=None, **change):
+        statuses = deepcopy(self.statuses)
+        statuses[-1].update(change)
+        return assess_merge(statuses, self.context, self.tree if expected is None else expected, self.settings)
+
+    def test_binding_is_accepted_and_every_mismatch_refused(self):
+        self.assertEqual(self.reasons(), [])
+        self.assertEqual(self.reasons(expected='5' * 40), [MERGE_MISMATCH])
+        self.assertEqual(self.reasons(description=f"Tested merge tree {self.tree} with main {'6'*40}"), [MERGE_STALE])
+        self.assertEqual(assess_merge(self.statuses, self.context, None, self.settings), [MERGE_CONFLICT])
+        self.assertEqual(assess_merge(self.statuses[:-1], self.context, self.tree, self.settings), [MERGE_MISSING])
+        for change, reason in ((dict(state='failure'), 'trusted-merge is not successful'),
+                               (dict(creator={'id': 8, 'type': 'Bot'}), 'trusted-merge has an unapproved producer'),
+                               (dict(url=self.statuses[0]['url'][:-40] + '9' * 40), 'trusted-merge has a wrong head/location'),
+                               (dict(target_url=f'https://github.com/{REPO}/actions/runs/101/attempts/1'),
+                                'trusted-merge and trusted-build come from different run attempts'),
+                               (dict(description='Tested merge'), 'trusted-merge does not attest its tested tree')):
+            with self.subTest(reason):
+                self.assertIn(reason, self.reasons(**change))
+        longest = f"Tested merge tree {'a'*40} with main {'b'*40}"
+        self.assertLessEqual(len(longest), 140)
 
 
 class DispatchTransportTests(unittest.TestCase):
@@ -351,7 +565,14 @@ for field in fields:
 print('\t'.join(out))
 '''
 RECORD = '#!/bin/sh\necho "$(basename "$0") $*" >> "$FAKE_LOG"\n'
-FAKE_GIT = RECORD + 'if [ "$1" = -C ]; then shift 2; fi\nif [ "$1" = rev-parse ]; then echo "${3%^{commit\\}}"; fi\n'
+FAKE_GIT = RECORD + '''if [ "$1" = -C ]; then shift 2; fi
+case "$1" in
+  rev-parse) echo "${3%^{commit\\}}" ;;
+  merge-tree) echo "${FAKE_MERGE_TREE:-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee}"
+              if [ -n "${FAKE_MERGE_CONFLICT:-}" ]; then echo "CONFLICT (content): f"; exit 1; fi ;;
+  commit-tree) echo ffffffffffffffffffffffffffffffffffffffff ;;
+esac
+'''
 
 
 class WorkflowScriptTests(unittest.TestCase):
@@ -387,7 +608,7 @@ class WorkflowScriptTests(unittest.TestCase):
 
     def publish(self, **env):
         base = {'EVENT': 'workflow_dispatch', 'HEAD_SHA': self.H, 'PR_NUMBER': '7', 'BASE_SHA': self.T,
-                'TOOLING_SHA': self.T, 'BUILD_RESULT': 'success', 'SCOPE': 'mathematical',
+                'TOOLING_SHA': self.T, 'BUILD_RESULT': 'success', 'SCOPE': 'mathematical', 'MERGE_TREE': 'e' * 40,
                 'RUN_URL': f'https://github.com/{REPO}/actions/runs/1/attempts/1'}
         done, calls = self.run_step('Publish separate build and scope verdicts for exact H', {**base, **env})
         posts = [json.loads(c) for c in calls if c.startswith('[') and '-f' in json.loads(c)]
@@ -396,10 +617,16 @@ class WorkflowScriptTests(unittest.TestCase):
     def test_refresh_publishes_its_binding_when_nothing_moved(self):
         done, posts, _ = self.publish()
         self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
-        self.assertEqual(len(posts), 2)
-        description = next(a for a in posts[0] if a.startswith('description='))[len('description='):]
-        self.assertEqual(description, f'Approved tooling refresh: success; tooling {self.T}; pr 7; base {self.T}')
-        self.assertTrue(posts[0][2].endswith(f'/statuses/{self.H}'))  # On the PR head commit.
+        self.assertEqual(len(posts), 3)
+        fields = [{a.split('=', 1)[0]: a.split('=', 1)[1] for a in post if '=' in a} for post in posts]
+        self.assertEqual(fields[0]['description'], f'Approved tooling refresh: success; tooling {self.T}; pr 7; base {self.T}')
+        self.assertEqual((fields[2]['context'], fields[2]['state'], fields[2]['description']),
+                         ('trusted-merge', 'success', f"Tested merge tree {'e'*40} with main {self.T}"))
+        self.assertTrue(all(post[2].endswith(f'/statuses/{self.H}') for post in posts))  # On the PR head commit.
+        # Without a tested merge (the candidate stopped first), trusted-merge cannot qualify.
+        done, posts, _ = self.publish(MERGE_TREE='', BUILD_RESULT='failure')
+        merge = {a.split('=', 1)[0]: a.split('=', 1)[1] for a in posts[2] if '=' in a}
+        self.assertEqual((merge['state'], merge['description']), ('failure', f'No tested merge with main {self.T}'))
 
     def test_end_of_run_race_guard_publishes_nothing(self):
         cases = {'head moved': lambda: self.pr['head'].update(sha='c' * 40),
@@ -444,13 +671,29 @@ class WorkflowScriptTests(unittest.TestCase):
         self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
         self.assertIn(f'git -C gate fetch --no-tags https://github.com/fork/SphereCeti.git {self.H}', calls)
         self.assertIn(f'git -C gate fetch --no-tags origin {self.T}', calls)
-        self.assertEqual((self.root / 'out').read_text(), f'base={self.T}\nhead={self.H}\n')
-        self.assertTrue(any(c.startswith('bash gate/scripts/attest-pr-config.sh gate candidate ' + self.H +
-                                         ' workflow_dispatch 1 0') for c in calls))
+        self.assertIn(f'git -C gate merge-tree --write-tree {self.T} {self.H}', calls)
+        merge = 'f' * 40
+        self.assertEqual((self.root / 'out').read_text(),
+                         f"base={self.T}\nhead={self.H}\nmerge_tree={'e'*40}\ncandidate={merge}\n")
+        # The gate and the attestation take the merge commit: the build is of what would land.
+        self.assertTrue(any(c.startswith('python3 -I gate/scripts/trusted_gate.py') and f'--base {self.T} --head {merge}' in c
+                            for c in calls), calls)
+        self.assertTrue(any(c.startswith(f'bash gate/scripts/attest-pr-config.sh gate candidate {merge} workflow_dispatch 1 0')
+                            for c in calls))
+
+    def test_a_lagging_base_snapshot_still_builds_the_merge_and_a_conflict_builds_nothing(self):
+        self.pr['base']['sha'] = 'd' * 40  # GitHub's base.sha snapshot lags main.
+        done, calls = self.resolve()
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertIn(f'git -C gate merge-tree --write-tree {self.T} {self.H}', calls)
+        self.setUp()
+        done, calls = self.resolve(FAKE_MERGE_CONFLICT='1')
+        self.assertNotEqual(done.returncode, 0)
+        self.assertIn('does not merge cleanly with main', done.stdout + done.stderr)
+        self.assertFalse([c for c in calls if c.startswith(('python3', 'bash'))])
 
     def test_resolve_refuses_before_fetching_anything(self):
         cases = {'head already moved': ({}, lambda: self.pr['head'].update(sha='c' * 40)),
-                 'base is not this main': ({}, lambda: self.pr['base'].update(sha='d' * 40)),
                  'closed': ({}, lambda: self.pr.update(state='closed')),
                  'another base branch': ({}, lambda: self.pr['base'].update(ref='develop')),
                  'not on main': ({'GITHUB_REF': 'refs/heads/feature'}, lambda: None),

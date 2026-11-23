@@ -96,6 +96,19 @@ compiled module/axiom checks, lint, and an exact roadmap admission ledger. Its l
 compiled artifacts and hostile native code are documented there. The mathematical roadmap
 and the Lean rc1/TauCeti/Mathlib pins are unchanged.
 
+## Tested merge
+
+The candidate is what would land: the exact PR head merged into the workflow's own main commit
+(`github.workflow_sha`). The resolve step computes `git merge-tree --write-tree <main> <head>`. A
+conflict stops the run before any candidate step. It then makes a local merge commit with parents
+main and head; that commit is never pushed. The gate's scope is main to that merge commit, which is
+the PR's change as applied to main. Configuration attestation and the sandbox build that commit.
+
+The status job publishes a third status on the head, `trusted-merge`, from the same run:
+`Tested merge tree <tree> with main <main>` (at most 108 characters). Its state follows the build;
+without a computed merge it is `No tested merge with main <main>` and fails. Every description is
+checked against GitHub's 140-character limit before anything is published.
+
 ## Dispatched refresh
 
 When main moves, a PR whose review is still current may need only a new trusted build. The same
@@ -107,8 +120,9 @@ this file keeps one approved workflow ID, one status producer and one copy of th
 - `run-name` is `refresh #<pr> at <head>`, so the runs API shows the binding (`display_title`).
 - **Start.** The resolve step validates both inputs. It refuses any ref other than main, then
   reads the PR from the API. The PR must be open with base `main` in this repository, and its head
-  must equal the requested `head`. Its base must equal `github.workflow_sha`, the dispatched main
-  commit. Otherwise nothing is fetched and the run fails with the reason.
+  must equal the requested `head`. Its `base.sha` is GitHub's snapshot and may lag main, so the
+  merge with the dispatched main commit is built regardless. Otherwise nothing is fetched and the
+  run fails with the reason.
 - **Build.** The head is fetched by exact SHA from the PR's head repository, anonymously, and
   checked with `rev-parse`. Everything after that is identical to `pull_request_target`: main's
   gate and tooling, configuration attestation (`attest-pr-config.sh` accepts `workflow_dispatch`

@@ -42,6 +42,7 @@ jobs:
     outputs:
       scope: ${{ steps.prepare.outputs.scope }}
       base: ${{ steps.prepare.outputs.base }}
+      merge_tree: ${{ steps.prepare.outputs.merge_tree }}
     steps:
       # T is the revision of this approved base workflow. Never check out H with Actions.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -76,8 +77,7 @@ jobs:
               echo "::error::PR #$INPUT_PR is not an open PR into main of $GH_REPO; nothing to refresh"; exit 1
             fi
             [ "$HEAD_SHA" = "$INPUT_HEAD" ] || { echo "::error::PR #$INPUT_PR head is $HEAD_SHA, not the requested $INPUT_HEAD"; exit 1; }
-            # Only a PR based on this very main commit can qualify; anything else is refused early.
-            [ "$BASE_SHA" = "$TOOLING_SHA" ] || { echo "::error::PR #$INPUT_PR base $BASE_SHA is not main $TOOLING_SHA"; exit 1; }
+            # The PR's base.sha is GitHub's snapshot and may lag main; the merge with this main is built.
             [[ "$head_repo" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || { echo "::error::PR head repository is unavailable"; exit 1; }
             HEAD_SOURCE="https://github.com/$head_repo.git"  # anonymous fetch of the exact SHA
           else
@@ -93,8 +93,22 @@ jobs:
           git -C gate fetch --no-tags origin "$BASE_SHA"
           git -C gate fetch --no-tags "$HEAD_SOURCE" "$HEAD_SHA"
           [ "$(git -C gate rev-parse --verify "$HEAD_SHA^{commit}")" = "$HEAD_SHA" ]
+          # Build what would land: the PR head merged into this main (the workflow's own commit), as a
+          # local commit that is never pushed. A head that does not merge cleanly is refused here.
+          if ! merged=$(git -C gate merge-tree --write-tree "$TOOLING_SHA" "$HEAD_SHA"); then
+            echo "::error::PR head $HEAD_SHA does not merge cleanly with main $TOOLING_SHA"; exit 1
+          fi
+          MERGE_TREE=$(printf '%s\n' "$merged" | head -n 1)
+          [[ "$MERGE_TREE" =~ ^[0-9a-f]{40}$ ]]
+          MERGE_SHA=$(GIT_AUTHOR_NAME=trusted-candidate GIT_AUTHOR_EMAIL=trusted-candidate@invalid \
+            GIT_COMMITTER_NAME=trusted-candidate GIT_COMMITTER_EMAIL=trusted-candidate@invalid \
+            git -C gate commit-tree "$MERGE_TREE" -p "$TOOLING_SHA" -p "$HEAD_SHA" -m "Trusted merge of $HEAD_SHA into $TOOLING_SHA")
+          [[ "$MERGE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          echo "merge_tree=$MERGE_TREE" >> "$GITHUB_OUTPUT"
+          echo "candidate=$MERGE_SHA" >> "$GITHUB_OUTPUT"
+          # The scope is the PR's change as applied to main: main to the merge commit.
           python3 -I gate/scripts/trusted_gate.py --repo gate \
-            --tooling "$TOOLING_SHA" --base "$BASE_SHA" --head "$HEAD_SHA" \
+            --tooling "$TOOLING_SHA" --base "$TOOLING_SHA" --head "$MERGE_SHA" \
             --destination candidate --report "$RUNNER_TEMP/trusted-report.json"
           python3 -I - <<'PY'
           import json, os
@@ -105,7 +119,7 @@ jobs:
               output.write('scope=' + report['scope'] + '\n')
           assert report['config_attested'], 'Configuration differs from approved tooling; human dependency review required'
           PY
-          bash gate/scripts/attest-pr-config.sh gate candidate "$HEAD_SHA" "$EVENT" 1 0
+          bash gate/scripts/attest-pr-config.sh gate candidate "$MERGE_SHA" "$EVENT" 1 0
 
       # These host commands execute only T and its attested dependencies, never candidate code.
       - name: Install approved Elan, Lean, and Mathlib cache
@@ -118,7 +132,7 @@ jobs:
 
       - name: Build approved baseline and stage dependencies
         env:
-          HEAD_SHA: ${{ steps.prepare.outputs.head }}
+          CANDIDATE_SHA: ${{ steps.prepare.outputs.candidate }}
           EVENT: ${{ github.event_name }}
         working-directory: gate
         shell: bash
@@ -126,7 +140,7 @@ jobs:
           set -euo pipefail
           lake build
           python3 -I scripts/validate_dependencies.py
-          bash scripts/attest-pr-config.sh . ../candidate "$HEAD_SHA" "$EVENT" 1 0
+          bash scripts/attest-pr-config.sh . ../candidate "$CANDIDATE_SHA" "$EVENT" 1 0
           # Move only dependency sources/artifacts. H gets no stale root build or lakefile cache.
           mv .lake/packages ../candidate/.lake/packages
           echo "APPROVED_TOOLCHAIN=$(lean --print-prefix)" >> "$GITHUB_ENV"
@@ -134,7 +148,7 @@ jobs:
       - name: Install pinned sandbox
         run: bash gate/scripts/install_bwrap.sh
 
-      - name: Build exact H using approved tools inside the sandbox
+      - name: Build the merge of exact H into main using approved tools inside the sandbox
         run: >-
           python3 -I gate/scripts/run_sandbox.py --gate gate --candidate candidate
           --toolchain "$APPROVED_TOOLCHAIN"
@@ -159,6 +173,7 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr }}
           BASE_SHA: ${{ github.event.pull_request.base.sha || needs.candidate.outputs.base }}
           TOOLING_SHA: ${{ github.workflow_sha }}
+          MERGE_TREE: ${{ needs.candidate.outputs.merge_tree }}
           BUILD_RESULT: ${{ needs.candidate.result }}
           SCOPE: ${{ needs.candidate.outputs.scope }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}
@@ -186,18 +201,31 @@ jobs:
             fi
           fi
           # The head is bound by the status's own commit; GitHub caps a description at 140 characters.
+          # The tested tree does not fit there, so trusted-merge carries it with main (the tooling).
           build_description="Approved tooling $kind: $BUILD_RESULT; tooling $TOOLING_SHA; pr $PR_NUMBER; base $BASE_SHA"
-          if (( ${#build_description} > 140 )); then
-            echo "::error::trusted-build description has ${#build_description} characters (limit 140); nothing published"
-            exit 1
-          fi
           build_state=failure
           scope_state=failure
+          merge_state=failure
           [ "$BUILD_RESULT" != success ] || build_state=success
           [ "$SCOPE" != mathematical ] || scope_state=success
+          if [[ "$MERGE_TREE" =~ ^[0-9a-f]{40}$ ]]; then
+            merge_state=$build_state
+            merge_description="Tested merge tree $MERGE_TREE with main $TOOLING_SHA"
+          else
+            merge_description="No tested merge with main $TOOLING_SHA"
+          fi
+          for description in "$build_description" "$merge_description"; do
+            if (( ${#description} > 140 )); then
+              echo "::error::a status description has ${#description} characters (limit 140); nothing published"
+              exit 1
+            fi
+          done
           gh api "repos/$GH_REPO/statuses/$HEAD_SHA" -f state="$build_state" \
             -f context=trusted-build -f target_url="$RUN_URL" \
             -f description="$build_description"
           gh api "repos/$GH_REPO/statuses/$HEAD_SHA" -f state="$scope_state" \
             -f context=trusted-scope -f target_url="$RUN_URL" \
             -f description="Scope: ${SCOPE:-human_review}; no merge authorization"
+          gh api "repos/$GH_REPO/statuses/$HEAD_SHA" -f state="$merge_state" \
+            -f context=trusted-merge -f target_url="$RUN_URL" \
+            -f description="$merge_description"

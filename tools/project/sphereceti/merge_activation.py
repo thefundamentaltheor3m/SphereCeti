@@ -196,8 +196,12 @@ def rulesets(effective, listing, detail, repository, settings):
         elif app <= 0: missing.append(f'{name} is required from integration {producer}, but checks_app_id is unconfigured')
         elif producer != app: missing.append(f'{name} is required from integration {producer}, not checks_app_id {app}')
         else: verified.append(f'{name} is required from integration {producer}')
-    if any(c.get('strict_required_status_checks_policy') is True for c in checks):
+    strict = bool(entries) and any(c.get('strict_required_status_checks_policy') is True for c in checks)
+    if strict:
         verified.append('PR branches must be up to date with main before merging')
+    elif any(c.get('strict_required_status_checks_policy') is True for c in checks):
+        missing.append('up-to-date branches are not enforced: GitHub ignores strict_required_status_checks_policy '
+                       'without a required status check')
     else:
         missing.append('strict_required_status_checks_policy is false: GitHub would accept a merge after main advances '
                        'past the base the executor verified (humans can still update a branch and merge)')
@@ -214,7 +218,10 @@ def rulesets(effective, listing, detail, repository, settings):
                 verified.append(f'{HUMAN_BYPASS[key]} may bypass ({mode}); the write-role merge identity does not hold it')
             else: missing.append(f'bypass actor {key[0]} {key[1]} ({mode}) could cover the merge identity')
         if not bypass: verified.append('ruleset has no bypass actors')
-    return {'source': 'ruleset', 'ruleset_id': rid, 'verified': verified, 'findings': findings, 'missing': missing}
+    # Strict (with a required check, so it takes effect) is what makes GitHub refuse a head behind main:
+    # the merge API pins only the head, so this is how the tested merge tree is the tree that lands.
+    return {'source': 'ruleset', 'ruleset_id': rid, 'verified': verified, 'findings': findings, 'missing': missing,
+            'tested_tree_enforced': strict and not missing}
 
 
 def executor_bypass(view, rid):
@@ -246,7 +253,8 @@ def server(client, repository, settings):
             return {'source': 'classic', **empty,
                     'missing': ['classic protection is read only after controller IDs are configured']}
         found = classic(client.call(f'repos/{repository}/branches/main/protection'), repository, settings)
-        return {'source': 'classic', 'verified': [] if found else ['classic profile'], 'findings': [], 'missing': found}
+        return {'source': 'classic', 'verified': [] if found else ['classic profile'], 'findings': [], 'missing': found,
+                'tested_tree_enforced': not found}  # The classic profile requires strict checks.
     if not effective and not listing:
         return {'source': None, **empty, 'missing': ['main has neither classic protection nor a ruleset']}
     ids = {r.get('ruleset_id') for r in effective}
@@ -263,11 +271,13 @@ def automatic(policy, checks, settings, roadmap):
     producers = (f"statuses from creator {checks['status_creator_ids']} in one attempt of workflow "
                  f"{checks['workflow_id']} ({TRUSTED_WORKFLOW})") if checks['workflow_id'] else 'configured producers'
     verifies = [f'trusted-build success: {producers}, bound to the exact PR head',
-                "the trusted run's PR base equals current approved main, so approved tooling produced it",
+                "the trusted run built and audited the head merged into current approved main (trusted-merge "
+                'attests that tree and main), so approved tooling tested what would land',
                 'trusted-scope success, meaning scope "mathematical" within policy mathematical_paths',
                 'an accepted official review record for the exact head from policy authorized_reviewers, '
                 'published by someone other than the PR author',
-                'the PR is open, targets main, is up to date with approved main and has no conflicts',
+                'the review is still valid: same change and no review input changed on main since it ran (option 2)',
+                'the PR is open, targets main, has no conflicts and its head contains current main',
                 "a qualifying formal approval: an opted-in maintainer's (approving_reviewers) latest review is APPROVE on the "
                 'exact head, the maintainer is not the PR author, and no reviewer has outstanding changes requested',
                 'one squash-merge PUT pinned to that head SHA']

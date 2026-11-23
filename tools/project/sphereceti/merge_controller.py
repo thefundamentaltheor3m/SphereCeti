@@ -17,7 +17,7 @@ import subprocess
 
 from .auto_approval import auto_approval
 from .merge_activation import Activation, pages
-from .merge_checks import TOOLING_ATTESTATION
+from .merge_checks import MERGE_MISSING, MERGE_STALE, TOOLING_ATTESTATION
 from .merge_observation import Reader, pull
 from .review_records import RecordError
 from .worker_checks import SCOPE_FAILURE, STALE_TOOLING
@@ -38,6 +38,19 @@ def token_shape(token):
     present = {name for c in token for name, test in classes.items() if test(c)}
     if any(c.isascii() and not (c.isalnum() or c.isspace() or c in '_-.') for c in token): present.add('other-ascii')
     return {'prefix': token[:4], 'length': len(token), 'classes': sorted(present)}
+
+
+class Rejected(RecordError):
+    """GitHub answered a write with an HTTP 4xx: a definite refusal, never retried in the run."""
+    def __init__(self, status, message):
+        self.status, self.message = status, message
+        super().__init__(f'GitHub refused the request (HTTP {status}): {message}')
+
+
+# GitHub's refusal of a head-pinned merge whose head no longer contains the base tip (strict),
+# or whose base moved during the merge, or that misses a required check on that head. These are
+# the stale-combination refusals; the exact live wording is confirmed by the live procedure.
+STALE_REFUSAL = re.compile(r'not up to date|base branch was modified|required status check', re.I)
 
 
 class Writer:
@@ -105,10 +118,19 @@ class Writer:
              'GH_PROMPT_DISABLED':'1'}
         try:
             response=self.run(command,payload,env)
-            if response.returncode: raise RecordError('merge-token request failed; result is unconfirmed')
-            if dispatch and not response.stdout.strip(): return {}  # GitHub answers a dispatch with 204.
+        except (OSError,subprocess.SubprocessError) as error:
+            raise RecordError('merge-token request failed; result is unconfirmed') from error
+        if response.returncode:
+            status=re.search(r'HTTP (4[0-9]{2})\b',response.stderr or '')
+            # gh prints `gh: <GitHub message> (HTTP <code>)`; never the token. Keep one bounded line.
+            message=re.sub(r'^gh: |\s*\(HTTP [0-9]{3}\)\s*$','',(response.stderr or '').strip().splitlines()[0]
+                           if (response.stderr or '').strip() else '')[:200]
+            if status: raise Rejected(status.group(1),message)
+            raise RecordError('merge-token request failed; result is unconfirmed')
+        if dispatch and not response.stdout.strip(): return {}  # GitHub answers a dispatch with 204.
+        try:
             return json.loads(response.stdout)
-        except (OSError,subprocess.SubprocessError,ValueError) as error:
+        except ValueError as error:
             raise RecordError('merge-token request failed; result is unconfirmed') from error
 
     def ruleset(self, rid):
@@ -192,38 +214,48 @@ def formal_approval(reviews, author, head, approvers):
 # PR: older tooling, a missing or older attestation, or an older attested or associated base.
 BUILD_STALE = {STALE_TOOLING, 'trusted-build does not attest its tooling commit; refresh the trusted run',
                'trusted-build attests another PR or base', 'trusted run lacks the exact PR head/base association',
-               'trusted run PR association disagrees with the attested PR binding'}
+               'trusted run PR association disagrees with the attested PR binding', MERGE_MISSING, MERGE_STALE}
+ENFORCEMENT = ('GitHub does not enforce that the tested merge tree is the tree that lands: the merge API pins '
+               'only the head, so the ruleset must require up-to-date branches (strict) and the head must '
+               'contain current main')
 
 
 def classify(decision, approval):
-    """One action per candidate: merge, refresh_build, needs_review or blocked, with reasons.
+    """One action per candidate: merge, refresh_build, needs_update, needs_review or blocked.
 
-    The review's base is the PR `base.sha` its record binds (GitHub's value when the review ran);
-    the record also binds `diff_base`, the merge-base of that base and the head, which is the base
-    of the reviewed diff. GitHub's `base.sha` is a snapshot, not live: it does not follow main
-    (observed 2026-11-23, docs/infrastructure/merge-controller.md). So `commits/main` decides, and
-    a review is current only when it is accepted for the current head and its base and diff base
-    both equal current main.
+    Option 2 (merge-controller.md): a review stays valid across main moves when the reviewed change
+    is provably the same and no review input changed on main since the review (the decision's
+    review_inputs requirement, which also measures which input changed). The trusted build and
+    audit cover the head merged into current main. GitHub's base.sha snapshot is never compared
+    with main. Only the same head is considered: carrying a review over to a new head, such as an
+    update-branch merge commit, is not built.
     """
     req={r['id']:r for r in decision['requirements']}
     passed=lambda name:req[name]['status']=='pass'
-    current,base,diff_base=decision['tooling'],decision['base'],decision.get('diff_base')
     # Not on the automatic route at all (paths, policy, a hypothesis): neither stale nor refreshable.
     if decision['hypothetical'] or not passed('paths') or not passed('policy'):
         return 'blocked',decision['reasons'] or ['not an automatic-merge candidate']
     review=[]
     if not passed('official_review') or not passed('independent_reviewer'):
         review.append('no accepted official review for the current head')
-    # Conservative: a moved base means a stale review, even when the PR diff looks unchanged.
-    # Accepting an older review because the diff is unchanged would be a separate, explicitly
-    # approved policy decision; nothing here infers it.
-    if base!=current:
-        review.append(f'the PR base {base[:12]} that a review binds is not current main {current[:12]}')
-    elif diff_base!=current:
-        review.append(f'the reviewed diff base {str(diff_base)[:12]} is not current main {current[:12]}; '
-                      'the PR must contain current main')
+    inputs=req.get('review_inputs') or {'status':None,'evidence':{}}
+    if inputs['status']=='fail':
+        review+=inputs['evidence'].get('reasons') or []
+        if inputs['evidence'].get('library_root_only'):
+            review.append('measurement: only SphereCeti.lean changed on main since the review; '
+                          'it still forces re-review for now')
+    elif inputs['status']!='pass' and not review:
+        review.append('the review inputs could not be compared with current main')
     if review:
         return 'needs_review',review
+    merge=decision.get('merge') or {}
+    if merge.get('tree') is None:
+        return 'blocked',['the head does not merge cleanly with current main']
+    if merge.get('head_contains_main') is not True:
+        # GitHub's merge API pins only the head; a head behind main would land a tree nobody tested.
+        return 'needs_update',[f"the head does not contain current main {merge.get('main','')[:12]}: update the "
+                               'branch so the tested merge is the tree that lands (the review then needs a re-run '
+                               'for the new head; carrying it over is not built)']
     pr_reasons=req['pull_request']['evidence'].get('reasons') or []
     checks=set(req['trusted_checks']['evidence'].get('reasons') or [])|set(req['compiled_audit']['evidence'].get('reasons') or [])
     if checks:
@@ -264,15 +296,24 @@ class Backend:
         approval=formal_approval(reviews,decision['author']['identity'],decision['head'],
                                  self.activation.policy.approving_reviewers)
         action,reasons=classify(decision,approval)
+        inputs=next((r['evidence'] for r in decision['requirements'] if r['id']=='review_inputs'),{})
+        merge=decision.get('merge') or {}
         return {'eligibility':'eligible' if action=='merge' else 'blocked','action':action,'head':decision['head'],
                 'base':decision['base'],'diff_base':decision.get('diff_base'),'tooling':decision['tooling'],
-                'reasons':reasons,'approval':approval['qualifying'],'decision_digest':decision['evidence_digest']}
+                'reasons':reasons,'approval':approval['qualifying'],'decision_digest':decision['evidence_digest'],
+                # Measurement: which review input changed on main since the review, per PR.
+                'review_inputs':{k:inputs.get(k) for k in ('reviewed_at_main','changed_inputs','library_root_only',
+                                                         'change_identical','unrelated_changes')},
+                'tested_tree':merge.get('tree'),'head_tree':merge.get('head_tree')}
 
     def refresh(self):
         self.observer.revalidate()
         self.activation.refresh()
 
     def merge(self, number, head): return self.writer.merge(number,head)
+
+    def main(self):
+        return Reader(self.project.repository).call(f'repos/{self.project.repository}/commits/{self.project.default_branch}')['sha']
 
     def dispatch_refresh(self, number, head):
         return self.writer.dispatch_refresh(self.activation.checks['workflow_id'],number,head)
@@ -333,7 +374,9 @@ def reconcile(backend, numbers, *, applying=False):
                         entry.update(state='refresh_unconfirmed',note='the dispatch was not confirmed; not retried in this run')
             result['results'].append(entry);continue
         if action!='merge':
-            result['results'].append({'pr':number,'state':action,'action':action,'reasons':first['reasons']});continue
+            entry={'pr':number,'state':action,'action':action,'reasons':first['reasons']}
+            if first.get('review_inputs'): entry['review_inputs']=first['review_inputs']  # Measurement.
+            result['results'].append(entry);continue
         if not applying:
             result['results'].append({'pr':number,'state':'would_merge','action':action,'head':first['head']});continue
         fresh_setup=backend.setup(True)
@@ -343,20 +386,39 @@ def reconcile(backend, numbers, *, applying=False):
                 fresh_setup.get('executor_verified') is not True or second != first):
             result['results'].append({'pr':number,'state':'changed','reason':'policy, protection, identity or PR evidence changed'})
             result['state']='revalidation_required';return result
+        # The executor lands only a tree it can prove was tested: GitHub must enforce up-to-date heads, and
+        # this head must be exactly the tested merge (it contains current main). Otherwise it refuses.
+        if ((setup.get('protection') or {}).get('tested_tree_enforced') is not True or
+                not first.get('tested_tree') or first.get('tested_tree')!=first.get('head_tree')):
+            result['results'].append({'pr':number,'state':'refused','reason':ENFORCEMENT})
+            result['state']='refused';return result
         backend.refresh()  # Last live read of head/base, review revocations, checks, stop switch and protections.
         result['merge_attempted']=True
-        receipt=None
+        receipt=rejected=None
         try: receipt=backend.merge(number,first['head'])
+        except Rejected as error: rejected=error  # e.g. strict: the head is no longer up to date.
         except RecordError: pass  # Never retry an ambiguous PUT; reconcile current GitHub state below.
         try: after=backend.state(number)
         except (RecordError,ValueError,KeyError,TypeError): after={}
         merged = (after.get('merged') is True and (after.get('head') or {}).get('sha')==first['head'] and
                   isinstance(after.get('merge_commit_sha'),str) and re.fullmatch(r'[0-9a-f]{40}',after['merge_commit_sha']))
         confirmed = merged and isinstance(receipt,dict) and receipt.get('merged') is True and receipt.get('sha')==after['merge_commit_sha']
-        result['results'].append({'pr':number,'head':first['head'],
-                                  'state':'merged' if confirmed else 'merged_observed' if merged else 'unconfirmed',
-                                  'merge_commit':after.get('merge_commit_sha') if merged else None})
-        result['state']='completed' if merged else 'unconfirmed'
+        # A refusal counts only when the reread confirms nothing landed; otherwise it stays unconfirmed.
+        refused = rejected is not None and not merged and after.get('state')=='open' and after.get('merged') is False
+        entry={'pr':number,'head':first['head'],'state':'merged' if confirmed else 'merged_observed' if merged else 'unconfirmed',
+               'merge_commit':after.get('merge_commit_sha') if merged else None}
+        if refused:
+            stale = rejected.status=='405' and STALE_REFUSAL.search(rejected.message) is not None
+            try: main_after=backend.main()
+            except (RecordError,ValueError,KeyError,TypeError): main_after=None
+            entry.update(state='rejected_stale' if stale else 'rejected_unexpected', main_after=main_after,
+                         refusal={'status':rejected.status,'message':rejected.message},
+                         reason='GitHub refused the stale combination; nothing landed; the next run re-evaluates'
+                         if stale else 'GitHub refused for another reason; the controller stops and reports, and '
+                         'nothing is retried')
+        result['results'].append(entry)
+        result['state']=('completed' if merged else 'unconfirmed' if not refused else
+                         'rejected' if entry['state']=='rejected_stale' else 'stopped')
         return result  # Base changed or outcome ambiguous: no next merge using the old snapshot.
     result['state']='completed' if enabled else 'disabled'
     if not enabled: result['note']='switches are off or setup is not ready: actions are reported only'
