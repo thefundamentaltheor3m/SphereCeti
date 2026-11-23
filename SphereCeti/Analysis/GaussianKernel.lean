@@ -20,9 +20,7 @@ Let `E` be a real inner product space of dimension `n`.  For a measurable family
 The Fourier transforms of the magic-function contour components exchange a Fourier integral over
 `E` with an integral along a contour, and their integrability hypotheses are of this product
 form, with `φ(t) = ‖g(z(t))‖` and `y(t) = Im z(t)` for a kernel `g` and a parametrized contour
-`z`.  This reduces them to a one-variable integrability condition on the kernel.  The result is
-general analysis, stated in the form intended for Mathlib's Gaussian integrals (`UPSTREAM.md`,
-item A19).
+`z`.  This reduces them to a one-variable integrability condition on the kernel.
 
 ## Main statements
 
