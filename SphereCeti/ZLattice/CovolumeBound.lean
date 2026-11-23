@@ -21,8 +21,7 @@ density of the packing, it squeezes that covolume to one.
 
 ## Main statements
 
-* `SphereCeti.ZLattice.one_le_covolume_of_isIntegral`: an integral full lattice has covolume at
-  least one.
+* `ZLattice.IsIntegral.one_le_covolume`: an integral full lattice has covolume at least one.
 
 ## References
 
@@ -34,16 +33,12 @@ public section
 
 open MeasureTheory
 
-namespace SphereCeti.ZLattice
-
-/-- An integral full lattice has covolume at least one: its squared covolume is its determinant,
-which is at least one. -/
-theorem one_le_covolume_of_isIntegral {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E]
-    [FiniteDimensional ℝ E] [MeasurableSpace E] [BorelSpace E] {Λ : Submodule ℤ E}
-    [DiscreteTopology Λ] [IsZLattice ℝ Λ] (h : ZLattice.IsIntegral Λ) :
+/-- An integral full lattice has covolume at least one. -/
+theorem ZLattice.IsIntegral.one_le_covolume {E : Type*} [NormedAddCommGroup E]
+    [InnerProductSpace ℝ E] [FiniteDimensional ℝ E] [MeasurableSpace E] [BorelSpace E]
+    {Λ : Submodule ℤ E} [DiscreteTopology Λ] [IsZLattice ℝ Λ] (h : ZLattice.IsIntegral Λ) :
     1 ≤ ZLattice.covolume Λ := by
+  -- The squared covolume is the determinant, which is at least one.
   have hdet := h.one_le_det
   rw [ZLattice.det_def] at hdet
   nlinarith [ZLattice.covolume_pos Λ volume]
-
-end SphereCeti.ZLattice
