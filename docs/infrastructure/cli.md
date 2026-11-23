@@ -17,6 +17,7 @@ The `sphereceti` command supplies project diagnostics and the adapters credited 
 | `worker run --loop` | [Bounded review loops](worker-loop.md) |
 | `progress` | [Local reporting drafts](progress-reporting.md) |
 | `merge-observe` | [Merge eligibility observations](merge-observation.md) |
+| `auto-approve-check` | [Read-only auto-approval decision](merge-observation.md#auto-approval-decision) |
 | `merge-doctor / merge-control` | [Controller diagnostics and gated action](merge-controller.md) |
 | `maintenance` | [Lifecycle diagnostics and labels](lifecycle.md) |
 | `profile-plan / profile-run` | [Advisory profiling](profiling.md) |

@@ -107,6 +107,47 @@ no atomic multi-endpoint snapshot, so a change after those reads remains possibl
 controller must rerun observation immediately before acting and use server-enforced checks and
 an expected-head condition; an old observation file cannot authorize a merge.
 
+## Auto-approval decision
+
+`sphereceti auto-approve-check N` answers one question read-only: would SphereCeti automatically
+approve this proof PR, and why or why not? It is the decision a future review bot would consult
+before submitting a GitHub APPROVE review on the exact head; a separate non-bypass worker would
+merge. It reviews, approves, posts and merges nothing, and calls no model provider.
+
+```bash
+sphereceti auto-approve-check 50 --assume-proof-paths 'SphereCeti/E8/**' --json
+```
+
+The approved `mathematical_paths` list is empty, so a decision today needs an explicit
+**hypothetical** allowlist. `--assume-proof-paths` never changes policy. The output then sets
+`hypothetical: true`, repeats the assumed globs, and starts its note with `HYPOTHETICAL`.
+Globs must lie under `SphereCeti/`; `*` and `?` stay within a segment, and `**` is a whole
+segment. Without the flag, the approved policy's prefixes apply.
+
+The command reuses `collect` (this observer's GET-only evidence gathering and end-of-run refresh),
+`gate.evaluate`, `merge_checks.assess_checks` and `review_records.assess_records`. It reports
+`would_approve`, every requirement with its evidence, the exact head/base/tooling, the PR
+author against the review publishers, and the reasons for any refusal. A computed decision exits
+0 either way. Incomplete evidence exits 2.
+
+| Requirement | Evidence and binding |
+|---|---|
+| `paths` | The PR's complete file list from the API; a count differing from `changed_files`, GitHub's 3000-file cap, or a list differing from the exact Git diff fails closed. Each path must be an added or modified regular `SphereCeti/**/*.lean` library file under the allowlist; protected library modules are excluded. Renames, deletions, mode changes, symlinks and submodules are ineligible. Roadmap/specification, dependency, CI, policy, review and machinery paths are listed with their human route. |
+| library root | `SphereCeti.lean` may only gain `public import SphereCeti.<Topic>…` lines naming eligible modules present at the head. Every existing line must remain byte-for-byte and in order. |
+| `trusted_checks` | `assess_checks`: `trusted-build` success and `trusted-scope` present from the approved producer and one exact `pull_request_target` run attempt. The run's `head_sha` is the PR head, and the run's PR association `base.sha` is the current main (the tooling). The gate reports `human_review` while the allowlist is empty, and it also protects the library root. That status is replaced by the stricter path rule only under the hypothesis or for a root import. |
+| `compiled_audit` | The `candidate` job of that same run attempt. It ran the approved tooling's `scripts/check_audits.py` through `scripts/sandbox-build.sh` on the exact head. The run must also have been created after the default branch last moved to the current main, according to the repository activity API. The ordinary `build` check runs candidate-controlled scripts, and its name alone is not used. |
+| `official_review` | `assess_records` accepts a complete, non-advisory record covering all ten rubrics. Its exact head, base, diff base and context digests come from an authorized reviewer. Run it from installed tooling equal to main; otherwise the installed-tooling comparison fails. |
+| `independent_reviewer` | At least one accepted publisher is not the PR author, by API user ID. The author can never supply the sole approval. |
+| `pull_request` | Open, not draft, targets main, base equals current main and is the diff base, and not conflicting. No GitHub approving review is read or required. `mergeable_state` `blocked` or `unstable` is accepted, while `dirty`, `behind` and `unknown` are not. |
+| `policy` | Reports the real `merging`, `mathematical_paths` and authorized reviewers, and the hypothesis if one was used. |
+
+GitHub reports a workflow run's `pull_requests[].base.sha` from the PR's live state, not from
+the time of the run. On 2026-11-23, PR #36's run 44856402521, created on 2026-11-21, reported
+base `495ebff`, a main commit merged two days later. So base equality alone cannot show which
+tooling a `pull_request_target` run used. This decision adds the creation-time comparison above.
+A few seconds between the event and run creation remain possible. Publishing `github.workflow_sha`
+in the trusted status would remove that window.
+
 ## Review and validation
 
 Review this diff against #11: read this guide, then the shared decision/reader, check authentication,
