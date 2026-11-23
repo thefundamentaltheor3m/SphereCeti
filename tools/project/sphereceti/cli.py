@@ -74,6 +74,8 @@ def main(argv: list[str] | None = None) -> int:
     add_progress_parser(commands)
     from .merge_observation import add_parser as add_observer, observe
     add_observer(commands)
+    from .auto_approval import add_parser as add_auto_approval, auto_approval, render as render_auto_approval
+    add_auto_approval(commands)
     from .merge_controller import add_parser as add_controller, run as run_controller
     add_controller(commands)
     from .lifecycle_api import add_parser as add_maintenance, run as run_maintenance
@@ -168,6 +170,17 @@ def main(argv: list[str] | None = None) -> int:
               f"PR #{args.pr}: {report['eligibility']}; " + '; '.join(report['reasons']) + '\nObservation only; merging is disabled.')
         return 0
 
+    if args.command == "auto-approve-check":
+        try:
+            report = auto_approval(args, project)
+        except (RecordError, ReviewError, GateError, ConfigError, OSError, ValueError, KeyError,
+                TypeError, subprocess.SubprocessError) as error:
+            reason = str(error) if isinstance(error, (RecordError, ConfigError, ReviewError)) else 'incomplete or unavailable decision evidence'
+            parser.exit(2, f"sphereceti auto-approve-check: {reason}\n")
+        # A computed decision exits 0 either way; JSON escaping keeps candidate text inert.
+        print(json.dumps(report, indent=2) if args.json else render_auto_approval(report))
+        return 0
+
     if args.command == "review-check-sandbox":
         try:
             report = check_sandbox(args, project, preferences)
@@ -240,6 +253,7 @@ def main(argv: list[str] | None = None) -> int:
         "progress": {"implemented": True, "local_drafts": True, "publishing": False,
                      "production_evidence": "not_configured"},
         "merge_observation": {"implemented": True, "read_only": True, "activation_verified": False},
+        "auto_approval_decision": {"implemented": True, "read_only": True, "approving": False},
         "merge_controller": {"implemented": True, "enabled": False,
                              "policy_requested": policy.merging, "readiness": "unverified",
                              "activation_verified": False},
