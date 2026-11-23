@@ -27,7 +27,8 @@ class Reader(GitHub):
         self.reads = []
 
     def call(self, endpoint, *, payload=None, paginate=False):
-        if payload is not None or not endpoint.startswith(f'repos/{self.repository}/'):
+        if payload is not None or (endpoint != f'repos/{self.repository}' and
+                                   not endpoint.startswith(f'repos/{self.repository}/')):
             raise RecordError('merge observation permits only project API reads')
         try:
             value = super().call(endpoint, paginate=paginate)
