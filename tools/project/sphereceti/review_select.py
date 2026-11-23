@@ -16,6 +16,7 @@ from pathlib import Path
 from .local_review import ReviewError
 from .review_records import CONTEST, MARKER, RecordError, contests, identity, intact, parse_record
 from .worker import plan, timestamp
+from .worker_checks import NEEDS_REFRESH
 from .worker_cli import survey
 
 SCHEMA = "sphereceti.review-selection/v1"
@@ -31,16 +32,24 @@ def waiting(seconds: int) -> str:
             return f"{seconds // size}{unit}"
 
 
-def readiness(pr) -> str:
-    """Why the planner does not offer this PR for review assessment."""
+def readiness(pr) -> tuple[str, str]:
+    """(code, reason) for a PR the planner does not offer for review assessment.
+
+    Evidence that is merely not current yet (CI pending or unknown, or a trusted build that only
+    needs refreshing on current main) is told apart from a real failure.
+    """
     if pr["state"] != "OPEN":
-        return "not open"
+        return "not_ready", "is not open"
     if pr["mergeable"] == "CONFLICTING":
-        return "not ready (conflicting)"
+        return "not_ready", "is not ready (conflicting)"
     if pr["mergeable"] != "MERGEABLE":
-        return "not ready (mergeability unknown)"
+        return "not_ready", "is not ready (mergeability unknown)"
     review_ci = pr.get("review_ci", pr["ci"])
-    return f"not ready (CI {review_ci})"
+    if review_ci in ("pending", "unknown"):
+        return "awaiting_ci", f"awaits CI ({review_ci})"
+    if pr.get("review_note") == NEEDS_REFRESH:
+        return "awaiting_refresh", NEEDS_REFRESH
+    return "not_ready", f"is not ready (CI {review_ci})"
 
 
 def local_record(storage: Path, repository: str, number: int, head: str, base: str) -> str | None:
@@ -136,7 +145,10 @@ def select(project, policy, prefs, *, api=None, client=None, now=None) -> dict:
     skipped, candidates = [], []
 
     def skip(pr, code, reason):
-        skipped.append({"pr": pr["number"], "head": pr["head"], "code": code, "reason": reason})
+        # An informational readiness note (e.g. an older trusted build) never makes a PR not ready.
+        note = pr.get("review_note") if code != "awaiting_refresh" else None
+        skipped.append({"pr": pr["number"], "head": pr["head"], "code": code,
+                        "reason": reason + (f" ({note})" if note else ""), "note": note})
 
     # The planner's order is the priority: stage, then oldest updatedAt, then PR number.
     order = [c["pr"] for c in planned["candidates"] if "pr" in c]
@@ -148,7 +160,7 @@ def select(project, policy, prefs, *, api=None, client=None, now=None) -> dict:
         elif pr["draft"]:
             skip(pr, "draft", "is a draft")
         elif number not in ready:
-            skip(pr, "not_ready", "is " + readiness(pr))
+            skip(pr, *readiness(pr))
         else:
             state = review_state(client, project.repository, pr, actor, policy, storage)
             if state:
@@ -158,14 +170,25 @@ def select(project, policy, prefs, *, api=None, client=None, now=None) -> dict:
                 candidates.append({"pr": number, "title": pr["title"], "author": pr["author"],
                                    "head": pr["head"], "base": pr["base"], "updated_at": pr["updated_at"],
                                    "waiting_seconds": seconds, "ci": pr["ci"],
-                                   "review_ci": pr.get("review_ci", pr["ci"])})
+                                   "review_ci": pr.get("review_ci", pr["ci"]),
+                                   "note": pr.get("review_note")})
     skipped.sort(key=lambda item: -item["pr"])  # Display order only: newest PR first.
     selected = candidates[0] if candidates else None
-    return {"schema": SCHEMA, "state": "selected" if selected else "nothing_to_review",
+    main = None
+    if any(item["code"] == "awaiting_refresh" for item in skipped):
+        try:
+            main = client.call(f"repos/{project.repository}/commits/{project.default_branch}").get("sha")
+        except (RecordError, KeyError, AttributeError):
+            main = None  # informational only
+    return {"schema": SCHEMA, "main": main, "state": "selected" if selected else "nothing_to_review",
             "repository": project.repository, "actor": actor, "observed_at": snapshot["observed_at"],
             "priority": PRIORITY, "waiting_since": "updatedAt",
             "selected": selected, "candidates": candidates, "skipped": skipped,
             "rationale": None, "posting": None, "review": None}
+
+
+def count(items, verb) -> str:
+    return f"{len(items)} open PR {verb}s" if len(items) == 1 else f"{len(items)} open PRs {verb}"
 
 
 def intent(args) -> str:
@@ -179,12 +202,31 @@ def intent(args) -> str:
 def rationale(selection, *, dry_run=False, posting=None) -> str:
     s = selection["selected"]
     if s is None:
-        if not selection["skipped"]:
+        skipped = selection["skipped"]
+        if not skipped:
             return "No PRs need your review: the open queue is empty."
-        return "No PRs need your review: " + "; ".join(
-            f"#{item['pr']} {item['reason']}" for item in selection["skipped"]) + "."
+        refresh = [i for i in skipped if i["code"] == "awaiting_refresh"]
+        pending = [i for i in skipped if i["code"] == "awaiting_ci"]
+        if not refresh and not pending:
+            return "No PRs need your review: " + "; ".join(f"#{i['pr']} {i['reason']}" for i in skipped) + "."
+        # Stale or pending evidence is summarized; real failures and other reasons stay listed.
+        main = selection.get("main")
+        parts = []
+        if refresh:
+            parts.append(f"{count(refresh, 'await')} a refreshed trusted build" +
+                         (f" (main moved to {main[:7]})" if main else ""))
+        if pending:
+            parts.append(f"{count(pending, 'await')} CI")
+        yours = [i for i in skipped if i["code"] == "yours"]
+        if yours:
+            parts.append(f"{len(yours)} {'is' if len(yours) == 1 else 'are'} yours")
+        parts += [f"#{i['pr']} {i['reason']}" for i in skipped
+                  if i["code"] not in ("awaiting_refresh", "awaiting_ci", "yours")]
+        return "No PR is ready with current evidence: " + "; ".join(parts) + "."
     verb = "Previewing" if dry_run else "Reviewing"
     ready = "ready" if s["ci"] == s["review_ci"] else "ready (human-review scope)"
+    if s.get("note"):
+        ready = ready[:-1] + f"; {s['note']})" if ready.endswith(")") else f"ready ({s['note']})"
     return (f"{verb} #{s['pr']} (head {s['head'][:7]}): {ready}, not yours, no current review; "
             f"waiting {waiting(s['waiting_seconds'])}" + (f"; {posting}." if posting else "."))
 

@@ -9,8 +9,9 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools' / 'project'))
 from sphereceti.worker import WorkerError
-from sphereceti.worker_checks import HUMAN_SCOPE
-from sphereceti.worker_cli import ci_summary, review_ci_summary, survey
+from sphereceti.merge_checks import assess_checks, parse_checks
+from sphereceti.worker_checks import HUMAN_SCOPE, NEEDS_REFRESH, PREDATES_MAIN
+from sphereceti.worker_cli import ci_summary, review_ci_summary, review_readiness, survey
 from test_worker import FakeAPI, PROJECT, gh_pr
 
 
@@ -66,7 +67,8 @@ class WorkerCheckTests(unittest.TestCase):
         api = FakeAPI([{'login': 'alice'}, raw, *responses])
         with patch('sphereceti.config.resource_text', return_value=POLICY):
             result = survey(PROJECT, (1,), api=api)
-        self.assertEqual(result['schema'], 'sphereceti.worker-survey/v2')
+        self.assertEqual(result['schema'], 'sphereceti.worker-survey/v3')
+        self.assertIsNone(result['pull_requests'][0]['review_note'])
         self.assertEqual(result['pull_requests'][0]['ci'], 'failed')
         self.assertEqual(result['pull_requests'][0]['review_ci'], 'passed')
 
@@ -156,6 +158,8 @@ class WorkerCheckTests(unittest.TestCase):
                 ('run attempt', lambda r: r[2].update(run_attempt=2))):
             changed = json.loads(json.dumps(responses))
             mutate(changed)
+            if label == 'approved main moved':  # to a commit that does not contain the run's tooling
+                changed.append({'status': 'diverged', 'merge_base_commit': {'sha': 'e'*40}})
             with self.subTest(wrong=label):
                 self.assertEqual(self.readiness(raw, changed)[0], 'failed')
 
@@ -170,6 +174,7 @@ class WorkerCheckTests(unittest.TestCase):
         stale = json.loads(json.dumps(responses))
         stale[0][0]['description'] = f'Approved tooling build: success; tooling {old_tooling}'
         self.assertEqual(stale[2]['pull_requests'][0]['base']['sha'], stale[1]['sha'])
+        stale.append(WorkerError('GitHub survey failed'))  # compare: a SHA unknown to the repository
         self.assertEqual(self.readiness(raw, stale)[0], 'failed')
         for description in ('Approved tooling build: success', '', 'Approved tooling build: success; tooling ',
                             f"Approved tooling build: success; tooling {'b'*39}"):
@@ -185,11 +190,40 @@ class WorkerCheckTests(unittest.TestCase):
         responses[2]['head_sha'] = responses[1]['sha']
         self.assertEqual(self.readiness(raw, responses)[0], 'failed')
 
-    def test_stale_pr_base_needs_a_fresh_trusted_run(self):
-        # main has advanced past the PR's base: the run used older tooling and must be refreshed.
+    def test_older_approved_main_tooling_is_review_ready_but_merge_stays_strict(self):
+        # main has advanced past the PR's base and the run's attested tooling (both b...).
+        main = 'e'*40
+        for status, base, expected in (('ahead', 'b'*40, 'passed'),        # an approved ancestor
+                                       ('identical', 'b'*40, 'passed'),
+                                       ('diverged', 'b'*40, 'failed'),     # not an ancestor of main
+                                       ('ahead', 'f'*40, 'failed')):       # merge base is another commit
+            raw, responses = evidence()
+            responses[1] = {'sha': main}
+            responses.append({'status': status, 'merge_base_commit': {'sha': base}})
+            with self.subTest(status=status, base=base):
+                self.assertEqual(self.readiness(raw, responses)[0], expected)
         raw, responses = evidence()
-        responses[1] = {'sha': 'e'*40}
-        self.assertEqual(self.readiness(raw, responses)[0], 'failed')
+        responses[1] = {'sha': main}
+        responses.append({'status': 'ahead', 'merge_base_commit': {'sha': 'b'*40}})
+        api = FakeAPI(responses)
+        with patch('sphereceti.config.resource_text', return_value=POLICY):
+            self.assertEqual(review_readiness(raw, PROJECT, api), ('passed', PREDATES_MAIN))
+        # One compare serves both the tooling and the base, which are the same older main commit.
+        self.assertEqual(sum('/compare/' in c[-1] for c in api.calls), 1)
+        self.assertEqual(api.calls[-1][-1], f'repos/{PROJECT.repository}/compare/{"b"*40}...{main}')
+        # The merge side keeps exact current evidence: the same run is refused for merging.
+        statuses, _, run, jobs = evidence()[1]
+        context = {'repository': PROJECT.repository, 'pr': 1, 'head': 'a'*40, 'base': 'b'*40, 'tooling': main}
+        reasons = assess_checks(statuses, run, jobs['jobs'], context, parse_checks(POLICY))['reasons']
+        self.assertIn('trusted-build ran with tooling other than approved main; refresh the trusted run', reasons)
+        self.assertIn('PR base is not approved main; update the PR and refresh the trusted run', reasons)
+
+    def test_unattested_build_awaits_a_refresh_and_stays_not_ready(self):
+        raw, responses = evidence()
+        responses[0][0]['description'] = 'Approved tooling build: success'
+        api = FakeAPI(responses)
+        with patch('sphereceti.config.resource_text', return_value=POLICY):
+            self.assertEqual(review_readiness(raw, PROJECT, api), ('failed', NEEDS_REFRESH))
 
     def test_exact_workflow_attempt_head_base_and_jobs_are_required(self):
         for change in ({'path': '.github/workflows/other.yml'}, {'workflow_id': 72},

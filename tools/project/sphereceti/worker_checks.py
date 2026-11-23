@@ -3,19 +3,53 @@
 
 The shared merge assessor remains authoritative for its existing provenance checks.
 Its unsuccessful scope verdict is retained, never rewritten into a passing merge check.
+
+Review readiness alone tolerates a trusted run that predates current main: its attested tooling
+and the PR's recorded base need only be approved main commits (equal to or ancestors of current
+main). A review runs with current tooling T and binds T itself, so the trusted run's tooling does
+not change the review's authority. The merge side (merge_checks, auto_approval) still requires
+both to equal current main.
 """
 from urllib.parse import quote
 
-from .merge_checks import assess_checks, latest_statuses, run_reference
+from .merge_checks import TOOLING_ATTESTATION, assess_checks, latest_statuses, run_reference
 from .review_records import RecordError
 from .worker import WorkerError, commit, require
 
 
 HUMAN_SCOPE = "Scope: human_review; no merge authorization"
+SCOPE_FAILURE = 'trusted-scope is not successful'
+STALE_TOOLING = 'trusted-build ran with tooling other than approved main; refresh the trusted run'
+STALE_BASE = 'PR base is not approved main; update the PR and refresh the trusted run'
+PREDATES_MAIN = 'trusted build predates main; refresh to merge'
+NEEDS_REFRESH = 'awaits a refreshed trusted build'
+# Failures that a fresh trusted run on current main resolves, not defects in the PR.
+REFRESHABLE = {'trusted-build does not attest its tooling commit; refresh the trusted run'}
+
+
+def approved_main(read, prefix, revision, current, cache):
+    """Is `revision` current main or one of its ancestors? Unknown or unreadable means no."""
+    if revision == current:
+        return True
+    key = (revision, current)
+    if key not in cache:
+        try:
+            value = read(f'{prefix}/compare/{revision}...{current}')
+            cache[key] = (isinstance(value, dict) and value.get('status') in ('ahead', 'identical') and
+                          (value.get('merge_base_commit') or {}).get('sha') == revision)
+        except WorkerError:
+            cache[key] = False  # e.g. 404 for a SHA unknown to the repository
+    return cache[key]
 
 
 def human_review_scope(api, project, pr, scope_check, settings):
-    """Bounded GETs; unconfigured producers cannot receive the exception."""
+    """Bounded GETs; unconfigured producers cannot receive the exception.
+
+    Returns False (not review-ready); {'accepted': True, 'note': None} for a run on current main;
+    {'accepted': True, 'note': PREDATES_MAIN} for a run on the same head whose attested tooling and
+    recorded base are older approved main commits; or {'accepted': False, 'note': NEEDS_REFRESH}
+    when only a fresh trusted run is missing (an informational scheduling category).
+    """
     if not settings['workflow_id'] or not settings['status_creator_ids']:
         return False
     head = commit(pr.get('headRefOid'), 'worker scope head')
@@ -58,7 +92,26 @@ def human_review_scope(api, project, pr, scope_check, settings):
                 len({j['id'] for j in jobs}) == len(jobs), 'invalid or duplicate worker jobs')
         context = {'repository': project.repository, 'pr': pr['number'], 'head': head,
                    'base': base, 'tooling': tooling}
-        verdict = assess_checks(statuses, run, jobs, context, settings)
-        return verdict['reasons'] == ['trusted-scope is not successful']
+        reasons = assess_checks(statuses, run, jobs, context, settings)['reasons']
+        if SCOPE_FAILURE not in reasons:
+            return False
+        cache = api.__dict__.setdefault('_approved_main', {}) if hasattr(api, '__dict__') else {}
+        remaining, tolerated = set(reasons) - {SCOPE_FAILURE}, False
+        if STALE_TOOLING in remaining:
+            attested = TOOLING_ATTESTATION.fullmatch(latest['trusted-build'].get('description') or '')
+            if attested is None or not approved_main(read, prefix, attested.group(1), tooling, cache):
+                return False
+            remaining.discard(STALE_TOOLING)
+            tolerated = True
+        if STALE_BASE in remaining:
+            if not approved_main(read, prefix, base, tooling, cache):
+                return False
+            remaining.discard(STALE_BASE)
+            tolerated = True
+        if not remaining:
+            return {'accepted': True, 'note': PREDATES_MAIN if tolerated else None}
+        if remaining <= REFRESHABLE:
+            return {'accepted': False, 'note': NEEDS_REFRESH}
+        return False
     except (RecordError, ValueError, TypeError, KeyError, AttributeError) as error:
         raise WorkerError('incomplete worker scope provenance') from error

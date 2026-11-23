@@ -108,32 +108,40 @@ def main_only_skip(check) -> bool:
 
 def review_ci_summary(pr, project, api, *, aggregate=None) -> str:
     """Preserve aggregate CI; only an authenticated scope failure is review-ready."""
+    return review_readiness(pr, project, api, aggregate=aggregate)[0]
+
+
+def review_readiness(pr, project, api, *, aggregate=None):
+    """(review CI, informational note); the note never makes a PR more or less ready."""
     checks = pr['statusCheckRollup']
     if aggregate is None:
         aggregate = ci_summary(checks)
     if aggregate != 'failed' or len(checks) >= 100:
-        return aggregate
+        return aggregate, None
     scope = [c for c in checks if c.get('__typename') == 'StatusContext' and
              c.get('context') == 'trusted-scope' and c.get('state') == 'FAILURE']
     others = [c for c in checks if not (scope and c is scope[0]) and not main_only_skip(c)]
     if len(scope) != 1 or ci_summary(others) != 'passed':
-        return aggregate
+        return aggregate, None
     from .config import resource_text
     from .merge_checks import parse_checks
     from .worker_checks import human_review_scope
     settings = parse_checks(resource_text('merge-checks.toml'))
-    return 'passed' if human_review_scope(api, project, pr, scope[0], settings) else aggregate
+    verdict = human_review_scope(api, project, pr, scope[0], settings)
+    if not verdict:
+        return aggregate, None
+    return ('passed' if verdict['accepted'] else aggregate), verdict['note']
 
 
 def normalize(pr, project, api) -> dict:
     require(isinstance(pr, dict) and set(pr) == set(PR_FIELDS.split(",")), "incomplete PR observation")
     require(isinstance(pr["author"], dict), "missing PR author")
     aggregate = ci_summary(pr["statusCheckRollup"])
+    review_ci, note = review_readiness(pr, project, api, aggregate=aggregate)
     return {"number": pr["number"], "title": pr["title"], "author": pr["author"].get("login"),
             "head": pr["headRefOid"], "base": pr["baseRefOid"], "updated_at": pr["updatedAt"],
             "state": pr["state"], "draft": pr["isDraft"], "mergeable": pr["mergeable"],
-            "ci": aggregate,
-            "review_ci": review_ci_summary(pr, project, api, aggregate=aggregate)}
+            "ci": aggregate, "review_ci": review_ci, "review_note": note}
 
 
 def survey(project, requested=None, *, api=None) -> dict:
@@ -148,7 +156,7 @@ def survey(project, requested=None, *, api=None) -> dict:
                 "open queue exceeds 100 PRs or is incomplete; use explicit --pr targeting")
     else:
         raw = [api.read(["pr", "view", str(number), *repo_args]) for number in requested]
-    result = {"schema": "sphereceti.worker-survey/v2", "repository": project.repository,
+    result = {"schema": "sphereceti.worker-survey/v3", "repository": project.repository,
               "actor": actor, "observed_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
               "scope": list(requested) if requested is not None else None,
               "pull_requests": [normalize(pr, project, api) for pr in raw]}
@@ -222,7 +230,8 @@ def render(report) -> str:
         return f"SphereCeti worker: {len(report['rounds'])} round(s), stopped: {report['state']}."
     if report["schema"] == "sphereceti.worker-round/v1":
         return f"SphereCeti worker: {report['state']}. " + report.get('reason', 'See --json for the round receipt.')
-    if report["schema"] in ("sphereceti.worker-survey/v1", "sphereceti.worker-survey/v2"):
+    if report["schema"] in ("sphereceti.worker-survey/v1", "sphereceti.worker-survey/v2",
+                            "sphereceti.worker-survey/v3"):
         return (f"Observed {len(report['pull_requests'])} PR(s) in {report['repository']} "
                 f"as {report['actor']}. Use --json to save the survey.")
     lines = [f"SphereCeti worker: advisory plan for {report['repository']}"]
