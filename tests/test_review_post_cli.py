@@ -1,5 +1,6 @@
 """CLI publication/inspection integration, using fake providers and a fake GitHub executable."""
 import json
+import subprocess
 from pathlib import Path
 import tempfile
 import unittest
@@ -16,13 +17,55 @@ class PostingCLITests(unittest.TestCase):
     def test_explicit_post_and_provider_free_record_inspection(self):
         installed_post_smoke(None,self.root)
 
-    def test_default_review_never_writes_to_github(self):
+    def test_default_review_posts_its_record(self):
         f=PostingFixture(self.root)
         r=f.run()
         self.assertEqual(r.returncode,0,r.stderr)
+        report=json.loads(r.stdout)
+        self.assertEqual(report['publication']['state'],'confirmed')
+        self.assertTrue(report['publication']['authorized'])
+        self.assertEqual(len(f.api()['comments']),1)
+        self.assertEqual(sum(c[1:]==['--method','POST','--input','-'] for c in f.api()['calls']),1)
+        text=f.run(output='text',extra=('--no-post',))
+        self.assertEqual(text.returncode,0,text.stderr)
+
+    def test_default_text_output_names_the_comment(self):
+        f=PostingFixture(self.root)
+        command=[a for a in f.command() if a!='--json']
+        r=subprocess.run(command,cwd=f.foreign,env=f.env,capture_output=True,text=True,timeout=120)
+        self.assertEqual(r.returncode,0,r.stderr)
+        self.assertIn('Posted: https://github.com/thefundamentaltheor3m/SphereCeti/pull/1#issuecomment-100 '
+                      '(authorized reviewer).',r.stdout.splitlines())
+
+    def test_no_post_and_dry_run_never_write_to_github(self):
+        f=PostingFixture(self.root)
+        for output,extra in (('result',('--no-post',)),('dry',('--dry-run',))):
+            r=f.run(output=output,extra=extra)
+            self.assertEqual(r.returncode,0,r.stderr)
+            self.assertNotIn('publication',json.loads(r.stdout))
         self.assertEqual(f.api()['comments'],[])
         self.assertFalse(any('POST' in c for c in f.api()['calls']))
         self.assertTrue((self.root/'result/record.json').is_file())
+        self.assertEqual(len(f.calls()),10)
+
+    def test_post_and_no_post_together_is_a_usage_error(self):
+        f=PostingFixture(self.root)
+        r=f.run(extra=('--post','--no-post'))
+        self.assertEqual(r.returncode,2)
+        self.assertIn('not allowed with argument',r.stderr)
+        self.assertEqual(f.api()['calls'],[])
+        self.assertFalse(f.calls())
+
+    def test_policy_disabled_default_keeps_the_record_local(self):
+        f=PostingFixture(self.root,posting=False)
+        r=f.run()
+        self.assertEqual(r.returncode,0,r.stderr)
+        report=json.loads(r.stdout)
+        self.assertEqual(report['not_posted'],'posting is disabled by approved repository policy')
+        self.assertNotIn('publication',report)
+        self.assertEqual(len(f.calls()),10)
+        self.assertEqual(f.api()['comments'],[])
+        self.assertFalse(any('POST' in c for c in f.api()['calls']))
 
     def test_approved_policy_blocks_post_before_provider_spend(self):
         f=PostingFixture(self.root,posting=False)

@@ -6,8 +6,9 @@ The `sphereceti` command supplies project diagnostics and the adapters credited 
 | Command | Guide |
 |---|---|
 | `doctor`, `status` | Project identity, policy and queue diagnostics (below) |
-| `review` | [Local advisory review](local-review.md) |
-| `review --read-records / --post` | [Authenticated records and explicit publication](review-records.md) |
+| `review` | [Choose the PR that most needs your review](local-review.md#choosing-what-to-review) |
+| `review N` | [Local review, posted by default](local-review.md#posting-by-default) |
+| `review --read-records / --no-post` | [Authenticated records and publication](review-records.md) |
 | `review-check-sandbox` | [Credential-free Codex sandbox diagnostic](local-review.md#codex-sandbox-diagnostic) |
 | `archive` | [Durable review records](review-archive.md) |
 | `worker plan` | [Worker planning](worker.md) |
@@ -51,7 +52,8 @@ means diagnostics succeeded, not that automation is ready. App installation, req
 branch protections, and the production adapter are explicitly unverified. Activation requires verified live configuration. The profile proposes the installed roadmap state; authoritative execution still requires
 that profile and the source revision to be approved on the canonical branch. Capability diagnostics separate implementation, requested policy, and readiness.
 `enabled = false` means diagnostics have not verified activation; it does not prove a live off switch.
-The shipped policy requests no automation. Explicit posting requires approved live policy.
+Review posting (the default for a live `review`) requires approved live policy; without it the
+record stays local.
 `local_review` separately reports the available advisory adapter.
 
 The installed package includes these configuration resources:
@@ -83,8 +85,10 @@ storage = "~/.local/state/sphereceti"
 
 Preferences cannot change repository identity, source selection, authorization, or automation
 switches. Diagnostics only validate/report them. Explicit `review` uses private storage;
-local subscription reviews read `~/.config/sphereceti/operator.toml` when no `--operator-config` is supplied. Inference requires a selected provider and positive budget. `review N --dry-run` verifies
-the exact evidence without invoking a provider. See [local review usage and limits](local-review.md).
+local subscription reviews (bare `review` and `review N`, posting or not) read
+`~/.config/sphereceti/operator.toml` when no `--operator-config` is supplied. Inference requires
+a selected provider and positive budget. `review N --dry-run` verifies the exact evidence without
+invoking a provider; bare `review --dry-run` also previews which PR it would choose. See [local review usage and limits](local-review.md).
 Unknown fields, floating source commits, traversal paths, and unsupported schema versions fail.
 A source-lock component cannot move from planned to adapted/imported while its reuse terms
 remain unresolved. The Worker entry is now `reference-only`: its source import was cancelled in favor of an
