@@ -299,6 +299,22 @@ closure-continuity hypotheses separately.
 - [ ] **Fallback:** the local SphereCeti declarations.
 - [ ] **Upstream test:** no project import remains in a minimal reproduction.
 
+### A20. Coordinate boxes in Euclidean space and their boundary layers
+
+- [ ] **Destination:** TauCeti `TauCeti/MeasureTheory/Measure/Haar/EuclideanSpace.lean`, beside the
+  cube measures `EuclideanSpace.measure_preimage_ofLp_closedBall`.
+- [ ] **Current source:** `SphereCeti/MeasureTheory/Measure/Haar/EuclideanSpace.lean`.
+- [ ] **Candidate declarations:** the centered coordinate box `EuclideanSpace.centeredBox ι R` and
+  its boundary layer `EuclideanSpace.boxBoundaryLayer ι R t`, their membership and measurability
+  lemmas, `volume_centeredBox` (`ENNReal.ofReal (2R) ^ card ι`), `volume_boxBoundaryLayer`, and
+  `boundaryLayer_volume_div_volume_tendsto_zero`: a boundary layer of fixed thickness is negligible
+  compared with the box as `R → ∞`.
+- [ ] **Why general:** the statements are Euclidean measure theory of coordinate boxes; nothing
+  refers to packings.
+- [ ] **SphereCeti use:** the periodic approximation of sphere packings (MIGRATION D5, Layer 3).
+- [ ] **Fallback:** the local declarations in the `EuclideanSpace` namespace.
+- [ ] **Upstream test:** no project import remains in a minimal reproduction.
+
 ## B. TauCeti IntegralLattices roadmap extensions
 
 These are general algebraic lattice results.  Their sphere-packing consequences remain in

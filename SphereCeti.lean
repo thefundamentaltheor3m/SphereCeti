@@ -8,7 +8,7 @@ module
 
 public import SphereCeti.Analysis.ExactZeroOrder
 public import SphereCeti.Basic
-public import SphereCeti.Periodic.Box
+public import SphereCeti.MeasureTheory.Measure.Haar.EuclideanSpace
 
 /-!
 # SphereCeti library
