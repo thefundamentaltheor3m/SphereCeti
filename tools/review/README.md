@@ -43,8 +43,9 @@ the 8cb4374 bytes. #196's inspection-failure narrowing is not ported: it amends 
 from TauCetiReview #193 that this import does not contain. Its REVIEWING.md text and the
 `tauceti-review-check-sandbox` console script are replaced by `sphereceti review-check-sandbox`.
 `tests/test_token_accounting.py` is the 7f1d288 bytes. #172 also moved the default Codex model
-to `gpt-6.1-sol`; SphereCeti keeps the `gpt-5.6-sol` default and its Terra fallback, and selects
-Sol61 explicitly with `--codex-model`. The price table and tests omit the `claude-opus-5-5` and
+to `gpt-6.1-sol`. SphereCeti's contributor CLI selects Sol61 by default through `--codex-model`.
+The imported engine retains its `gpt-5.6-sol` default and Terra fallback for unpinned workers.
+The price table and tests omit the `claude-opus-5-5` and
 `claude-fable-5-1` rows, which come from other upstream changes. TauCetiReview #174's
 inherited rates are not ported, so an unpriced model is still rejected before inference.
 

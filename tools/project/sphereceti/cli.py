@@ -56,7 +56,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--version", action="version", version=__version__)
     commands = parser.add_subparsers(dest="command", required=True)
-    from .local_review import add_parser, run_review, ReviewError
+    from .local_review import add_parser, posting_note, resolve_posting, run_review, ReviewError
     from .gate import GateError
     from .review_records import RecordError
     add_parser(commands)
@@ -74,6 +74,8 @@ def main(argv: list[str] | None = None) -> int:
     add_progress_parser(commands)
     from .merge_observation import add_parser as add_observer, observe
     add_observer(commands)
+    from .auto_approval import add_parser as add_auto_approval, auto_approval, render as render_auto_approval
+    add_auto_approval(commands)
     from .merge_controller import add_parser as add_controller, run as run_controller
     add_controller(commands)
     from .lifecycle_api import add_parser as add_maintenance, run as run_maintenance
@@ -92,6 +94,8 @@ def main(argv: list[str] | None = None) -> int:
         sub.add_argument("--offline", action="store_true", help="do not query GitHub; queue remains unknown")
         sub.add_argument("--operator-config", type=Path, help="preferences only; cannot override repository policy")
     args = parser.parse_args(argv)
+    if args.command == "review":
+        resolve_posting(args)
     if args.command in ('profile-plan', 'profile-run'):
         from .profiling import plan
         from .profile_runner import run
@@ -114,7 +118,7 @@ def main(argv: list[str] | None = None) -> int:
         sources = parse_source_lock(resource_text("upstream-lock.toml"))
         operator_path = getattr(args, "operator_config", None)
         if (operator_path is None and args.command == "review" and args.auth == "subscription"
-                and not args.post and not args.shadow):
+                and not args.shadow):
             default_path = Path.home() / ".config/sphereceti/operator.toml"
             if default_path.is_file():
                 operator_path = default_path
@@ -168,6 +172,17 @@ def main(argv: list[str] | None = None) -> int:
               f"PR #{args.pr}: {report['eligibility']}; " + '; '.join(report['reasons']) + '\nObservation only; merging is disabled.')
         return 0
 
+    if args.command == "auto-approve-check":
+        try:
+            report = auto_approval(args, project)
+        except (RecordError, ReviewError, GateError, ConfigError, OSError, ValueError, KeyError,
+                TypeError, subprocess.SubprocessError) as error:
+            reason = str(error) if isinstance(error, (RecordError, ConfigError, ReviewError)) else 'incomplete or unavailable decision evidence'
+            parser.exit(2, f"sphereceti auto-approve-check: {reason}\n")
+        # A computed decision exits 0 either way; JSON escaping keeps candidate text inert.
+        print(json.dumps(report, indent=2) if args.json else render_auto_approval(report))
+        return 0
+
     if args.command == "review-check-sandbox":
         try:
             report = check_sandbox(args, project, preferences)
@@ -177,6 +192,23 @@ def main(argv: list[str] | None = None) -> int:
         # JSON escaping keeps launcher stderr from becoming terminal or workflow commands.
         print(json.dumps(report, indent=2))
         return 0 if report["ok"] else 1
+
+    if args.command == "review" and args.pr is None:
+        from .review_select import render as render_selection, run_bare
+        try:
+            selection = run_bare(args, project, policy, preferences,
+                                 announce=None if args.json else lambda line: print(line, flush=True))
+        except (WorkerError, ReviewError, RecordError, GateError, ConfigError, OSError, ValueError,
+                KeyError, TypeError, subprocess.SubprocessError) as error:
+            reason = (str(error) if isinstance(error, (WorkerError, ReviewError, RecordError, ConfigError)) else
+                      f"queue or source operation failed ({type(error).__name__}); nothing was selected")
+            parser.exit(2, f"sphereceti review: {reason}\n")
+        if args.json:
+            print(json.dumps(selection, indent=2))
+        elif selection["review"] is not None:
+            print("\n".join(render_selection(selection, args)))
+        review = selection["review"]
+        return 1 if review is not None and review["completion"] == "error" else 0
 
     if args.command == "review":
         try:
@@ -198,9 +230,8 @@ def main(argv: list[str] | None = None) -> int:
             if "review_safe" in report:
                 print("Authorized review evidence: " + ("current and approving" if report["review_safe"] else
                       "; ".join(report["reasons"])))
-            if "publication" in report:
-                posted = report["publication"]
-                print(f"Published comment {posted['comment_id']}; API identity: {posted['identity']}; authorized: {posted['authorized']}")
+            if not args.read_records:
+                print(posting_note(args, report))
         return 1 if report["completion"] == "error" else 0
 
     if args.command == "worker":
@@ -240,6 +271,7 @@ def main(argv: list[str] | None = None) -> int:
         "progress": {"implemented": True, "local_drafts": True, "publishing": False,
                      "production_evidence": "not_configured"},
         "merge_observation": {"implemented": True, "read_only": True, "activation_verified": False},
+        "auto_approval_decision": {"implemented": True, "read_only": True, "approving": False},
         "merge_controller": {"implemented": True, "enabled": False,
                              "policy_requested": policy.merging, "readiness": "unverified",
                              "activation_verified": False},
