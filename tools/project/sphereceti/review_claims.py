@@ -29,7 +29,7 @@ from .worker_leases import stamp, utcnow
 MARKER = "<!--sphereceti-review-claim:v1 "
 TTL = RUN_TIMEOUT          # one claim covers the review's whole-run deadline (30 minutes)
 SLACK = 60                 # tolerated clock difference between a client and GitHub, in seconds
-STATES = ("in_progress", "finished", "abandoned", "yielded")
+STATES = ("in_progress", "finished", "abandoned", "yielded", "paused")  # only in_progress is live
 FIELDS = {"repository", "pr", "head", "base", "actor", "login", "claim", "started_at", "expires_at",
           "state", "detail"}
 NOTE = "Advisory coordination between contributors; it grants no review or merge authority."
@@ -52,12 +52,15 @@ def clock(value: str) -> str:
 
 
 def render(data, usage="") -> str:
-    who, head = f"@{data['login']}", data["head"][:7]
-    text = {"in_progress": f"SphereCeti review in progress by {who} on head {head} "
-                           f"(started {clock(data['started_at'])}, expires {clock(data['expires_at'])}).",
-            "finished": f"SphereCeti review by {who} on head {head} finished: {data['detail']}",
-            "abandoned": f"SphereCeti review by {who} on head {head} abandoned ({data['detail']}).",
-            "yielded": f"SphereCeti review by {who} on head {head} yielded to @{data['detail']}."}[data["state"]]
+    # Logins are code, not @-mentions: a mention in an edited claim would notify the other reviewer
+    # (yielded) for nothing, and mentioning yourself is noise.
+    who, head = f"`{data['login']}`", data["head"][:7]
+    text = {"in_progress": f"Reviewing {head} now · {who} "
+                           f"(started {clock(data['started_at'])}, expires {clock(data['expires_at'])})",
+            "finished": f"Review of {head} by {who} finished: {data['detail']}",
+            "abandoned": f"Review of {head} by {who} abandoned ({data['detail']}).",
+            "yielded": f"Review of {head} by {who} yielded to `{data['detail']}`.",
+            "paused": f"Review paused · {data['detail']}"}[data["state"]]
     marker = MARKER + json.dumps(data, sort_keys=True, separators=(",", ":")) + "-->"
     return "\n".join([marker, text, *([usage] if usage else []), "", NOTE])
 
@@ -92,6 +95,19 @@ def final_usage(result, planned):
     if estimate != "unavailable" and (result.get("evaluation_request") or {}).get("auth") == "subscription":
         estimate += " (subscription list-price equivalent)"
     return f"{model_text} · Estimated usage cost: {estimate}"
+
+
+def first_rubric_fits(args, prefs, repository) -> bool:
+    """The engine's own check before each rubric: today's spend plus one reservation within budget."""
+    budget = args.budget_usd if getattr(args, "budget_usd", None) is not None else prefs.budget_usd
+    reserve = getattr(args, "max_call_cost", 1.0)
+    ledger = (Path(prefs.storage).expanduser().resolve() / repository.replace("/", "__")
+              / "engine" / "ledger.json")
+    try:
+        spent = float(json.loads(ledger.read_text())["days"].get(utcnow().strftime("%Y-%m-%d"), 0.0))
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        spent = 0.0
+    return not spent + reserve > budget
 
 
 def parse(comment, repository, pr):
@@ -158,7 +174,9 @@ class ReviewClaim:
     def guard(self, args, report, policy, client):
         if self.expect and (report["head"] != self.expect["head"] or report["base"] != self.expect["base"]):
             raise ReviewError(f"PR #{report['pr']} changed since it was selected; run `sphereceti review` again")
-        if args.post:
+        if args.post and not first_rubric_fits(args, self.prefs, report["repository"]):
+            pass  # The engine will stop before its first rubric: the PR stays silent, no claim.
+        elif args.post:
             planned = plan(args, self.prefs, report)
             self.models = "Selected model: " + ", ".join(
                 f"{p}/{m}" for p, m in zip(planned["providers"], planned["models"]))
@@ -255,6 +273,11 @@ class ReviewClaim:
                 f"#issuecomment-{posted['comment_id']}" if posted.get("state") == "confirmed" else None)
         if link and result.get("completion") == "complete" and not result.get("stop_reason"):
             return self.close("finished", link)
+        if result.get("stop_reason") == "daily_budget":
+            # A budget stop pauses the review: the record stays local and the claim stops being live.
+            done = len(result.get("finished_rubrics") or [])
+            total = len(result.get("requested_rubrics") or [])
+            return self.close("paused", f"{done} of {total} rubrics completed (daily budget reached)")
         reason = result.get("stop_reason") or (f"review {result.get('completion')}"
                                                if result.get("completion") != "complete" else "record not posted")
         return self.close("abandoned", reason + (f"; partial record {link}" if link else ""))

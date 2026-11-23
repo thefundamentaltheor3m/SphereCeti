@@ -49,11 +49,21 @@ class PostingCLITests(unittest.TestCase):
                 if new_calls:
                     self.assertEqual(result['verdicts']['correctness'], 'approve')
                 self.assertNotIn('publication', result)
-                self.assertEqual(f.posts(), 0)
+                self.assertEqual(f.records(), [])
+                # Mid-round, the advisory claim is paused with counts; before the first rubric, none is posted.
+                claims = [c for c in f.api()['comments'] if c['body'].startswith('<!--sphereceti-review-claim:v1 ')]
+                if new_calls:
+                    [claim] = claims
+                    self.assertIn('Review paused · 1 of 10 rubrics completed (daily budget reached)', claim['body'])
+                    self.assertEqual(json.loads(run.stdout)['claim']['state'], 'paused')
+                else:
+                    self.assertEqual(len(claims), 1)  # still only the mid-round run's claim
+                    self.assertNotIn('claim', json.loads(run.stdout))
+                posts = f.posts()
                 retry = f.publish(saved)
                 self.assertNotEqual(retry.returncode, 0)
                 self.assertIn('daily review budget', retry.stdout)
-                self.assertEqual(f.posts(), 0)
+                self.assertEqual(f.posts(), posts)
 
     def test_default_text_output_names_the_comment(self):
         f=PostingFixture(self.root)
