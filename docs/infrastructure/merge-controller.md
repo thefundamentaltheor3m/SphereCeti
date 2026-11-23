@@ -184,8 +184,18 @@ it. `merge-doctor --executor` and every `--apply` therefore verify, in the actua
   The ref, repository and event (`workflow_dispatch` or `schedule`) also match.
 - the live run (`GITHUB_RUN_ID`/`GITHUB_RUN_ATTEMPT`): it is in progress for that path, head and
   repository, and its `workflow_id` equals `policy/merge-controller.toml`.
-- the credential: the token handed to the writer is an installation token (`ghs_`). Another
-  credential is refused and never sent anywhere.
+- the credential, identified by behaviour rather than format. GitHub does not fix the length or
+  character set of installation tokens, and the first probe on `main` refused the real job token
+  under a `ghs_[A-Za-z0-9_]+` pattern. The rule is:
+  - Personal (classic and fine-grained), OAuth, user-to-server and refresh-token prefixes (`ghp_`,
+    `github_pat_`, `gho_`, `ghu_`, `ghr_`) are refused without any request.
+  - Empty, malformed (whitespace, control or non-ASCII characters) and oversized values are refused
+    the same way.
+  - Any other token makes one GET to api.github.com, `installation/repositories`. Only an
+    installation token can call it, and it must list exactly this repository, as the job token
+    does. A refusal, another repository or a wider installation fails.
+  - The ruleset view is read only after this check passes. The token goes nowhere but
+    api.github.com.
 - the token's own view of the effective ruleset: `current_user_can_bypass` must be `"never"`.
   GitHub resolves that value for the token, so nothing is inferred from bypass lists. If GitHub
   omits the field or the token cannot read the ruleset, that is the blocker and merging stays
@@ -200,9 +210,10 @@ GitHub still enforces the formal approval, required checks and up-to-date rule o
 
 The writer receives the token privately; it is removed from the environment before any Git or
 reader child process runs, and its subprocess environment is minimal. It permits only a GET of its
-own ruleset view and the squash-merge PUT with an exact head SHA. It never calls `user`, because an
-installation token has no user. Reads use the same job token through the GET-only reader. No API
-response or error message includes token values.
+own ruleset view, the installation probe and the squash-merge PUT with an exact head SHA. It never
+calls `user`, because an installation token has no user. Reads use the same job token through the
+GET-only reader. No API response or error message includes token values; diagnostics give only the
+token's shape (below).
 
 ### The read-only first run
 
@@ -225,12 +236,25 @@ The first manual run's JSON should show:
 - `executor.context: "github_actions"`, and `executor.run` with the run ID, attempt, path, head
   and **`workflow_id`**. Because policy still has `workflow_id = 0`, `executor.missing` contains
   `workflow_id is not configured; this run reports workflow_id N`; that `N` is the value to record.
-- `executor.token_view`: `"never"` is what activation needs. `"omitted"` (GitHub gave no field for
+- `executor.token`: `installation` and, on refusal, its `reason`. It also has a non-secret
+  `shape`: the first 4 characters, the length, and the character classes present (lowercase,
+  uppercase, digit, underscore, hyphen, period, other ASCII, whitespace, non-ASCII). The token itself
+  never appears. A refusal names that shape in `executor.missing` too.
+- `executor.token_view`: `"never"` is what activation needs. `"not read"` means the credential was
+  refused first. `"omitted"` (GitHub gave no field for
   the installation token) and `"unreadable"` are blockers that keep merging impossible.
   `"always"`, `"pull_requests_only"` or `"exempt"` mean the executor could bypass the ruleset.
 - Any environment or run mismatch, each named with the observed and expected value.
 - `protection`: the same ruleset verification as a local run. `ready: false` with the policy items
   listed in `automatic_path.missing`.
+
+**Observed, not configured:** the first probe, run
+[45238596085](https://github.com/thefundamentaltheor3m/SphereCeti/actions/runs/45238596085)
+(`workflow_dispatch` on `main` at `5db3655`, 2026-11-23), verified the run and reported
+`workflow_id 428151597` for `.github/workflows/merge-controller.yml`. Policy keeps `workflow_id = 0`;
+activation records it. That run refused the job token under the former format check, so
+`token_view` was `"not read"`. The next probe reports the token's shape and, once it is accepted,
+`current_user_can_bypass`.
 
 A local `merge-doctor` (no `--executor`) reports `executor.context: "local"`. It lists every check
 that needs the job token under `requires_job_token`. Under `stand_in` it shows the local token's

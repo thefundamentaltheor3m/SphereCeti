@@ -6,8 +6,9 @@ Authors: SphereCeti contributors
 
 module
 
-public import SphereCeti.Analysis.ExactZeroOrder
 public import SphereCeti.Basic
+public import SphereCeti.Analysis.ExactZeroOrder
+public import SphereCeti.Contour.HalfInfiniteRectangle
 public import SphereCeti.Lattice.IntegralPresentation
 
 /-!
