@@ -9,6 +9,7 @@ module
 public import SphereCeti.Basic
 public import SphereCeti.Lattice.Generated
 public import SphereCeti.Lattice.IntegralPresentation
+public import SphereCeti.Rigidity.Integrality
 
 /-!
 # SphereCeti library
