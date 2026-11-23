@@ -7,7 +7,7 @@ Authors: SphereCeti contributors
 module
 
 public import SphereCeti.Basic
-public import SphereCeti.Contour.FourierReverse
+public import SphereCeti.Analysis.FourierReverse
 
 /-!
 # SphereCeti library

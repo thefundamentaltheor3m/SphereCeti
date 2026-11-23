@@ -13,18 +13,19 @@ public import Mathlib.Analysis.Fourier.Inversion
 
 Let `F` and `G` be integrable functions on a finite-dimensional real inner product space, with `F`
 continuous and even, and let `s` be a scalar with `s ^ 2 = 1`.  If `𝓕 F = s • G`, then
-`𝓕 G = s • F`: Fourier inversion gives `𝓕 (𝓕 F) (ξ) = F (-ξ)`, and `F (-ξ) = F ξ` by evenness.
-Continuity of `F` is needed for the pointwise conclusion, since Fourier inversion recovers an
-integrable function with integrable transform only almost everywhere.
+`𝓕 G = s • F`.  Continuity of `F` is needed for the pointwise conclusion: Fourier inversion
+recovers an integrable function with integrable transform only almost everywhere, and changing
+`F` at one point changes neither `𝓕 F` nor `G`.
 
 The magic functions of dimensions 8 and 24 are assembled from pieces whose Fourier transforms
-are exchanged in pairs up to a sign `s = ±1`; this lemma gives each exchange in the reverse
-direction from the forward one.
+are exchanged in pairs up to a sign `s = ±1`; this gives each exchange in the reverse direction
+from the forward one.  The result is general Fourier analysis, stated in the form intended for
+Mathlib's Fourier inversion API (`UPSTREAM.md`, item A17).
 
 ## Main statements
 
-* `SphereCeti.Contour.fourier_reverse`: `𝓕 F = s • G` implies `𝓕 G = s • F` for `F` continuous
-  and even and `s ^ 2 = 1`.
+* `SphereCeti.fourier_reverse`: `𝓕 F = s • G` implies `𝓕 G = s • F` for `F` continuous and even
+  and `s ^ 2 = 1`.
 -/
 
 public section
@@ -32,7 +33,7 @@ public section
 open MeasureTheory
 open scoped FourierTransform
 
-namespace SphereCeti.Contour
+namespace SphereCeti
 
 variable {V : Type*} [NormedAddCommGroup V] [InnerProductSpace ℝ V] [FiniteDimensional ℝ V]
   [MeasurableSpace V] [BorelSpace V]
@@ -62,4 +63,4 @@ theorem fourier_reverse {s : ℂ} (hs : s ^ 2 = 1) {F G : V → ℂ} (hF : Integ
   simp only [Circle.smul_def, smul_eq_mul]
   ring
 
-end SphereCeti.Contour
+end SphereCeti
