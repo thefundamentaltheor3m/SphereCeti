@@ -41,10 +41,24 @@ Provider-specific isolation limits remain those documented for the [local adapte
 repository/PR, head, integration base, diff base, dependency digest, full tooling revision,
 installed tooling digest, effective engine/rubric/policy digests, review-context and PR-description digests,
 completion, execution mode, ten verdicts, and per-rubric contest watermarks. The content ID
-binds those fields and the exact rendered summaries/findings. Provider prose is escaped so it
-cannot inject another machine marker. Duplicate fields/markers, unknown schemas, bad types,
-and altered rendered bodies are rejected; there is no legacy-table fallback. Oversized
-records fail instead of publishing truncated evidence.
+binds those fields and the exact rendered summaries/findings. Duplicate fields/markers, unknown
+schemas, bad types, and altered rendered bodies are rejected; there is no legacy-table fallback.
+
+The visible body follows the pinned scoreboard's layout (`runner/render.py`): an advisory
+warning when the record cannot qualify, one overall line, then a table with the scoreboard's
+icons (✅ approve, 🟡 changes, ⛔ block, ⚠️ error, ▫️ not run), a rubric link to the pinned upstream
+rubric, the verdict, and the first sentence of the reasoning. Each reviewed rubric then has a
+collapsed `<details>` section with the full reasoning and each finding's location, issue, fix and
+evidence as a list. Provider code and file:line references render as literal inline or fenced
+code, never HTML entities. Prose is escaped so it cannot open HTML, links, mentions, or blocks.
+No provider text can form `<!--`, so it cannot inject another machine marker.
+
+Rendering is deterministic but presentation only. `body_sha256` covers the published text,
+and readers hash that stored text rather than re-rendering it. Records published by an earlier
+renderer therefore remain valid under the same schema; tests keep the #36 and #53 records.
+A comment, including its envelope, stays within 60,000 UTF-8 bytes (GitHub allows 65,536
+characters). An oversized record shortens provider fields deterministically and then omits
+the details. A visible note points to the publisher's local `result.json` for the full text.
 
 A local file is only an attestation proposal. A content hash provides integrity, not identity
 or proof that inference ran. A trusted publisher is responsible for the attestation it posts.
@@ -132,7 +146,8 @@ See [tracking issue #23](https://github.com/thefundamentaltheor3m/SphereCeti/iss
 
 ## Validation
 
-Pure regression tests cover schema/body forgery, API user/App identity, every stale binding,
+Pure regression tests cover the rendered layout, code and HTML escaping, deterministic size
+truncation, earlier published records, schema/body forgery, API user/App identity, every stale binding,
 policy revocation, unapproved tooling, advisory modes, edited records, per-publisher replacement,
 and authenticated contests. Fake-GitHub/fake-provider CLI tests exercise explicit publication,
 read-only inspection, policy denial before inference, and head advancement before POST. Both
