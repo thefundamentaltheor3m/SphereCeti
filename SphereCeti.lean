@@ -9,6 +9,7 @@ module
 public import SphereCeti.Analysis.ExactZeroOrder
 public import SphereCeti.Basic
 public import SphereCeti.ZLattice.CovolumeBound
+public import SphereCeti.ZLattice.CovolumeIndexSqueeze
 
 /-!
 # SphereCeti library
