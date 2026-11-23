@@ -6,6 +6,7 @@ Authors: SphereCeti contributors
 
 module
 
+public import SphereCeti.Analysis.Distribution.SchwartzSpace.FourierPositivity
 public import SphereCeti.Basic
 public import SphereCeti.CohnElkies.Certificate
 
