@@ -351,12 +351,9 @@ closure-continuity hypotheses separately.
   its boundary layer `EuclideanSpace.boxBoundaryLayer ι R t`, their membership and measurability
   lemmas, `volume_centeredBox` (`ENNReal.ofReal (2R) ^ card ι`), `volume_boxBoundaryLayer`, and
   `boundaryLayer_volume_div_volume_tendsto_zero`: a boundary layer of fixed thickness is negligible
-  compared with the box as `R → ∞`.  The periodic repetition
-  `EuclideanSpace.periodicRepetition S c` of a set along `c ℤ^ι`, with
-  `abs_sub_two_mul_le_dist` and `pairwise_le_dist_periodicRepetition`: repeating a `ρ`-separated
-  subset of a translated box of radius `R` with period `2(R + ρ)` keeps it `ρ`-separated.
-- [ ] **Why general:** the statements are Euclidean geometry and measure theory of coordinate
-  boxes; nothing refers to packings.
+  compared with the box as `R → ∞`.
+- [ ] **Why general:** the statements are Euclidean measure theory of coordinate boxes; nothing
+  refers to packings.
 - [ ] **SphereCeti use:** the periodic approximation of sphere packings (MIGRATION D5, Layer 3).
 - [ ] **Fallback:** the local declarations in the `EuclideanSpace` namespace.
 - [ ] **Upstream test:** no project import remains in a minimal reproduction.
