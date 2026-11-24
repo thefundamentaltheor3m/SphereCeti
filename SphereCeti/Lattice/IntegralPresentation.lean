@@ -8,6 +8,7 @@ module
 
 public import TauCeti.Algebra.Module.ZLattice.RationalModel
 public import TauCeti.Algebra.Module.ZLattice.Shell
+public import SphereCeti.LinearAlgebra.IntegralLattice.Rootless
 
 /-!
 # Integral presentations of Euclidean lattices
@@ -41,8 +42,6 @@ therefore apply to the lattice in Gram coordinates: it is positive definite, and
   `SphereCeti.EuclideanLattice.IntegralPresentation.shellEquiv`: the identifications of `Λ`, of its
   real dual lattice, and of its shells with the carrier, the dual carrier, and the norm shells of
   the lattice in Gram coordinates.
-* `SphereCeti.EuclideanLattice.IsRootless`: an integral lattice is rootless when it has no vector of
-  norm two.
 
 ## Main statements
 
@@ -66,10 +65,9 @@ therefore apply to the lattice in Gram coordinates: it is positive definite, and
 * `SphereCeti.EuclideanLattice.IntegralPresentation.mem_dual_iff_exists_dualCarrier_coordinates`:
   the real dual lattice consists of the combinations of the basis with coordinates in the dual
   carrier.
-* `SphereCeti.EuclideanLattice.isRootless_iff`: an integral lattice is rootless when it has no
-  vector of norm two.
-* `SphereCeti.EuclideanLattice.IntegralPresentation.isRootless_iff_shell_two_eq_empty`: the
-  presentation is rootless exactly when `Λ` has no vector of squared length two.
+* `SphereCeti.EuclideanLattice.IntegralPresentation.isRootless_iff_shell_two_eq_empty`: the lattice
+  in Gram coordinates is rootless (`TauCeti.IntegralLattice.IsRootless`) exactly when `Λ` has no
+  vector of squared length two.
 
 ## References
 
@@ -94,15 +92,6 @@ structure IntegralPresentation {d : ℕ} (Λ : Submodule ℤ (EuclideanSpace ℝ
   gram_isSymm : gram.IsSymm
   /-- The entries of the Gram matrix are the real inner products of the basis vectors. -/
   gram_spec : ∀ i j, (gram i j : ℝ) = ⟪(basis i : EuclideanSpace ℝ (Fin d)), basis j⟫_ℝ
-
-/-- An integral lattice is rootless when it has no vector of norm two. -/
-def IsRootless {W : Type*} [AddCommGroup W] [Module ℚ W] (L : TauCeti.IntegralLattice W) : Prop :=
-  L.vectorsOfNorm 2 = ∅
-
-/-- An integral lattice is rootless if and only if its set of vectors of norm two is empty. -/
-theorem isRootless_iff {W : Type*} [AddCommGroup W] [Module ℚ W] {L : TauCeti.IntegralLattice W} :
-    IsRootless L ↔ L.vectorsOfNorm 2 = ∅ :=
-  Iff.rfl
 
 namespace IntegralPresentation
 
@@ -375,10 +364,25 @@ example (P : IntegralPresentation Λ) (n : ℕ) (v : ZLattice.shell Λ n) (i : F
       P.basis.repr ⟨v, (ZLattice.mem_shell.mp v.2).1⟩ i := by
   simp
 
+/-- The inverse shell identification is the inverse coordinate identification. -/
+@[simp]
+theorem coe_shellEquiv_symm_apply (P : IntegralPresentation Λ) (n : ℕ)
+    (w : P.toIntegralLattice.vectorsOfNorm n) :
+    (((P.shellEquiv n).symm w : ZLattice.shell Λ n) : EuclideanSpace ℝ (Fin d)) =
+      ((P.carrierEquiv.symm w : Λ) : EuclideanSpace ℝ (Fin d)) :=
+  (rfl)
+
+/-- Check that `simp` returns a vector of the lattice in Gram coordinates through the shell
+identification. -/
+example (P : IntegralPresentation Λ) (n : ℕ) (w : P.toIntegralLattice.vectorsOfNorm n) :
+    P.carrierEquiv ⟨((P.shellEquiv n).symm w : EuclideanSpace ℝ (Fin d)),
+      (ZLattice.mem_shell.mp ((P.shellEquiv n).symm w).2).1⟩ = w := by
+  simp
+
 /-- A presentation is rootless exactly when `Λ` has no vector of squared length two. -/
 theorem isRootless_iff_shell_two_eq_empty (P : IntegralPresentation Λ) :
-    IsRootless P.toIntegralLattice ↔ ZLattice.shell Λ 2 = ∅ := by
-  rw [isRootless_iff, ← Set.isEmpty_coe_sort, ← Set.isEmpty_coe_sort]
+    P.toIntegralLattice.IsRootless ↔ ZLattice.shell Λ 2 = ∅ := by
+  rw [TauCeti.IntegralLattice.isRootless_iff, ← Set.isEmpty_coe_sort, ← Set.isEmpty_coe_sort]
   exact_mod_cast (P.shellEquiv 2).isEmpty_congr.symm
 
 end IntegralPresentation
