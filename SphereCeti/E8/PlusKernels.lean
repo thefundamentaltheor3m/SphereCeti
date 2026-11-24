@@ -7,6 +7,7 @@ Authors: SphereCeti contributors
 module
 
 public import Mathlib.NumberTheory.ModularForms.Discriminant
+public import Mathlib.NumberTheory.ModularForms.EisensteinSeries.E2.MDifferentiable
 public import Mathlib.NumberTheory.ModularForms.EisensteinSeries.E2.Transform
 public import Mathlib.NumberTheory.ModularForms.LevelOne.Basic
 public import Mathlib.NumberTheory.ModularForms.QExpansion
@@ -33,6 +34,7 @@ These kernels satisfy the signed transformation laws under `z ↦ -1/z` in dimen
 ## Main statements
 
 * `SphereCeti.E8.phi0Ext_add_one`: `φ₀` is `1`-periodic.
+* `SphereCeti.E8.differentiableOn_phi0Ext`: `φ₀` is holomorphic on the upper half-plane.
 * `SphereCeti.E8.plusKernel_law_leftRight`, `SphereCeti.E8.plusKernel_law_centralRay`: the signed
   transformation laws of the kernels.
 
@@ -89,6 +91,18 @@ theorem phi0Ext_add_one (z : ℂ) : phi0Ext (z + 1) = phi0Ext z := by
         (f := CuspForm.discriminant) one_mem_strictPeriods_SL) hz hz']
   · have hz' : (z + 1).im ≤ 0 := by simpa using hz
     rw [phi0Ext_of_im_nonpos hz', phi0Ext_of_im_nonpos (not_lt.mp hz)]
+
+/-- `φ₀` is holomorphic on the upper half-plane. -/
+theorem differentiableOn_phi0Ext : DifferentiableOn ℂ phi0Ext {z : ℂ | 0 < z.im} := by
+  have hE2 := UpperHalfPlane.mdifferentiable_iff.mp E2_mdifferentiable
+  have hE4 := UpperHalfPlane.mdifferentiable_iff.mp (ModularFormClass.holo E₄)
+  have hE6 := UpperHalfPlane.mdifferentiable_iff.mp (ModularFormClass.holo E₆)
+  have hΔ := UpperHalfPlane.mdifferentiable_iff.mp (ModularFormClass.holo CuspForm.discriminant)
+  refine ((((hE2.mul hE4).sub hE6).pow 2).div hΔ fun z _ ↦ discriminant_ne_zero _).congr
+    fun z (hz : 0 < z.im) ↦ ?_
+  simp only [Function.comp_apply, ofComplex_apply_of_im_pos hz, Pi.div_apply, Pi.pow_apply,
+    Pi.sub_apply, Pi.mul_apply]
+  rw [phi0Ext_of_im_pos hz, phi0]
 
 /-- The left-leg kernel `φ₀(-1/(z+1)) (z+1)²` of the `+1` eigencomponent. -/
 noncomputable def plusKernelLeft (z : ℂ) : ℂ := phi0Ext (-1 / (z + 1)) * (z + 1) ^ 2
