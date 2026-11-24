@@ -16,13 +16,16 @@ The kernels of the `+1` eigencomponent of the E8 magic function involve `φ₀(-
 `{w | |Re w| ≤ Im w}` the point `-1/w` tends to `i∞` as `w → 0`, where `φ₀` decays, so
 `φ₀(-1/w) w² → 0`.  The left legs `-1 → -1 + i → i` of the magic contour lie in `-1` plus this
 cone, so the transported left kernel `(i/z)⁴ g_L(z) exp(πir (-1/z))` is continuous on them, for
-every `r`.
+every `r`.  The wedge `{0 < Im z, |Re z - 1| < Im z}` is `1` plus the open cone, so the right
+kernel times `exp(πirz)` is holomorphic on it and continuous on its closure.
 
 ## Main statements
 
 * `SphereCeti.E8.tendsto_phi0Ext_neg_one_div_mul_sq`: `φ₀(-1/w) w² → 0` as `w → 0` in the cone.
 * `SphereCeti.E8.continuousOn_plusKernelLeft_transport`: the transported left kernel is continuous
   on the left legs.
+* `SphereCeti.E8.diffContOnCl_plusKernelRight_mul_cexp`: the right kernel times `exp(πirz)` is
+  holomorphic on the wedge `{0 < Im z, |Re z - 1| < Im z}` and continuous on its closure.
 -/
 
 public section
@@ -155,5 +158,62 @@ theorem continuousOn_plusKernelLeft_transport (r : ℝ) :
         Complex.continuous_im).mem_nhds hpos)).comp (f := fun z : ℂ ↦ -1 / (z + 1))
         (by fun_prop (disch := exact hz1'))
     exact (hA.mul (hφ.mul (by fun_prop))).continuousWithinAt
+
+/-- The transported right kernel `g_R(z) exp(πirz)` is holomorphic on the wedge
+`{z | 0 < Im z, Re z - 1 < Im z, 1 - Re z < Im z}` and continuous on its closure, for every `r`. -/
+theorem diffContOnCl_plusKernelRight_mul_cexp (r : ℝ) :
+    DiffContOnCl ℂ (fun z : ℂ ↦ plusKernelRight z * cexp (π * I * r * z))
+      {z : ℂ | 0 < z.im ∧ z.re - 1 < z.im ∧ 1 - z.re < z.im} := by
+  set W : Set ℂ := {z : ℂ | 0 < z.im ∧ z.re - 1 < z.im ∧ 1 - z.re < z.im}
+  -- The closure of the wedge lies in `1` plus the closed cone.
+  have hclosed : IsClosed {z : ℂ | |(z - 1).re| ≤ (z - 1).im} :=
+    isClosed_le (by fun_prop) (by fun_prop)
+  have hsub : closure W ⊆ {z : ℂ | |(z - 1).re| ≤ (z - 1).im} := by
+    refine closure_minimal (fun z hz ↦ ?_) hclosed
+    simp only [W, Set.mem_ofPred_eq] at hz ⊢
+    simp only [sub_re, one_re, sub_im, one_im, sub_zero]
+    exact abs_le.mpr ⟨by linarith [hz.2.2], hz.2.1.le⟩
+  have hsplit : (fun z : ℂ ↦ plusKernelRight z * cexp (π * I * r * z)) =
+      fun z ↦ (phi0Ext (-1 / (z - 1)) * (z - 1) ^ 2) * cexp (π * I * r * z) := by
+    funext z
+    rw [plusKernelRight_def]
+  rw [hsplit]
+  -- Away from `1`, `-1/(z-1)` lies in the upper half-plane, where `φ₀` is holomorphic.
+  have hpos {z : ℂ} (hz : |(z - 1).re| ≤ (z - 1).im) (hz1 : z ≠ 1) : 0 < (-1 / (z - 1)).im :=
+    lt_of_lt_of_le (by have := sub_ne_zero.mpr hz1; positivity)
+      (one_div_two_mul_norm_le_im_neg_one_div hz (sub_ne_zero.mpr hz1))
+  have hopen : IsOpen {w : ℂ | 0 < w.im} := isOpen_lt continuous_const Complex.continuous_im
+  have hdiff {z : ℂ} (hz : |(z - 1).re| ≤ (z - 1).im) (hz1 : z ≠ 1) :
+      DifferentiableAt ℂ (fun z : ℂ ↦ (phi0Ext (-1 / (z - 1)) * (z - 1) ^ 2) *
+        cexp (π * I * r * z)) z := by
+    have hz1' : z - 1 ≠ 0 := sub_ne_zero.mpr hz1
+    have hφ : DifferentiableAt ℂ (fun z : ℂ ↦ phi0Ext (-1 / (z - 1))) z :=
+      (differentiableOn_phi0Ext.differentiableAt (hopen.mem_nhds (hpos hz hz1))).comp
+        (f := fun z : ℂ ↦ -1 / (z - 1)) z (by fun_prop (disch := exact hz1'))
+    exact (hφ.mul (by fun_prop)).mul (by fun_prop)
+  refine ⟨fun z hz ↦ ?_, fun z hz ↦ ?_⟩
+  · -- On the open wedge `z ≠ 1`.
+    have hz' : |(z - 1).re| ≤ (z - 1).im := hsub (subset_closure hz)
+    have hz1 : z ≠ 1 := by
+      rintro rfl
+      simp [W] at hz
+    exact (hdiff hz' hz1).differentiableWithinAt
+  · have hz' := hsub hz
+    rcases eq_or_ne z 1 with rfl | hz1
+    · -- At the corner `1` the kernel factor tends to `0`.
+      have hB : Tendsto (fun z : ℂ ↦ phi0Ext (-1 / (z - 1)) * (z - 1) ^ 2) (𝓝[closure W] 1)
+          (𝓝 0) := by
+        refine tendsto_phi0Ext_neg_one_div_mul_sq.comp (tendsto_nhdsWithin_iff.mpr ⟨?_, ?_⟩)
+        · have h : Tendsto (fun z : ℂ ↦ z - 1) (𝓝 1) (𝓝 0) := by
+            have hc : Continuous fun z : ℂ ↦ z - 1 := by fun_prop
+            simpa using hc.tendsto (1 : ℂ)
+          exact h.mono_left nhdsWithin_le_nhds
+        · exact eventually_nhdsWithin_of_forall fun z hz ↦ hsub hz
+      have hC : Tendsto (fun z : ℂ ↦ cexp (π * I * r * z)) (𝓝[closure W] 1)
+          (𝓝 (cexp (π * I * r * 1))) :=
+        ((by fun_prop : Continuous fun z : ℂ ↦ cexp (π * I * r * z)).tendsto 1).mono_left
+          nhdsWithin_le_nhds
+      simpa [ContinuousWithinAt] using hB.mul hC
+    · exact (hdiff hz' hz1).continuousAt.continuousWithinAt
 
 end SphereCeti.E8
