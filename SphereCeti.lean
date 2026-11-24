@@ -13,6 +13,7 @@ public import SphereCeti.CohnElkies.Certificate
 public import SphereCeti.Contour.HalfInfiniteRectangle
 public import SphereCeti.Lattice.Generated
 public import SphereCeti.Lattice.IntegralPresentation
+public import SphereCeti.LinearAlgebra.IntegralLattice.Rootless
 
 /-!
 # SphereCeti library
