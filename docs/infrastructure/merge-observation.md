@@ -108,7 +108,32 @@ association, when GitHub reports one for this PR, must agree. The older descript
 `pr`/`base` remains accepted only together with the exact association, so same-repository PRs
 keep working until their trusted run is refreshed; fork PRs need a refreshed run. A status on the
 same commit attesting another PR number is refused for this PR. Incomplete API fields fail
-closed. A rerun cannot reuse statuses from an earlier attempt. The latest run
+closed. A rerun cannot reuse statuses from an earlier attempt.
+
+**Tested merge.** The trusted run builds and audits the PR head merged into its own main, and
+publishes `trusted-merge` on the head: `Tested merge tree <tree> with main <main>`, from the same
+run attempt. A missing or older-main merge is refreshable; a different tree is refused.
+
+**Dispatched refresh.** `pr-build.yml` also accepts `workflow_dispatch` on main with inputs `pr` and
+`head`, to rebuild one PR head with main's tooling
+([trusted build](trusted-build.md#dispatched-refresh)). It attests
+`Approved tooling refresh: <result>; tooling <workflow_sha>; pr <number>; base <sha>`. Readers
+older than this format do not match it, so they fail closed. A refresh run is accepted as an
+alternative to `pull_request_target` only when all of these hold:
+- the event is `workflow_dispatch`, from the approved workflow ID and path;
+- the run completed successfully, and its `head_branch` is `main`;
+- its `head_sha` is the dispatched main commit, which must equal the attested tooling and current
+  approved main;
+- its run-name (`display_title`) is exactly `refresh #<pr> at <head>` for this PR and exact head;
+- the statuses live on that head commit, from the approved producer, published in that attempt's
+  status job;
+- the attested PR number and base equal the PR's number and base now.
+
+The refresh attestation is refused on a `pull_request_target` run, and the build attestation on
+a dispatched run. A dispatched run's `head_repository` is the base repository, so the exact head
+SHA, not a repository, binds its candidate. GitHub does not expose a fork head's push time. The
+run's own race guard stands in for "created after the head's latest push": the workflow read
+the PR at start and again before publishing, and found this head and base both times. The latest run
 must use the exact current tooling revision; unrelated main advancement conservatively requires
 fresh base/build validation even if #11 can reuse unchanged review context.
 
@@ -152,11 +177,12 @@ author against the review publishers, and the reasons for any refusal. A compute
 |---|---|
 | `paths` | The PR's complete file list from the API; a count differing from `changed_files`, GitHub's 3000-file cap, or a list differing from the exact Git diff fails closed. Each path must be an added or modified regular `SphereCeti/**/*.lean` library file under the allowlist; protected library modules are excluded. Renames, deletions, mode changes, symlinks and submodules are ineligible. Roadmap/specification, dependency, CI, policy, review and machinery paths are listed with their human route. |
 | library root | `SphereCeti.lean` may only gain `public import SphereCeti.<Topic>…` lines naming eligible modules present at the head. Every existing line must remain byte-for-byte and in order. |
-| `trusted_checks` | `assess_checks`: `trusted-build` success and `trusted-scope` present from the approved producer and one exact `pull_request_target` run attempt. The run's `head_sha` is the PR head, its head repository is the PR's, and the attested PR binding (or, for older runs, the PR association) names this PR and base. The gate reports `human_review` while the allowlist is empty, and it also protects the library root. That status is replaced by the stricter path rule only under the hypothesis or for a root import. |
+| `trusted_checks` | `assess_checks`: `trusted-build` success and `trusted-scope` present from the approved producer and one exact `pull_request_target` run attempt (or a dispatched refresh). `trusted-merge` from that run must attest the tree of the head merged into current main and that main, recomputed locally with `git merge-tree`; this replaces the `base.sha`-equals-main check. The run's `head_sha` is the PR head, its head repository is the PR's, and the attested PR binding (or, for older runs, the PR association) names this PR and base. The gate reports `human_review` while the allowlist is empty, and it also protects the library root. That status is replaced by the stricter path rule only under the hypothesis or for a root import. |
 | `compiled_audit` | The `candidate` job of that same run attempt. It ran the approved tooling's `scripts/check_audits.py` through `scripts/sandbox-build.sh` on the exact head. The tooling is bound by #48's attestation: `trusted-build` publishes the run's `github.workflow_sha`, and `assess_checks` requires it to equal current main. The output reports the attested SHA. The ordinary `build` check runs candidate-controlled scripts, and its name alone is not used. |
 | `official_review` | `assess_records` accepts a complete, non-advisory record covering all ten rubrics. Its exact head, base, diff base and context digests come from an authorized reviewer. Run it from installed tooling equal to main; otherwise the installed-tooling comparison fails. |
 | `independent_reviewer` | At least one accepted publisher is not the PR author, by API user ID. The author can never supply the sole approval. |
-| `pull_request` | Open, not draft, targets main, base equals current main and is the diff base, and not conflicting. No GitHub approving review is read or required. `mergeable_state` `blocked` or `unstable` is accepted, while `dirty`, `behind` and `unknown` are not. |
+| `pull_request` | Open, not draft, targets main, head unchanged during the decision, and not conflicting. GitHub's `base.sha` is a snapshot that does not follow main, so it is never compared with main (option 2, [controller](merge-controller.md#per-pr-actions-stale-build-versus-stale-review)); a head behind main is approvable, and landing it needs an up-to-date head. No GitHub approving review is read or required. `mergeable_state` `blocked`, `unstable` or `behind` is accepted, while `dirty` and `unknown` are not. The evidence reports `head_contains_main`. |
+| `review_inputs` | Option 2: for each accepted record, the paths changed on main since its `tooling_revision`, classified as review inputs (specification, dependencies, policy, review tooling, library, library root, other) or not (`tests/`, `docs/infrastructure/`, `scripts/`, `.github/`). Also whether the PR's own change from the reviewed diff base equals its change from `merge-base(current main, head)`, compared path by path with modes and blob IDs. Any changed input or change difference fails. |
 | `policy` | Reports the real `merging`, `mathematical_paths` and authorized reviewers, and the hypothesis if one was used. |
 
 GitHub reports a workflow run's `pull_requests[].base.sha` from the PR's live state, not from
