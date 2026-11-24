@@ -8,9 +8,11 @@ module
 
 public import SphereCeti.Basic
 public import SphereCeti.Analysis.Distribution.SchwartzSpace.CompNormSq
+public import SphereCeti.Analysis.Distribution.SchwartzSpace.Fourier
 public import SphereCeti.Analysis.Distribution.SchwartzSpace.FourierPositivity
 public import SphereCeti.Analysis.ExactZeroOrder
 public import SphereCeti.Analysis.Fourier.Exchange
+public import SphereCeti.Analysis.Fourier.FourierTransform
 public import SphereCeti.CohnElkies.Certificate
 public import SphereCeti.Contour.HalfInfiniteRectangle
 public import SphereCeti.Lattice.IntegralPresentation

@@ -152,6 +152,16 @@ inner-product space
   version there.
 - [ ] **Design note:** intrinsic radiality factors through `‖x‖`; `ofNormSq` is a separate
   constructor, not the definition of radiality.
+- [ ] **Local general forms:** for Mathlib's `Function.IsRadial`, the Fourier and inverse Fourier
+  transforms of a radial function are radial (`Function.IsRadial.fourier`,
+  `Function.IsRadial.fourierInv`, in `SphereCeti/Analysis/Fourier/FourierTransform.lean`, for
+  `Mathlib/Analysis/Fourier/FourierTransform.lean`), and for Schwartz functions
+  `𝓕 (𝓕 f) x = f (-x)`, so `𝓕` is an involution on even and on radial Schwartz functions and
+  preserves radiality (`SchwartzMap.fourier_fourier_apply`, `fourier_fourier_of_even`,
+  `fourier_fourier_of_isRadial`, `isRadial_fourier`, in
+  `SphereCeti/Analysis/Distribution/SchwartzSpace/Fourier.lean`, for
+  `Mathlib/Analysis/Distribution/SchwartzSpace/Fourier.lean`).  The pinned
+  `RadialSchwartzMap.fourier_apply_apply` is `fourier_fourier_of_isRadial`.
 - [x] **Already in Mathlib:** `Function.IsRadial`, defined as factoring through `‖·‖`, with
   `Function.isRadial_def` giving the pointwise form used by production
   (`Mathlib/Analysis/Normed/Group/RadialFunction.lean`, mathlib4#44305).  The frozen
