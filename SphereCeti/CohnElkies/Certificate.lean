@@ -8,6 +8,7 @@ module
 
 public import Mathlib.Analysis.InnerProductSpace.PiL2
 public import SphereCeti.Analysis.Distribution.SchwartzSpace.FourierPositivity
+public import TauCeti.Analysis.Fourier.ChangeOfVariables
 
 /-!
 # Cohn–Elkies certificates
@@ -22,17 +23,26 @@ bounds the density of every sphere packing with center separation `r` by
 The value `f(0)` of a certificate, and hence its density bound, is positive, by the general
 positivity `SchwartzMap.re_apply_zero_pos_of_fourier_nonneg`.
 
+Certificates transport along linear isometries `A` of `ℝ^d`, as `f ∘ A`, and along dilations by
+`c > 0`, as `x ↦ f (c⁻¹ • x)` with radius `c * r`.  The Fourier transform of the dilation is
+`y ↦ c ^ d • f̂ (c • y)`, so both transports leave the density bound unchanged.
+
 ## Main definitions
 
 * `SphereCeti.CohnElkies.Certificate d r`: a Cohn–Elkies certificate in dimension `d` with radius
   `r`.
 * `SphereCeti.CohnElkies.Certificate.bound`: the density bound `f(0) / f̂(0) · vol B(0, r / 2)`.
+* `SphereCeti.CohnElkies.Certificate.compLinearIsometryEquiv`,
+  `SphereCeti.CohnElkies.Certificate.dilate`: the transports along a linear isometry and a
+  dilation.
 
 ## Main statements
 
 * `SphereCeti.CohnElkies.Certificate.bound_def`: the defining formula of the density bound.
 * `SphereCeti.CohnElkies.Certificate.f_zero_pos`: the value of a certificate at `0` is positive.
 * `SphereCeti.CohnElkies.Certificate.bound_pos`: the density bound of a certificate is positive.
+* `SphereCeti.CohnElkies.Certificate.bound_compLinearIsometryEquiv`,
+  `SphereCeti.CohnElkies.Certificate.bound_dilate`: the transports keep the density bound.
 
 ## References
 
@@ -90,6 +100,111 @@ theorem bound_pos (C : Certificate d r) : 0 < C.bound := by
   rw [bound_def]
   exact ENNReal.mul_pos (ENNReal.ofReal_pos.mpr (div_pos C.f_zero_pos C.fourier_zero_pos)).ne'
     (measure_ball_pos volume _ (half_pos C.radius_pos)).ne'
+
+/-! ### Transport along linear isometries and dilations -/
+
+/-- The transport of a certificate along a linear isometry `A` of `ℝ^d`: the function `f ∘ A`,
+again a certificate of radius `r`. -/
+noncomputable def compLinearIsometryEquiv (C : Certificate d r)
+    (A : EuclideanSpace ℝ (Fin d) ≃ₗᵢ[ℝ] EuclideanSpace ℝ (Fin d)) : Certificate d r where
+  radius_pos := C.radius_pos
+  f := SchwartzMap.compCLMOfContinuousLinearEquiv ℂ A.toContinuousLinearEquiv C.f
+  real_f x := C.real_f (A x)
+  real_fourier x := by
+    simpa [SchwartzMap.fourier_coe, Real.fourier_comp_linearIsometry] using C.real_fourier (A x)
+  nonpos_of_radius_le_norm x hx := C.nonpos_of_radius_le_norm (A x) (by rwa [A.norm_map])
+  fourier_nonneg x := by
+    simpa [SchwartzMap.fourier_coe, Real.fourier_comp_linearIsometry] using C.fourier_nonneg (A x)
+  fourier_zero_pos := by
+    simpa [SchwartzMap.fourier_coe, Real.fourier_comp_linearIsometry] using C.fourier_zero_pos
+
+/-- The transported certificate is `f ∘ A`. -/
+@[simp]
+theorem compLinearIsometryEquiv_f_apply (C : Certificate d r)
+    (A : EuclideanSpace ℝ (Fin d) ≃ₗᵢ[ℝ] EuclideanSpace ℝ (Fin d)) (x : EuclideanSpace ℝ (Fin d)) :
+    (C.compLinearIsometryEquiv A).f x = C.f (A x) :=
+  (rfl)
+
+/-- Transport along a linear isometry does not change the density bound. -/
+@[simp]
+theorem bound_compLinearIsometryEquiv (C : Certificate d r)
+    (A : EuclideanSpace ℝ (Fin d) ≃ₗᵢ[ℝ] EuclideanSpace ℝ (Fin d)) :
+    (C.compLinearIsometryEquiv A).bound = C.bound := by
+  simp only [bound_def, compLinearIsometryEquiv_f_apply, map_zero]
+  congr 3
+  simp [compLinearIsometryEquiv, SchwartzMap.fourier_coe, Real.fourier_comp_linearIsometry]
+
+/-- The dilation `x ↦ f (c⁻¹ • x)` of a Schwartz function by `c > 0`. -/
+private noncomputable def dilateFun (f : 𝓢(EuclideanSpace ℝ (Fin d), ℂ)) {c : ℝ} (hc : 0 < c) :
+    𝓢(EuclideanSpace ℝ (Fin d), ℂ) :=
+  SchwartzMap.compCLMOfContinuousLinearEquiv ℂ
+    (LinearEquiv.smulOfNeZero ℝ (EuclideanSpace ℝ (Fin d)) c⁻¹
+      (inv_ne_zero hc.ne')).toContinuousLinearEquiv f
+
+private theorem dilateFun_apply (f : 𝓢(EuclideanSpace ℝ (Fin d), ℂ)) {c : ℝ} (hc : 0 < c)
+    (x : EuclideanSpace ℝ (Fin d)) : dilateFun f hc x = f (c⁻¹ • x) :=
+  (rfl)
+
+/-- The Fourier transform of the dilation `x ↦ f (c⁻¹ • x)` is `y ↦ c ^ d • 𝓕 f (c • y)`. -/
+private theorem fourier_dilateFun (f : 𝓢(EuclideanSpace ℝ (Fin d), ℂ)) {c : ℝ} (hc : 0 < c)
+    (y : EuclideanSpace ℝ (Fin d)) : 𝓕 (dilateFun f hc) y = (c ^ d : ℝ) • 𝓕 f (c • y) := by
+  have h : ((dilateFun f hc : 𝓢(EuclideanSpace ℝ (Fin d), ℂ)) : EuclideanSpace ℝ (Fin d) → ℂ) =
+      fun x ↦ f (c⁻¹ • x) :=
+    funext (dilateFun_apply f hc)
+  rw [SchwartzMap.fourier_coe, h, TauCeti.fourier_comp_smul, finrank_euclideanSpace_fin, inv_inv,
+    inv_pow, abs_inv, inv_inv, abs_of_pos (pow_pos hc d), SchwartzMap.fourier_coe]
+
+/-- The dilation of a certificate by `c > 0`: the function `x ↦ f (c⁻¹ • x)`, a certificate of
+radius `c * r`. -/
+noncomputable def dilate (C : Certificate d r) {c : ℝ} (hc : 0 < c) : Certificate d (c * r) where
+  radius_pos := mul_pos hc C.radius_pos
+  f := dilateFun C.f hc
+  real_f x := C.real_f (c⁻¹ • x)
+  real_fourier x := by
+    rw [fourier_dilateFun, Complex.smul_im, C.real_fourier, smul_zero]
+  nonpos_of_radius_le_norm x hx := by
+    refine C.nonpos_of_radius_le_norm (c⁻¹ • x) ?_
+    rw [norm_smul, Real.norm_of_nonneg (inv_nonneg.mpr hc.le), le_inv_mul_iff₀ hc]
+    exact hx
+  fourier_nonneg x := by
+    rw [fourier_dilateFun, Complex.smul_re]
+    exact mul_nonneg (pow_nonneg hc.le d) (C.fourier_nonneg (c • x))
+  fourier_zero_pos := by
+    rw [fourier_dilateFun, Complex.smul_re, smul_zero]
+    exact mul_pos (pow_pos hc d) C.fourier_zero_pos
+
+/-- The dilated certificate is `x ↦ f (c⁻¹ • x)`. -/
+@[simp]
+theorem dilate_f_apply (C : Certificate d r) {c : ℝ} (hc : 0 < c) (x : EuclideanSpace ℝ (Fin d)) :
+    (C.dilate hc).f x = C.f (c⁻¹ • x) :=
+  (rfl)
+
+/-- Dilation does not change the density bound: `f(0)` is unchanged, while `f̂(0)` and the volume
+of the ball of radius `c * r / 2` are both multiplied by `c ^ d`. -/
+@[simp]
+theorem bound_dilate (C : Certificate d r) {c : ℝ} (hc : 0 < c) :
+    (C.dilate hc).bound = C.bound := by
+  have hF : (𝓕 (C.dilate hc).f 0).re = c ^ d * (𝓕 C.f 0).re := by
+    change (𝓕 (dilateFun C.f hc) 0).re = _
+    rw [fourier_dilateFun, Complex.smul_re, smul_zero, smul_eq_mul]
+  have hball : volume (ball (0 : EuclideanSpace ℝ (Fin d)) (c * r / 2)) =
+      ENNReal.ofReal (c ^ d) * volume (ball (0 : EuclideanSpace ℝ (Fin d)) (r / 2)) := by
+    have h := smul_ball hc.ne' (0 : EuclideanSpace ℝ (Fin d)) (r / 2)
+    rw [smul_zero, Real.norm_of_nonneg hc.le] at h
+    rw [mul_div_assoc, ← h, Measure.addHaar_smul, finrank_euclideanSpace_fin,
+      abs_of_pos (pow_pos hc d)]
+  rw [bound_def, bound_def, dilate_f_apply, smul_zero, hF, hball, ← mul_assoc,
+    ← ENNReal.ofReal_mul (div_nonneg C.f_zero_pos.le (mul_pos (pow_pos hc d)
+      C.fourier_zero_pos).le)]
+  congr 2
+  field_simp
+
+/-- Check that `simp` computes the function and the bound of a transported, dilated certificate. -/
+example (C : Certificate d r) (A : EuclideanSpace ℝ (Fin d) ≃ₗᵢ[ℝ] EuclideanSpace ℝ (Fin d))
+    {c : ℝ} (hc : 0 < c) (x : EuclideanSpace ℝ (Fin d)) :
+    ((C.compLinearIsometryEquiv A).dilate hc).f x = C.f (A (c⁻¹ • x)) ∧
+      ((C.compLinearIsometryEquiv A).dilate hc).bound = C.bound := by
+  simp
 
 end Certificate
 
