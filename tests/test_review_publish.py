@@ -195,7 +195,7 @@ class InterruptedPostTests(unittest.TestCase):
         r = f.publish(run)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(json.loads(r.stdout)['state'], 'published')
-        self.assertEqual(len(f.api()['comments']), 1)
+        self.assertEqual(len(f.records()), 1)  # the review's advisory claim is a separate comment
         self.assertEqual(len(f.calls()), 10)
 
 
