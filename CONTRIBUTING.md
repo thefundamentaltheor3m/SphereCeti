@@ -80,6 +80,13 @@ Suggested prompt for a coding assistant:
 > `sphereceti verify` in the checkout and get an overall PASS. Open a focused PR that names the
 > target, then address CI failures and review feedback.
 
+Before starting a proof, check [open PRs](https://github.com/thefundamentaltheor3m/SphereCeti/pulls)
+and [intentions](https://github.com/thefundamentaltheor3m/SphereCeti/issues?q=is%3Aissue+is%3Aopen+label%3Aintention).
+If nobody is working on your target, register it: open an *Intention* issue for that one lemma or
+declaration and comment `claim` (or `claim 3 weeks`). Intentions are advisory: they help people
+proving the same target find each other, and they are unrelated to review and merge eligibility.
+See [intentions](docs/infrastructure/intentions.md).
+
 Pick one target from the roadmap or a prerequisite you can prove against the current pins.
 Add a module under `SphereCeti/<Topic>/` and expose its public entry point from
 `SphereCeti.lean`. Build on library definitions and imported results. The library audit

@@ -1,0 +1,45 @@
+# Advisory intention claims on issues labelled `intention`: a `claim`, `claim 3 weeks` or
+# `unclaim` comment assigns or unassigns the commenter and records the expiry in a hidden marker
+# comment, and a daily sweep releases expired claims. The job runs scripts/intentions.py from the
+# default branch with the job token only. Comment text is read as data from the event file, never
+# interpolated into a command, and no pull-request code is checked out. Bot comments and issues
+# without the label are ignored. Intentions never affect merge eligibility.
+name: Intentions
+
+on:
+  issue_comment:
+    types: [created]
+  schedule:
+    - cron: "23 5 * * *"
+  workflow_dispatch: {}
+
+permissions: {}
+
+jobs:
+  intentions:
+    if: >-
+      github.event_name != 'issue_comment' || (
+        !github.event.issue.pull_request
+        && github.event.issue.state == 'open'
+        && contains(github.event.issue.labels.*.name, 'intention')
+        && github.event.comment.user.type == 'User')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    # One issue's comments apply in order; the sweep has its own queue.
+    concurrency:
+      group: ${{ github.event_name == 'issue_comment' && format('intentions-issue-{0}', github.event.issue.number) || 'intentions-sweep' }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/intentions.py
+          sparse-checkout-cone-mode: false
+      - name: Apply the claim command, or release expired claims
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          MODE: ${{ github.event_name == 'issue_comment' && 'comment' || 'sweep' }}
+        run: python3 -I scripts/intentions.py "$MODE"
