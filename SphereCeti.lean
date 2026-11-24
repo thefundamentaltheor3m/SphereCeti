@@ -14,6 +14,7 @@ public import SphereCeti.Analysis.Fourier.Exchange
 public import SphereCeti.CohnElkies.Certificate
 public import SphereCeti.Contour.CentralComponent
 public import SphereCeti.Contour.HalfInfiniteRectangle
+public import SphereCeti.Contour.LeftComponent
 public import SphereCeti.Lattice.IntegralPresentation
 public import SphereCeti.Leech.ResidueCoordinates
 public import SphereCeti.MeasureTheory.Measure.Haar.EuclideanSpace
