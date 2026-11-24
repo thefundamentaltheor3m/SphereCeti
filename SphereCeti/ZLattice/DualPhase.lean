@@ -34,8 +34,12 @@ theorem phase_eq_of_sub_mem_lattice {E : Type*} [NormedAddCommGroup E] [InnerPro
     {L : Submodule ℤ E} {y : E} (hy : y ∈ ZLattice.dual L) {s t : E} (hst : s - t ∈ L) :
     cexp (2 * π * I * ⟪y, s⟫) = cexp (2 * π * I * ⟪y, t⟫) := by
   obtain ⟨m, hm⟩ := ZLattice.mem_dual.mp hy (s - t) hst
-  rw [inner_sub_right, sub_eq_iff_eq_add] at hm
-  rw [hm, ofReal_add, mul_add, exp_add, ofReal_intCast, mul_comm _ (m : ℂ),
-    exp_int_mul_two_pi_mul_I, one_mul]
+  -- The two inner products differ by the integer `m`, so the exponents differ by `2πi m`.
+  have hexp : 2 * π * I * ⟪y, s⟫ = m * (2 * π * I) + 2 * π * I * ⟪y, t⟫ := by
+    rw [inner_sub_right] at hm
+    rw [show ⟪y, s⟫ = m + ⟪y, t⟫ by linarith]
+    push_cast
+    ring
+  rw [hexp, exp_add, exp_int_mul_two_pi_mul_I, one_mul]
 
 end ZLattice
