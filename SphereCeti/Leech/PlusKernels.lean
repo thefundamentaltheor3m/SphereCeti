@@ -34,6 +34,9 @@ These kernels satisfy the signed transformation laws under `z ↦ -1/z` in dimen
 
 ## Main statements
 
+* `SphereCeti.Leech.varphi_def`, `SphereCeti.Leech.varphiExt_of_im_pos`,
+  `SphereCeti.Leech.varphiExt_of_im_nonpos`, `SphereCeti.Leech.plusKernelLeft_def` and its
+  siblings: the defining formulas.
 * `SphereCeti.Leech.varphiExt_add_one`: `φ` is `1`-periodic.
 * `SphereCeti.Leech.differentiableOn_varphiExt`: `φ` is holomorphic on the upper half-plane.
 * `SphereCeti.Leech.plusKernel_law_leftRight`, `SphereCeti.Leech.plusKernel_law_centralRay`: the
@@ -58,6 +61,12 @@ namespace SphereCeti.Leech
 noncomputable def varphi (z : ℍ) : ℂ :=
   (25 * E₄ z ^ 4 - 49 * E₆ z ^ 2 * E₄ z + 48 * E₆ z * E₄ z ^ 2 * E2 z +
     (25 * E₆ z ^ 2 - 49 * E₄ z ^ 3) * E2 z ^ 2) / CuspForm.discriminant z ^ 2
+
+/-- The defining formula of `φ`. -/
+theorem varphi_def (z : ℍ) : varphi z =
+    (25 * E₄ z ^ 4 - 49 * E₆ z ^ 2 * E₄ z + 48 * E₆ z * E₄ z ^ 2 * E2 z +
+      (25 * E₆ z ^ 2 - 49 * E₄ z ^ 3) * E2 z ^ 2) / CuspForm.discriminant z ^ 2 :=
+  (rfl)
 
 /-- `φ` extended by `0` from the upper half-plane to `ℂ`. -/
 noncomputable def varphiExt (z : ℂ) : ℂ :=
@@ -125,6 +134,25 @@ noncomputable def plusKernelCentral (z : ℂ) : ℂ := -2 * (varphiExt (-1 / z) 
 
 /-- The vertical-ray kernel `2 φ(z)` of the `+1` eigencomponent. -/
 noncomputable def plusKernelRay (z : ℂ) : ℂ := 2 * varphiExt z
+
+/-- The left-leg kernel is `φ(-1/(z+1)) (z+1)¹⁰`. -/
+theorem plusKernelLeft_def (z : ℂ) :
+    plusKernelLeft z = varphiExt (-1 / (z + 1)) * (z + 1) ^ 10 :=
+  (rfl)
+
+/-- The right-leg kernel is `φ(-1/(z-1)) (z-1)¹⁰`. -/
+theorem plusKernelRight_def (z : ℂ) :
+    plusKernelRight z = varphiExt (-1 / (z - 1)) * (z - 1) ^ 10 :=
+  (rfl)
+
+/-- The central-leg kernel is `-2 φ(-1/z) z¹⁰`. -/
+theorem plusKernelCentral_def (z : ℂ) :
+    plusKernelCentral z = -2 * (varphiExt (-1 / z) * z ^ 10) :=
+  (rfl)
+
+/-- The vertical-ray kernel is `2 φ(z)`. -/
+theorem plusKernelRay_def (z : ℂ) : plusKernelRay z = 2 * varphiExt z :=
+  (rfl)
 
 /-- The left/right transformation law of the `+1` kernels: `(i/z)¹² g_L(z) = z⁻² g_R(-1/z)`. -/
 theorem plusKernel_law_leftRight (z : ℂ) :
