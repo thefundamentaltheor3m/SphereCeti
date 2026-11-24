@@ -3,7 +3,9 @@
 
 Run by .github/workflows/intentions.yml from the default branch with the job's GITHUB_TOKEN
 (`issues: write`). `comment` mode handles one `claim`, `claim N weeks` or `unclaim` comment from the
-event file; `sweep` mode releases expired claims. Comment text is data only: it is read from the
+event file; `sweep` mode releases expired claims. Jobs run concurrently: each writes its marker,
+re-reads the comments, and the replayed marker order decides (see `fold`), so no command is
+dropped and no target is granted twice. Comment text is data only: it is read from the
 event JSON, never executed or interpolated into a command. Intentions are advisory coordination for
 human contributors and never affect merge eligibility.
 
@@ -28,6 +30,7 @@ MAX_DAYS = 90
 COMMAND = re.compile(r"(claim|unclaim|disclaim)(?:[ \t]+(.*?))?[ \t.!]*", re.I)
 DURATION = re.compile(r"(\d{1,3})[ \t]*(d|days?|w|wks?|weeks?|mo|mths?|months?)", re.I)
 UNIT_DAYS = {"d": 1, "w": 7, "m": 30}
+MAINTAINERS = ("OWNER", "MEMBER", "COLLABORATOR")  # may release someone else's claim
 USAGE = ("Comment `claim` (30 days), `claim 3 weeks` (up to 90 days) or `unclaim` on the first line "
          "of a comment.")
 # Headings GitHub renders from .github/ISSUE_TEMPLATE/intention.yml; the keys are the form ids.
@@ -66,103 +69,166 @@ def stamp(moment: datetime) -> str:
     return moment.astimezone(timezone.utc).replace(microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def instant(text: str) -> datetime:
-    return datetime.strptime(text, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
-
-
 def trusted(comment) -> bool:
     user = comment.get("user") or {}
     return user.get("login") == BOT and user.get("type") == "Bot"
 
 
-def marker_state(comments):
-    """The latest state recorded by this workflow; markers in anyone else's comments are ignored."""
-    for comment in sorted(comments, key=lambda c: c.get("id", 0), reverse=True):
+def markers(comments):
+    """(comment, data) for this workflow's markers in comment order; anyone else's are ignored."""
+    found = []
+    for comment in sorted(comments, key=lambda c: c.get("id", 0)):
         body = comment.get("body") or ""
-        if not trusted(comment) or not body.startswith(MARKER):
+        if not trusted(comment) or not body.startswith(MARKER) or not isinstance(comment.get("created_at"), str):
             continue
         try:
             data = json.loads(body[len(MARKER):].split("-->", 1)[0])
         except ValueError:
             continue
         if isinstance(data, dict):
-            return data
-    return None
+            found.append((comment, data))
+    return found
 
 
-def holder(comments, assignees, now):
-    """The current claim, or None. A claim counts while unexpired and its holder is still assigned."""
-    state = marker_state(comments)
-    if not state or not state.get("holder") or state["holder"] not in assignees:
-        return None
-    expired = instant(state["expires"]) <= now
-    return {**state, "expired": expired}
+def fold(comments):
+    """Replay the markers in comment order: the single source of truth for who holds the claim.
+
+    Comment IDs give one total order, so concurrent handlers that each write a marker and then
+    re-read agree on the outcome: a claim is accepted only if the target was free, already held by
+    the same person, or held by a claim that had expired when the marker was written. A release
+    applies only to the current holder, and an expiry only to the exact claim it observed. Returns
+    the state and, per marker comment ID, whether it was accepted.
+    """
+    state = {"holder": None, "expires": None, "marker": None}
+    accepted = {}
+    for comment, data in markers(comments):
+        at, action, ok = comment["created_at"], data.get("action"), False
+        if action in ("claim", "renew") and isinstance(data.get("holder"), str) and isinstance(data.get("expires"), str):
+            ok = state["holder"] in (None, data["holder"]) or state["expires"] <= at
+            if ok:
+                state = {"holder": data["holder"], "expires": data["expires"], "marker": comment}
+        elif action in ("release", "expire") and state["holder"] and data.get("released") == state["holder"]:
+            ok = action == "release" or (data.get("observed") == state["expires"] and state["expires"] <= at)
+            if ok:
+                state = {"holder": None, "expires": None, "marker": comment}
+        accepted[comment["id"]] = ok
+    return state, accepted
 
 
-def record(api, number, data, text):
-    api.comment(number, MARKER + json.dumps(data, sort_keys=True, separators=(",", ":")) + "-->\n" + text)
+def describe(state) -> str:
+    link = (state.get("marker") or {}).get("html_url")
+    return f"{state['holder']} holds it until {state['expires'][:10]}" + (f" ({link})" if link else "")
+
+
+def reconcile(api, number, state, comments):
+    """Make the assignees mirror the marker state: the holder assigned, earlier claimants not."""
+    assignees = set(api.issue_assignees(number))
+    claimants = {d["holder"] for _, d in markers(comments) if d.get("action") in ("claim", "renew")
+                 and isinstance(d.get("holder"), str)}
+    for login in sorted((claimants - {state["holder"]}) & assignees):
+        api.remove_assignee(number, login)
+    if state["holder"] and state["holder"] not in assignees:
+        return state["holder"] in api.add_assignee(number, state["holder"])
+    return True
+
+
+def write(api, number, data, text) -> int:
+    body = MARKER + json.dumps(data, sort_keys=True, separators=(",", ":")) + "-->\n" + text
+    return api.comment(number, body)["id"]
+
+
+def decide(api, event, now: datetime):
+    """Read the live issue and markers; return ("ignored", why), ("reply", outcome, text) or ("write", data, text)."""
+    issue, comment = event.get("issue") or {}, event.get("comment") or {}
+    user = comment.get("user") or {}
+    if issue.get("pull_request") or user.get("type") != "User" or str(user.get("login", "")).endswith("[bot]"):
+        return ("ignored", "not a person's comment on an issue")
+    command = parse_command(comment.get("body"))
+    if command is None:
+        return ("ignored", "no command")
+    number, login = issue["number"], user["login"]
+    live = api.issue(number)  # never the event payload: it may predate a concurrent claim
+    if (live.get("pull_request") or live.get("state") != "open"
+            or LABEL not in [label.get("name") for label in live.get("labels") or []]):
+        return ("ignored", "not an open intention issue")
+    if command[0] == "invalid":
+        return ("reply", "invalid", f"Not changed: {command[1]}. {USAGE}")
+    state, _ = fold(api.comments(number))
+    active = state["holder"] and state["expires"] > stamp(now)
+    if command[0] == "claim":
+        if active and state["holder"] != login:
+            return ("reply", "refused", f"Not changed: {describe(state)}. Please coordinate with them here. Intentions "
+                             "are advisory, and the claim is released automatically when it expires.")
+        expires = stamp(now + timedelta(days=command[1]))
+        renew = bool(active)
+        return ("write", {"action": "renew" if renew else "claim", "holder": login, "holder_id": user.get("id"),
+                          "expires": expires, "comment": comment["id"]},
+                f"{login} {'renewed' if renew else 'claimed'} this intention until **{expires[:10]}** (UTC). "
+                "Comment `unclaim` to release it earlier. Intentions are advisory and do not affect merging.")
+    maintainer = comment.get("author_association") in MAINTAINERS
+    if not state["holder"]:
+        return ("reply", "refused", "Not changed: this intention is not claimed.")
+    if state["holder"] != login and not maintainer:
+        return ("reply", "refused", f"Not changed: {describe(state)}. Only the holder or a maintainer can release it.")
+    return ("write", {"action": "release", "released": state["holder"], "holder": None, "expires": None,
+                      "by": login, "comment": comment["id"]},
+            f"{login} released the claim by {state['holder']}. Anyone can comment `claim` to take it.")
+
+
+def resolve(api, number, plan, marker_id) -> str:
+    """After writing, re-read every marker; the replayed order decides, and a loser says so."""
+    comments = api.comments(number)
+    state, accepted = fold(comments)
+    assigned = reconcile(api, number, state, comments)
+    data = plan[1]
+    if accepted.get(marker_id):
+        if data["action"] != "release" and not assigned:
+            api.comment(number, "GitHub did not accept the assignment, so the claim is recorded here only.")
+        return {"claim": "claimed", "renew": "renewed", "release": "released"}[data["action"]]
+    if data["action"] == "release":
+        api.comment(number, f"Correction: the release above was not applied, because the claim changed "
+                            f"first. {describe(state) if state['holder'] else 'It is not claimed.'}")
+    else:
+        holds = describe(state) if state["holder"] else "someone else claimed it first"
+        api.comment(number, f"Correction: {data['holder']}'s claim above was not recorded, because another "
+                            f"claim came first: {holds}. Please coordinate with them here.")
+    return "lost"
 
 
 def handle_comment(api, event, now: datetime) -> str:
     """Apply one comment command; returns what happened (for logs and tests)."""
-    issue, comment = event.get("issue") or {}, event.get("comment") or {}
-    user = comment.get("user") or {}
-    if (issue.get("pull_request") or issue.get("state") != "open"
-            or LABEL not in [label.get("name") for label in issue.get("labels") or []]):
-        return "ignored: not an open intention issue"
-    if user.get("type") != "User" or str(user.get("login", "")).endswith("[bot]"):
-        return "ignored: not a person"
-    command = parse_command(comment.get("body"))
-    if command is None:
-        return "ignored: no command"
-    number, login = issue["number"], user["login"]
-    if command[0] == "invalid":
-        api.comment(number, f"Not changed: {command[1]}. {USAGE}")
-        return "invalid"
-    assignees = [a.get("login") for a in issue.get("assignees") or []]
-    current = holder(api.comments(number), assignees, now)
-    active = current if current and not current["expired"] else None
-    if command[0] == "unclaim":
-        if not active or active["holder"] != login:
-            who = f"it is claimed by {active['holder']}" if active else "it is not claimed"
-            api.comment(number, f"Not changed: {who}. Only the person holding a claim can release it; "
-                                "a maintainer can also unassign them.")
-            return "refused"
-        api.remove_assignee(number, login)
-        record(api, number, {"action": "release", "holder": None, "expires": None, "comment": comment["id"]},
-               f"{login} released this intention. Anyone can comment `claim` to take it.")
-        return "released"
-    if active and active["holder"] != login:
-        api.comment(number, f"Not changed: {active['holder']} holds this intention until "
-                            f"{active['expires'][:10]}. Please coordinate with them here. Intentions are "
-                            "advisory, and the claim is released automatically when it expires.")
-        return "refused"
-    if current and current["expired"] and current["holder"] != login:
-        api.remove_assignee(number, current["holder"])  # an expiry the daily sweep has not reached yet
-    expires = stamp(now + timedelta(days=command[1]))
-    assigned = login in api.add_assignee(number, login)
-    renewed = bool(active)
-    note = "" if assigned else " GitHub did not accept the assignment, so the claim is recorded here only."
-    record(api, number, {"action": "renew" if renewed else "claim", "holder": login, "holder_id": user.get("id"),
-                         "expires": expires, "comment": comment["id"]},
-           f"{login} {'renewed' if renewed else 'claimed'} this intention until **{expires[:10]}** (UTC).{note} "
-           "Comment `unclaim` to release it earlier. Intentions are advisory and do not affect merging.")
-    return "renewed" if renewed else "claimed"
+    plan = decide(api, event, now)
+    number = (event.get("issue") or {}).get("number")
+    if plan[0] == "ignored":
+        return "ignored: " + plan[1]
+    if plan[0] == "reply":
+        api.comment(number, plan[2])
+        return plan[1]
+    return resolve(api, number, plan, write(api, number, plan[1], plan[2]))
 
 
 def sweep(api, now: datetime) -> list:
-    """Release every expired claim on open intention issues."""
+    """Release expired claims, with the same write-then-replay rule; a racing renewal survives."""
     released = []
     for issue in api.open_intentions():
-        assignees = [a.get("login") for a in issue.get("assignees") or []]
-        current = holder(api.comments(issue["number"]), assignees, now)
-        if not current or not current["expired"]:
+        number = issue["number"]
+        comments = api.comments(number)
+        state, _ = fold(comments)
+        if not state["holder"] or state["expires"] > stamp(now):
+            reconcile(api, number, state, comments)  # heal a drifted assignee mirror
             continue
-        api.remove_assignee(issue["number"], current["holder"])
-        record(api, issue["number"], {"action": "expire", "holder": None, "expires": None, "released": current["holder"]},
-               f"The claim by {current['holder']} expired on {current['expires'][:10]} and has been released. "
-               "Anyone can comment `claim` to take it; the previous holder can claim it again.")
-        released.append(issue["number"])
+        marker_id = write(api, number, {"action": "expire", "released": state["holder"], "observed": state["expires"],
+                                        "holder": None, "expires": None},
+                          f"The claim by {state['holder']} expired on {state['expires'][:10]} and has been released. "
+                          "Anyone can comment `claim` to take it; the previous holder can claim it again.")
+        comments = api.comments(number)
+        after, accepted = fold(comments)
+        reconcile(api, number, after, comments)
+        if accepted.get(marker_id):
+            released.append(number)
+        else:
+            api.comment(number, f"Correction: the claim was renewed before it could expire, so it was not "
+                                f"released: {describe(after)}.")
     return released
 
 
@@ -210,7 +276,13 @@ class GitHub:
         return self.pages(f"/issues/{number}/comments?per_page=100")
 
     def comment(self, number, body):
-        self.request("POST", f"/issues/{number}/comments", {"body": body})
+        return self.request("POST", f"/issues/{number}/comments", {"body": body})[0]
+
+    def issue(self, number):
+        return self.request("GET", f"/issues/{number}")[0]
+
+    def issue_assignees(self, number):
+        return [a.get("login") for a in self.issue(number).get("assignees") or []]
 
     def add_assignee(self, number, login):
         issue, _ = self.request("POST", f"/issues/{number}/assignees", {"assignees": [login]})

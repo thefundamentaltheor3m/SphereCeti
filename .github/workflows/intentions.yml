@@ -28,10 +28,9 @@ jobs:
     permissions:
       contents: read
       issues: write
-    # One issue's comments apply in order; the sweep has its own queue.
-    concurrency:
-      group: ${{ github.event_name == 'issue_comment' && format('intentions-issue-{0}', github.event.issue.number) || 'intentions-sweep' }}
-      cancel-in-progress: false
+    # No concurrency group: GitHub cancels a pending job when a newer one joins its group, which
+    # would drop a command. Concurrent jobs are safe because each decides by write-then-replay
+    # over the marker comments (scripts/intentions.py, `fold`).
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

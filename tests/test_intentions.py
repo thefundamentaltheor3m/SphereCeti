@@ -1,5 +1,7 @@
-"""Intention claims: comment parsing, assignment, expiry, and the issue-form contract. No network."""
+"""Intention claims: parsing, live-state decisions, write-then-replay races, expiry, and the form contract."""
+from copy import deepcopy
 from datetime import datetime, timedelta, timezone
+from itertools import combinations
 import json
 from pathlib import Path
 import re
@@ -12,17 +14,7 @@ import intentions as i
 
 NOW = datetime(2026, 11, 24, 12, 0, tzinfo=timezone.utc)
 BOT = {'login': 'github-actions[bot]', 'type': 'Bot', 'id': 41898282}
-
-# A trimmed issue_comment event, shaped as GitHub delivers it.
-def event(body, *, login='alice', user_type='User', labels=('intention',), state='open',
-          assignees=(), pull_request=None, comment_id=500):
-    issue = {'number': 7, 'state': state, 'labels': [{'name': n} for n in labels],
-             'assignees': [{'login': a} for a in assignees]}
-    if pull_request:
-        issue['pull_request'] = {'url': 'https://api.github.com/repos/o/r/pulls/7'}
-    return {'action': 'created', 'issue': issue,
-            'comment': {'id': comment_id, 'body': body, 'user': {'login': login, 'id': 11, 'type': user_type}}}
-
+URL = 'https://github.com/thefundamentaltheor3m/SphereCeti/issues/7#issuecomment-'
 
 # The body GitHub renders from .github/ISSUE_TEMPLATE/intention.yml.
 ISSUE_BODY = """### Target declaration
@@ -50,33 +42,68 @@ SphereCeti/Packing/PeriodicDensity.lean
 """
 
 
-class FakeAPI:
-    def __init__(self, comments=(), accept=True):
-        self.existing = list(comments)
-        self.posted, self.added, self.removed = [], [], []
-        self.accept = accept
-        self.issues = []
+class FakeGitHub:
+    """One live issue: comments get increasing IDs and timestamps; assignees are shared state."""
+    def __init__(self, *, assignees=(), labels=('intention',), state='open', accept=True):
+        self.data = {'number': 7, 'state': state, 'labels': [{'name': n} for n in labels]}
+        self.assigned, self.items, self.next_id, self.clock = set(assignees), [], 1000, NOW
+        self.accept, self.hooks = accept, {}
+
+    def issue(self, number):
+        return {**deepcopy(self.data), 'assignees': [{'login': a} for a in sorted(self.assigned)]}
+
+    def issue_assignees(self, number):
+        return sorted(self.assigned)
 
     def comments(self, number):
-        return self.existing + [{'id': 1000 + n, 'user': BOT, 'body': b} for n, b in enumerate(self.posted)]
+        return deepcopy(self.items)
+
+    def post(self, body, user):
+        self.next_id += 1
+        self.clock += timedelta(seconds=1)
+        self.items.append({'id': self.next_id, 'body': body, 'user': user, 'created_at': i.stamp(self.clock),
+                           'html_url': URL + str(self.next_id)})
+        return {'id': self.next_id}
 
     def comment(self, number, body):
-        self.posted.append(body)
+        if 'before_write' in self.hooks and body.startswith(i.MARKER):
+            self.hooks.pop('before_write')()
+        posted = self.post(body, BOT)
+        if 'after_write' in self.hooks and body.startswith(i.MARKER):
+            self.hooks.pop('after_write')()
+        return posted
 
     def add_assignee(self, number, login):
-        self.added.append(login)
-        return [login] if self.accept else []
+        if self.accept:
+            self.assigned.add(login)
+        return sorted(self.assigned)
 
     def remove_assignee(self, number, login):
-        self.removed.append(login)
+        self.assigned.discard(login)
 
     def open_intentions(self):
-        return self.issues
+        return [self.issue(7)]
+
+    # Test helpers
+    def say(self, login, body, *, association='NONE', user_type='User', stale_assignees=()):
+        """A person's comment, and the event GitHub delivers for it (with possibly stale assignees)."""
+        comment_id = self.post(body, {'login': login, 'id': 10 + len(login), 'type': user_type})['id']
+        issue = {**deepcopy(self.data), 'assignees': [{'login': a} for a in stale_assignees]}
+        return {'action': 'created', 'issue': issue,
+                'comment': {'id': comment_id, 'body': body, 'author_association': association,
+                            'user': {'login': login, 'id': 10 + len(login), 'type': user_type}}}
+
+    def bot_texts(self):
+        return [c['body'].split('-->\n', 1)[-1] for c in self.items if c['user'] == BOT]
+
+    def holder(self):
+        return i.fold(self.items)[0]['holder']
 
 
-def marker(holder, expires, *, user=BOT, number=900):
-    data = {'action': 'claim', 'holder': holder, 'expires': expires}
-    return {'id': number, 'user': user, 'body': i.MARKER + json.dumps(data) + '-->\nclaimed'}
+def seed(api, holder, expires):
+    """An existing accepted claim marker written by the workflow."""
+    api.comment(7, i.MARKER + json.dumps({'action': 'claim', 'holder': holder, 'expires': expires}) + '-->\nclaimed')
+    api.assigned.add(holder)
 
 
 class CommandParsingTests(unittest.TestCase):
@@ -106,87 +133,182 @@ class CommandParsingTests(unittest.TestCase):
 
 class ClaimTests(unittest.TestCase):
     def test_claim_assigns_and_records_the_expiry(self):
-        api = FakeAPI()
-        self.assertEqual(i.handle_comment(api, event('claim 3 weeks'), NOW), 'claimed')
-        self.assertEqual(api.added, ['alice'])
-        state = i.marker_state(api.comments(7))
-        self.assertEqual(state, {'action': 'claim', 'holder': 'alice', 'holder_id': 11,
-                                 'expires': '2026-12-15T12:00:00Z', 'comment': 500})
-        self.assertIn('alice claimed this intention until **2026-12-15** (UTC).', api.posted[0])
+        api = FakeGitHub()
+        self.assertEqual(i.handle_comment(api, api.say('alice', 'claim 3 weeks'), NOW), 'claimed')
+        self.assertEqual(api.assigned, {'alice'})
+        state = i.fold(api.items)[0]
+        self.assertEqual((state['holder'], state['expires']), ('alice', '2026-12-15T12:00:00Z'))
+        self.assertIn('alice claimed this intention until **2026-12-15** (UTC).', api.bot_texts()[0])
 
     def test_holder_renews(self):
-        api = FakeAPI([marker('alice', '2026-12-01T00:00:00Z')])
-        self.assertEqual(i.handle_comment(api, event('claim 60 days', assignees=['alice']), NOW), 'renewed')
-        self.assertEqual(i.marker_state(api.comments(7))['expires'], '2027-01-23T12:00:00Z')
+        api = FakeGitHub()
+        seed(api, 'alice', '2026-12-01T00:00:00Z')
+        self.assertEqual(i.handle_comment(api, api.say('alice', 'claim 60 days'), NOW), 'renewed')
+        self.assertEqual(i.fold(api.items)[0]['expires'], '2027-01-23T12:00:00Z')
 
-    def test_someone_elses_active_claim_is_not_taken(self):
-        api = FakeAPI([marker('bob', '2026-12-01T00:00:00Z')])
-        self.assertEqual(i.handle_comment(api, event('claim', assignees=['bob']), NOW), 'refused')
-        self.assertEqual((api.added, api.removed), ([], []))
-        self.assertIn('bob holds this intention until 2026-12-01', api.posted[0])
+    def test_someone_elses_active_claim_is_refused_with_expiry_and_link(self):
+        api = FakeGitHub()
+        seed(api, 'bob', '2026-12-01T00:00:00Z')
+        self.assertEqual(i.handle_comment(api, api.say('alice', 'claim'), NOW), 'refused')
+        self.assertEqual(api.assigned, {'bob'})
+        self.assertIn(f'Not changed: bob holds it until 2026-12-01 ({URL}1001).', api.bot_texts()[-1])
 
     def test_expired_claim_can_be_taken_before_the_sweep(self):
-        api = FakeAPI([marker('bob', '2026-11-01T00:00:00Z')])
-        self.assertEqual(i.handle_comment(api, event('claim', assignees=['bob']), NOW), 'claimed')
-        self.assertEqual((api.removed, api.added), (['bob'], ['alice']))
+        api = FakeGitHub()
+        seed(api, 'bob', '2026-11-01T00:00:00Z')
+        self.assertEqual(i.handle_comment(api, api.say('alice', 'claim'), NOW), 'claimed')
+        self.assertEqual((api.holder(), api.assigned), ('alice', {'alice'}))
 
-    def test_manually_unassigned_holder_no_longer_holds(self):
-        api = FakeAPI([marker('bob', '2026-12-01T00:00:00Z')])
-        self.assertEqual(i.handle_comment(api, event('claim'), NOW), 'claimed')
-
-    def test_unclaim_only_by_the_holder(self):
-        api = FakeAPI([marker('alice', '2026-12-01T00:00:00Z')])
-        self.assertEqual(i.handle_comment(api, event('unclaim', login='bob', assignees=['alice']), NOW), 'refused')
-        self.assertEqual(i.handle_comment(api, event('unclaim', assignees=['alice']), NOW), 'released')
-        self.assertEqual(api.removed, ['alice'])
-        self.assertIsNone(i.marker_state(api.comments(7))['holder'])
-        self.assertEqual(i.handle_comment(FakeAPI(), event('disclaim'), NOW), 'refused')
+    def test_unclaim_by_holder_or_maintainer_only(self):
+        api = FakeGitHub()
+        seed(api, 'alice', '2026-12-01T00:00:00Z')
+        self.assertEqual(i.handle_comment(api, api.say('bob', 'unclaim'), NOW), 'refused')
+        self.assertEqual(i.handle_comment(api, api.say('alice', 'unclaim'), NOW), 'released')
+        self.assertEqual((api.holder(), api.assigned), (None, set()))
+        self.assertEqual(i.handle_comment(api, api.say('alice', 'disclaim'), NOW), 'refused')
+        seed(api, 'carol', '2026-12-01T00:00:00Z')
+        self.assertEqual(i.handle_comment(api, api.say('dan', 'unclaim', association='COLLABORATOR'), NOW), 'released')
+        self.assertEqual(api.assigned, set())
 
     def test_rejected_assignment_is_still_recorded(self):
-        api = FakeAPI(accept=False)
-        self.assertEqual(i.handle_comment(api, event('claim'), NOW), 'claimed')
-        self.assertIn('GitHub did not accept the assignment', api.posted[0])
+        api = FakeGitHub(accept=False)
+        self.assertEqual(i.handle_comment(api, api.say('alice', 'claim'), NOW), 'claimed')
+        self.assertEqual(api.holder(), 'alice')
+        self.assertIn('GitHub did not accept the assignment', api.bot_texts()[-1])
 
     def test_invalid_command_explains_usage(self):
-        api = FakeAPI()
-        self.assertEqual(i.handle_comment(api, event('claim 6 months'), NOW), 'invalid')
-        self.assertIn('Not changed: a claim lasts between 1 and 90 days.', api.posted[0])
-        self.assertEqual(api.added, [])
+        api = FakeGitHub()
+        self.assertEqual(i.handle_comment(api, api.say('alice', 'claim 6 months'), NOW), 'invalid')
+        self.assertIn('Not changed: a claim lasts between 1 and 90 days.', api.bot_texts()[0])
+        self.assertEqual(api.assigned, set())
 
-    def test_ignored_events(self):
-        cases = (event('claim', login='renovate[bot]', user_type='Bot'), event('claim', user_type='Bot'),
-                 event('claim', labels=('enhancement',)), event('claim', state='closed'),
-                 event('claim', pull_request=True), event('Looks good to me'))
-        for item in cases:
-            api = FakeAPI()
-            with self.subTest(item=item['comment']['user'], issue=item['issue']):
-                self.assertTrue(i.handle_comment(api, item, NOW).startswith('ignored'))
-                self.assertEqual((api.posted, api.added, api.removed), ([], [], []))
+    def test_ignored_events_and_live_issue_state(self):
+        for make, why in ((lambda a: a.say('renovate[bot]', 'claim', user_type='Bot'), 'person'),
+                          (lambda a: a.say('alice', 'Looks good'), 'no command')):
+            api = FakeGitHub()
+            self.assertIn(why, i.handle_comment(api, make(api), NOW))
+            self.assertEqual(api.bot_texts(), [])
+        for api in (FakeGitHub(labels=('enhancement',)), FakeGitHub(state='closed')):
+            event = api.say('alice', 'claim')
+            event['issue'].update(state='open', labels=[{'name': 'intention'}])  # stale payload
+            self.assertIn('not an open intention issue', i.handle_comment(api, event, NOW))
+            self.assertEqual((api.bot_texts(), api.assigned), ([], set()))
+        api = FakeGitHub()
+        event = api.say('alice', 'claim')
+        event['issue']['pull_request'] = {'url': 'x'}
+        self.assertIn('person', i.handle_comment(api, event, NOW))
 
     def test_only_this_workflows_markers_count(self):
-        forged = marker('mallory', '2027-01-01T00:00:00Z', user={'login': 'mallory', 'type': 'User'}, number=950)
-        api = FakeAPI([marker('bob', '2026-11-01T00:00:00Z'), forged])
-        self.assertEqual(i.marker_state(api.comments(7))['holder'], 'bob')
-        self.assertEqual(i.handle_comment(api, event('claim', assignees=['bob', 'mallory']), NOW), 'claimed')
+        api = FakeGitHub()
+        seed(api, 'bob', '2026-11-01T00:00:00Z')
+        api.post(i.MARKER + json.dumps({'action': 'claim', 'holder': 'mallory', 'expires': '2027-01-01T00:00:00Z'})
+                 + '-->', {'login': 'mallory', 'type': 'User'})
+        self.assertEqual(api.holder(), 'bob')
+        self.assertEqual(i.handle_comment(api, api.say('alice', 'claim'), NOW), 'claimed')
+
+
+class RaceTests(unittest.TestCase):
+    """Concurrent jobs: each decides from live state, writes, re-reads; the marker order decides."""
+    def run_interleaved(self, logins, order):
+        api = FakeGitHub()
+        events = {login: api.say(login, 'claim') for login in logins}  # every payload: zero assignees
+        plans, marks, outcomes = {}, {}, {}
+        for login, step in order:
+            if step == 'decide':
+                plans[login] = i.decide(api, events[login], NOW)
+            elif step == 'write':
+                if plans[login][0] == 'write':
+                    marks[login] = i.write(api, 7, plans[login][1], plans[login][2])
+            elif plans[login][0] == 'write':
+                outcomes[login] = i.resolve(api, 7, plans[login], marks[login])
+            else:
+                api.comment(7, plans[login][2])
+                outcomes[login] = plans[login][1]
+        return api, outcomes
+
+    def interleavings(self, logins):
+        steps = ('decide', 'write', 'resolve')
+        if len(logins) == 2:
+            for slots in combinations(range(6), 3):
+                order, a, b = [], iter(steps), iter(steps)
+                for n in range(6):
+                    order.append((logins[0], next(a)) if n in slots else (logins[1], next(b)))
+                yield order
+        else:  # all decide, all write, then resolve in every order of interest
+            for resolve in (logins, logins[::-1], logins[1:] + logins[:1]):
+                yield ([(l, 'decide') for l in logins] + [(l, 'write') for l in logins[::-1]]
+                       + [(l, 'resolve') for l in resolve])
+
+    def check_one_holder(self, api, outcomes, logins):
+        holder = api.holder()
+        self.assertIn(holder, logins)
+        self.assertEqual(api.assigned, {holder})
+        self.assertEqual(outcomes[holder], 'claimed')
+        expires = i.fold(api.items)[0]['expires'][:10]
+        for login in set(logins) - {holder}:
+            self.assertIn(outcomes[login], ('lost', 'refused'))
+            told = [t for t in api.bot_texts() if f'{holder} holds it until {expires} ({URL}' in t
+                    and (login in t or t.startswith('Not changed'))]
+            self.assertTrue(told, api.bot_texts())
+
+    def test_two_claims_from_stale_empty_payloads_in_every_interleaving(self):
+        for order in self.interleavings(['alice', 'bob']):
+            with self.subTest(order=[f'{l[0]}:{s}' for l, s in order]):
+                api, outcomes = self.run_interleaved(['alice', 'bob'], order)
+                self.check_one_holder(api, outcomes, ['alice', 'bob'])
+
+    def test_three_rapid_claims_lose_nothing_and_grant_once(self):
+        logins = ['alice', 'bob', 'carol']
+        for order in self.interleavings(logins):
+            with self.subTest(order=order[-3:]):
+                api, outcomes = self.run_interleaved(logins, order)
+                self.assertEqual(set(outcomes), set(logins))  # every command answered
+                self.check_one_holder(api, outcomes, logins)
+                self.assertEqual(sum(t.startswith('Correction:') for t in api.bot_texts()), 2)
+
+    def test_sweep_racing_a_renewal(self):
+        late = NOW + timedelta(days=40)  # alice's claim has expired; she claims it again
+        # The renewal lands between the sweep's read and its expire marker: the expiry is void.
+        api = FakeGitHub()
+        seed(api, 'alice', '2026-12-01T00:00:00Z')
+        renew = api.say('alice', 'claim 30 days')
+        api.hooks['before_write'] = lambda: self.assertEqual(i.handle_comment(api, renew, late), 'claimed')
+        self.assertEqual(i.sweep(api, late), [])
+        self.assertEqual((api.holder(), api.assigned), ('alice', {'alice'}))
+        self.assertIn('Correction: the claim was renewed before it could expire', api.bot_texts()[-1])
+        # The renewal decided on stale state and lands after the expire marker: it is a fresh claim.
+        api = FakeGitHub()
+        seed(api, 'alice', '2026-12-01T00:00:00Z')
+        renew = api.say('alice', 'claim 30 days')
+        plan = i.decide(api, renew, late)
+        api.hooks['after_write'] = lambda: self.assertEqual(
+            i.resolve(api, 7, plan, i.write(api, 7, plan[1], plan[2])), 'claimed')
+        i.sweep(api, late)
+        self.assertEqual((api.holder(), api.assigned), ('alice', {'alice'}))
+        self.assertEqual(i.fold(api.items)[0]['expires'], i.stamp(late + timedelta(days=30)))
 
 
 class SweepTests(unittest.TestCase):
-    def test_sweep_releases_only_expired_claims(self):
-        api = FakeAPI()
-        stores = {1: [marker('alice', '2026-11-20T00:00:00Z')], 2: [marker('bob', '2026-12-20T00:00:00Z')],
-                  3: [], 4: [marker('carol', '2026-11-01T00:00:00Z')]}
-        api.issues = [{'number': 1, 'assignees': [{'login': 'alice'}]}, {'number': 2, 'assignees': [{'login': 'bob'}]},
-                      {'number': 3, 'assignees': []}, {'number': 4, 'assignees': []}]
-        api.comments = lambda number: stores[number]
-        self.assertEqual(i.sweep(api, NOW), [1])
-        self.assertEqual(api.removed, ['alice'])
-        self.assertIn('The claim by alice expired on 2026-11-20 and has been released.', api.posted[0])
-        self.assertTrue(api.posted[0].startswith(i.MARKER + '{"action":"expire","expires":null,"holder":null'))
+    def test_sweep_releases_an_expired_claim(self):
+        api = FakeGitHub()
+        seed(api, 'alice', '2026-11-20T00:00:00Z')
+        self.assertEqual(i.sweep(api, NOW), [7])
+        self.assertEqual((api.holder(), api.assigned), (None, set()))
+        self.assertIn('The claim by alice expired on 2026-11-20 and has been released.', api.bot_texts()[-1])
+        self.assertEqual(i.sweep(api, NOW), [])
+
+    def test_sweep_keeps_active_claims_and_heals_the_mirror(self):
+        api = FakeGitHub()
+        seed(api, 'bob', '2026-12-20T00:00:00Z')
+        api.assigned.clear()
+        self.assertEqual(i.sweep(api, NOW), [])
+        self.assertEqual(api.assigned, {'bob'})
 
     def test_expiry_is_exact(self):
-        just = marker('alice', i.stamp(NOW))
-        self.assertTrue(i.holder([just], ['alice'], NOW)['expired'])
-        self.assertFalse(i.holder([just], ['alice'], NOW - timedelta(seconds=1))['expired'])
+        api = FakeGitHub()
+        seed(api, 'alice', i.stamp(NOW))
+        self.assertEqual(i.sweep(api, NOW - timedelta(seconds=1)), [])
+        self.assertEqual(i.sweep(api, NOW), [7])
 
 
 class IssueFormContractTests(unittest.TestCase):
@@ -215,6 +337,8 @@ class IssueFormContractTests(unittest.TestCase):
         for forbidden in ('comment.body', 'secrets.', 'pull_request_target', 'issue.title', 'issue.body'):
             with self.subTest(forbidden=forbidden):
                 self.assertNotIn(forbidden, text)
+        # A concurrency group would let GitHub cancel a pending job, dropping a command.
+        self.assertNotIn('concurrency:', text)
         for required in ("contains(github.event.issue.labels.*.name, 'intention')",
                          "github.event.comment.user.type == 'User'", '!github.event.issue.pull_request',
                          'persist-credentials: false', 'sparse-checkout: scripts/intentions.py',
