@@ -24,8 +24,10 @@ class PostingCLITests(unittest.TestCase):
         report=json.loads(r.stdout)
         self.assertEqual(report['publication']['state'],'confirmed')
         self.assertTrue(report['publication']['authorized'])
-        self.assertEqual(len(f.api()['comments']),1)
-        self.assertEqual(sum(c[1:]==['--method','POST','--input','-'] for c in f.api()['calls']),1)
+        self.assertEqual(len(f.records()),1)
+        # One record and one advisory claim, which is edited (never re-posted) when the run ends.
+        self.assertEqual(sum(c[1:]==['--method','POST','--input','-'] for c in f.api()['calls']),2)
+        self.assertEqual(report['claim']['state'],'finished')
         text=f.run(output='text',extra=('--no-post',))
         self.assertEqual(text.returncode,0,text.stderr)
 
@@ -47,18 +49,28 @@ class PostingCLITests(unittest.TestCase):
                 if new_calls:
                     self.assertEqual(result['verdicts']['correctness'], 'approve')
                 self.assertNotIn('publication', result)
-                self.assertEqual(f.posts(), 0)
+                self.assertEqual(f.records(), [])
+                # Mid-round, the advisory claim is paused with counts; before the first rubric, none is posted.
+                claims = [c for c in f.api()['comments'] if c['body'].startswith('<!--sphereceti-review-claim:v1 ')]
+                if new_calls:
+                    [claim] = claims
+                    self.assertIn('Review paused · 1 of 10 rubrics completed (daily budget reached)', claim['body'])
+                    self.assertEqual(json.loads(run.stdout)['claim']['state'], 'paused')
+                else:
+                    self.assertEqual(len(claims), 1)  # still only the mid-round run's claim
+                    self.assertNotIn('claim', json.loads(run.stdout))
+                posts = f.posts()
                 retry = f.publish(saved)
                 self.assertNotEqual(retry.returncode, 0)
                 self.assertIn('daily review budget', retry.stdout)
-                self.assertEqual(f.posts(), 0)
+                self.assertEqual(f.posts(), posts)
 
     def test_default_text_output_names_the_comment(self):
         f=PostingFixture(self.root)
         command=[a for a in f.command() if a!='--json']
         r=subprocess.run(command,cwd=f.foreign,env=f.env,capture_output=True,text=True,timeout=120)
         self.assertEqual(r.returncode,0,r.stderr)
-        self.assertIn('Posted: https://github.com/thefundamentaltheor3m/SphereCeti/pull/1#issuecomment-100 '
+        self.assertIn('Posted: https://github.com/thefundamentaltheor3m/SphereCeti/pull/1#issuecomment-101 '
                       '(authorized reviewer).',r.stdout.splitlines())
 
     def test_no_post_and_dry_run_never_write_to_github(self):
@@ -104,7 +116,9 @@ class PostingCLITests(unittest.TestCase):
         state=f.api();state['advance_at']=3;f.api_state.write_text(json.dumps(state))
         r=f.run(extra=('--post',))
         self.assertEqual(r.returncode,2,r.stderr)
-        self.assertFalse(f.api()['comments'])
+        self.assertFalse(f.records())
+        [claim]=f.api()['comments']
+        self.assertIn('abandoned (review failed: ',claim['body'])
         saved=json.loads((self.root/'result/result.json').read_text())
         self.assertEqual(saved['publication']['state'],'unconfirmed')
         self.assertTrue((self.root/'result/record.md').is_file())
@@ -123,8 +137,9 @@ class PostingCLITests(unittest.TestCase):
         self.assertEqual(first.returncode,0,first.stderr)
         record=json.loads((self.root/'result/record.json').read_text())
         state=f.api()
-        reply={**state['comments'][0],'id':200,'user':{'id':99,'type':'User'}}
-        reply['body']='<!--sphereceti-contest:v1 '+json.dumps({'comment':100,'record':record['record_id'],
+        [posted]=f.records()
+        reply={**posted,'id':200,'user':{'id':99,'type':'User'}}
+        reply['body']='<!--sphereceti-contest:v1 '+json.dumps({'comment':posted['id'],'record':record['record_id'],
                                                             'rubric':'correctness'})+'-->\nPlease reconsider this fixture.'
         state['comments'].append(reply);f.api_state.write_text(json.dumps(state))
         second=f.run(output='reply',extra=('--post',))
@@ -132,7 +147,7 @@ class PostingCLITests(unittest.TestCase):
         answered=json.loads((self.root/'reply/record.json').read_text())
         self.assertEqual(answered['contests_through']['correctness'],200)
         self.assertTrue(any('Please reconsider this fixture' in c['prompt'] for c in f.calls()[10:]))
-        self.assertEqual(len(f.api()['comments']),3)
+        self.assertEqual(len(f.records()),2)
 
 
 if __name__=='__main__':unittest.main()
