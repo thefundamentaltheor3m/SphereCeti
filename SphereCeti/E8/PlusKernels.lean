@@ -8,10 +8,10 @@ module
 
 public import Mathlib.NumberTheory.ModularForms.Discriminant
 public import Mathlib.NumberTheory.ModularForms.EisensteinSeries.E2.MDifferentiable
-public import Mathlib.NumberTheory.ModularForms.EisensteinSeries.E2.Transform
 public import Mathlib.NumberTheory.ModularForms.LevelOne.Basic
-public import Mathlib.NumberTheory.ModularForms.QExpansion
-public import Mathlib.MeasureTheory.Integral.ExpDecay
+public import SphereCeti.Analysis.Complex.UpperHalfPlane.Integral
+public import SphereCeti.NumberTheory.ModularForms.RamanujanFormula
+public import TauCeti.Analysis.Complex.UpperHalfPlane.Topology
 
 /-!
 # The kernels of the `+1` eigencomponent of the E8 magic function
@@ -47,7 +47,13 @@ These kernels satisfy the signed transformation laws under `z ↦ -1/z` in dimen
 
 * M. Viazovska, *The sphere packing problem in dimension 8*, Annals of Mathematics 185 (2017),
   991–1015, Section 4.
-* The definitions follow Sphere-Packing-Lean (`thefundamentaltheor3m/Sphere-Packing-Lean`).
+* The definitions are adapted from Sphere-Packing-Lean
+  (`thefundamentaltheor3m/Sphere-Packing-Lean`) at commit
+  `01f23eccf963c50250c9e48dd103e8cc88c36f85`: `phi0` and `phi0Ext` are `φ₀` and `φ₀''` of
+  `SpherePacking/ModularForms/EisensteinBase.lean`, and the four kernels are the integrands
+  `Φ₁'`, `Φ₃'`, `Φ₅'`, `Φ₆'` of `SpherePacking/MagicFunction/a/Schwartz/Basic.lean` with the
+  factor `cexp (π * I * r * z)` removed.  The central and ray kernels also carry the factors `-2`
+  and `2` with which those integrands enter the eigencomponent.
 -/
 
 public section
@@ -71,33 +77,27 @@ noncomputable def phi0Ext (z : ℂ) : ℂ :=
   if hz : 0 < z.im then phi0 ⟨z, hz⟩ else 0
 
 /-- On the upper half-plane, `phi0Ext` is `φ₀`. -/
+@[simp]
 theorem phi0Ext_of_im_pos {z : ℂ} (hz : 0 < z.im) : phi0Ext z = phi0 ⟨z, hz⟩ := by
   simp [phi0Ext, hz]
 
 /-- Off the upper half-plane, `phi0Ext` vanishes. -/
+@[simp]
 theorem phi0Ext_of_im_nonpos {z : ℂ} (hz : z.im ≤ 0) : phi0Ext z = 0 := by
   simp [phi0Ext, hz.not_gt]
-
-/-- A function on the upper half-plane whose composition with `ofComplex` is `1`-periodic takes the
-same value at `z + 1` and at `z`. -/
-private lemma apply_add_one {f : ℍ → ℂ} (hf : Function.Periodic (f ∘ ofComplex) 1) {z : ℂ}
-    (hz : 0 < z.im) (hz' : 0 < (z + 1).im) : f ⟨z + 1, hz'⟩ = f ⟨z, hz⟩ := by
-  have h := hf z
-  simp only [Function.comp_apply] at h
-  rwa [ofComplex_apply_of_im_pos hz', ofComplex_apply_of_im_pos hz] at h
 
 /-- `φ₀` is `1`-periodic. -/
 theorem phi0Ext_add_one (z : ℂ) : phi0Ext (z + 1) = phi0Ext z := by
   by_cases hz : 0 < z.im
   · have hz' : 0 < (z + 1).im := by simpa using hz
-    rw [phi0Ext_of_im_pos hz', phi0Ext_of_im_pos hz, phi0, phi0,
-      apply_add_one E2_periodic hz hz',
-      apply_add_one (SlashInvariantFormClass.periodic_comp_ofComplex (f := E₄)
-        one_mem_strictPeriods_SL) hz hz',
-      apply_add_one (SlashInvariantFormClass.periodic_comp_ofComplex (f := E₆)
-        one_mem_strictPeriods_SL) hz hz',
-      apply_add_one (SlashInvariantFormClass.periodic_comp_ofComplex
-        (f := CuspForm.discriminant) one_mem_strictPeriods_SL) hz hz']
+    have hτ : (⟨z + 1, hz'⟩ : ℍ) = (1 : ℝ) +ᵥ ⟨z, hz⟩ := UpperHalfPlane.ext (by simp [add_comm])
+    have h {f : ℍ → ℂ} (hf : Function.Periodic (f ∘ ofComplex) 1) : f ⟨z + 1, hz'⟩ = f ⟨z, hz⟩ :=
+      hτ ▸ TauCeti.UpperHalfPlane.periodic_comp_ofComplex_iff.mp hf _
+    rw [phi0Ext_of_im_pos hz', phi0Ext_of_im_pos hz, phi0, phi0, h E2_periodic,
+      h (SlashInvariantFormClass.periodic_comp_ofComplex (f := E₄) one_mem_strictPeriods_SL),
+      h (SlashInvariantFormClass.periodic_comp_ofComplex (f := E₆) one_mem_strictPeriods_SL),
+      h (SlashInvariantFormClass.periodic_comp_ofComplex (f := CuspForm.discriminant)
+        one_mem_strictPeriods_SL)]
   · have hz' : (z + 1).im ≤ 0 := by simpa using hz
     rw [phi0Ext_of_im_nonpos hz', phi0Ext_of_im_nonpos (not_lt.mp hz)]
 
@@ -112,28 +112,6 @@ theorem differentiableOn_phi0Ext : DifferentiableOn ℂ phi0Ext {z : ℂ | 0 < z
   simp only [Function.comp_apply, ofComplex_apply_of_im_pos hz, Pi.div_apply, Pi.pow_apply,
     Pi.sub_apply, Pi.mul_apply]
   rw [phi0Ext_of_im_pos hz, phi0]
-
-/-- `E₂ E₄ - E₆` tends to `0` at `i∞`. -/
-private lemma isZeroAtImInfty_E2_mul_E4_sub_E6 :
-    IsZeroAtImInfty fun τ : ℍ ↦ E2 τ * E₄ τ - E₆ τ := by
-  have h := (tendsto_E2_atImInfty.mul (tendsto_E_atImInfty (k := 4))).sub
-    (tendsto_E_atImInfty (k := 6))
-  simp only [mul_one, sub_self] at h
-  exact h
-
-/-- `E₂ E₄ - E₆` decays like `exp(-2π Im τ)` at `i∞`. -/
-private lemma isBigO_E2_mul_E4_sub_E6 :
-    (fun τ : ℍ ↦ E2 τ * E₄ τ - E₆ τ) =O[atImInfty] fun τ ↦ Real.exp (-2 * π * τ.im) := by
-  have hper : Function.Periodic ((fun τ : ℍ ↦ E2 τ * E₄ τ - E₆ τ) ∘ ofComplex) 1 :=
-    (E2_periodic.mul (SlashInvariantFormClass.periodic_comp_ofComplex (f := E₄)
-      one_mem_strictPeriods_SL)).sub
-      (SlashInvariantFormClass.periodic_comp_ofComplex (f := E₆) one_mem_strictPeriods_SL)
-  have hhol : MDiff fun τ : ℍ ↦ E2 τ * E₄ τ - E₆ τ :=
-    (E2_mdifferentiable.mul (ModularFormClass.holo E₄)).sub (ModularFormClass.holo E₆)
-  have hbdd : IsBoundedAtImInfty fun τ : ℍ ↦ E2 τ * E₄ τ - E₆ τ :=
-    (isBoundedAtImInfty_E2.mul (ModularFormClass.bdd_at_infty E₄)).sub
-      (ModularFormClass.bdd_at_infty E₆)
-  simpa using isZeroAtImInfty_E2_mul_E4_sub_E6.exp_decay_atImInfty one_pos hper hhol hbdd
 
 /-- `φ₀` decays like `exp(-2π Im τ)` at `i∞`. -/
 theorem isBigO_phi0 : phi0 =O[atImInfty] fun τ ↦ Real.exp (-2 * π * τ.im) := by
@@ -153,34 +131,10 @@ theorem continuousOn_phi0Ext : ContinuousOn phi0Ext {z : ℂ | 0 < z.im} :=
 
 /-- `φ₀` on the imaginary axis, `t ↦ φ₀(it)`, is integrable on `(1, ∞)`. -/
 theorem integrableOn_phi0Ext_mul_I :
-    MeasureTheory.IntegrableOn (fun t : ℝ ↦ phi0Ext (t * I)) (Set.Ioi 1) := by
-  obtain ⟨C, hC⟩ := isBigO_phi0.bound
-  obtain ⟨A, hA⟩ := (atImInfty_mem _).mp hC
-  set T := max A 1
-  have him (t : ℝ) : ((t : ℂ) * I).im = t := by simp
-  have hcont : ContinuousOn (fun t : ℝ ↦ phi0Ext (t * I)) (Set.Ici 1) :=
-    continuousOn_phi0Ext.comp (by fun_prop) fun t (ht : 1 ≤ t) ↦ by
-      show 0 < ((t : ℂ) * I).im
-      rw [him]
-      linarith
-  -- On `[1, T]` the function is continuous; beyond `T` it is bounded by `C exp(-2π t)`.
-  have h1 : MeasureTheory.IntegrableOn (fun t : ℝ ↦ phi0Ext (t * I)) (Set.Ioc 1 T) :=
-    (hcont.mono fun t (ht : t ∈ Set.Icc 1 T) ↦ (ht.1 : 1 ≤ t)).integrableOn_compact
-      isCompact_Icc |>.mono_set Set.Ioc_subset_Icc_self
-  have h2 : MeasureTheory.IntegrableOn (fun t : ℝ ↦ phi0Ext (t * I)) (Set.Ioi T) := by
-    refine ((exp_neg_integrableOn_Ioi T (by positivity : 0 < 2 * π)).const_mul C).mono' ?_ ?_
-    · exact (hcont.mono (Set.Ioi_subset_Ici (le_max_right A 1))).aestronglyMeasurable
-        measurableSet_Ioi
-    · refine (MeasureTheory.ae_restrict_iff' measurableSet_Ioi).mpr
-        (MeasureTheory.ae_of_all _ fun t (ht : T < t) ↦ ?_)
-      have ht0 : 0 < (t * I : ℂ).im := by rw [him]; linarith [le_max_right A 1]
-      have h := hA ⟨t * I, ht0⟩ (by show A ≤ ((t : ℂ) * I).im; rw [him]; linarith [le_max_left A 1])
-      simp only [Set.mem_ofPred_eq, Real.norm_eq_abs, abs_of_pos (Real.exp_pos _)] at h
-      rw [phi0Ext_of_im_pos ht0]
-      convert h using 2
-      simp
-  rw [← Set.Ioc_union_Ioi_eq_Ioi (le_max_right A 1)]
-  exact h1.union h2
+    MeasureTheory.IntegrableOn (fun t : ℝ ↦ phi0Ext (t * I)) (Set.Ioi 1) :=
+  UpperHalfPlane.integrableOn_mul_I_Ioi_of_isBigO one_pos Real.two_pi_pos continuousOn_phi0Ext
+    ((isBigO_phi0.congr_left fun τ ↦ (phi0Ext_of_im_pos τ.im_pos).symm).congr_right
+      fun τ ↦ by ring_nf)
 
 /-- The left-leg kernel `φ₀(-1/(z+1)) (z+1)²` of the `+1` eigencomponent. -/
 noncomputable def plusKernelLeft (z : ℂ) : ℂ := phi0Ext (-1 / (z + 1)) * (z + 1) ^ 2
