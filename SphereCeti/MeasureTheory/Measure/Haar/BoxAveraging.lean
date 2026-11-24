@@ -29,11 +29,13 @@ up to the factor `vol(B(T)) / vol(B(ρ))`, which tends to one as `T → ∞` for
   most `√(card ι) * R`.
 * `EuclideanSpace.exists_encard_mul_volume_centeredBox_le`: some translate of the box contains at
   least `#S * vol(B) / vol(B(ρ))` points of `S`.
+* `EuclideanSpace.tendsto_volume_closedBall_add_div_volume`: `vol B(T + c) / vol B(T) → 1` as
+  `T → ∞`.
 -/
 
 public section
 
-open Metric MeasureTheory
+open Filter Metric MeasureTheory Topology
 open scoped Pointwise ENNReal
 
 namespace EuclideanSpace
@@ -66,5 +68,30 @@ theorem exists_encard_mul_volume_centeredBox_le {S : Set (EuclideanSpace ℝ ι)
   calc ‖s - q‖ ≤ ‖s‖ + ‖q‖ := norm_sub_le s q
     _ ≤ T + √(Fintype.card ι) * R :=
       add_le_add (mem_closedBall_zero_iff.mp (hST hs)) (norm_le_of_mem_centeredBox hR hq)
+
+/-- The closed balls of radii `T + c` and `T` about the origin have volume ratio tending to one as
+`T → ∞`. -/
+theorem tendsto_volume_closedBall_add_div_volume (c : ℝ) :
+    Tendsto (fun T : ℝ ↦ volume (closedBall (0 : EuclideanSpace ℝ ι) (T + c)) /
+      volume (closedBall (0 : EuclideanSpace ℝ ι) T)) atTop (𝓝 1) := by
+  set n := Module.finrank ℝ (EuclideanSpace ℝ ι)
+  -- The ratio is `((T + c) / T) ^ n`, and `(T + c) / T = 1 + c / T → 1`.
+  have hlim : Tendsto (fun T : ℝ ↦ ((T + c) / T) ^ n) atTop (𝓝 1) := by
+    have h : Tendsto (fun T : ℝ ↦ 1 + c / T) atTop (𝓝 1) := by
+      simpa using ((tendsto_const_nhds (x := c)).div_atTop tendsto_id).const_add 1
+    refine (by simpa using h.pow n : Tendsto (fun T : ℝ ↦ (1 + c / T) ^ n) atTop (𝓝 1)).congr' ?_
+    filter_upwards [eventually_gt_atTop 0] with T hT
+    rw [add_div, div_self hT.ne']
+  have h1 : volume (closedBall (0 : EuclideanSpace ℝ ι) 1) ≠ 0 :=
+    (measure_closedBall_pos volume 0 one_pos).ne'
+  have h1' : volume (closedBall (0 : EuclideanSpace ℝ ι) 1) ≠ ⊤ := measure_closedBall_lt_top.ne
+  rw [← ENNReal.ofReal_one]
+  refine (ENNReal.tendsto_ofReal hlim).congr' ?_
+  filter_upwards [eventually_gt_atTop (max 0 (-c))] with T hT
+  have hT0 : 0 < T := lt_of_le_of_lt (le_max_left _ _) hT
+  have hTc : 0 ≤ T + c := by linarith [le_max_right 0 (-c)]
+  rw [Measure.addHaar_closedBall' volume 0 hTc, Measure.addHaar_closedBall' volume 0 hT0.le,
+    ENNReal.mul_div_mul_right _ _ h1 h1', div_pow,
+    ENNReal.ofReal_div_of_pos (pow_pos hT0 n)]
 
 end EuclideanSpace
