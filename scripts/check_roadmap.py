@@ -51,7 +51,8 @@ FROZEN_ROOT_IMPORTS = [
     "SphereCeti.Leech.ResidueCoordinates",
     "SphereCeti.MeasureTheory.Measure.Haar.EuclideanSpace",
     "SphereCeti.ZLattice.Covolume.Bound",
-    "SphereCeti.ZLattice.RelativeQuotient",
+    "SphereCeti.ZLattice.RelativeQuotient.Basic",
+    "SphereCeti.ZLattice.RelativeQuotient.Embedding",
 ]
 root_imports = re.findall(r"^\s*(?:public\s+)?(?:meta\s+)?import\s+(\S+)", (ROOT / "SphereCeti.lean").read_text(),
                           re.MULTILINE)
