@@ -13,14 +13,12 @@ public import SphereCeti.Analysis.ExactZeroOrder
 public import SphereCeti.Analysis.Fourier.Exchange
 public import SphereCeti.CohnElkies.Certificate
 public import SphereCeti.Contour.HalfInfiniteRectangle
-public import SphereCeti.Contour.SegmentContinuity
-public import SphereCeti.E8.PlusKernelIntegrability
-public import SphereCeti.E8.PlusKernels
 public import SphereCeti.Lattice.IntegralPresentation
 public import SphereCeti.Leech.ResidueCoordinates
 public import SphereCeti.MeasureTheory.Measure.Haar.EuclideanSpace
 public import SphereCeti.ZLattice.Covolume.Bound
-public import SphereCeti.ZLattice.RelativeQuotient
+public import SphereCeti.ZLattice.RelativeQuotient.Basic
+public import SphereCeti.ZLattice.RelativeQuotient.Embedding
 
 /-!
 # SphereCeti library
