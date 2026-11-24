@@ -126,6 +126,181 @@ An all-green record without the formal review, as `sphereceti review --no-approv
 the PR open with `no qualifying approval`. A formal approval without the decision's evidence does
 not merge either. An eligible PR gets exactly one squash-merge PUT whose `sha` is the reviewed head.
 
+### Per-PR actions: stale build versus stale review
+
+Each candidate gets one action, in `merge-control` results (`action`, `state`, `reasons`,
+`review_inputs`) and in `merge-doctor --pr N` (`candidate`). Both commands also print text without
+`--json`. The checks run in this order:
+
+1. **`blocked`:** not an automatic-route PR (paths, policy, a hypothesis).
+2. **`needs_review`:** route back for review; nothing is posted or merged. This applies when there
+   is no accepted official review for the current head, or when the review is not provably still
+   valid (rule below).
+3. **`blocked`:** the head does not merge cleanly with current main.
+4. **`needs_update`:** the head does not contain current main. GitHub's merge API pins only the
+   head, so a behind head would land a tree that was never tested. The branch must be updated.
+5. **`refresh_build`:** only the trusted build is stale. The review is valid, the formal approval
+   qualifies and every other requirement passes. The build fails only with refreshable reasons:
+   older attested tooling, a missing or older attestation, a tested merge that is missing or made
+   with an older main, or (with those) a scope verdict made under that older tooling.
+6. **`blocked`:** a misbound or failed build (another PR's binding, a tested tree other than the
+   merge of current main and the head), an unmergeable PR, or no qualifying formal approval.
+7. **`merge`:** everything is current and the formal approval qualifies.
+
+**Option 2: when a review stays valid across main moves.** This is the maintainer's choice. A
+review stays valid when the reviewed change is provably the same and the trusted build and audit
+of the merged tree cover compatibility with current main. An unchanged head alone does not
+establish it. For the same head, an accepted review is valid only when all of these hold:
+
+- **The record is accepted against the current context**, as before. It binds the head, GitHub's
+  `base.sha` snapshot and the diff base it implies, and digests computed at current main of: the
+  specification documents and roadmap targets, the dependency manifest, policy, installed
+  tooling, engine and rubrics. For a fixed head the snapshot does not move, so these bindings
+  reproduce whenever main changed nothing the review read.
+- **The change is the same.** The PR's own change from the reviewed diff base, and from
+  `merge-base(current main, head)`, is identical: every differing path, with both modes and blob
+  IDs. If main changed a file the PR also changes, the change differs.
+- **No review input changed on main.** Every path changed between the record's `tooling_revision`
+  (main when it ran) and current `commits/main` is classified as specification (`SphereCetiRoadmap/`,
+  the spec documents), dependencies, policy, review tooling (`tools/`), library (`SphereCeti/`;
+  imports are not traced, so any library change counts), library root (`SphereCeti.lean`), or
+  other. Every category is an input except `tests/`, `docs/infrastructure/`, `scripts/` and
+  `.github/`. The merged-tree build at current main covers build and CI tooling, and reviewers are
+  not shown tests or infrastructure docs. Any input change means `needs_review`.
+
+This starts conservatively. Independent proofs each add a `public import` line to `SphereCeti.lean`,
+and a main move touching only that file still forces re-review. Every result reports
+`review_inputs` (`changed_inputs` by category, `library_root_only`, `change_identical`,
+`unrelated_changes`, `reviewed_at_main`). A `SphereCeti.lean`-only case adds the reason
+`measurement: only SphereCeti.lean changed on main since the review`. This measures how often that
+file alone forces re-review before any exception is designed; none is built. Only the same head is
+considered. A review is not carried over to a new head, such as an update-branch merge commit.
+
+**GitHub's `base.sha` is a snapshot, not live.** Observed read-only on 2026-11-23, after main
+moved to `e64e506`, every open PR into main still reported an older main as `base.sha`. #85 had a
+head pushed after the move and still reported `5db3655`. #41 reported `f435c43`, which is neither
+main nor its merge-base `bab1893`. The decision therefore never compares `base.sha` with main. It
+uses `commits/main` together with the change identity, the review inputs, the tested merge and
+GitHub's mergeability.
+
+### Tested tree through the merge
+
+The trusted run builds and audits the head merged into its own main (`github.workflow_sha`). It
+publishes `trusted-merge` (`Tested merge tree <tree> with main <main>`) on the head
+([trusted build](trusted-build.md#tested-merge)). The decision recomputes that merge locally with
+`git merge-tree` and requires the attested tree and main to match. If main advances, the tested
+merge is stale, and the combination must be rebuilt before anything can land.
+
+GitHub's merge API pins only the head (`sha`). A client-side final read of main cannot close the
+race to the merge PUT, so the executor must be able to enforce that the tested tree is the tree
+that lands. The options (evidence read-only, 2026-11-23):
+
+- **(a) Strict ruleset with up-to-date heads (recommended).** With
+  `strict_required_status_checks_policy` and at least one required check (`build` already is),
+  GitHub refuses to merge a head that does not contain the current base tip. That check is
+  server-side, at merge time. For a head that contains main, the squash merge's tree is the head's
+  tree. That equals the tested merge of that head with that main, which the decision verifies, and
+  the `sha` pin fixes the head. So the tested tree lands or nothing does.
+  - The live ruleset has strict off (#49 already reports it), and `allow_update_branch` is on.
+  - An update-branch merge commit is a new head, so today it invalidates both the review binding
+    (records bind the head) and the exact-head formal approval. Under criterion 1 the PR's own
+    change from `merge-base(main, new head)` is identical when main touched none of the PR's files.
+  - Carrying the review and the approval over to such a head is the next step; it needs its own
+    approval and is not built. Until then, a behind PR is `needs_update` and then re-reviewed.
+  - A required trusted check is not needed for enforcement: the executor verifies the trusted
+    statuses itself, and requiring them for every PR would block the human route.
+- **Others: not viable.** GitHub documents its merge queue only for organization-owned
+  repositories, and SphereCeti is user-owned (`owner.type: User`), so that option is dropped. A fast-forward ref update of `main` to a locally built squash commit
+  would be a server-side compare-and-swap, but the ruleset's pull-request rule forbids direct
+  updates without bypass. Auto-merge does not pin the tree either.
+
+**The decisive test: the race at the PUT.** An enforcement design is sound only if GitHub itself
+refuses to land a stale combination when main advances after the controller's last check. The
+fixture `test_decisive_main_advances_between_the_final_check_and_the_put_and_github_refuses` runs
+the actual sequence:
+
+1. **The PR otherwise fully qualifies.** It is in scope, with a current review, a qualifying formal
+   approval and a passing merged-tree build; the preview says `would_merge`. So the refusal can only
+   come from the race.
+2. **The final check.** The controller finishes its final eligibility check (its last refresh) with
+   main at `T`, and the head contains `T`.
+3. **Main moves.** Only then does another PR land on main, and GitHub's `commits/main` moves.
+4. **The PUT.** The executor sends its one head-pinned PUT with its writer.
+5. **The refusal.** The fake GitHub applies the strict rule at merge time:
+   `HTTP 405: Head branch is not up to date with the base branch`.
+
+The executor records the refusal's status code and message, and rereads the PR (still open, not
+merged) and `commits/main` (`main_after`, which does not contain the PR's change). There is exactly
+one PUT, and nothing is retried. Without strict, the same PUT would have landed
+`merge(new main, head)`, a tree nobody tested.
+
+**Refusal classification.** A definite HTTP 4xx that leaves the PR open is classified:
+
+- **`rejected_stale` (run state `rejected`):** an HTTP 405 whose message says the head is not up to
+  date, the base branch was modified, or a required status check is missing. This is the expected
+  stale-combination refusal. It is reported, and the next run re-evaluates against the new main.
+- **`rejected_unexpected` (run state `stopped`, CLI exit 2):** anything else, such as a 403 for
+  permissions or a 405 for a missing approval. The controller stops and reports, and retries
+  nothing. The activation change must also make a stopped run halt later scheduled runs until a
+  maintainer acknowledges it; that cross-run halt is not built.
+
+Any other failure stays `unconfirmed`. The exact live messages are confirmed by the live procedure.
+
+**The live procedure** must perform exactly that sequence with the real executor path and identity:
+the controller's decision, then the workflow's job token. It belongs to the activation change and
+is not built here, because its write permission and hold step need their own review.
+
+- **Preconditions.**
+  - An administrator has enabled strict on ruleset 21449770; `build` stays required.
+  - Policy has a nonempty `mathematical_paths` and an opted-in maintainer in `approving_reviewers`.
+  - `merging = true`, with the workflow's schedule still commented out, so only a manual dispatch
+    can merge. Unattended merging therefore stays off.
+  - The controller workflow has `contents: write` and `pull-requests: write`, and a reviewed
+    probe-only input that holds between the final check and the PUT.
+- **PR B, the candidate.** It must fully qualify: a disposable proof PR inside the approved paths,
+  with an accepted official review for its head, the opted-in maintainer's formal APPROVE on that
+  head, and a passing trusted run whose `trusted-merge` attests main `M0`. B's head contains `M0`.
+- **PR A, the main mover.** Any human-route PR, for example a `docs/` change, ready to be
+  squash-merged by a maintainer.
+- **Run.** Dispatch the controller on main with `pr=B` and the probe hold. In one run it:
+  1. performs the full executor path up to its final check. It prints the decision (`merge`), main
+     `M0`, and the verified tested tree;
+  2. holds, bounded (for example 20 minutes), until `commits/main` differs from `M0`. During the
+     hold a maintainer squash-merges PR A, so main becomes `M1`;
+  3. sends the executor's head-pinned squash PUT for B with the job token;
+  4. records GitHub's status code and message, then rereads B and `commits/main`.
+- **Proof.** All of these hold:
+  - the result is `rejected_stale`: HTTP 405 with the not-up-to-date (or required-check) message;
+  - B is still open and unmerged;
+  - main is `M1` and does not contain B's change.
+
+  A 403, an approval message, or any other refusal (`rejected_unexpected`) leaves the race untested;
+  fix the setup and repeat. If B lands, enforcement is absent: revert it and keep unattended
+  merging off. Unattended merging is enabled only after this proof.
+
+**Enforced by the executor.** Before any merge PUT it requires `protection.tested_tree_enforced`:
+the single ruleset, or the classic profile, verified with strict up-to-date checks in effect. It
+also requires the attested tested tree to equal the head's tree, so the head contains current
+main. Otherwise it refuses with `refused`. With strict off, setup is also not ready, and merging
+stays off.
+
+### Trusted refresh dispatch
+
+For `refresh_build`, an applying run (`--apply`, ready setup, verified executor, `merging` on)
+confirms the same evidence once more and then dispatches one
+[refresh](trusted-build.md#dispatched-refresh) of `pr-build.yml` on main. It uses the approved
+trusted workflow ID from `policy/merge-checks.toml`, with inputs `pr` and the exact `head`. It
+then moves on without waiting; the next scheduled run re-evaluates. Each PR gets at most one
+dispatch per run, and an unconfirmed dispatch is never retried in that run. A preview, or any run
+while switches are off, only reports `would dispatch refresh for #N`. Previews classify PRs
+read-only even while setup is not ready. Applying with switches off lists no work at all.
+
+The dispatch is gated by the existing `merging` switch, not a new `refreshing` switch. A refresh
+exists only to let a merge follow, and the same stop switch then halts both. A new policy field
+would also make every older CLI refuse the approved policy, because older CLIs parse an exact field
+set. The job token needs `actions: write` to dispatch; only the activation change grants it,
+together with `contents`/`pull-requests: write`.
+
 ### Classic profile
 
 The original classic profile is unchanged. It is read only once all controller IDs are
@@ -144,7 +319,13 @@ every PR, so it does not fit SphereCeti's human route for protected changes.
 
 - The executor is the approved workflow's job token ([identity model](#identity-model-option-a)).
   The job-token bypass check is implemented for the ruleset profile only.
-- Squash merging is enabled for the repository. The controller neither bypasses rules nor drains a
+- Squash merging is enabled. Under the ruleset profile, the authority is the single ruleset's
+  `allowed_merge_methods`, which must be exactly `["squash"]`: GitHub enforces it at merge time, and
+  the job token can read it. The repository flag `allow_squash_merge` must be true when visible. The
+  read-only job token cannot see it (probe run 45274799597), so then it is an advisory finding.
+  Without a squash-only ruleset, an invisible flag fails closed. The executor sends only squash
+  PUTs, so a disabled setting could only make GitHub refuse the PUT (`rejected_unexpected`, a stop),
+  never land anything else. The controller neither bypasses rules nor drains a
   merge queue.
 
 ### Remaining activation prerequisites for SphereCeti
@@ -210,10 +391,10 @@ GitHub still enforces the formal approval, required checks and up-to-date rule o
 
 The writer receives the token privately; it is removed from the environment before any Git or
 reader child process runs, and its subprocess environment is minimal. It permits only a GET of its
-own ruleset view, the installation probe and the squash-merge PUT with an exact head SHA. It never
-calls `user`, because an installation token has no user. Reads use the same job token through the
-GET-only reader. No API response or error message includes token values; diagnostics give only the
-token's shape (below).
+own ruleset view and installation probe, a squash-merge PUT with an exact head SHA, and a
+`workflow_dispatch` POST of the approved trusted workflow on `main` for a PR number and exact
+head SHA. Reads use the same job token through the GET-only reader. Diagnostics report the
+token's shape (below) and omit its value.
 
 ### The read-only first run
 
