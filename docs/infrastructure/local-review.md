@@ -144,6 +144,7 @@ information only. Then it skips:
 | `draft` | Draft PR. |
 | `not_ready` | Conflicting, unknown mergeability, or CI failed. |
 | `awaiting_ci` | CI is pending or unknown. |
+| `awaiting_github` | GitHub has not yet computed mergeability (it recomputes after main moves). |
 | `awaiting_refresh` | Only a fresh trusted run is missing (a build from before tooling attestation). |
 | `reviewed` | It already has an accepted review of this head (below). |
 | `reviewed_by_you` | You already published or produced a complete review of this head. |
@@ -230,6 +231,78 @@ sphereceti review 9 --dry-run --local-sources --source-repo . \
 `--local-sources` disables GitHub queries and fetching, not an explicitly requested provider
 call. Combine it with `--dry-run` to make no inference calls. Local references and an explicit
 prospective `--tooling` override cannot establish that context was approved on GitHub.
+
+## Your review queue and bounded batches
+
+Adapted in design from TauCetiWorker's [dashboard](https://github.com/TauCetiProject/TauCetiWorker#the-dashboard)
+and review-only [rounds](https://github.com/TauCetiProject/TauCetiWorker#what-a-round-does): the
+previous reviewer gets first chance at a revised PR. No TauCetiWorker code is used.
+
+`sphereceti reviews` is read-only (no model call, no GitHub write). It surveys the open queue
+once, with the same survey, planner and readiness rules as bare `review`, reads each candidate
+PR's comments, and lists your queue in sections:
+
+```text
+Review queue for yvonne (thefundamentaltheor3m/SphereCeti, observed 2026-11-23T21:29:38Z)
+Revised since your review (1):
+  #66 bob "Prove the contour deformation" 6031efc: revised 1a2b3c4 → 6031efc, 2 commits; author replied 1×; waiting 3h
+Author replied (1):
+  #69 carol "Prove the box boundary layers" 99e8687: you requested changes (scope); author replied 1×: https://github.com/thefundamentaltheor3m/SphereCeti/pull/69#issuecomment-41; waiting 2m
+New to you (1):
+  #55 carol "Prove the lower bound" daff9e6: ready (human-review scope); no review by you; waiting 5h
+Waiting on the author (1):
+  #54 dave "Prove the wedge geometry" 8cb4c8c: you requested changes (api-design, documentation); no new head; waiting 2h
+Not ready: No PR is ready with current evidence: 8 open PRs await CI; 7 are yours; #41 is not ready (CI failed).
+```
+
+- **Revised since your review:** your latest posted (unedited, commit/manual) record names an
+  older head and the PR is ready. It shows the old and new short heads, the commits since (the
+  compare API; a rewritten history is reported, never guessed), and author replies and contests
+  posted after your record. These rank first.
+- **Author replied:** your latest record names the current head and requested changes or
+  blocked, and since then the PR author has replied (a comment by the author) or anyone has
+  posted a contest. It links the newest reply. These rank right after revised PRs.
+- **New to you:** exactly bare `review`'s eligible PRs.
+- **Waiting on the author:** your latest record names the current head and requested changes or
+  blocked, and there is neither a revision nor a response; it names those rubrics.
+- **Your follow-ups, not ready yet:** a PR you reviewed that was revised or answered but awaits
+  CI, GitHub or a refreshed build is named on its own line instead of disappearing into the
+  summary (`follow_ups_not_ready` in JSON).
+- **Not ready:** the aggregated summary of bare `review`, with your own PRs counted. PRs that
+  already have the review they need are listed as already reviewed.
+
+Each entry gives the PR, author, title, short head, the reason and how long it has waited (since
+`updatedAt`). `--json` prints `sphereceti.review-queue/v1` with `sections` (`revised`, `author_replied`, `new`,
+`waiting_on_author`, `not_ready`), `done`, `follow_ups_not_ready`, `not_ready_summary`, `main` and `order`. A failed
+lookup (survey, comments, compare response) exits 2 and lists nothing.
+
+`sphereceti review --new --limit N`, `--revised --limit N` (your follow-ups: revised, then author
+replied) or `--all --limit N` (follow-ups, then new) reviews up to N **distinct** PRs (default 1,
+at most 10) from that section, one at a time, each exactly as `review N` would. Follow-ups use the
+normal follow-up mode (`commit`), not `--mode manual`. Before each item the queue is surveyed
+again and eligibility rechecked, and the review is bound to the head it selected. A PR that moved
+before its review, or left the section (became a draft, not ready, or reviewed), is skipped with
+its reason. If the head moves during the review, the batch reports it and leaves the new revision
+for a later invocation; no PR is reviewed twice in one batch. Each item prints
+`[i/N] #PR author head: reason`, the plan line, the summary line and the next action; the batch
+ends with one line and one line per PR (outcome and posted link):
+
+```text
+Batch (new): 3 reviewed, 3 posted, 1 skipped; stopped: limit of 3 reached.
+  #55: approved · posted https://github.com/thefundamentaltheor3m/SphereCeti/pull/55#issuecomment-1 · official
+  #66: blocked (reuse) · posted <URL> · advisory
+  #67: changes (naming) · posted <URL> · advisory
+  #70: skipped (moved before review)
+```
+
+A finding is not an execution failure: a block or requested changes ends only that PR's review,
+and the batch continues. Unknown usage, an exhausted budget, a provider failure (an engine error
+or an unavailable provider), an unconfirmed publication or a failed GitHub lookup **stop** the
+batch with no further spend, and the summary names the PRs left `untouched`. Before each item it
+also stops when today's recorded spend plus the per-call reservation would exceed the daily
+budget. `--json` prints `sphereceti.review-batch/v1` (`items` with each outcome, plan and
+summary, `skipped`, `untouched`, `reviewed`, `posted`, `stopped`, `line`, `lines`). Exit codes: 2 for a failed lookup,
+1 if a review ended in error, else 0. Without these flags, bare `review` still reviews one PR.
 
 ## What the terminal says
 
