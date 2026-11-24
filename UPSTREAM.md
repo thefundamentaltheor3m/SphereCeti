@@ -317,7 +317,7 @@ closure-continuity hypotheses separately.
 
 - [ ] **Destination:** TauCeti `TauCeti/Algebra/Module/ZLattice/Determinant.lean`, beside
   `ZLattice.IsIntegral.one_le_det`.
-- [ ] **Current source:** `SphereCeti/ZLattice/CovolumeBound.lean`.
+- [ ] **Current source:** `SphereCeti/ZLattice/Covolume/Bound.lean`.
 - [ ] **Candidate declaration:** an integral full lattice in a finite-dimensional real inner
   product space has covolume at least one (`ZLattice.IsIntegral.one_le_covolume`).
 - [ ] **Why general:** it involves only the lattice and its determinant; nothing refers to

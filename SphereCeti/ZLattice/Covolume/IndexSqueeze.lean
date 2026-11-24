@@ -6,7 +6,7 @@ Authors: SphereCeti contributors
 
 module
 
-public import SphereCeti.ZLattice.CovolumeBound
+public import SphereCeti.ZLattice.Covolume.Bound
 
 /-!
 # The covolume/index squeeze

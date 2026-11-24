@@ -13,8 +13,8 @@ public import SphereCeti.Analysis.ExactZeroOrder
 public import SphereCeti.CohnElkies.Certificate
 public import SphereCeti.Contour.HalfInfiniteRectangle
 public import SphereCeti.Lattice.IntegralPresentation
-public import SphereCeti.ZLattice.CovolumeBound
-public import SphereCeti.ZLattice.CovolumeIndexSqueeze
+public import SphereCeti.ZLattice.Covolume.Bound
+public import SphereCeti.ZLattice.Covolume.IndexSqueeze
 public import SphereCeti.ZLattice.RelativeQuotient
 
 /-!
