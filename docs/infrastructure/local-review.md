@@ -62,6 +62,12 @@ explicit form; `--post --no-post` is a usage error (exit 2).
 
 The worker (`worker run --execute`) is unchanged: it posts only with `--post-review`.
 
+A posting review reads the PR's comments before inference. It carries every unanswered
+`/sphereceti contest <rubric>` reply into that rubric's prompt, as quoted data together with the
+finding it disputes, even after the head has moved. The record's details then say whether each
+reply was considered and whether the finding still stands. See
+[contesting a finding](review-records.md#contesting-a-finding-in-an-ordinary-comment).
+
 ## Publishing a saved run
 
 A review that finished but was not posted keeps its exact record in the run directory
@@ -154,7 +160,9 @@ information only. Then it skips:
   review record for this PR's current head and base, published by an identity in the installed
   policy's `authorized_reviewers` (the same records `review --read-records` reads). An
   authenticated contest newer than that record, not yet answered by its publisher, reopens the
-  PR. Selection does not recompute tooling, context or engine digests (that would mean
+  PR. So does an unanswered [author contest](review-records.md#contesting-a-finding-in-an-ordinary-comment)
+  written as `/sphereceti contest <rubric>` in an ordinary comment, whatever head it was
+  written against. Selection does not recompute tooling, context or engine digests (that would mean
   materializing every candidate's sources); the record reader still checks them all.
 - **Reviewed by you:** a complete commit/manual record for this head and base that you posted
   (comment author login equals yours, advisory or not), or that you produced locally: a
