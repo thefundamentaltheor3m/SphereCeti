@@ -5,11 +5,21 @@ posting = true
 authoring = false
 reporting = false
 merging = false
-mathematical_paths = []
-# Canary worker, verified read-only on 2026-11-22 with `gh api user`: login cameronfreer, id 2009342
-# (type User, repository permission write). This is the maintainer's own account, used for the
-# first canary only; dedicated worker accounts and other reviewers are added in later policy PRs.
-authorized_reviewers = ["user:2009342"]
+# First proof topics eligible for the automatic route. Prefix semantics as in gate.py: library
+# modules under SphereCeti/Contour/ and SphereCeti/E8/ only. Contributors may work on any roadmap
+# target; PRs outside these topics, any edit to the frozen library root SphereCeti.lean, and any
+# change mixed with specification, CI, policy, dependency or tooling paths take the human route.
+# This grants no merge (merging stays false) and no formal approval (approving_reviewers is empty).
+mathematical_paths = ["SphereCeti/Contour/", "SphereCeti/E8/"]
+# Reviewers whose posted review records count as official (immutable GitHub user ids, verified
+# read-only on 2026-11-24 with `gh api users/<login>` and the repository collaborator list).
+# Authorization covers review records only: it grants no merge authority, and a reviewer's record
+# never counts as independent on their own PR. Formal GitHub approvals by `sphereceti review` are
+# a separate opt-in (approving_reviewers, below).
+# Ids: 2009342 cameronfreer (maintainer; first canary 2026-11-22), 56166236 CBirkbeck (maintainer),
+# 64404030 thefundamentaltheor3m (repository admin), 29959226 b-mehta (maintainer), 49933279 seewoo5
+# (maintainer), 117926300 viazovska (maintainer), 6530144 arajasek (contributor).
+authorized_reviewers = ["user:2009342", "user:56166236", "user:64404030", "user:29959226", "user:49933279", "user:117926300", "user:6530144"]
 # Future authorization uses immutable GitHub identities: "user:12345" or "app:12345".
 # Maintainers (a subset of authorized_reviewers, as "user:ID") whose all-green `sphereceti review`
 # also submits a formal GitHub APPROVE under their own account. Empty: added per maintainer, each
