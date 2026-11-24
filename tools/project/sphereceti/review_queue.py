@@ -16,7 +16,8 @@ from pathlib import Path
 
 from .local_review import ReviewError
 from .review_records import CONTEST, MARKER, RecordError, intact, parse_record
-from .review_select import (bound_to, not_ready_summary, readiness, review_state, waiting)
+from .review_claims import ClaimRefused, ClaimYielded, run_claimed
+from .review_select import not_ready_summary, readiness, review_state, waiting
 from .worker import WorkerError, plan, timestamp
 from .worker_cli import survey
 
@@ -280,11 +281,10 @@ def run_batch(args, project, policy, prefs, *, api=None, client=None, announce=N
     Before each item the queue is surveyed again and the review is bound to the head it selects.
     A finding ends only that PR's review; an execution failure stops the batch.
     """
-    from .local_review import posting_note, run_review
+    from .local_review import posting_note
     from .review_select import check_arguments
     from .review_summary import announcing, summarize
     check_arguments(args)
-    run = run or run_review
     section = "revised" if args.revised else "new" if args.new else "all"
     limit = args.limit if args.limit is not None else 1
     if not 1 <= limit <= MAX_LIMIT:
@@ -325,8 +325,13 @@ def run_batch(args, project, policy, prefs, *, api=None, client=None, announce=N
             args.output = output.with_name(f"{output.name}-pr{item['pr']}")  # --output must be new
         planned = {}
         try:
-            # The guard rechecks the head right before inference; the review binds that head.
-            result = run(args, project, prefs, guard=announcing(prefs, announce, planned, inner=bound_to(item)))
+            # As bare review: the claim guard rechecks the head right before inference and binds it.
+            result = run_claimed(args, project, prefs, expect=item, run=run,
+                                 wrap=lambda inner: announcing(prefs, announce, planned, inner=inner))
+        except (ClaimRefused, ClaimYielded) as error:
+            skipped.append({"pr": item["pr"], "head": item["head"], "reason": str(error).split(": ", 1)[-1]})
+            say(f"  skipped #{item['pr']}: {skipped[-1]['reason']}")
+            continue
         except (ReviewError, RecordError) as error:
             if "changed since it was selected" in str(error):
                 skipped.append({"pr": item["pr"], "head": item["head"], "reason": "moved before review"})

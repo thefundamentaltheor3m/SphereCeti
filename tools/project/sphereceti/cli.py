@@ -56,7 +56,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--version", action="version", version=__version__)
     commands = parser.add_subparsers(dest="command", required=True)
-    from .local_review import add_parser, posting_note, resolve_posting, run_review, ReviewError
+    from .local_review import add_parser, posting_note, resolve_posting, ReviewError
     from .gate import GateError
     from .review_records import RecordError
     add_parser(commands)
@@ -267,11 +267,13 @@ def main(argv: list[str] | None = None) -> int:
         return 1 if review is not None and review["completion"] == "error" else 0
 
     if args.command == "review":
+        from .review_claims import note as claim_note, run_claimed
         from .review_summary import announcing, summarize
         planned = {}
+        say = None if args.json else lambda line: print(line, flush=True)
         try:
-            report = run_review(args, project, preferences, guard=announcing(
-                preferences, None if args.json else lambda line: print(line, flush=True), planned))
+            report = run_claimed(args, project, preferences,
+                                 wrap=lambda inner: announcing(preferences, say, planned, inner=inner))
         except (ReviewError, GateError, ConfigError, OSError, ValueError, KeyError,
                 subprocess.SubprocessError) as error:
             reason = (str(error) if isinstance(error, (ReviewError, RecordError, ConfigError)) else
@@ -294,6 +296,9 @@ def main(argv: list[str] | None = None) -> int:
                       "; ".join(report["reasons"])))
             if not args.read_records:
                 print(posting_note(args, report))
+            if report.get("claim"):
+                print(claim_note(report["claim"]))
+            if not args.read_records:
                 print(report["summary"]["line"])
                 print("Next: " + report["summary"]["next_action"])
         return 1 if report["completion"] == "error" else 0
