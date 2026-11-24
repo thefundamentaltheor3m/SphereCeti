@@ -26,6 +26,7 @@ The `sphereceti` command supplies project diagnostics and the adapters credited 
 | `merge-doctor / merge-control` | [Controller diagnostics and gated action](merge-controller.md) |
 | `maintenance` | [Lifecycle diagnostics and labels](lifecycle.md) |
 | `profile-plan / profile-run` | [Advisory profiling](profiling.md) |
+| `intentions`, `intend TARGET` | [Work underway on proof targets, and registering an intention](intentions-cli.md) |
 | `verify` | [Check a proof branch the way CI does, before opening the PR](#verifying-a-proof-branch) |
 
 For installation smoke tests, one-PR review rehearsal, and the boundary between contributor
