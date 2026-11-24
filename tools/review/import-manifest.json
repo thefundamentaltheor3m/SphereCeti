@@ -305,7 +305,7 @@
       "destination": "runner/review.py",
       "mode": "100644",
       "upstream_sha256": "46e109b3eba83610a804ec80aac13d74f4f52e9acf5629ec1a5a02b72af36859",
-      "import_sha256": "a41dee3d53316751e33a48e0e1674ee8bd2e30b105886c69fba8f4b97bb50d27"
+      "import_sha256": "4552b8bf0c5409deaf73ef59b8a24ef11dc66a1c855c4939fc90adfc268edfc9"
     },
     {
       "source": "runner/reviewers.py",

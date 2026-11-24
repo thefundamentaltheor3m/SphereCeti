@@ -8,16 +8,18 @@ review store and never writes either. The chosen PR is then reviewed by the unch
 """
 from __future__ import annotations
 
-from contextlib import contextmanager
 from datetime import datetime, timezone
 import json
 from pathlib import Path
 
 from .local_review import ReviewError
-from .review_records import CONTEST, MARKER, RecordError, contests, identity, intact, parse_record
+from .review_claims import ClaimYielded, describe, live, note as claim_note, run_claimed
+from .review_records import (ANY_DIRECTIVE, CONTEST, MARKER, RecordError, carried_contests, contests,
+                             identity, intact, parse_record)
 from .worker import plan, timestamp
 from .worker_checks import NEEDS_REFRESH
 from .worker_cli import survey
+from .worker_leases import utcnow
 
 SCHEMA = "sphereceti.review-selection/v1"
 PRIORITY = ("Planner stage first (every eligible PR is at review-assessment, so they tie); "
@@ -98,11 +100,29 @@ def published(comments, repository, pr, actor_login):
     return accepted, yours
 
 
-def review_state(client, repository, pr, actor, policy, storage):
-    """Return (code, reason) when this ready PR already has the review it needs, else None."""
+def review_state(client, repository, pr, actor, policy, storage, *, force=False, now=None):
+    """Return (code, reason) when this ready PR needs no review from you now, else None."""
     comments = client.comments(repository, pr["number"])
     if not isinstance(comments, list):
         raise RecordError("unknown review records")
+    state = reviewed(client, comments, repository, pr, actor, policy, storage)
+    if state or force:
+        return state
+    now = now or utcnow()
+    context = {"repository": repository, "pr": pr["number"], "head": pr["head"]}
+    foreign = [c for c in live(comments, context, now) if c["author"].casefold() != actor.casefold()]
+    return ("claimed", describe(foreign[0], now)) if foreign else None
+
+
+def reviewed(client, comments, repository, pr, actor, policy, storage):
+    if any(isinstance(c.get("body"), str) and any(ANY_DIRECTIVE.match(line) for line in c["body"].splitlines())
+           for c in comments):
+        info = client.call(f"repos/{repository}/pulls/{pr['number']}")
+        author = (info.get("user") or {}).get("id") if isinstance(info, dict) else None
+        if type(author) is not int:
+            raise RecordError("PR author identity is unavailable")
+        if carried_contests(comments, {"repository": repository, "pr": pr["number"]}, policy, author):
+            return None  # An unanswered author contest asks for another review, on any head.
     accepted, yours = published(comments, repository, pr, actor)
     if yours:
         return "reviewed_by_you", "you already published a complete review of this head"
@@ -129,7 +149,7 @@ def review_state(client, repository, pr, actor, policy, storage):
     return "reviewed", f"already has an accepted review of this head ({publisher})"
 
 
-def select(project, policy, prefs, *, api=None, client=None, now=None) -> dict:
+def select(project, policy, prefs, *, api=None, client=None, now=None, force=False) -> dict:
     """Read-only selection. Unknown GitHub state raises; it never becomes an empty choice."""
     if client is None:
         from .review_post import GitHub
@@ -162,7 +182,7 @@ def select(project, policy, prefs, *, api=None, client=None, now=None) -> dict:
         elif number not in ready:
             skip(pr, *readiness(pr))
         else:
-            state = review_state(client, project.repository, pr, actor, policy, storage)
+            state = review_state(client, project.repository, pr, actor, policy, storage, force=force)
             if state:
                 skip(pr, state[0], state[1])
             else:
@@ -249,35 +269,44 @@ def check_arguments(args) -> None:
         raise ReviewError("reply mode requires an explicit PR number")
 
 
-def bound_to(selected):
-    """Stop before any provider call if the PR moved between selection and evidence preparation."""
-    @contextmanager
-    def guard(args, report, policy, client):
-        if report["head"] != selected["head"] or report["base"] != selected["base"]:
-            raise ReviewError(f"PR #{selected['pr']} changed since it was selected; "
-                              "run `sphereceti review` again")
-        yield None
-    return guard
+def run_bare(args, project, policy, prefs, *, api=None, client=None, announce=None, run=None):
+    """Select, say why in one line (announced before a long review starts), then review.
 
-
-def run_bare(args, project, policy, prefs, *, api=None, client=None, announce=None):
-    """Select, say why in one line (announced before a long review starts), then review."""
-    from .local_review import posting_note, run_review
+    If another contributor's earlier claim wins the race for the chosen PR, the claim yields
+    with nothing spent and the next candidate is tried, each with its own announced line.
+    """
+    from .local_review import posting_note
+    from .review_summary import announcing, summarize
     check_arguments(args)
-    selection = select(project, policy, prefs, api=api, client=client)
-    selection["rationale"] = rationale(selection, dry_run=args.dry_run, posting=intent(args))
+    force = getattr(args, "force_claim", False)
+    selection = select(project, policy, prefs, api=api, client=client, force=force)
+    output = args.output
+    for attempt, candidate in enumerate(list(selection["candidates"])):
+        selection["selected"] = candidate
+        selection["rationale"] = rationale(selection, dry_run=args.dry_run, posting=intent(args))
+        if announce:
+            announce(selection["rationale"])
+        args.pr = candidate["pr"]
+        if output and attempt:
+            args.output = output.with_name(f"{output.name}-pr{candidate['pr']}")  # --output must be new
+        planned = {}
+        try:
+            selection["review"] = run_claimed(args, project, prefs, expect=candidate, run=run,
+                                              wrap=lambda inner: announcing(prefs, announce, planned, inner=inner))
+        except ClaimYielded as error:
+            winner = error.winner
+            selection["skipped"].append({"pr": candidate["pr"], "head": candidate["head"], "code": "claimed",
+                                         "reason": f"review in progress by @{winner['author']} (yielded)"})
+            continue
+        selection["posting"] = posting_note(args, selection["review"])
+        selection["plan"] = planned or None
+        selection["summary"] = summarize(args, selection["review"], posting=selection["posting"])
+        return selection
+    selection.update(selected=None, state="nothing_to_review")
+    selection["skipped"].sort(key=lambda item: -item["pr"])
+    selection["rationale"] = rationale(selection)
     if announce:
         announce(selection["rationale"])
-    if selection["selected"] is None:
-        return selection
-    from .review_summary import announcing, summarize
-    args.pr = selection["selected"]["pr"]
-    planned = {}
-    selection["review"] = run_review(args, project, prefs, guard=announcing(
-        prefs, announce, planned, inner=bound_to(selection["selected"])))
-    selection["posting"] = posting_note(args, selection["review"])
-    selection["plan"] = planned or None
-    selection["summary"] = summarize(args, selection["review"], posting=selection["posting"])
     return selection
 
 
@@ -302,6 +331,8 @@ def render(selection, args) -> list[str]:
         elif archive:
             lines.append(f"Archive: {archive.get('state')}: {archive.get('reason', '')}".rstrip(": "))
     lines.append(selection["posting"])
+    if report.get("claim"):
+        lines.append(claim_note(report["claim"]))
     lines.append("This command does not authorize merging.")
     if selection.get("summary"):
         lines += [selection["summary"]["line"], "Next: " + selection["summary"]["next_action"]]
