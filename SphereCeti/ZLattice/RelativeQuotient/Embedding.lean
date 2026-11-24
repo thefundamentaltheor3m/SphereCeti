@@ -6,7 +6,7 @@ Authors: SphereCeti contributors
 
 module
 
-public import SphereCeti.ZLattice.RelativeQuotient.Basic
+public import SphereCeti.ZLattice.RelativeQuotient
 
 /-!
 # Points incongruent modulo a lattice embed into a relative quotient
