@@ -92,6 +92,12 @@ class Harness:
             {'id': 59656455717, 'context': 'trusted-build', 'state': 'success',
              'description': f'Approved tooling build: success; tooling {self.tooling}', 'target_url': url, 'creator': BOT,
              'created_at': '2026-11-23T13:32:19Z', 'url': f'https://api.github.com/repos/{REPO}/statuses/{self.head}'}]
+        # The trusted run's tested merge: the head merged into main (here main is the head's parent).
+        self.statuses.append(
+            {'id': 59656456952, 'context': 'trusted-merge', 'state': 'success',
+             'description': f"Tested merge tree {git(self.repo, 'rev-parse', self.head + '^{tree}')} with main {self.tooling}",
+             'target_url': url, 'creator': BOT, 'created_at': '2026-11-23T13:32:20Z',
+             'url': f'https://api.github.com/repos/{REPO}/statuses/{self.head}'})
         self.run = {'id': RUN, 'run_attempt': 1, 'workflow_id': 358051984, 'path': WORKFLOW,
                     'event': 'pull_request_target', 'status': 'completed', 'conclusion': 'success',
                     'head_sha': self.head, 'head_branch': 'proof/e8', 'repository': {'full_name': REPO},
@@ -361,12 +367,17 @@ class AutoApprovalTests(unittest.TestCase):
                 self.assertTrue(any(word in r for r in report['requirements'][5]['evidence']['reasons']), report['reasons'])
         h = self.harness(); h.pr['base'] = {**h.pr['base'], 'ref': 'stack'}
         self.assertIn('pull_request', failed(h.decide()))
-        # A PR whose base is no longer current main is stale even with otherwise perfect evidence.
+        # Main advanced past the trusted build: the tested merge is stale, so build and audit fail.
+        # Option 2: GitHub's base.sha snapshot is never compared with main, and the review stays valid
+        # because the change is the same and main changed no review input.
         h = self.harness()
         h.current = git(h.repo, 'commit-tree', f'{h.tooling}^{{tree}}', '-p', h.tooling, '-m', 'main advanced')
         report = h.decide()
         self.assertFalse(report['would_approve'])
-        self.assertTrue({'pull_request', 'trusted_checks', 'compiled_audit'} <= failed(report))
+        self.assertEqual(failed(report), {'trusted_checks', 'compiled_audit'})
+        self.assertIn('trusted_checks: trusted-merge tested an older main; rebuild the merge with current main',
+                      report['reasons'])
+        self.assertFalse(report['merge']['head_contains_main'])
 
     def test_failed_or_missing_trusted_build_or_audit_is_refused(self):
         def build(h, **change): h.statuses[1].update(change)
@@ -435,7 +446,7 @@ class AutoApprovalTests(unittest.TestCase):
         self.assertFalse(report['note'].startswith('HYPOTHETICAL'))
         self.assertEqual(status(report)['policy'], 'fail')
         self.assertIn('mathematical_paths is empty', report['requirements'][0]['evidence']['problems'][0])
-        policy = report['requirements'][-1]['evidence']
+        policy = next(r for r in report['requirements'] if r['id'] == 'policy')['evidence']
         self.assertEqual((policy['merging'], policy['mathematical_paths']), (False, []))
 
     def test_future_approved_policy_needs_no_hypothesis(self):
