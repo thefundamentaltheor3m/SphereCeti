@@ -7,6 +7,7 @@ Authors: SphereCeti contributors
 module
 
 public import SphereCeti.MeasureTheory.Measure.Haar.EuclideanSpace
+public import SphereCeti.ZLattice.BallCount
 public import TauCeti.Algebra.Module.ZLattice.Scaling
 
 /-!
@@ -32,12 +33,16 @@ packing obtained by repeating the centers in a box.
   translation by `c ℤ^ι`.
 * `EuclideanSpace.eq_of_sub_mem_smul_span_basisFun`: two points of a translated box of radius `R`
   that are congruent modulo `c ℤ^ι` with `2R < |c|` are equal.
+* `EuclideanSpace.tendsto_ncard_closedBall_inter_periodicRepetition_div_volume`: for a finite
+  subset `S` of a translated box of radius `R` and `2R < |c|`, the number of points of the
+  repetition of `S` along `c ℤ^ι` in the ball of radius `T`, divided by the volume of the ball,
+  tends to `#S / |c|ⁿ`.
 -/
 
 public section
 
-open Module Submodule
-open scoped Pointwise
+open Filter Metric MeasureTheory Module Submodule
+open scoped Pointwise Topology
 
 namespace EuclideanSpace
 
@@ -131,5 +136,41 @@ theorem eq_of_sub_mem_smul_span_basisFun {a s s' : EuclideanSpace ℝ ι} {R c :
   have := abs_sub_two_mul_le_dist hs hs' hz0 hx hx'
   rw [dist_self] at this
   linarith
+
+/-- For a finite subset `S` of a translated box of radius `R` and `2R < |c|`, the number of points
+of the periodic repetition of `S` along `c ℤ^ι` in the ball of radius `T` about the origin, divided
+by the volume of the ball, tends to `#S / |c|ⁿ` as `T → ∞`: the repetition is the union of the
+`#S` distinct cosets `s + c ℤ^ι`, each of density `1 / |c|ⁿ`. -/
+theorem tendsto_ncard_closedBall_inter_periodicRepetition_div_volume [Nonempty ι]
+    {S : Set (EuclideanSpace ℝ ι)} (hS : S.Finite) {a : EuclideanSpace ℝ ι} {R c : ℝ}
+    (hSbox : S ⊆ a +ᵥ centeredBox ι R) (hc : 2 * R < |c|) :
+    Tendsto (fun T : ℝ ↦ ((closedBall (0 : EuclideanSpace ℝ ι) T ∩
+        periodicRepetition S c).ncard : ℝ) / volume.real (closedBall (0 : EuclideanSpace ℝ ι) T))
+      atTop (𝓝 (S.ncard / |c| ^ Fintype.card ι)) := by
+  rcases S.eq_empty_or_nonempty with rfl | ⟨s₀, hs₀⟩
+  · simp [periodicRepetition_def]
+  -- A point of the box forces `R ≥ 0`, hence `c ≠ 0`.
+  have hc0 : c ≠ 0 := by
+    obtain ⟨i⟩ := ‹Nonempty ι›
+    have h := hSbox hs₀
+    rw [Set.mem_vadd_set_iff_neg_vadd_mem, vadd_eq_add, mem_centeredBox] at h
+    have := (abs_nonneg _).trans (h i)
+    rintro rfl
+    rw [abs_zero] at hc
+    linarith
+  have : NeZero c := ⟨hc0⟩
+  have : Fintype S := hS.fintype
+  set L : Submodule ℤ (EuclideanSpace ℝ ι) :=
+    c • span ℤ (Set.range (EuclideanSpace.basisFun ι ℝ).toBasis)
+  have hp : ∀ q q' : S, (q : EuclideanSpace ℝ ι) - q' ∈ L → q = q' := fun q q' h ↦
+    Subtype.ext (eq_of_sub_mem_smul_span_basisFun (hSbox q.2) (hSbox q'.2) hc h)
+  have h := ZLattice.tendsto_ncard_closedBall_inter_iUnion_vadd_div_volume L
+    (fun q : S ↦ (q : EuclideanSpace ℝ ι)) hp
+  have hunion : (⋃ q : S, (q : EuclideanSpace ℝ ι) +ᵥ (L : Set (EuclideanSpace ℝ ι))) =
+      periodicRepetition S c := by
+    rw [periodicRepetition_eq_iUnion_vadd, Set.biUnion_eq_iUnion]
+  rw [hunion, covolume_smul_span_basisFun, ← Nat.card_eq_fintype_card,
+    Nat.card_coe_set_eq] at h
+  exact h
 
 end EuclideanSpace
