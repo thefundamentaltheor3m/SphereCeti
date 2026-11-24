@@ -330,10 +330,10 @@ closure-continuity hypotheses separately.
 
 - [ ] **Destination:** Mathlib `Mathlib/Analysis/Fourier/Inversion.lean`, beside
   `Continuous.fourierInv_fourier_eq`.
-- [ ] **Current source:** `SphereCeti/Analysis/FourierReverse.lean`.
+- [ ] **Current source:** `SphereCeti/Analysis/Fourier/Exchange.lean`.
 - [ ] **Candidate declaration:** for integrable `F` and `G` on a finite-dimensional real inner
   product space, with `F` continuous and even, and `s ^ 2 = 1`, `𝓕 F = s • G` implies
-  `𝓕 G = s • F` (`SphereCeti.fourier_reverse`).
+  `𝓕 G = s • F` (`MeasureTheory.Integrable.fourier_reverse`).
 - [ ] **Why general:** it uses only Fourier inversion and evenness; nothing refers to contours or
   magic functions.
 - [ ] **SphereCeti use:** the right-to-left and ray-to-central directions of the Layer 8 six-piece
