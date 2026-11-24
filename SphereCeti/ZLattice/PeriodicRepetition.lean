@@ -7,8 +7,6 @@ Authors: SphereCeti contributors
 module
 
 public import SphereCeti.MeasureTheory.Measure.Haar.EuclideanSpace
-public import TauCeti.Algebra.Module.ZLattice.Determinant
-public import TauCeti.Algebra.Module.ZLattice.Integral
 public import TauCeti.Algebra.Module.ZLattice.Scaling
 
 /-!
