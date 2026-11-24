@@ -35,7 +35,8 @@ unconfigured, and `executor` reports the run and job-token checks
 exit 0; unavailable/invalid data and unconfirmed write outcomes exit 2.
 
 `--apply` is explicit and requires both ready setup and the verified executor. The shipped `merging`
-switch is false, the mathematical allowlist and `approving_reviewers` are empty, and controller IDs are zero.
+switch is false. The mathematical allowlist names `SphereCeti/Contour/` and `SphereCeti/E8/`,
+`approving_reviewers` is empty, and controller IDs are zero.
 The CLI cannot configure those settings. Library proof PRs currently require human merging. The
 workflow is installed read-only ([first run](#the-read-only-first-run)); no live merge, secret,
 bot account or branch-rule change is part of it.
