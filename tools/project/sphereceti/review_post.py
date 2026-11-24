@@ -8,11 +8,14 @@ from __future__ import annotations
 
 import json
 import subprocess
+import time
 
 from .review_records import RecordError, identity, intact, parse_record
 
 
 class GitHub:
+    concurrent = True  # independent `gh api` subprocesses; the queue's reads may run in parallel
+
     def call(self, endpoint, *, payload=None, paginate=False, method=None):
         if method not in (None, "PATCH") or (method and payload is None):
             raise RecordError("unsupported GitHub method")
@@ -21,13 +24,22 @@ class GitHub:
             command += ["--paginate", "--slurp"]
         if payload is not None:
             command += ["--method", method or "POST", "--input", "-"]
-        try:
-            result = subprocess.run(command, input=json.dumps(payload) if payload is not None else None,
-                                    capture_output=True, text=True, timeout=60)
-        except (OSError, subprocess.SubprocessError) as error:
-            raise RecordError("GitHub operation failed; publication is unconfirmed") from error
-        if result.returncode:
-            raise RecordError("GitHub operation failed; publication is unconfirmed")
+        from .worker_cli import BACKOFF, primary_reset, rate_limit_reason
+        # Only a read (no payload) is ever retried, and only after a secondary rate limit.
+        for pause in (*BACKOFF, None) if payload is None else (None,):
+            try:
+                result = subprocess.run(command, input=json.dumps(payload) if payload is not None else None,
+                                        capture_output=True, text=True, timeout=60)
+            except (OSError, subprocess.SubprocessError) as error:
+                raise RecordError("GitHub operation failed; publication is unconfirmed") from error
+            if not result.returncode:
+                break
+            reason = rate_limit_reason(result.stderr) if payload is None else None
+            if reason == "primary":
+                raise RecordError(f"GitHub API rate limit exhausted (resets {primary_reset()})")
+            if reason != "secondary" or pause is None:
+                raise RecordError("GitHub operation failed; publication is unconfirmed")
+            time.sleep(pause)
         try:
             value = json.loads(result.stdout)
         except ValueError as error:

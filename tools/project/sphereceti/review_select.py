@@ -165,12 +165,20 @@ def reviewed(client, comments, repository, pr, actor, policy, storage):
     return "reviewed", f"already has an accepted review of this head ({publisher})"
 
 
-def select(project, policy, prefs, *, api=None, client=None, now=None, force=False) -> dict:
+def select(project, policy, prefs, *, api=None, client=None, now=None, force=False, use_cache=None) -> dict:
     """Read-only selection. Unknown GitHub state raises; it never becomes an empty choice."""
     if client is None:
         from .review_post import GitHub
         client = GitHub()
+    if api is None:
+        from .worker_cli import GitHub as Survey
+        api = Survey()
+    from .queue_cache import attach
+    from .ready_to_merge import Cached
+    cache = attach(api, prefs, project, enabled=use_cache) if use_cache is not None else getattr(api, "scope_cache", None)
+    client = Cached(client, cache=cache)
     snapshot = survey(project, None, api=api)
+    client.bulk = getattr(api, "queue_comments", None) or {}
     now = now or datetime.now(timezone.utc)
     planned = plan(snapshot, project, now=now)
     actor = snapshot["actor"]
@@ -186,34 +194,37 @@ def select(project, policy, prefs, *, api=None, client=None, now=None, force=Fal
         # An informational readiness note (e.g. an older trusted build) never makes a PR not ready.
         note = pr.get("review_note") if code != "awaiting_refresh" else None
         held = held_reason(client, project.repository, pr) if code == "awaiting_ci" else None
-        skipped.append({"pr": pr["number"], "head": pr["head"], "code": code,
-                        "reason": (held or reason) + (f" ({note})" if note else ""), "note": note,
-                        **({"held": True} if held else {})})
+        return "skipped", {"pr": pr["number"], "head": pr["head"], "code": code,
+                           "reason": (held or reason) + (f" ({note})" if note else ""), "note": note,
+                           **({"held": True} if held else {})}
+
+    def classify(number):
+        """One PR's outcome; its reads run concurrently with other PRs' (pool.py)."""
+        pr = by_number[number]
+        if pr["author"].casefold() == actor.casefold():
+            return skip(pr, "yours", "is yours")
+        if pr["draft"]:
+            return skip(pr, "draft", "is a draft")
+        if number not in ready:
+            return skip(pr, *readiness(pr))
+        if gate.waiting(number):
+            return skip(pr, "waiting_on_parent", gate.waiting(number)[1])
+        state = review_state(client, project.repository, pr, actor, policy, storage, force=force)
+        if state:
+            return skip(pr, state[0], state[1])
+        seconds = max(0, int((observed - timestamp(pr["updated_at"])).total_seconds()))
+        return "candidate", {"pr": number, "title": pr["title"], "author": pr["author"],
+                             "head": pr["head"], "base": pr["base"], "updated_at": pr["updated_at"],
+                             "waiting_seconds": seconds, "ci": pr["ci"],
+                             "review_ci": pr.get("review_ci", pr["ci"]),
+                             "note": pr.get("review_note"), "unblocks": gate.descendants(number)}
 
     # The planner's order is the priority: stage, then oldest updatedAt, then PR number.
     order = [c["pr"] for c in planned["candidates"] if "pr" in c]
     order += sorted(n for n in by_number if n not in order)
-    for number in order:
-        pr = by_number[number]
-        if pr["author"].casefold() == actor.casefold():
-            skip(pr, "yours", "is yours")
-        elif pr["draft"]:
-            skip(pr, "draft", "is a draft")
-        elif number not in ready:
-            skip(pr, *readiness(pr))
-        elif gate.waiting(number):
-            skip(pr, "waiting_on_parent", gate.waiting(number)[1])
-        else:
-            state = review_state(client, project.repository, pr, actor, policy, storage, force=force)
-            if state:
-                skip(pr, state[0], state[1])
-            else:
-                seconds = max(0, int((observed - timestamp(pr["updated_at"])).total_seconds()))
-                candidates.append({"pr": number, "title": pr["title"], "author": pr["author"],
-                                   "head": pr["head"], "base": pr["base"], "updated_at": pr["updated_at"],
-                                   "waiting_seconds": seconds, "ci": pr["ci"],
-                                   "review_ci": pr.get("review_ci", pr["ci"]),
-                                   "note": pr.get("review_note"), "unblocks": gate.descendants(number)})
+    from .pool import concurrent, ordered
+    for kind, item in ordered(classify, order, parallel=concurrent(client.client)):
+        (candidates if kind == "candidate" else skipped).append(item)
     # Stack roots first: among equally eligible PRs, the one blocking the most descendants leads.
     candidates.sort(key=lambda c: -c["unblocks"])
     skipped.sort(key=lambda item: -item["pr"])  # Display order only: newest PR first.
@@ -224,6 +235,8 @@ def select(project, policy, prefs, *, api=None, client=None, now=None, force=Fal
             main = client.call(f"repos/{project.repository}/commits/{project.default_branch}").get("sha")
         except (RecordError, KeyError, AttributeError):
             main = None  # informational only
+    if cache is not None:
+        cache.save()
     return {"schema": SCHEMA, "main": main, "state": "selected" if selected else "nothing_to_review",
             "repository": project.repository, "actor": actor, "observed_at": snapshot["observed_at"],
             "priority": PRIORITY, "waiting_since": "updatedAt",
@@ -284,6 +297,11 @@ def rationale(selection, *, dry_run=False, posting=None) -> str:
             f"waiting {waiting(s['waiting_seconds'])}" + (f"; {posting}." if posting else "."))
 
 
+def cache_choice(args):
+    """True/False from the CLI's --no-cache; None (no operator cache) for library callers."""
+    return None if not hasattr(args, "no_cache") else not args.no_cache
+
+
 def check_arguments(args) -> None:
     """Bare review chooses a GitHub PR; PR-specific inputs need an explicit number."""
     for flag, value in (("--local-sources", args.local_sources), ("--read-records", args.read_records),
@@ -308,7 +326,7 @@ def run_bare(args, project, policy, prefs, *, api=None, client=None, announce=No
     from .review_summary import announcing, summarize
     check_arguments(args)
     force = getattr(args, "force_claim", False)
-    selection = select(project, policy, prefs, api=api, client=client, force=force)
+    selection = select(project, policy, prefs, api=api, client=client, force=force, use_cache=cache_choice(args))
     output = args.output
     for attempt, candidate in enumerate(list(selection["candidates"])):
         selection["selected"] = candidate

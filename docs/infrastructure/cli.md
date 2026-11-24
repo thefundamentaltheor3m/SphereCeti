@@ -14,6 +14,7 @@ The `sphereceti` command supplies project diagnostics and the adapters credited 
 | `review N --no-approve` | [Opted-in maintainers: review without submitting the GitHub approval](local-review.md#approvals-by-opted-in-maintainers) |
 | `review --force-claim` | [Advisory review-in-progress claims](local-review.md#review-in-progress-claims) |
 | `review --quiet`, `reviews --quiet` | [No progress lines on stderr](local-review.md#progress-lines) |
+| `reviews --no-cache`, `review --no-cache` | [Read the whole queue fresh](local-review.md#how-the-queue-is-read) |
 | `review --read-records / --no-post` | [Authenticated records and publication](review-records.md) |
 | `review-publish RUN` | [Publish a saved run without reviewing again](local-review.md#publishing-a-saved-run) |
 | `setup` | [First-run and changed review preferences](local-review.md#first-run-and-sphereceti-setup) |
