@@ -144,7 +144,8 @@ def main(argv: list[str] | None = None) -> int:
             if args.command == "intentions":
                 report = observe(project)
             else:
-                report = lookup(project, args.target, kind=args.kind, item=args.item, module=args.module)
+                report = lookup(project, args.target, kind=args.kind, item=args.item, module=args.module,
+                                parent=args.parent_pr)
                 wanted = args.register or args.dry_run
                 if (report["verdict"] == "no_exact_claim" and not wanted and not args.json
                         and sys.stdin.isatty() and sys.stdout.isatty()):

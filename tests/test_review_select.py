@@ -309,7 +309,8 @@ class BareReviewHarness(unittest.TestCase):
                          state='OPEN', isDraft=False, mergeable='MERGEABLE',
                          statusCheckRollup=[{'__typename': 'CheckRun', 'status': 'COMPLETED',
                                              'conclusion': 'SUCCESS'}],
-                         headRepository={'nameWithOwner': REPO})
+                         headRepository={'nameWithOwner': REPO}, baseRefName='main',
+                         headRefName=f'change-{number}')
             value.update(updates)
             return value
         self.queue = [pr(50, 'xavier', updatedAt='2026-03-01T00:00:00Z'),
