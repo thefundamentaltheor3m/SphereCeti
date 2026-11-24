@@ -361,6 +361,8 @@ def main(argv: list[str] | None = None) -> int:
             if "review_safe" in report:
                 print("Authorized review evidence: " + ("current and approving" if report["review_safe"] else
                       "; ".join(report["reasons"])))
+                for item in report.get("carry_over") or []:
+                    print(f"  Older review {item['from'][:7]}: {item['status']}")
             if not args.read_records:
                 print(posting_note(args, report))
             if report.get("claim"):

@@ -246,6 +246,12 @@ information only. Then it skips:
   written as `/sphereceti contest <rubric>` in an ordinary comment, whatever head it was
   written against. Selection does not recompute tooling, context or engine digests (that would mean
   materializing every candidate's sources); the record reader still checks them all.
+- **Carried over from an older head:** when the only commits since a reviewed head are "Update
+  branch" merges of main, the PR's own change is identical, and no review input changed on main,
+  the older review is current ([rule](merge-controller.md#per-pr-actions-stale-build-versus-stale-review)).
+  The reason ends with `current (carried over from <H1> via update-branch)`, and no fresh review is
+  asked for. Selection reads this through GET-only API calls (commits, trees and compare); any
+  doubt means no carry-over.
 - **Reviewed by you:** a complete commit/manual record for this head and base that you posted
   (comment author login equals yours, advisory or not), or that you produced locally: a
   `record.json` under your storage's `runs/`, or a record in the local archive journal, which
@@ -358,7 +364,9 @@ Not ready: No PR is ready with current evidence: 8 open PRs await CI; 7 are your
 ```
 
 - **Revised since your review:** your latest posted (unedited, commit/manual) record names an
-  older head and the PR is ready. It shows the old and new short heads, the commits since (the
+  older head and the PR is ready, unless that review carries over through update-branch merges.
+  Then the PR is done (`current (carried over from <H1> via update-branch)`), or, if you requested
+  changes, it waits on the author with `no new change`. It shows the old and new short heads, the commits since (the
   compare API; a rewritten history is reported, never guessed), and author replies and contests
   posted after your record. These rank first.
 - **Author replied:** your latest record names the current head and requested changes or

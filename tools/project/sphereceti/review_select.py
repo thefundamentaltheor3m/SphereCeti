@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 import json
 from pathlib import Path
 
+from .carry_over import carried_records, describe as carry_status
 from .local_review import ReviewError
 from .review_claims import ClaimYielded, describe, live, note as claim_note, run_claimed
 from .review_records import (ANY_DIRECTIVE, CONTEST, MARKER, RecordError, carried_contests, contests,
@@ -130,6 +131,16 @@ def reviewed(client, comments, repository, pr, actor, policy, storage):
     path = local_record(storage, repository, pr["number"], pr["head"], pr["base"])
     if path:
         return "reviewed_by_you", f"you already reviewed this head locally ({path})"
+    carried = ""
+    if not accepted:
+        # Only update-branch merges since an older reviewed head, with the same change and no review
+        # input changed on main: that review is current (carry_over), so no fresh review is needed.
+        items, result = carried_records(client, comments, repository, pr["number"], pr["head"])
+        if items:
+            carried = carry_status(result)
+            if any((c.get("user") or {}).get("login", "").casefold() == actor.casefold() for c, _ in items):
+                return "reviewed_by_you", f"you already reviewed this change; {carried}"
+            accepted = items
     accepted = {c["id"]: (c, r) for c, r in accepted if identity(c) in policy.authorized_reviewers}
     if not accepted:
         return None
@@ -147,6 +158,8 @@ def reviewed(client, comments, repository, pr, actor, policy, storage):
     if pending:
         return None  # An authenticated contest newer than the record asks for another review.
     publisher = identity(accepted[max(accepted)][0])
+    if carried:
+        return "reviewed", f"already has an accepted review ({publisher}); {carried}"
     return "reviewed", f"already has an accepted review of this head ({publisher})"
 
 
