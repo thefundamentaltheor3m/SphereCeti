@@ -97,6 +97,12 @@ explicit form; `--post --no-post` is a usage error (exit 2).
 
 The worker (`worker run --execute`) is unchanged: it posts only with `--post-review`.
 
+A posting review reads the PR's comments before inference. It carries every unanswered
+`/sphereceti contest <rubric>` reply into that rubric's prompt, as quoted data together with the
+finding it disputes, even after the head has moved. The record's details then say whether each
+reply was considered and whether the finding still stands. See
+[contesting a finding](review-records.md#contesting-a-finding-in-an-ordinary-comment).
+
 ## Publishing a saved run
 
 A review that finished but was not posted keeps its exact record in the run directory
@@ -310,6 +316,7 @@ information only. Then it skips:
 | `not_ready` | Conflicting, unknown mergeability, or CI failed. |
 | `awaiting_ci` | CI is pending or unknown. |
 | `awaiting_github` | GitHub has not yet computed mergeability (it recomputes after main moves). |
+| `waiting_on_parent` | A stacked PR whose parent (or an earlier ancestor) is not review-satisfied (below). |
 | `awaiting_refresh` | Only a fresh trusted run is missing (a build from before tooling attestation). |
 | `reviewed` | It already has an accepted review of this head (below). |
 | `reviewed_by_you` | You already published or produced a complete review of this head. |
@@ -321,7 +328,9 @@ information only. Then it skips:
   review record for this PR's current head and base, published by an identity in the installed
   policy's `authorized_reviewers` (the same records `review --read-records` reads). An
   authenticated contest newer than that record, not yet answered by its publisher, reopens the
-  PR. Selection does not recompute tooling, context or engine digests (that would mean
+  PR. So does an unanswered [author contest](review-records.md#contesting-a-finding-in-an-ordinary-comment)
+  written as `/sphereceti contest <rubric>` in an ordinary comment, whatever head it was
+  written against. Selection does not recompute tooling, context or engine digests (that would mean
   materializing every candidate's sources); the record reader still checks them all.
 - **Reviewed by you:** a complete commit/manual record for this head and base that you posted
   (comment author login equals yours, advisory or not), or that you produced locally: a
@@ -330,8 +339,21 @@ information only. Then it skips:
   record that was never posted is published with
   [`review-publish`](#publishing-a-saved-run), not by reviewing again.
 
+**Stacks.** A PR whose base branch is not `main` is stacked. Its parent is the open PR whose head
+branch is that base (a same-repository head is preferred; a fork head with that branch name
+counts when it is the only one), and its chain runs up to the root PR that targets `main`. The
+survey (`worker-survey/v4`) carries each PR's base and head branch names, so this costs no extra
+read; only a base branch that no open PR heads costs one read, to tell a merged parent apart. A
+stacked PR is eligible only when every open ancestor is **review-satisfied**: an accepted,
+complete, non-advisory record on the ancestor's current head with all ten rubrics approving, or
+the ancestor is merged. Otherwise it is skipped as `waiting_on_parent` with the nearest
+unsatisfied ancestor: `waiting on parent #63 (9/10 on its head)`, `(no review on its head)` or
+`(not ready)`, and `waiting on ancestor #63 (...)` further up. Review effort thus goes to stack
+roots, whose approval unblocks their children.
+
 **Priority** comes from the planner. Every eligible PR is at the `review-assessment` stage, so
-they tie, and the planner's tie-break decides: **longest waiting first**, by the PR's GitHub
+they tie. Among them, **stack roots that block the most descendants come first** (the rationale
+says `unblocks 3 stacked PRs`); then the planner's tie-break decides: **longest waiting first**, by the PR's GitHub
 `updatedAt` (oldest first), then the lowest PR number. The planner does not observe when the
 current head became ready, so `updatedAt` stands in for it. Any comment, including a posted
 record, refreshes it.
@@ -434,6 +456,18 @@ Not ready: No PR is ready with current evidence: 8 open PRs await CI; 7 are your
 - **Your follow-ups, not ready yet:** a PR you reviewed that was revised or answered but awaits
   CI, GitHub or a refreshed build is named on its own line instead of disappearing into the
   summary (`follow_ups_not_ready` in JSON).
+- **Blocked by a parent:** each stacked PR whose ancestors are not review-satisfied, with the
+  reason, grouped by stack root with the number of PRs that root unblocks, most first (your own
+  PRs included and marked). These are left out of the sections above, so batches review roots
+  first:
+
+  ```text
+  Blocked by a parent (5):
+    stack #63 (unblocks 3): #64 waiting on parent #63 (9/10 on its head); #71 waiting on ancestor #63 (9/10 on its head); #116 waiting on parent #63 (9/10 on its head)
+    stack #75 (unblocks 1): #115 waiting on parent #75 (9/10 on its head)
+  ```
+
+  Within the other sections, entries that unblock stacked PRs say so and come first.
 - **Not ready:** the aggregated summary of bare `review`, with your own PRs counted. PRs that
   already have the review they need are listed as already reviewed.
 

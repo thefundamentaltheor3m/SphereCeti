@@ -15,7 +15,8 @@ from pathlib import Path
 from .local_review import ReviewError
 from .review_approval import note as approval_note
 from .review_claims import ClaimYielded, describe, live, note as claim_note, run_claimed
-from .review_records import CONTEST, MARKER, RecordError, contests, identity, intact, parse_record
+from .review_records import (ANY_DIRECTIVE, CONTEST, MARKER, RecordError, carried_contests, contests,
+                             identity, intact, parse_record)
 from .worker import plan, timestamp
 from .worker_checks import NEEDS_REFRESH
 from .worker_cli import survey
@@ -23,6 +24,7 @@ from .worker_leases import utcnow
 
 SCHEMA = "sphereceti.review-selection/v1"
 PRIORITY = ("Planner stage first (every eligible PR is at review-assessment, so they tie); "
+            "then stack roots blocking the most descendants; "
             "then longest waiting by the PR's GitHub updatedAt, oldest first; then lowest PR number.")
 
 
@@ -115,6 +117,14 @@ def review_state(client, repository, pr, actor, policy, storage, *, force=False,
 
 
 def reviewed(client, comments, repository, pr, actor, policy, storage):
+    if any(isinstance(c.get("body"), str) and any(ANY_DIRECTIVE.match(line) for line in c["body"].splitlines())
+           for c in comments):
+        info = client.call(f"repos/{repository}/pulls/{pr['number']}")
+        author = (info.get("user") or {}).get("id") if isinstance(info, dict) else None
+        if type(author) is not int:
+            raise RecordError("PR author identity is unavailable")
+        if carried_contests(comments, {"repository": repository, "pr": pr["number"]}, policy, author):
+            return None  # An unanswered author contest asks for another review, on any head.
     accepted, yours = published(comments, repository, pr, actor)
     if yours:
         return "reviewed_by_you", "you already published a complete review of this head"
@@ -155,6 +165,8 @@ def select(project, policy, prefs, *, api=None, client=None, now=None, force=Fal
     ready = {c["pr"] for c in planned["candidates"] if c["stage"] == "review-assessment"}
     by_number = {pr["number"]: pr for pr in snapshot["pull_requests"]}
     skipped, candidates = [], []
+    from .stacks import StackGate
+    gate = StackGate(snapshot, project, policy, client, ready)
 
     def skip(pr, code, reason):
         # An informational readiness note (e.g. an older trusted build) never makes a PR not ready.
@@ -173,6 +185,8 @@ def select(project, policy, prefs, *, api=None, client=None, now=None, force=Fal
             skip(pr, "draft", "is a draft")
         elif number not in ready:
             skip(pr, *readiness(pr))
+        elif gate.waiting(number):
+            skip(pr, "waiting_on_parent", gate.waiting(number)[1])
         else:
             state = review_state(client, project.repository, pr, actor, policy, storage, force=force)
             if state:
@@ -183,7 +197,9 @@ def select(project, policy, prefs, *, api=None, client=None, now=None, force=Fal
                                    "head": pr["head"], "base": pr["base"], "updated_at": pr["updated_at"],
                                    "waiting_seconds": seconds, "ci": pr["ci"],
                                    "review_ci": pr.get("review_ci", pr["ci"]),
-                                   "note": pr.get("review_note")})
+                                   "note": pr.get("review_note"), "unblocks": gate.descendants(number)})
+    # Stack roots first: among equally eligible PRs, the one blocking the most descendants leads.
+    candidates.sort(key=lambda c: -c["unblocks"])
     skipped.sort(key=lambda item: -item["pr"])  # Display order only: newest PR first.
     selected = candidates[0] if candidates else None
     main = None
@@ -244,7 +260,9 @@ def rationale(selection, *, dry_run=False, posting=None) -> str:
     ready = "ready" if s["ci"] == s["review_ci"] else "ready (human-review scope)"
     if s.get("note"):
         ready = ready[:-1] + f"; {s['note']})" if ready.endswith(")") else f"ready ({s['note']})"
-    return (f"{verb} #{s['pr']} (head {s['head'][:7]}): {ready}, not yours, no current review; "
+    unblocks = s.get("unblocks") or 0
+    stack = f"; unblocks {unblocks} stacked PR{'s' if unblocks != 1 else ''}" if unblocks else ""
+    return (f"{verb} #{s['pr']} (head {s['head'][:7]}): {ready}, not yours, no current review{stack}; "
             f"waiting {waiting(s['waiting_seconds'])}" + (f"; {posting}." if posting else "."))
 
 

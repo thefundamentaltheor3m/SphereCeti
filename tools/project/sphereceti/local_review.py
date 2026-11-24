@@ -139,6 +139,31 @@ def poster_identity(client):
     return None
 
 
+def apply_contests(result, carried):
+    """Attach each carried contest's outcome to its rubric; only an explicit answer raises the watermark."""
+    for rubric, items in carried.items():
+        review = result["reviews"].setdefault(rubric, {})
+        answers = {a["comment"]: a for a in review.get("contest_responses") or []}
+        notes = []
+        for contest in sorted(items, key=lambda c: c["id"]):
+            answer = answers.get(contest["id"]) if contest["passed"] else None
+            notes.append({"comment": contest["id"], "considered": True, "stands": answer["stands"],
+                          "reason": answer["reason"]} if answer else
+                         {"comment": contest["id"], "considered": False,
+                          "note": contest["not_passed"] or "the reviewer did not answer it"})
+        review["contests"] = notes
+        considered = [n["comment"] for n in notes if n["considered"]]
+        if considered:
+            review["last_reply_seen"] = max([review.get("last_reply_seen") or 0, *considered])
+
+
+def unchanged_contests(comments, carried):
+    """An edit after the review fetched a contest means the review did not see its current text."""
+    now = {c.get("id"): c for c in comments}
+    if any(c["comment"] in now and now[c["comment"]].get("updated_at") != c["updated_at"] for c in carried):
+        raise ReviewError("an author contest was edited during the review; rerun so the review sees its current text")
+
+
 def write_json(path: Path, value):
     temporary = path.with_suffix(path.suffix + ".tmp")
     temporary.write_text(json.dumps(value, indent=2) + "\n")
@@ -455,6 +480,8 @@ def execute(args, prefs, report, workspace: Path, engine: Path, store: Path, out
         if state:
             state["state"] = {}
         contexts[pr_key] = report["review_context_digest"]
+    for case in ([] if args.shadow else (ledger.get("prs", {}).get(pr_key, {}).get("state") or {}).values()):
+        case.pop("contest_responses", None)  # answers count only from this run
     run_store = output / "shadow-store" if args.shadow else store
     run_store.mkdir(exist_ok=True)
     if args.shadow and not ledger_file.exists():
@@ -478,8 +505,9 @@ def execute(args, prefs, report, workspace: Path, engine: Path, store: Path, out
                # Local engine adaptation: bounded attempts, no Codex sub-agents, unknown-usage stop.
                "--attempt-timeout", str(args.attempt_timeout), "--codex-single-agent",
                "--usage-stop-file", str(output / "usage-stop.json")]
-    for name in ("claude_model", "codex_model", "kiro_model", "reply_rubric", "reply_file", "replies_json"):
-        value = getattr(args, name)
+    for name in ("claude_model", "codex_model", "kiro_model", "reply_rubric", "reply_file", "replies_json",
+                 "carried_contests"):
+        value = getattr(args, name, None)
         if value:
             command += ["--" + name.replace("_", "-"), str(value)]
     if not args.shadow:
@@ -549,7 +577,8 @@ def execute(args, prefs, report, workspace: Path, engine: Path, store: Path, out
               "stop_reason": stop_reason,
               "usage_unknown_rubrics": usage_stop["unknown_rubrics"] if usage_stop else [],
               "verdicts": {r: state.get(r, {}).get("verdict", "absent") for r in RUBRICS},
-              "reviews": {r: {k: state.get(r, {}).get(k) for k in ("summary", "findings", "last_reply_seen")}
+              "reviews": {r: {k: state.get(r, {}).get(k) for k in ("summary", "findings", "last_reply_seen",
+                                                                    "contest_responses")}
                           for r in RUBRICS},
               "advisory": True, "merge_eligible": False}
     scoreboard = output / "upstream-scoreboard.md"
@@ -634,12 +663,14 @@ def run_review(args, project, prefs, *, guard=None) -> dict:
             report["workspace_retained"] = args.keep_workspace
             report["output"] = str(output)
             write_json(output / "evidence.json", report)
-            from .review_records import (RecordError, assess_records, collect_records, contests, make_record)
+            from .review_records import (RecordError, assess_records, carried_contests, collect_records,
+                                         contests, make_record)
             from .review_post import GitHub, publish
             policy_path = workspace / "approved/policy/automation.toml"
             selected_policy = parse_policy(policy_path.read_text()) if policy_path.is_file() else None
             client = GitHub()
             not_posted = poster = None
+            carried = {}
             if args.post and getattr(args, "post_default", False):
                 # Posting by default degrades to a local record; an explicit --post still fails.
                 if not report["tooling_approved"] or selected_policy is None:
@@ -678,8 +709,20 @@ def run_review(args, project, prefs, *, guard=None) -> dict:
                     write_json(reply_path, {r: [c for c in pending if c["rubric"] == r] for r in RUBRICS})
                     args.replies_json = reply_path
                     args.mode = "manual"  # A posted contest response re-evaluates the full selected scope.
+                carried = carried_contests(comments, report, selected_policy, author_id)
+                if carried:
+                    # Each rubric receives only its own contests, as quoted data; see review_records.
+                    path = scratch / "carried-contests.json"
+                    write_json(path, {r: [{"comment": c["id"], "author": c["by"], "on_head": c["on_head"],
+                                           "prior_finding": c["finding"], "reply": c["body"]}
+                                          for c in items if c["passed"]] for r, items in carried.items()})
+                    args.carried_contests = path
+                    args.mode = "manual"
             # Publication provenance stays out of the provider context; it joins the saved result.
             provenance = {"contest_inputs": contest_inputs or ("github" if args.post else "none")}
+            if carried:
+                provenance["carried_contests"] = [{"comment": c["id"], "rubric": r, "updated_at": c["updated_at"]}
+                                                  for r, items in sorted(carried.items()) for c in items]
             if poster:
                 provenance["poster_identity"] = poster
             # Worker guard shares this exact prepared evidence and provider lifecycle. Direct
@@ -689,6 +732,8 @@ def run_review(args, project, prefs, *, guard=None) -> dict:
                           if args.dry_run else execute(args, prefs, report, workspace, engine,
                                                       storage / "engine", output, lock_fd, heartbeat=heartbeat))
                 result.update(provenance)
+                if carried and "reviews" in result:
+                    apply_contests(result, carried)
                 if heartbeat:
                     try:
                         heartbeat()
@@ -718,6 +763,9 @@ def run_review(args, project, prefs, *, guard=None) -> dict:
                                     or current["installed_tooling_matches_T"] != report["installed_tooling_matches_T"]
                                     or not client.approved_revision(project.repository, report["tooling"], current["tooling"])):
                                 raise ReviewError("review evidence or posting policy changed; rerun before posting")
+                            if carried:
+                                unchanged_contests(client.comments(project.repository, args.pr),
+                                                   provenance["carried_contests"])
                             # Recheck the head/base after source materialization, immediately before the write.
                             final_refs = revisions(fresh_args, project)
                             if any(final_refs[k] != fresh_refs[k] for k in ("tooling", "head", "base")):

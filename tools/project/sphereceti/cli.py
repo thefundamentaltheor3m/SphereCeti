@@ -49,17 +49,49 @@ def pull_requests(repository: str) -> list[dict]:
         raise QueueError(f"GitHub returned invalid queue data: {error}") from error
 
 
+class VersionAction(argparse.Action):
+    """`--version`: the package version and which build is running, computed only when asked."""
+
+    def __init__(self, option_strings, dest=argparse.SUPPRESS, default=argparse.SUPPRESS, help=None):
+        super().__init__(option_strings, dest=dest, default=default, nargs=0,
+                         help=help or "show the version and the installed commit, then exit")
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        from .provenance import version_string
+        print(version_string(), flush=True)  # stdout, as argparse's own version action does
+        parser.exit()
+
+
+def installed_report(project, offline: bool) -> dict:
+    """doctor's installed-build check: never fails doctor; GitHub only when online."""
+    from .provenance import compare, installed
+    info = installed()
+    if offline:
+        return {"installed_commit": info.get("commit"), "installed_label": info["label"], "approved_main": None,
+                "behind_by": None, "up_to_date": None, "state": "not_checked"}
+    from .review_post import GitHub
+    from .review_records import RecordError
+    try:
+        return {**compare(project, GitHub().call, info=info), "state": "checked"}
+    except (RecordError, OSError, ValueError, KeyError, TypeError) as error:
+        return {"installed_commit": info.get("commit"), "installed_label": info["label"], "approved_main": None,
+                "behind_by": None, "up_to_date": None, "state": "error",
+                "reason": f"approved main unavailable ({type(error).__name__})"}
+
+
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     if not argv:
         argv = ["worker", "plan"]
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--version", action="version", version=__version__)
+    parser.add_argument("--version", action=VersionAction)
     commands = parser.add_subparsers(dest="command", required=True)
     from .local_review import add_parser, posting_note, resolve_posting, ReviewError
     from .gate import GateError
     from .review_records import RecordError
     add_parser(commands)
+    from .intentions import add_parser as add_intentions_parser
+    add_intentions_parser(commands)
     from .review_publish import add_parser as add_publish_parser
     add_publish_parser(commands)
     from .review_queue import add_parser as add_queue_parser
@@ -83,7 +115,7 @@ def main(argv: list[str] | None = None) -> int:
     add_observer(commands)
     from .auto_approval import add_parser as add_auto_approval, auto_approval, render as render_auto_approval
     add_auto_approval(commands)
-    from .merge_controller import add_parser as add_controller, run as run_controller
+    from .merge_controller import add_parser as add_controller, render as render_controller, run as run_controller
     add_controller(commands)
     from .lifecycle_api import add_parser as add_maintenance, run as run_maintenance
     add_maintenance(commands)
@@ -145,6 +177,41 @@ def main(argv: list[str] | None = None) -> int:
     except (ConfigError, OSError, tomllib.TOMLDecodeError) as error:
         parser.exit(2, f"sphereceti: configuration error: {error}\n")
 
+    if args.command in ("intentions", "intend"):
+        from .intentions import (RegistrationRefused, lookup, observe, register, render as render_intentions,
+                                 render_lookup)
+        try:
+            if args.command == "intentions":
+                report = observe(project)
+            else:
+                report = lookup(project, args.target, kind=args.kind, item=args.item, module=args.module,
+                                parent=args.parent_pr)
+                wanted = args.register or args.dry_run
+                if (report["verdict"] == "no_exact_claim" and not wanted and not args.json
+                        and sys.stdin.isatty() and sys.stdout.isatty()):
+                    print(render_lookup(report))
+                    wanted = input("Register an intention for it now? [y/N] ").strip().lower() in ("y", "yes")
+                    if not wanted:
+                        return 0
+                    report["registration"] = register(project, report, parent=args.parent_pr, duration=args.duration)
+                    from .intentions import render_registration
+                    print(render_registration(report["registration"]))
+                    return 0 if report["registration"]["state"] == "registered" else 1
+                if wanted and report["verdict"] == "no_exact_claim":
+                    report["registration"] = register(project, report, parent=args.parent_pr,
+                                                      duration=args.duration, dry_run=args.dry_run)
+        except RegistrationRefused as error:
+            parser.exit(2, f"sphereceti intend: not registered: {error}\n")
+        except (RecordError, OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as error:
+            reason = str(error) if isinstance(error, RecordError) else f"incomplete GitHub data ({type(error).__name__})"
+            parser.exit(2, f"sphereceti {args.command}: GitHub lookup failed: {reason}; nothing was registered\n")
+        if args.json:
+            print(json.dumps(report, indent=2))
+        else:
+            print(render_intentions(report) if args.command == "intentions" else render_lookup(report))
+        state = (report.get("registration") or {}).get("state")
+        return 1 if state in ("claimed", "lost_race", "unconfirmed") else 0
+
     if args.command == "evaluation":
         try:
             report = run_evaluation(args, project, preferences)
@@ -167,8 +234,8 @@ def main(argv: list[str] | None = None) -> int:
                 TypeError, subprocess.SubprocessError) as error:
             reason = str(error) if isinstance(error, (RecordError, ConfigError, ReviewError)) else 'incomplete or unavailable controller evidence'
             parser.exit(2, f"sphereceti {args.command}: {reason}\n")
-        print(json.dumps(report, indent=2))
-        return 2 if report.get('state') == 'unconfirmed' else 0
+        print(json.dumps(report, indent=2) if args.json else render_controller(report))
+        return 2 if report.get('state') in ('unconfirmed', 'stopped') else 0
     if args.command == 'maintenance':
         try:
             report = run_maintenance(args, project)
@@ -387,6 +454,7 @@ def main(argv: list[str] | None = None) -> int:
         report["executables"] = {name: shutil.which(name) for name in ("git", "gh", "lean", "lake")}
         if not all(report["executables"].values()):
             exit_code = 1
+        report["installed"] = installed_report(project, args.offline)
     if args.json:
         print(json.dumps(report, indent=2))
     else:
@@ -402,6 +470,9 @@ def main(argv: list[str] | None = None) -> int:
         print("Execution readiness is unverified; automated authoring and reporting are not implemented.")
         print(f"Operational setup: {report['setup']['reason']}")
         if args.command == "doctor":
+            from .provenance import doctor_line
+            installed = report["installed"]
+            print(doctor_line(installed) + (f" ({installed['reason']})" if installed.get("reason") else ""))
             for name, path in report["executables"].items():
                 print(f"{name}: {path or 'missing'}")
         pending = [s["name"] for s in sources if s["license_status"] == "unresolved" and s["state"] == "planned"]
