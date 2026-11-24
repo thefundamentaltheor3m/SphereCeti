@@ -12,28 +12,31 @@ public import SphereCeti.CohnElkies.Defects
 # Vanishing of the Cohn–Elkies defects
 
 Let `L` be a full lattice in a finite-dimensional real inner product space `E`, let `p : ι → E`
-be a finite family of points, and let `f` be a Schwartz function.  Under the sign conditions of a
-Cohn–Elkies certificate, the direct defect and the Fourier defect of `f` on the translates
-`L + p q` are absolutely convergent sums of terms of one sign, so each of them vanishes exactly
-when all of its terms do:
+be a finite family of points, and let `f` be a Schwartz function.  The direct defect and the
+Fourier defect of `f` on the translates `L + p q` are absolutely convergent sums, and each of them
+vanishes exactly when all of its terms do, provided its terms have one sign:
 
-* the direct defect vanishes exactly when `Re f` vanishes at every nonzero difference
-  `z + p q - p q'` with `z ∈ L`;
-* the Fourier defect vanishes exactly when `Re 𝓕 f(y) * S_p(y)` vanishes at every nonzero
-  frequency `y` of the dual lattice, where `S_p` is the structure factor of `p`.
+* if `Re f ≤ 0` at distance at least `r` from the origin and every nonzero difference
+  `z + p q - p q'` with `z ∈ L` has norm at least `r`, the direct defect vanishes exactly when
+  `Re f` vanishes at every such nonzero difference;
+* if `Re 𝓕 f ≥ 0` at the nonzero frequencies of the dual lattice, the Fourier defect vanishes
+  exactly when `Re 𝓕 f(y) * S_p(y)` vanishes at every nonzero dual frequency `y`, where `S_p` is
+  the structure factor of `p`.  This allows `Re 𝓕 f(y) ≠ 0` at frequencies where `S_p(y) = 0`.
 
-If the points are pairwise incongruent modulo `L`, both defects vanish exactly when the periodic
-bound is attained, that is `N * Re f(0) = N² / covol(L) * Re 𝓕 f(0)` for `N` points.  This is how
-equality in the periodic Cohn–Elkies bound forces the zero sets of `f` and `𝓕 f`, and conversely
-how these zero sets give equality.
+If moreover the points are pairwise incongruent modulo `L`, both defects vanish exactly when the
+periodic bound is attained, that is `N * Re f(0) = N² / covol(L) * Re 𝓕 f(0)` for `N` points.
+So under these hypotheses, equality in the periodic Cohn–Elkies bound holds exactly when `Re f`
+vanishes at the nonzero differences and `Re 𝓕 f * S_p` vanishes at the nonzero dual frequencies.
 
 ## Main statements
 
-* `SphereCeti.CohnElkies.directDefect_eq_zero_iff`: the direct defect vanishes exactly when `Re f`
-  vanishes at the nonzero differences.
-* `SphereCeti.CohnElkies.fourierDefect_eq_zero_iff`: the Fourier defect vanishes exactly when
-  `Re 𝓕 f * S_p` vanishes at the nonzero dual frequencies.
-* `SphereCeti.CohnElkies.directDefect_eq_zero_and_fourierDefect_eq_zero_iff`: both defects vanish
+* `SphereCeti.CohnElkies.directDefect_eq_zero_iff`: under the sign condition on `Re f` and the
+  separation of the nonzero differences, the direct defect vanishes exactly when `Re f` vanishes
+  at the nonzero differences.
+* `SphereCeti.CohnElkies.fourierDefect_eq_zero_iff`: under the sign condition on `Re 𝓕 f`, the
+  Fourier defect vanishes exactly when `Re 𝓕 f * S_p` vanishes at the nonzero dual frequencies.
+* `SphereCeti.CohnElkies.directDefect_eq_zero_and_fourierDefect_eq_zero_iff`: under both sign
+  conditions, the separation, and incongruence of the points modulo `L`, both defects vanish
   exactly when the periodic bound is attained.
 
 ## References
