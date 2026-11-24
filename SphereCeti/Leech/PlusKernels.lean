@@ -7,6 +7,7 @@ Authors: SphereCeti contributors
 module
 
 public import Mathlib.NumberTheory.ModularForms.Discriminant
+public import Mathlib.NumberTheory.ModularForms.EisensteinSeries.E2.MDifferentiable
 public import Mathlib.NumberTheory.ModularForms.EisensteinSeries.E2.Transform
 public import Mathlib.NumberTheory.ModularForms.LevelOne.Basic
 public import Mathlib.NumberTheory.ModularForms.QExpansion
@@ -34,6 +35,7 @@ These kernels satisfy the signed transformation laws under `z ↦ -1/z` in dimen
 ## Main statements
 
 * `SphereCeti.Leech.varphiExt_add_one`: `φ` is `1`-periodic.
+* `SphereCeti.Leech.differentiableOn_varphiExt`: `φ` is holomorphic on the upper half-plane.
 * `SphereCeti.Leech.plusKernel_law_leftRight`, `SphereCeti.Leech.plusKernel_law_centralRay`: the
   signed transformation laws of the kernels.
 
@@ -91,6 +93,26 @@ theorem varphiExt_add_one (z : ℂ) : varphiExt (z + 1) = varphiExt z := by
         (f := CuspForm.discriminant) one_mem_strictPeriods_SL) hz hz']
   · have hz' : (z + 1).im ≤ 0 := by simpa using hz
     rw [varphiExt_of_im_nonpos hz', varphiExt_of_im_nonpos (not_lt.mp hz)]
+
+/-- `φ` is holomorphic on the upper half-plane. -/
+theorem differentiableOn_varphiExt : DifferentiableOn ℂ varphiExt {z : ℂ | 0 < z.im} := by
+  have hE2 := UpperHalfPlane.mdifferentiable_iff.mp E2_mdifferentiable
+  have hE4 := UpperHalfPlane.mdifferentiable_iff.mp (ModularFormClass.holo E₄)
+  have hE6 := UpperHalfPlane.mdifferentiable_iff.mp (ModularFormClass.holo E₆)
+  have hΔ := UpperHalfPlane.mdifferentiable_iff.mp (ModularFormClass.holo CuspForm.discriminant)
+  have hnum : DifferentiableOn ℂ (fun z : ℂ ↦
+      25 * E₄ (ofComplex z) ^ 4 - 49 * E₆ (ofComplex z) ^ 2 * E₄ (ofComplex z) +
+        48 * E₆ (ofComplex z) * E₄ (ofComplex z) ^ 2 * E2 (ofComplex z) +
+        (25 * E₆ (ofComplex z) ^ 2 - 49 * E₄ (ofComplex z) ^ 3) * E2 (ofComplex z) ^ 2)
+      {z : ℂ | 0 < z.im} := by
+    have h4 : DifferentiableOn ℂ (fun z : ℂ ↦ E₄ (ofComplex z)) {z : ℂ | 0 < z.im} := hE4
+    have h6 : DifferentiableOn ℂ (fun z : ℂ ↦ E₆ (ofComplex z)) {z : ℂ | 0 < z.im} := hE6
+    have h2 : DifferentiableOn ℂ (fun z : ℂ ↦ E2 (ofComplex z)) {z : ℂ | 0 < z.im} := hE2
+    fun_prop (disch := assumption)
+  refine (hnum.div (hΔ.pow 2) fun z _ ↦ pow_ne_zero 2 (discriminant_ne_zero _)).congr
+    fun z (hz : 0 < z.im) ↦ ?_
+  simp only [Pi.div_apply, Pi.pow_apply, Function.comp_apply, ofComplex_apply_of_im_pos hz]
+  rw [varphiExt_of_im_pos hz, varphi]
 
 /-- The left-leg kernel `φ(-1/(z+1)) (z+1)¹⁰` of the `+1` eigencomponent. -/
 noncomputable def plusKernelLeft (z : ℂ) : ℂ := varphiExt (-1 / (z + 1)) * (z + 1) ^ 10
