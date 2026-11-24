@@ -356,6 +356,7 @@ closure-continuity hypotheses separately.
   refers to packings.
 - [ ] **SphereCeti use:** the periodic approximation of sphere packings (MIGRATION D5, Layer 3).
 - [ ] **Fallback:** the local declarations in the `EuclideanSpace` namespace.
+- [ ] **Upstream test:** no project import remains in a minimal reproduction.
 
 ### A21. Phases at dual frequencies
 
@@ -368,7 +369,6 @@ closure-continuity hypotheses separately.
 - [ ] **SphereCeti use:** representative independence of the structure amplitude of a periodic
   configuration (Layer 4).
 - [ ] **Fallback:** the local declaration in the `ZLattice` namespace.
-
 - [ ] **Upstream test:** no project import remains in a minimal reproduction.
 
 ## B. TauCeti IntegralLattices roadmap extensions
