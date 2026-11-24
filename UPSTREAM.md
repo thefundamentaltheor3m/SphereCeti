@@ -358,19 +358,6 @@ closure-continuity hypotheses separately.
 - [ ] **Fallback:** the local declarations in the `EuclideanSpace` namespace.
 - [ ] **Upstream test:** no project import remains in a minimal reproduction.
 
-### A21. Phases at dual frequencies
-
-- [ ] **Destination:** TauCeti `TauCeti/Algebra/Module/ZLattice/Dual.lean`, beside
-  `ZLattice.mem_dual`.
-- [ ] **Current source:** `SphereCeti/ZLattice/DualPhase.lean`.
-- [ ] **Candidate declaration:** for `y` in the dual of `L` and `s - t ∈ L`,
-  `exp (2πi ⟪y, s⟫) = exp (2πi ⟪y, t⟫)` (`ZLattice.phase_eq_of_sub_mem_lattice`).
-- [ ] **Why general:** it is character theory of the dual lattice; nothing refers to packings.
-- [ ] **SphereCeti use:** representative independence of the structure amplitude of a periodic
-  configuration (Layer 4).
-- [ ] **Fallback:** the local declaration in the `ZLattice` namespace.
-- [ ] **Upstream test:** no project import remains in a minimal reproduction.
-
 ## B. TauCeti IntegralLattices roadmap extensions
 
 These are general algebraic lattice results.  Their sphere-packing consequences remain in

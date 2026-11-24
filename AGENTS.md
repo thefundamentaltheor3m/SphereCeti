@@ -10,8 +10,13 @@ Read, in order:
 6. `VALIDATION.md`;
 7. `SphereCetiRoadmap/Suggested.lean`.
 
-Roadmap proofs land in this repository. Add admission-free Lean modules under
-`SphereCeti/<Topic>/` and import their public entry points from `SphereCeti.lean`.
+Roadmap proofs land in this repository as admission-free Lean modules under `SphereCeti/<Topic>/`.
+For an ordinary proof PR, edit the topic modules under SphereCeti/. Import topic modules directly.
+Leave SphereCeti.lean and UPSTREAM.md alone. If a lemma belongs upstream, name the proposed
+destination in the PR description.
+The library's `SphereCeti.*` glob builds every module under `SphereCeti/` and the compiled audit
+checks every source file, so a new module needs no root import; `SphereCeti.lean` keeps its
+existing re-exports and is otherwise frozen.
 Use `SphereCetiRoadmap/Suggested.lean` as the target specification. Keep proof bodies out of
 that file. Library modules must build independently of `SphereCetiRoadmap`, including its
 admitted targets and frozen compatibility model. Cite the target and any remaining prerequisites in the PR.
