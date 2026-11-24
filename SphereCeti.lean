@@ -12,7 +12,6 @@ public import SphereCeti.Analysis.Distribution.SchwartzSpace.FourierPositivity
 public import SphereCeti.Analysis.ExactZeroOrder
 public import SphereCeti.Analysis.Fourier.Exchange
 public import SphereCeti.CohnElkies.Certificate
-public import SphereCeti.Contour.ClosedOneForm
 public import SphereCeti.Contour.HalfInfiniteRectangle
 public import SphereCeti.Contour.SegmentChangeOfVariables
 public import SphereCeti.Lattice.IntegralPresentation

@@ -80,9 +80,22 @@ Suggested prompt for a coding assistant:
 > `sphereceti verify` in the checkout and get an overall PASS. Open a focused PR that names the
 > target, then address CI failures and review feedback.
 
+Before starting a proof, check [open PRs](https://github.com/thefundamentaltheor3m/SphereCeti/pulls)
+and [intentions](https://github.com/thefundamentaltheor3m/SphereCeti/issues?q=is%3Aissue+is%3Aopen+label%3Aintention).
+If nobody is working on your target, register it: open an *Intention* issue for that one lemma or
+declaration and comment `claim` (or `claim 3 weeks`). Intentions are advisory: they help people
+proving the same target find each other, and they are unrelated to review and merge eligibility.
+See [intentions](docs/infrastructure/intentions.md).
+
 Pick one target from the roadmap or a prerequisite you can prove against the current pins.
-Add a module under `SphereCeti/<Topic>/` and expose its public entry point from
-`SphereCeti.lean`. Build on library definitions and imported results. The library audit
+Add a module under `SphereCeti/<Topic>/`.
+For an ordinary proof PR, edit the topic modules under SphereCeti/. Import topic modules directly.
+Leave SphereCeti.lean and UPSTREAM.md alone. If a lemma belongs upstream, name the proposed
+destination in the PR description.
+The `SphereCeti.*` glob in `lakefile.toml` builds every library module and the compiled audit
+checks every source file, so a new module needs no root import. `SphereCeti.lean` keeps its
+existing re-exports, so `import SphereCeti` still works downstream, and is otherwise frozen.
+Build on library definitions and imported results. The library audit
 forbids direct and transitive `sorryAx` dependencies. If a target needs an admitted roadmap
 definition, implement the definition or a smaller independent prerequisite in the library first.
 
@@ -99,9 +112,6 @@ verification is incomplete, not passed; fixing the first failure often clears th
 
 Keeping a proof PR mergeable:
 
-- Add one `public import` line for your new module to `SphereCeti.lean`, in the file's existing
-  order. Do not sort or reorder the existing lines: a reordered root conflicts with every other
-  proof PR. When `main` moves, keep `main`'s list and re-add your line.
 - For a stacked PR, when the PR below yours merges, merge `main` into your branch rather than
   rebasing or force-pushing. The PR then shows only your own change, and existing reviews keep
   pointing at commits that still exist.
