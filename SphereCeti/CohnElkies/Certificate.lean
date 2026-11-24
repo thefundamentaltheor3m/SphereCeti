@@ -132,14 +132,22 @@ theorem compLinearIsometryEquiv_f_apply (C : Certificate d r)
     (C.compLinearIsometryEquiv A).f x = C.f (A x) :=
   (rfl)
 
+/-- The Fourier transform of the transported certificate is `f̂ ∘ A`. -/
+@[simp]
+theorem fourier_compLinearIsometryEquiv_f_apply (C : Certificate d r)
+    (A : EuclideanSpace ℝ (Fin d) ≃ₗᵢ[ℝ] EuclideanSpace ℝ (Fin d)) (x : EuclideanSpace ℝ (Fin d)) :
+    𝓕 (C.compLinearIsometryEquiv A).f x = 𝓕 C.f (A x) := by
+  have h : ⇑(C.compLinearIsometryEquiv A).f = C.f ∘ A :=
+    funext (C.compLinearIsometryEquiv_f_apply A)
+  rw [SchwartzMap.fourier_coe, h, Real.fourier_comp_linearIsometry, SchwartzMap.fourier_coe]
+
 /-- Transport along a linear isometry does not change the density bound. -/
 @[simp]
 theorem bound_compLinearIsometryEquiv (C : Certificate d r)
     (A : EuclideanSpace ℝ (Fin d) ≃ₗᵢ[ℝ] EuclideanSpace ℝ (Fin d)) :
     (C.compLinearIsometryEquiv A).bound = C.bound := by
-  simp only [bound_def, compLinearIsometryEquiv_f_apply, map_zero]
-  congr 3
-  simp [compLinearIsometryEquiv, SchwartzMap.fourier_coe, Real.fourier_comp_linearIsometry]
+  rw [bound_def, bound_def, compLinearIsometryEquiv_f_apply,
+    fourier_compLinearIsometryEquiv_f_apply, map_zero]
 
 /-- The dilation `x ↦ f (c⁻¹ • x)` of a Schwartz function by `c > 0`. -/
 private noncomputable def dilateFun (f : 𝓢(EuclideanSpace ℝ (Fin d), ℂ)) {c : ℝ} (hc : 0 < c) :
@@ -186,21 +194,27 @@ theorem dilate_f_apply (C : Certificate d r) {c : ℝ} (hc : 0 < c) (x : Euclide
     (C.dilate hc).f x = C.f (c⁻¹ • x) :=
   (rfl)
 
-/-- Dilation does not change the density bound: `f(0)` is unchanged, while `f̂(0)` and the volume
-of the ball of radius `c * r / 2` are both multiplied by `c ^ d`. -/
+/-- The function of the dilated certificate is the dilation of `f`. -/
+private theorem dilate_f (C : Certificate d r) {c : ℝ} (hc : 0 < c) :
+    (C.dilate hc).f = dilateFun C.f hc :=
+  (rfl)
+
+/-- The Fourier transform of the dilated certificate is `y ↦ c ^ d • f̂ (c • y)`. -/
+@[simp]
+theorem fourier_dilate_f_apply (C : Certificate d r) {c : ℝ} (hc : 0 < c)
+    (y : EuclideanSpace ℝ (Fin d)) : 𝓕 (C.dilate hc).f y = (c : ℂ) ^ d * 𝓕 C.f (c • y) := by
+  rw [dilate_f, fourier_dilateFun, Complex.real_smul, Complex.ofReal_pow]
+
+/-- Dilation does not change the density bound. -/
 @[simp]
 theorem bound_dilate (C : Certificate d r) {c : ℝ} (hc : 0 < c) :
     (C.dilate hc).bound = C.bound := by
-  have hF : (𝓕 (C.dilate hc).f 0).re = c ^ d * (𝓕 C.f 0).re := by
-    change (𝓕 (dilateFun C.f hc) 0).re = _
-    rw [fourier_dilateFun, Complex.smul_re, smul_zero, smul_eq_mul]
   have hball : volume (ball (0 : EuclideanSpace ℝ (Fin d)) (c * r / 2)) =
       ENNReal.ofReal (c ^ d) * volume (ball (0 : EuclideanSpace ℝ (Fin d)) (r / 2)) := by
-    have h := smul_ball hc.ne' (0 : EuclideanSpace ℝ (Fin d)) (r / 2)
-    rw [smul_zero, Real.norm_of_nonneg hc.le] at h
-    rw [mul_div_assoc, ← h, Measure.addHaar_smul, finrank_euclideanSpace_fin,
-      abs_of_pos (pow_pos hc d)]
-  rw [bound_def, bound_def, dilate_f_apply, smul_zero, hF, hball, ← mul_assoc,
+    simpa only [mul_div_assoc, finrank_euclideanSpace_fin] using
+      Measure.addHaar_ball_mul_of_pos volume (0 : EuclideanSpace ℝ (Fin d)) hc (r / 2)
+  rw [bound_def, bound_def, dilate_f_apply, fourier_dilate_f_apply, smul_zero, smul_zero,
+    ← Complex.ofReal_pow, Complex.re_ofReal_mul, hball, ← mul_assoc,
     ← ENNReal.ofReal_mul (div_nonneg C.f_zero_pos.le (mul_pos (pow_pos hc d)
       C.fourier_zero_pos).le)]
   congr 2
@@ -282,10 +296,12 @@ theorem exists_isNormalized (C : Certificate d r) (hd : 0 < d) :
     rw [← Complex.ofReal_pow, ← Complex.ofReal_mul, hcd]
     exact inv_mul_cancel₀ (Complex.ofReal_ne_zero.mpr ha.ne')
 
-/-- Check that `simp` computes the function and the bound of a transported, dilated certificate. -/
+/-- Check that `simp` computes the function, the Fourier transform and the bound of a transported,
+dilated certificate. -/
 example (C : Certificate d r) (A : EuclideanSpace ℝ (Fin d) ≃ₗᵢ[ℝ] EuclideanSpace ℝ (Fin d))
     {c : ℝ} (hc : 0 < c) (x : EuclideanSpace ℝ (Fin d)) :
     ((C.compLinearIsometryEquiv A).dilate hc).f x = C.f (A (c⁻¹ • x)) ∧
+      𝓕 ((C.compLinearIsometryEquiv A).dilate hc).f x = c ^ d * 𝓕 C.f (A (c • x)) ∧
       ((C.compLinearIsometryEquiv A).dilate hc).bound = C.bound := by
   simp
 
