@@ -1,6 +1,8 @@
 # Area labels for pull requests, applied by .github/workflows/area-labels.yml (actions/labeler).
-# Labels describe a PR's purpose; these path rules give a first guess. Maintainers may adjust labels
-# by hand, and the labeller never removes a label (sync-labels is off).
+# The area labels are computed from each PR's current diff: on every push, reopen, retarget or edit,
+# the labeller adds the area labels whose rules match and removes the ones that no longer match
+# (sync-labels is on). Labels not defined here are never touched. A hand-added area label is
+# replaced on the PR's next event; change the rules here instead.
 
 # Changes what we intend to prove: target statements, hypotheses, conventions, dependencies.
 # UPSTREAM.md is not listed: proof PRs append upstream-candidate entries to it, which records where a
