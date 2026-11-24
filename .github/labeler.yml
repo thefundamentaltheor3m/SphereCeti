@@ -5,14 +5,19 @@
 # Changes what we intend to prove: target statements, hypotheses, conventions, dependencies.
 # UPSTREAM.md is not listed: proof PRs append upstream-candidate entries to it, which records where a
 # proof should eventually go, not a change to what we intend to prove.
+# A PR that also changes a Lean file under SphereCeti/ is a proof PR and gets area:proof-library only:
+# proof PRs often update MIGRATION.md alongside the proof, which is not a roadmap change by itself.
 area:roadmap:
-- changed-files:
-  - any-glob-to-any-file:
-    - 'SphereCetiRoadmap/**'
-    - 'SphereCetiRoadmap.lean'
-    - 'CONVENTIONS.md'
-    - 'MIGRATION.md'
-    - 'PROVENANCE.md'
+- all:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'SphereCetiRoadmap/**'
+      - 'SphereCetiRoadmap.lean'
+      - 'CONVENTIONS.md'
+      - 'MIGRATION.md'
+      - 'PROVENANCE.md'
+    - all-globs-to-all-files:
+      - '!SphereCeti/**/*.lean'
 
 # Implements mathematics in the SphereCeti/ library: definitions, lemmas, proofs.
 # A changed Lean file in the library other than the bootstrap module SphereCeti/Basic.lean.

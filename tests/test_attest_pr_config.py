@@ -86,6 +86,13 @@ class ConfigAttestation(unittest.TestCase):
             self.run_attestation(event="merge_group", exact="0").returncode,
             0,
         )
+        for event in ("merge_group", "pull_request", "push", "schedule"):
+            self.assertNotEqual(self.run_attestation(event=event).returncode, 0, event)
+
+    def test_dispatched_refresh_attests_like_pull_request_target(self) -> None:
+        # pr-build.yml's workflow_dispatch refresh runs on main with the same trusted-base isolation.
+        self.assertEqual(self.run_attestation(event="workflow_dispatch").returncode, 0)
+        self.assertEqual(self.run_attestation().returncode, 0)
 
     def test_wrong_head_fails(self) -> None:
         original = self.sha
