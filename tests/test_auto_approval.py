@@ -36,7 +36,11 @@ BOT = {'login': 'github-actions[bot]', 'id': 41898282, 'type': 'Bot'}
 
 
 def proof(repo):
+    # A proof PR adds only its own module; the SphereCeti.* glob builds it without a root import.
     (repo / 'SphereCeti/E8/Lattice.lean').write_text('module\n\n-- proof\ntheorem e8 : True := trivial\n')
+
+
+def export_from_root(repo):
     root = repo / 'SphereCeti.lean'
     root.write_text(root.read_text().replace('public import SphereCeti.Basic\n',
                                              'public import SphereCeti.Basic\npublic import SphereCeti.E8.Lattice\n'))
@@ -207,8 +211,9 @@ class AutoApprovalTests(unittest.TestCase):
         self.assertEqual(report['author']['identity'], f'user:{AUTHOR}')
         self.assertEqual(report['review_publishers'][0]['identity'], f'user:{REVIEWER}')
         paths = report['requirements'][0]['evidence']
-        self.assertEqual(paths['eligible'], ['SphereCeti.lean', 'SphereCeti/E8/Lattice.lean'])
-        self.assertEqual(paths['root_imports'], ['SphereCeti.E8.Lattice'])
+        self.assertEqual(paths['eligible'], ['SphereCeti/E8/Lattice.lean'])
+        self.assertNotIn('root_imports', paths)
+        self.assertIn('never edit SphereCeti.lean', paths['root_rule'])
         trusted = report['requirements'][1]['evidence']
         self.assertIn('hypothetical allowlist', trusted['trusted_scope'])
         audit = report['requirements'][2]['evidence']
@@ -256,35 +261,29 @@ class AutoApprovalTests(unittest.TestCase):
                 self.assertIn(f'paths: {path}: {ineligible[0]["reason"]}', report['reasons'])
                 self.assertEqual(status(report)['official_review'], 'not_assessed')
 
-    def test_library_root_may_only_gain_eligible_public_imports(self):
-        def edit(text):
-            def change(repo):
-                proof(repo)
-                (repo / 'SphereCeti.lean').write_text(text((repo / 'SphereCeti.lean').read_text()))
-            return change
-        bad = {
-            'non-import line': lambda t: t + 'theorem sneaky : True := trivial\n',
-            'removes or edits': lambda t: t.replace('public import SphereCeti.Basic\n', ''),
-            'not an eligible': lambda t: t.replace('public import SphereCeti.E8.Lattice', 'public import SphereCeti.Missing'),
-            'non-import line: \'import': lambda t: t.replace('public import SphereCeti.E8.Lattice', 'import SphereCeti.E8.Lattice'),
-            'twice': lambda t: t + 'public import SphereCeti.E8.Lattice\n',
-            'roadmap': lambda t: t + 'public import SphereCetiRoadmap.Suggested\n',
+    def test_any_library_root_edit_is_routed_to_human_review(self):
+        # Proof PRs no longer edit the root, so even the formerly allowed export is protected again.
+        edits = {
+            'export with the proof': lambda repo: (proof(repo), export_from_root(repo)),
+            'export alone': lambda repo: (repo / 'SphereCeti.lean').write_text(
+                (repo / 'SphereCeti.lean').read_text().replace(
+                    'public import SphereCeti.Basic\n', 'public import SphereCeti.Basic\npublic import SphereCeti.E8.Basic\n')),
+            'sorted reorder': lambda repo: (proof(repo), (repo / 'SphereCeti.lean').write_text(
+                (repo / 'SphereCeti.lean').read_text().replace(
+                    'public import SphereCeti.Basic\n', '\npublic import SphereCeti.Basic\n'))),
+            'non-import line': lambda repo: (proof(repo), (repo / 'SphereCeti.lean').write_text(
+                (repo / 'SphereCeti.lean').read_text() + 'theorem sneaky : True := trivial\n')),
         }
-        for expected, text in bad.items():
-            with self.subTest(expected=expected):
-                report = self.harness(edit(text)).decide()
-                self.assertFalse(report['would_approve'])
-                reason = report['requirements'][0]['evidence']['ineligible'][0]
-                self.assertEqual(reason['path'], 'SphereCeti.lean')
-                self.assertIn('non-import line' if expected == 'roadmap' else expected, reason['reason'])
-        # Exporting an existing allowlisted topic module alone is a valid root-only change.
-        def export(repo):
-            root = repo / 'SphereCeti.lean'
-            root.write_text(root.read_text().replace('public import SphereCeti.Basic\n',
-                                                     'public import SphereCeti.Basic\npublic import SphereCeti.E8.Basic\n'))
-        self.assertTrue(self.harness(export).decide()['would_approve'])
-        # A topic outside the allowlist cannot be exported either.
-        self.assertFalse(self.harness(export).decide(assume=('SphereCeti/Leech/**',))['would_approve'])
+        for name, change in edits.items():
+            for policy_paths in ((), ('SphereCeti/E8',)):
+                with self.subTest(name=name, policy=policy_paths):
+                    # The change applies its edits and returns None, so the harness commits it.
+                    h = self.harness(lambda repo, change=change: change(repo) and None, policy_paths=policy_paths)
+                    report = h.decide(assume=None) if policy_paths else h.decide()
+                    self.assertFalse(report['would_approve'])
+                    ineligible = report['requirements'][0]['evidence']['ineligible']
+                    self.assertEqual([p['path'] for p in ineligible], ['SphereCeti.lean'])
+                    self.assertEqual(ineligible[0]['reason'], 'library root requires human approval')
 
     def test_renames_deletions_symlinks_and_submodules_are_ineligible(self):
         def rename(repo):
@@ -310,7 +309,10 @@ class AutoApprovalTests(unittest.TestCase):
                 self.assertIn(path, report['reasons'][0])
 
     def test_github_file_list_must_match_exact_git_diff(self):
-        h = self.harness()
+        def two_modules(repo):
+            proof(repo)
+            (repo / 'SphereCeti/E8/Shell.lean').write_text('module\n')
+        h = self.harness(two_modules)
         h.files = h.files[:1]; h.pr['changed_files'] = 1
         report = h.decide()
         self.assertFalse(report['would_approve'])

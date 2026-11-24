@@ -7,6 +7,10 @@ explicit compatibility lemmas, and checks at both E8 and Leech that nothing else
 `README.md` remains the definitive roadmap.  This file fixes the notation and normalizations under
 which the roadmap is to be implemented.
 
+Proof PRs edit only their topic modules under `SphereCeti/` and import topic modules directly;
+they leave `SphereCeti.lean` and `UPSTREAM.md` alone (see [AGENTS.md](AGENTS.md) and
+[CONTRIBUTING.md](CONTRIBUTING.md#contributing-proofs)).
+
 ## 1. Dependency and pinning policy
 
 The roadmap package uses:
