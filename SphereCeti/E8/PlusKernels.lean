@@ -34,6 +34,8 @@ These kernels satisfy the signed transformation laws under `z ↦ -1/z` in dimen
 
 ## Main statements
 
+* `SphereCeti.E8.phi0_def`, `SphereCeti.E8.phi0Ext_of_im_pos`, `SphereCeti.E8.phi0Ext_of_im_nonpos`,
+  `SphereCeti.E8.plusKernelLeft_def` and its siblings: the defining formulas.
 * `SphereCeti.E8.phi0Ext_add_one`: `φ₀` is `1`-periodic.
 * `SphereCeti.E8.differentiableOn_phi0Ext`: `φ₀` is holomorphic on the upper half-plane.
 * `SphereCeti.E8.isBigO_phi0`: `φ₀` decays like `exp(-2π Im τ)` at `i∞`.
@@ -59,6 +61,10 @@ namespace SphereCeti.E8
 /-- Viazovska's function `φ₀ = (E₂ E₄ - E₆)² / Δ` on the upper half-plane. -/
 noncomputable def phi0 (z : ℍ) : ℂ :=
   (E2 z * E₄ z - E₆ z) ^ 2 / CuspForm.discriminant z
+
+/-- `φ₀(z) = (E₂(z) E₄(z) - E₆(z))² / Δ(z)`. -/
+theorem phi0_def (z : ℍ) : phi0 z = (E2 z * E₄ z - E₆ z) ^ 2 / CuspForm.discriminant z :=
+  (rfl)
 
 /-- `φ₀` extended by `0` from the upper half-plane to `ℂ`. -/
 noncomputable def phi0Ext (z : ℂ) : ℂ :=
@@ -187,6 +193,23 @@ noncomputable def plusKernelCentral (z : ℂ) : ℂ := -2 * (phi0Ext (-1 / z) * 
 
 /-- The vertical-ray kernel `2 φ₀(z)` of the `+1` eigencomponent. -/
 noncomputable def plusKernelRay (z : ℂ) : ℂ := 2 * phi0Ext z
+
+/-- The left-leg kernel is `φ₀(-1/(z+1)) (z+1)²`. -/
+theorem plusKernelLeft_def (z : ℂ) : plusKernelLeft z = phi0Ext (-1 / (z + 1)) * (z + 1) ^ 2 :=
+  (rfl)
+
+/-- The right-leg kernel is `φ₀(-1/(z-1)) (z-1)²`. -/
+theorem plusKernelRight_def (z : ℂ) :
+    plusKernelRight z = phi0Ext (-1 / (z - 1)) * (z - 1) ^ 2 :=
+  (rfl)
+
+/-- The central-leg kernel is `-2 φ₀(-1/z) z²`. -/
+theorem plusKernelCentral_def (z : ℂ) : plusKernelCentral z = -2 * (phi0Ext (-1 / z) * z ^ 2) :=
+  (rfl)
+
+/-- The vertical-ray kernel is `2 φ₀(z)`. -/
+theorem plusKernelRay_def (z : ℂ) : plusKernelRay z = 2 * phi0Ext z :=
+  (rfl)
 
 /-- The left/right transformation law of the `+1` kernels: `(i/z)⁴ g_L(z) = z⁻² g_R(-1/z)`. -/
 theorem plusKernel_law_leftRight (z : ℂ) :
