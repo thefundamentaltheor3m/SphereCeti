@@ -89,12 +89,20 @@ theorem structureFactor_eq_zero_iff (p : ι → E) (y : E) :
 /-- The structure factor is the double sum of the phases of the differences of the points. -/
 theorem ofReal_structureFactor_eq_sum_sum (p : ι → E) (y : E) :
     (structureFactor p y : ℂ) = ∑ q, ∑ q', cexp (2 * π * I * ⟪p q - p q', y⟫) := by
-  rw [structureFactor_def, structureAmplitude_def, ofReal_pow, ← mul_conj', map_sum,
+  -- `S_p(y) = A * conj A` for the amplitude `A`, and the product of the two sums is a double sum.
+  rw [structureFactor_def, ofReal_pow, ← mul_conj', structureAmplitude_def, map_sum,
     Finset.sum_mul_sum]
   refine Finset.sum_congr rfl fun q _ ↦ Finset.sum_congr rfl fun q' _ ↦ ?_
-  rw [← exp_conj, ← exp_add, inner_sub_left, real_inner_comm y, real_inner_comm y]
-  simp only [map_mul, map_ofNat, conj_ofReal, conj_I]
+  -- The conjugate of a phase is the phase with the opposite exponent.
+  have hconj (x : E) :
+      (starRingEnd ℂ) (cexp (2 * π * I * ⟪y, x⟫)) = cexp (-(2 * π * I * ⟪y, x⟫)) := by
+    rw [← exp_conj]
+    congr 1
+    simp only [map_mul, map_ofNat, conj_ofReal, conj_I]
+    ring
+  rw [hconj, ← exp_add]
   congr 1
+  simp only [real_inner_comm y, inner_sub_right]
   push_cast
   ring
 
