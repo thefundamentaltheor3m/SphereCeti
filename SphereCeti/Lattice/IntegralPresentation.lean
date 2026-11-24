@@ -568,6 +568,9 @@ example (P : IntegralPresentation Λ) (Q : IntegralPresentation Μ)
   simp
 
 /-- The affine extension carries the coset `v + Λ` onto the coset `w + Μ`. -/
+-- A pre-lemma (`↓`): `simp` must use it before `affineIsometryOfIsometry_apply` rewrites the
+-- affine extension inside the image.
+@[simp ↓]
 theorem affineIsometry_maps_coset (P : IntegralPresentation Λ) (Q : IntegralPresentation Μ)
     (e : TauCeti.IntegralLattice.Isometry P.toIntegralLattice Q.toIntegralLattice)
     (v w : EuclideanSpace ℝ (Fin d)) :
@@ -577,6 +580,14 @@ theorem affineIsometry_maps_coset (P : IntegralPresentation Λ) (Q : IntegralPre
     Set.image_image]
   refine Set.image_congr fun x _ ↦ ?_
   rw [affineIsometryOfIsometry_apply, vadd_eq_add, vadd_eq_add, add_sub_cancel_left, add_comm]
+
+/-- Check that `simp` computes the image of a coset. -/
+example (P : IntegralPresentation Λ) (Q : IntegralPresentation Μ)
+    (e : TauCeti.IntegralLattice.Isometry P.toIntegralLattice Q.toIntegralLattice)
+    (v w : EuclideanSpace ℝ (Fin d)) :
+    affineIsometryOfIsometry P Q e v w '' (v +ᵥ (Λ : Set (EuclideanSpace ℝ (Fin d)))) =
+      w +ᵥ (Μ : Set (EuclideanSpace ℝ (Fin d))) := by
+  simp
 
 end IntegralPresentation
 
