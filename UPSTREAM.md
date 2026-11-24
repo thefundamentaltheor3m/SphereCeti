@@ -230,6 +230,21 @@ inner-product space
 - [x] **Upstream test:** the provisional `ThetaSeries` namespace is deleted; `Suggested.lean`
   imports these declarations and keeps only typed checks of their normalizations.
 
+### A23. Poisson summation for a function vanishing off the origin of a lattice
+
+- [ ] **Destination:** TauCeti `TauCeti/Analysis/Fourier/PoissonSummation.lean`, beside
+  `SchwartzMap.tsum_eq_tsum_dual_fourier`.
+- [ ] **Current source:** `SphereCeti/Analysis/Fourier/PoissonSummation.lean`.
+- [ ] **Candidate declaration:** for a Schwartz function `f` vanishing at the nonzero vectors of a
+  full lattice `L`, with `𝓕 f` vanishing at the nonzero vectors of the dual lattice `L^∨`,
+  `𝓕 f 0 = covol(L) * f 0` (`SchwartzMap.fourier_apply_zero_eq_covolume_mul`).
+- [ ] **Why general:** it is Poisson summation at the origin; nothing refers to certificates or
+  packings.
+- [ ] **SphereCeti use:** the density bound of a Cohn–Elkies certificate sharp for a lattice
+  (Layer 4).
+- [ ] **Fallback:** the local declaration in the `SchwartzMap` namespace.
+- [ ] **Upstream test:** no project import remains in a minimal reproduction.
+
 ### A12. Contour deformation for half-infinite rectangles
 
 - [ ] **Destination:** Mathlib complex analysis, beside the bounded rectangular Cauchy–Goursat
