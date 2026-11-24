@@ -14,6 +14,7 @@ from pathlib import Path
 
 from .carry_over import carried_records, describe as carry_status
 from .local_review import ReviewError
+from .review_approval import note as approval_note
 from .review_claims import ClaimYielded, describe, live, note as claim_note, run_claimed
 from .review_records import (ANY_DIRECTIVE, CONTEST, MARKER, RecordError, carried_contests, contests,
                              identity, intact, parse_record)
@@ -227,7 +228,7 @@ def select(project, policy, prefs, *, api=None, client=None, now=None, force=Fal
             "repository": project.repository, "actor": actor, "observed_at": snapshot["observed_at"],
             "priority": PRIORITY, "waiting_since": "updatedAt",
             "selected": selected, "candidates": candidates, "skipped": skipped,
-            "rationale": None, "posting": None, "plan": None, "summary": None, "review": None}
+            "rationale": None, "posting": None, "approval": None, "plan": None, "summary": None, "review": None}
 
 
 def count(items, verb) -> str:
@@ -296,7 +297,8 @@ def check_arguments(args) -> None:
         raise ReviewError("reply mode requires an explicit PR number")
 
 
-def run_bare(args, project, policy, prefs, *, api=None, client=None, announce=None, run=None, prepare=None):
+def run_bare(args, project, policy, prefs, *, api=None, client=None, announce=None, run=None, prepare=None,
+             approval=None):
     """Select, say why in one line (announced before a long review starts), then review.
 
     If another contributor's earlier claim wins the race for the chosen PR, the claim yields
@@ -321,7 +323,8 @@ def run_bare(args, project, policy, prefs, *, api=None, client=None, announce=No
         planned = {}
         try:
             selection["review"] = run_claimed(args, project, prefs, expect=candidate, run=run,
-                                              wrap=lambda inner: announcing(prefs, announce, planned, inner=inner))
+                                              wrap=lambda inner: announcing(prefs, announce, planned, inner=inner),
+                                              approval=approval() if approval else None)
         except ClaimYielded as error:
             winner = error.winner
             selection["skipped"].append({"pr": candidate["pr"], "head": candidate["head"], "code": "claimed",
@@ -330,6 +333,7 @@ def run_bare(args, project, policy, prefs, *, api=None, client=None, announce=No
         selection["posting"] = posting_note(args, selection["review"])
         selection["plan"] = planned or None
         selection["summary"] = summarize(args, selection["review"], posting=selection["posting"])
+        selection["approval"] = selection["review"].get("approval")
         return selection
     selection.update(selected=None, state="nothing_to_review")
     selection["skipped"].sort(key=lambda item: -item["pr"])
@@ -360,6 +364,8 @@ def render(selection, args) -> list[str]:
         elif archive:
             lines.append(f"Archive: {archive.get('state')}: {archive.get('reason', '')}".rstrip(": "))
     lines.append(selection["posting"])
+    if report.get("approval"):
+        lines.append(approval_note(report["approval"]))
     if report.get("claim"):
         lines.append(claim_note(report["claim"]))
     lines.append("This command does not authorize merging.")

@@ -4,6 +4,9 @@ review_generation = true
 posting = true
 authoring = false
 reporting = false
+# Formal GitHub approvals by opted-in maintainers' own all-green reviews; off until a reviewed
+# policy PR enables it (`sphereceti review N` then approves only after every guard passes).
+approving = false
 merging = false
 # First proof topics eligible for the automatic route. Prefix semantics as in gate.py: library
 # modules under SphereCeti/Contour/ and SphereCeti/E8/ only. Contributors may work on any roadmap

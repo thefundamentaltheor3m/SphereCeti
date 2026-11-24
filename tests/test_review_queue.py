@@ -412,7 +412,7 @@ class BatchTest(unittest.TestCase):
                                        'reviewed', 'posted', 'stopped', 'line', 'lines', 'lookup_failed', 'failed'})
         self.assertEqual(result['schema'], BATCH_SCHEMA)
         self.assertEqual(set(result['items'][0]), {'pr', 'head', 'section', 'outcome', 'output', 'completion',
-                                                   'posting', 'posted', 'plan', 'summary'})
+                                                   'posting', 'posted', 'plan', 'summary', 'approval'})
         self.assertEqual(result['lines'], ['  #2: approved'])
 
 

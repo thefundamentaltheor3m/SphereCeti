@@ -60,6 +60,8 @@ def add_parser(commands):
     posting.add_argument("--post", action="store_true",
                          help="publish the review record (the default for a live GitHub review); fail if policy forbids it")
     posting.add_argument("--no-post", action="store_true", help="keep the review record local")
+    p.add_argument("--no-approve", action="store_true",
+                   help="post the review but never submit your GitHub approval (opted-in maintainers)")
     p.add_argument("--force-claim", action="store_true",
                    help="review even while another contributor's advisory review claim is live")
     p.add_argument("--read-records", action="store_true", help="inspect API-authenticated records without invoking providers")
