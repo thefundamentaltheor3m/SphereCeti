@@ -213,6 +213,28 @@ class ApprovalTest(unittest.TestCase):
         self.assertEqual(self.approvals(), [])
         self.assertIn('you already approved this head', note(result['approval']))
 
+    def test_an_unanswered_author_contest_on_your_earlier_record_blocks_approval(self):
+        # #107: an author contest on your earlier record must be answered by your new record before
+        # the official reader accepts it; this all-green record leaves it unanswered.
+        from test_author_contests import finding, plain
+        self.hub.store[1] = [finding(50, actor=ME),
+                             plain(60, '/sphereceti contest generality\nThe finding does not apply.',
+                                   actor=AUTHOR)]
+        result = self.review()
+        self.assertEqual(result['approval']['state'], 'not_submitted')
+        self.assertIn('unanswered contest on generality', result['approval']['reason'])
+        self.assertEqual(self.approvals(), [])
+
+    def test_a_later_change_request_by_you_supersedes_an_older_approve(self):
+        # As the merge controller reads it, your latest decisive review is your current state.
+        self.hub.reviews += [{'id': 800, 'user': {'id': ME}, 'state': 'APPROVED', 'commit_id': HEAD},
+                             {'id': 801, 'user': {'id': ME}, 'state': 'CHANGES_REQUESTED', 'commit_id': HEAD},
+                             {'id': 802, 'user': {'id': ME}, 'state': 'COMMENTED', 'commit_id': HEAD}]
+        result = self.review()
+        self.assertEqual(result['approval']['state'], 'submitted')
+        [post] = self.approvals()
+        self.assertEqual((post[3]['event'], post[3]['commit_id']), ('APPROVE', HEAD))
+
     def test_an_ambiguous_approval_post_is_never_retried(self):
         self.hub.fail_review_post = True
         result = self.review()
@@ -272,6 +294,32 @@ class BatchApprovalTest(unittest.TestCase):
         self.assertIn(ANNOUNCE, lines)
         self.assertEqual(len([c for c in hub.calls if c[1] == 'POST' and c[2].endswith('/pulls/1/reviews')]), 1)
         self.assertFalse([c for c in hub.calls if 'merge' in c[2]])
+
+    def test_bare_stack_aware_selection_goes_through_approval_too(self):
+        from argparse import Namespace
+        from datetime import timedelta
+        import tempfile
+        from sphereceti.review_select import run_bare
+        from test_review_queue import SurveyAPI, pr
+        temp = tempfile.TemporaryDirectory(prefix='sphereceti-bare-approve-')
+        self.addCleanup(temp.cleanup)
+        hub, lines = ApprovalHub(), []
+        # #1 is a stack root; its child #2 waits on it, so bare selection picks #1.
+        api = SurveyAPI([pr(1, 'bob', ago=timedelta(hours=1), baseRefName='main', headRefName='root'),
+                         pr(2, 'bob', ago=timedelta(hours=2), baseRefName='root', headRefName='child')],
+                        actor='yvonne')
+        args = Namespace(dry_run=False, post=True, no_post=False, post_default=True, output=None, budget_usd=None,
+                         max_call_cost=1.0, provider=None, codex_model=None, claude_model=None, kiro_model=None,
+                         local_sources=False, read_records=False, shadow=None, replies_json=None, head=None, base=None,
+                         description_file=None, reply_file=None, reply_rubric=None, mode='commit', pr=None,
+                         force_claim=False, no_approve=False, source_repo=None, dependencies_dir=None)
+        selection = run_bare(args, PROJECT, APPROVING, OperatorPreferences(budget_usd=5, storage=temp.name),
+                             api=api, client=hub.client(ME), announce=lines.append, run=FakeReview(hub, APPROVING),
+                             approval=lambda: Approval(PROJECT, announce=lines.append, decide=would_approve()))
+        self.assertEqual(selection['selected']['pr'], 1)
+        self.assertIn(('waiting_on_parent', 2), [(s['code'], s['pr']) for s in selection['skipped']])
+        self.assertEqual(selection['approval']['state'], 'submitted')
+        self.assertIn(ANNOUNCE, lines)
 
 
 if __name__ == '__main__':

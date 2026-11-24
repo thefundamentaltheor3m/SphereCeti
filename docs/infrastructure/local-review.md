@@ -188,13 +188,16 @@ model call. Otherwise it prints nothing then, and the result names the first fai
 1. The record was posted and confirmed under your identity.
 2. The review is complete, with no stop, and all ten rubrics approve.
 3. Confirmed readback through the official reader (`assess_records`, the `--read-records`
-   semantics): `review_safe`, for this exact head and base, with your posted comment selected. The
-   PR's head and base are re-read and must be unchanged.
+   semantics): `review_safe`, for this exact head and base, with your posted comment selected. An
+   author contest on your earlier record that this record leaves unanswered therefore blocks the
+   approval. The PR's head and base are re-read and must be unchanged.
 4. The read-only decision (`sphereceti auto-approve-check`, `auto_approval.py`), never
    hypothetical, must say `would_approve: true` for the same head and base. It covers scope, the
    trusted build and its tooling attestation, the compiled audit, the independent reviewer and
    the PR state.
-5. If you already have an `APPROVED` review on this head, nothing is written.
+5. If your current review state already approves this head, nothing is written. As in the merge
+   controller, your current state is your latest `APPROVED`, `CHANGES_REQUESTED` or `DISMISSED`
+   review, so a later change request supersedes an earlier approval.
 6. One `POST repos/<repo>/pulls/N/reviews` with `event = APPROVE`, `commit_id` = the exact head,
    and a short body linking the review record. A failed or ambiguous POST is reported and never
    retried; check the PR before rerunning.
@@ -207,8 +210,14 @@ approve (naming)`, `readback did not accept your record ...`, and `the auto-appr
 refused (<its reasons>)`. `--json` carries `approval` (`state`: `submitted`, `existing` or
 `not_submitted`, with `reason`, `decision_reasons`, `review_id`, `url`); bare `review` also
 repeats it at the top level. `--no-approve` posts the findings and leaves the merge decision to
-the maintainer. Batch items (`review --new/--revised/--all`) go through the same approval, and
-each item's line says when an approval was submitted.
+the maintainer. Batch items (`review --new/--revised/--all`) and bare `review`, including its
+stack-aware selection, go through the same approval inside the same claim, and each batch item's
+line says when an approval was submitted.
+
+The merge controller counts this approval only as it counts any other: a current `APPROVE` on the
+exact head, by a maintainer in `approving_reviewers` who is not the author. The CLI approves only
+the head it just reviewed; whether an approval still counts after the head moves is the merge
+controller's rule, not the CLI's.
 
 ## Review-in-progress claims
 

@@ -107,15 +107,18 @@ class Approval:
                 or verdict.get("head") != report["head"] or verdict.get("base") != report["base"]):
             return no("the auto-approval decision refused", decision_reasons=verdict.get("reasons") or
                       ["decision was not for this exact head and base"])
-        # 3. Idempotent: an existing APPROVE by you on this head means nothing to write.
+        # 3. Idempotent: if your CURRENT review state (as the merge controller reads it: your latest
+        # APPROVED, CHANGES_REQUESTED or DISMISSED review) is an APPROVE of this head, write nothing.
         pages = client.call(f"repos/{repo}/pulls/{number}/reviews?per_page=100", paginate=True)
         if not isinstance(pages, list) or not pages or any(not isinstance(p, list) for p in pages):
             raise RecordError("incomplete PR review pages")
-        for review in (r for page in pages for r in page):
-            if (isinstance(review, dict) and (review.get("user") or {}).get("id") == int(self.user.split(":")[1])
-                    and review.get("state") == "APPROVED" and review.get("commit_id") == report["head"]):
-                return {"state": "existing", "review_id": review.get("id"), "url": review.get("html_url"),
-                        "reason": "you already approved this head"}
+        me = int(self.user.split(":")[1])
+        mine = [r for page in pages for r in page if isinstance(r, dict) and (r.get("user") or {}).get("id") == me
+                and r.get("state") in ("APPROVED", "CHANGES_REQUESTED", "DISMISSED") and type(r.get("id")) is int]
+        current = max(mine, key=lambda r: r["id"]) if mine else None
+        if current and current["state"] == "APPROVED" and current.get("commit_id") == report["head"]:
+            return {"state": "existing", "review_id": current.get("id"), "url": current.get("html_url"),
+                    "reason": "you already approved this head"}
         # 4. One formal APPROVE on the exact head. An ambiguous POST is reported, never retried.
         record = f"https://github.com/{repo}/pull/{number}#issuecomment-{posted['comment_id']}"
         body = (f"Approved after an all-green SphereCeti review of {report['head'][:7]} ({record}) "
