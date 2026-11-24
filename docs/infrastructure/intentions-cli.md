@@ -51,7 +51,9 @@ intention issue under your own `gh` identity, in #134's exact body layout (the t
 ```` ```lean ```` block) with the `intention` label, then comments `claim` (or
 `claim <duration>` with `--duration "3 weeks"`) as you, so #134's workflow assigns you; claims
 last 30 days by default. A declaration target with `--item` and `--module` is required, as the
-form requires them; `--parent-pr N` fills that field. `--dry-run` shows the issue and creates
+form requires them; `--parent-pr N` fills that field. When #N is not merged, `intend` warns
+`parent #N is not merged: stacked proofs wait for their parents; start from main when you can`
+(the parent stays in the issue's Parent PR field). `--dry-run` shows the issue and creates
 nothing. Registration is post-then-confirm, as for review claims, and counts both issue targets
 and claims:
 
