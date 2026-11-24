@@ -93,6 +93,7 @@ def queue(project, policy, prefs, *, api=None, client=None, now=None) -> dict:
     from .ready_to_merge import HELD, Cached, held_reason, held_runs, ready_to_merge
     client = Cached(client)  # one comments read per PR for every section
     snapshot = survey(project, None, api=api)
+    client.total = sum(1 for pr in snapshot["pull_requests"] if pr["state"] == "OPEN" and not pr["draft"])
     planned = plan(snapshot, project, now=now or datetime.now(timezone.utc))
     actor, repository = snapshot["actor"], project.repository
     storage = Path(prefs.storage).expanduser().resolve()
@@ -290,6 +291,7 @@ def add_parser(commands):
     p = commands.add_parser("reviews", help="read-only: PRs ready to merge, then your review queue (revised, "
                                             "author replied, new, waiting on the author)")
     p.add_argument("--json", action="store_true")
+    p.add_argument("--quiet", action="store_true", help="no progress lines on stderr")
     p.add_argument("--operator-config", type=Path, help="preferences (default ~/.config/sphereceti/operator.toml)")
     return p
 

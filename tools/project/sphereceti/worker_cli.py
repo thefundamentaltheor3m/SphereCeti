@@ -165,10 +165,17 @@ def survey(project, requested=None, *, api=None) -> dict:
             api.allow_for(len(raw))
     else:
         raw = [api.read(["pr", "view", str(number), *repo_args]) for number in requested]
+    from .feedback import current as progress
+    with progress().phase(f"Surveying open PRs… ({len(raw)} open)", "Surveying open PRs… done",
+                          "Surveying open PRs… failed"):
+        prs = []
+        for index, pr in enumerate(raw, 1):
+            prs.append(normalize(pr, project, api))
+            progress().counter("scope", index, len(raw))
     result = {"schema": "sphereceti.worker-survey/v4", "repository": project.repository,
               "actor": actor, "observed_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
               "scope": list(requested) if requested is not None else None,
-              "pull_requests": [normalize(pr, project, api) for pr in raw]}
+              "pull_requests": prs}
     validate_snapshot(result, project, datetime.now(timezone.utc))
     return result
 

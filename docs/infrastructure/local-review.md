@@ -541,6 +541,46 @@ Next: author: address attribution (see record); rerun after the head changes
 `posting`) and `summary` (`line`, `reviewed`, `total`, `first_blocking`, `stop`, `posted`,
 `official`, `next_action`); bare `review` adds both at the top level of its selection report.
 
+### Progress lines
+
+During the long steps, `review` (explicit, bare and batches) and `reviews` write short progress
+lines to **stderr**, each stamped with the local time. Stdout keeps the plan, summary and `--json`
+document unchanged. `--quiet` turns them off. They print on a terminal and off one (logs, CI), but
+counters behave differently. On a terminal they overwrite one line, at most every two seconds.
+Elsewhere they print every tenth item and the last, so a log never gets carriage returns.
+
+```text
+[19:02:11] Surveying open PRs… (49 open)
+[19:02:41]   scope 10/49
+[19:03:43] Surveying open PRs… done in 1m32s
+[19:03:44] Preparing evidence for #63 at 9c587b5 (fetching pinned sources…)
+[19:04:26] Evidence for #63 ready in 42s
+[19:04:27] Posting "reviewing now" claim on #63…
+[19:04:28] claim posted: https://github.com/thefundamentaltheor3m/SphereCeti/pull/63#issuecomment-1
+[19:04:28] Rubric 1/10 correctness: running (codex gpt-6.1-sol)…
+[19:06:38] Rubric 1/10 correctness: approve (2m10s, est. $0.07)
+...
+[19:31:02] Posting record…
+[19:31:04] posted https://github.com/thefundamentaltheor3m/SphereCeti/pull/63#issuecomment-2
+```
+
+- **Survey:** the open-PR count, then `scope i/N` as each PR's CI and trusted-scope provenance is
+  read, then the total time.
+- **`reviews`:** the survey, then `reading comments i/N`.
+- **Evidence:** start and finish of the pinned source preparation.
+- **Claim:** posted, refreshed (your own live claim) or yielded.
+- **Rubrics:** a start line when the engine begins a rubric, with provider and model. A finish
+  line gives its verdict, duration and cost (`est.` when the engine estimated it). A rubric
+  already current at this head and not re-run says `reused`. The CLI polls the engine's own
+  ledger: its write-ahead `in_flight` marker and each finished case file. The engine needs no
+  callback, and the result is never affected.
+- **Stops and posting:** `stopped early: <reason>` (e.g. `usage unknown`, `daily budget`), then
+  `Posting record…` and `posted <URL>` or `record not posted: <reason>`. With maintainer
+  approvals enabled, one more line says `approval: submitted` or `not submitted (<reason>)`.
+
+Bare `review` still prints its selection line (`Reviewing #63 (head 9c587b5): …`) and batches their
+`[i/N] #PR …` lines on stdout, as before.
+
 ## Evidence and authority
 
 - **T** is the selected tooling/context commit. By default it is the repository's remote

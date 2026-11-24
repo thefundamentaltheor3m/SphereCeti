@@ -204,6 +204,8 @@ class ReviewClaim:
                      "started_at": stamp(now), "expires_at": stamp(now + timedelta(seconds=TTL)),
                      "state": "in_progress", "detail": None}
         own = [c for c in claims if c["actor"] == actor]
+        from .feedback import current as progress
+        progress().line(f'Posting "reviewing now" claim on #{report["pr"]}…')
         if own:
             # A re-run refreshes your earliest live claim in place: one comment, same position.
             self.comment_id = own[0]["comment_id"]
@@ -229,12 +231,16 @@ class ReviewClaim:
             self.abandon("claim not visible after posting")
             raise ReviewError("your review claim was not visible after posting; nothing was spent")
         winner = claims[0]
+        url = (f"https://github.com/{self.context['repository']}/pull/{self.context['pr']}"
+               f"#issuecomment-{self.comment_id}")
         if winner["actor"] != actor and not self.force:
+            progress().line(f"claim yielded to @{winner['author']}, whose claim is earlier: {url}")
             self.usage = f"{self.models} · No model calls"
             self.edit("yielded", winner["author"])
             self.closed = True
             raise ClaimYielded(f"PR #{report['pr']}: yielded to @{winner['author']}, whose claim is earlier; "
                                "nothing was spent", winner)
+        progress().line(f"claim {'refreshed' if own else 'posted'}: {url}")
 
     def edit(self, state, detail):
         data = {**self.data, "state": state, "detail": detail}
@@ -311,6 +317,11 @@ def run_claimed(args, project, prefs, *, expect=None, run=None, wrap=None):
             if receipt and receipt["edit"] == "failed":
                 print("sphereceti review: " + note(receipt), file=sys.stderr)
             raise
+        from .feedback import current as progress
+        if result.get("approval"):  # the maintainer approval step (#155), when present
+            state = result["approval"].get("state")
+            progress().line("approval: " + ("submitted" if state in ("submitted", "existing") else
+                                            f"not submitted ({result['approval'].get('reason')})"))
         receipt = claim.finish(result)
         if receipt:
             result["claim"] = receipt

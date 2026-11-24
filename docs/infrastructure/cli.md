@@ -12,6 +12,7 @@ The `sphereceti` command supplies project diagnostics and the adapters credited 
 | `review --new / --revised / --all --limit N` | [Bounded review batches](local-review.md#your-review-queue-and-bounded-batches) |
 | `review N` | [Local review, posted by default](local-review.md#posting-by-default) |
 | `review --force-claim` | [Advisory review-in-progress claims](local-review.md#review-in-progress-claims) |
+| `review --quiet`, `reviews --quiet` | [No progress lines on stderr](local-review.md#progress-lines) |
 | `review --read-records / --no-post` | [Authenticated records and publication](review-records.md) |
 | `review-publish RUN` | [Publish a saved run without reviewing again](local-review.md#publishing-a-saved-run) |
 | `setup` | [First-run and changed review preferences](local-review.md#first-run-and-sphereceti-setup) |
