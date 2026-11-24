@@ -175,5 +175,22 @@ class QueueProgressTest(unittest.TestCase):
         self.assertEqual(text[4:], ['  reading comments 10/12', '  reading comments 12/12'])
 
 
+class ApprovalProgressTest(unittest.TestCase):
+    def test_the_approval_outcome_gets_a_line(self):
+        import test_review_approval as approval
+        stream = io.StringIO()
+        previous = current()
+        install(Progress(stream, tty=False))
+        self.addCleanup(install, previous)
+        case = approval.ApprovalTest('test_opted_in_maintainer_submits_exactly_one_approve_after_readback')
+        case.setUp()
+        self.addCleanup(case.doCleanups)
+        case.review()
+        case.review(no_approve=True)
+        text = [STAMP.sub('', line) for line in stream.getvalue().splitlines()]
+        self.assertIn('approval: submitted', text)
+        self.assertIn('approval: not submitted (--no-approve)', text)
+
+
 if __name__ == '__main__':
     unittest.main()
