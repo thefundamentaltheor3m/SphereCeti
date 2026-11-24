@@ -17,7 +17,8 @@ public import SphereCeti.Lattice.IntegralPresentation
 public import SphereCeti.Leech.ResidueCoordinates
 public import SphereCeti.MeasureTheory.Measure.Haar.EuclideanSpace
 public import SphereCeti.ZLattice.Covolume.Bound
-public import SphereCeti.ZLattice.RelativeQuotient
+public import SphereCeti.ZLattice.RelativeQuotient.Basic
+public import SphereCeti.ZLattice.RelativeQuotient.Embedding
 public import SphereCeti.ZLattice.SeparatedCosets
 
 /-!
