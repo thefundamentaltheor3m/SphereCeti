@@ -149,33 +149,60 @@ def instant(text: str) -> datetime:
     return datetime.strptime(text, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
 
 
-def claim_state(comments, assignees, now):
-    """#134's rule: the latest marker by github-actions[bot] (type Bot) names the holder and expiry;
-    a claim counts while that holder is still assigned. Markers by anyone else are ignored."""
-    for comment in sorted(comments, key=lambda c: c.get("id", 0), reverse=True):
-        user, body = comment.get("user") or {}, comment.get("body") or ""
-        if user.get("login") != BOT or user.get("type") != "Bot" or not body.startswith(MARKER):
+def markers(comments):
+    """Mirror of #134's `markers`: (comment, data) for the workflow's markers in comment-ID order;
+    markers by anyone but github-actions[bot] (type Bot) are ignored."""
+    found = []
+    for comment in sorted(comments, key=lambda c: c.get("id", 0)):
+        body, user = comment.get("body") or "", comment.get("user") or {}
+        if (user.get("login") != BOT or user.get("type") != "Bot" or not body.startswith(MARKER)
+                or not isinstance(comment.get("created_at"), str)):
             continue
         try:
             data = json.loads(body[len(MARKER):].split("-->", 1)[0])
         except ValueError:
             continue
-        if not isinstance(data, dict):
-            continue
-        if not data.get("holder") or data["holder"] not in assignees or not data.get("expires"):
-            return None
-        try:
-            expired = instant(data["expires"]) <= now
-        except (TypeError, ValueError):
-            return None
-        return {"holder": data["holder"], "expires": data["expires"], "expired": expired}
-    return None
+        if isinstance(data, dict):
+            found.append((comment, data))
+    return found
+
+
+def fold(comments):
+    """Mirror of #134's `fold`: replay the markers in comment order, the source of truth for the
+    holder. A claim/renew is accepted only if the target is free, held by the same person, or held
+    by a claim expired by that marker's time; a release applies only to the current holder; an
+    expiry only to the exact holder and expiry it observed. Returns (state, accepted-by-comment-id)."""
+    state = {"holder": None, "expires": None, "marker": None}
+    accepted = {}
+    for comment, data in markers(comments):
+        at, action, ok = comment["created_at"], data.get("action"), False
+        if action in ("claim", "renew") and isinstance(data.get("holder"), str) and isinstance(data.get("expires"), str):
+            ok = state["holder"] in (None, data["holder"]) or state["expires"] <= at
+            if ok:
+                state = {"holder": data["holder"], "expires": data["expires"], "marker": comment}
+        elif action in ("release", "expire") and state["holder"] and data.get("released") == state["holder"]:
+            ok = action == "release" or (data.get("observed") == state["expires"] and state["expires"] <= at)
+            if ok:
+                state = {"holder": None, "expires": None, "marker": comment}
+        accepted[comment["id"]] = ok
+    return state, accepted
+
+
+def claim_state(comments, now):
+    """The replayed claim (authoritative; assignees are only a mirror the workflow corrects)."""
+    state, _ = fold(comments)
+    if not state["holder"]:
+        return None
+    try:
+        expired = instant(state["expires"]) <= now
+    except (TypeError, ValueError):
+        return None
+    return {"holder": state["holder"], "expires": state["expires"], "expired": expired}
 
 
 def parse_intention(issue, comments, now):
     fields = parse_fields(issue.get("body") or "")
-    assignees = [a["login"] for a in issue.get("assignees") or [] if isinstance(a, dict) and a.get("login")]
-    claim = claim_state(comments, assignees, now)
+    claim = claim_state(comments, now)
     state = "unclaimed" if not claim else "expired" if claim["expired"] else "claimed"
     item_text = fields["roadmap_item"] or ""
     parent = re.search(r"#?([0-9]+)", fields["parent_pr"] or "")
@@ -368,7 +395,11 @@ def issue_body(target, item, module, parent, duration) -> str:
                         for heading, key in FIELDS.items()) + "\n"
 
 
-def register(project, result, *, client=None, parent=None, duration=None, dry_run=False, now=None) -> dict:
+CONFIRM_DELAY = 2.0  # seconds between confirm reads, for GitHub's eventually consistent issue listing
+
+
+def register(project, result, *, client=None, parent=None, duration=None, dry_run=False, now=None,
+             delay=CONFIRM_DELAY, sleep=None) -> dict:
     """Create #134's intention issue as the contributor, confirm it is first, then comment `claim`.
 
     Re-checks open intentions immediately before creating: an open intention with the same target
@@ -381,6 +412,9 @@ def register(project, result, *, client=None, parent=None, duration=None, dry_ru
     if client is None:
         from .review_post import GitHub
         client = GitHub()
+    if sleep is None:
+        import time
+        sleep = time.sleep
     now = now or datetime.now(timezone.utc)
     if result["verdict"] == "claimed":
         return {"state": "claimed", "winner": result["claimed"][0], "issue": None}
@@ -411,18 +445,41 @@ def register(project, result, *, client=None, parent=None, duration=None, dry_ru
     if not isinstance(created, dict) or type(created.get("number")) is not int:
         raise RecordError("GitHub did not confirm the new intention issue; check before retrying")
     mine = {"number": created["number"], "url": created.get("html_url")}
-    live, _ = rivals()
-    if not any(w["number"] == mine["number"] for w in live):
+
+    def withdraw(winner, claimed):
+        """Our issue is a duplicate of the winner's: point to it and close ours (never theirs)."""
+        if claimed:
+            client.call(f"repos/{repo}/issues/{mine['number']}/comments", payload={"body": "unclaim"})
+        client.call(f"repos/{repo}/issues/{mine['number']}/comments", payload={
+            "body": f"Duplicate of #{winner['number']}, the earliest intention for `{target}`. Closing this one."})
+        client.call(f"repos/{repo}/issues/{mine['number']}", payload={"state": "closed"}, method="PATCH")
+        return {"state": "lost_race", "issue": mine, "winner": winner, "unclaimed": claimed}
+
+    # Deterministic convergence: among the open intentions for the target, the LOWEST issue number
+    # wins (GitHub numbers issues in creation order). Every caller confirms twice, `delay` seconds
+    # apart, before claiming, and once more after claiming, so a read that missed a concurrent
+    # issue is corrected by a later one; whoever is not the lowest withdraws its own issue.
+    seen = False
+    for wait in (0, delay):
+        if wait:
+            sleep(wait)
+        live, _ = rivals()
+        seen = seen or any(w["number"] == mine["number"] for w in live)
+        earlier = [w for w in live if w["number"] < mine["number"]]
+        if earlier:
+            return withdraw(brief(earlier[0]), claimed=False)
+    if not seen:
         return {"state": "unconfirmed", "issue": mine, "winner": None}
+    client.call(f"repos/{repo}/issues/{mine['number']}/comments", payload={"body": command})
+    sleep(delay)
+    live, _ = rivals()
     earlier = [w for w in live if w["number"] < mine["number"]]
     if earlier:
-        winner = brief(earlier[0])
-        client.call(f"repos/{repo}/issues/{mine['number']}/comments", payload={
-            "body": f"Duplicate of #{winner['number']}, which registered `{target}` first. Closing this one."})
-        client.call(f"repos/{repo}/issues/{mine['number']}", payload={"state": "closed"}, method="PATCH")
-        return {"state": "lost_race", "issue": mine, "winner": winner}
-    client.call(f"repos/{repo}/issues/{mine['number']}/comments", payload={"body": command})
-    return {"state": "registered", "issue": mine, "winner": None, "claim": command}
+        return withdraw(brief(earlier[0]), claimed=True)
+    # A later duplicate still open here should withdraw itself; if its reads keep missing ours, it
+    # cannot, so both links are surfaced instead of claiming a clean success.
+    concurrent = [brief(w) for w in live if w["number"] > mine["number"]]
+    return {"state": "registered", "issue": mine, "winner": None, "claim": command, "concurrent": concurrent}
 
 
 # --- Rendering -----------------------------------------------------------------------------------
@@ -481,6 +538,11 @@ def render_lookup(result) -> str:
 
 
 def render_registration(r) -> str:
+    if r["state"] == "registered" and r.get("concurrent"):
+        others = "; ".join(f"#{w['number']} {w['url']}" for w in r["concurrent"])
+        return (f"Registered intention #{r['issue']['number']}: {r['issue']['url']} (the earliest, so it holds), "
+                f"but another intention for this target was created at the same time: {others}; "
+                "coordinate there. It should close itself as a duplicate.")
     if r["state"] == "registered":
         return (f"Registered intention #{r['issue']['number']}: {r['issue']['url']} and commented "
                 f"`{r['claim']}`; the intentions workflow assigns you shortly.")
@@ -492,8 +554,9 @@ def render_registration(r) -> str:
     if r["state"] == "claimed":
         return f"Not registered: it was just claimed by {describe_brief(r['winner'])}"
     if r["state"] == "lost_race":
-        return (f"Lost the race: {describe_brief(r['winner'])} claimed it first. Your issue "
-                f"#{r['issue']['number']} was closed as its duplicate.")
+        return (f"Lost the race: {describe_brief(r['winner'])} was registered first; work there. Your issue "
+                f"#{r['issue']['number']} was closed as its duplicate"
+                + (" (your claim on it was released)." if r.get("unclaimed") else "."))
     return f"Created #{r['issue']['number']} but could not confirm it on the board; check {r['issue']['url']}"
 
 

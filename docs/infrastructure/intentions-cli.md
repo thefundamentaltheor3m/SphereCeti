@@ -58,9 +58,19 @@ and claims:
 1. Immediately before creating, it re-reads open intentions. An open intention with the same
    target, claimed or only registered, is shown with its link and nothing is written. One whose
    claim has expired is claimed in place (a `claim` comment) instead of duplicated.
-2. After creating the issue it reads them again. If an earlier open intention has the same
-   target, this one lost the race: the command comments `Duplicate of #N` on its own new issue,
-   closes it, posts no `claim`, and prints the winner's link. It never touches anyone else's issue.
+2. After creating, it converges deterministically: **among the open intentions for the target,
+   the lowest issue number wins** (GitHub numbers issues in creation order, so this is also the
+   earliest). It reads them twice, `CONFIRM_DELAY` (2 s) apart, before commenting `claim`, and once
+   more after. A caller that sees a lower-numbered intention comments `Duplicate of #N` on its
+   own issue, closes it, posts no `claim` (or `unclaim` if it already claimed), and prints the
+   winner's link. It never touches anyone else's issue.
+
+Concurrent callers whose initial lookups were both empty therefore end on one open intention,
+whether both create before either confirms, one confirms before the other creates, or one confirm
+read misses the other's new issue (a later read sees it). If GitHub's listing hides a concurrent
+issue from a caller beyond those reads, that caller cannot know; the earlier caller then reports
+`another intention for this target was created at the same time: #N; coordinate there` instead of
+a clean success, and later lookups list both.
 
 Two contributors registering different lemmas of the same item both succeed. The contributor's
 token is used only to create the issue and comment `claim`, and after a lost race to comment on
@@ -81,11 +91,17 @@ headings (a contributor without triage rights cannot label an issue created thro
 pins the mirror to #134's rendered-form fixture and, once #134's script is present, compares the
 two parsers. The declaration is the name in the target block (`theorem A.b ...`, or a bare name).
 
-The holder and expiry are #134's: the issue's assignees plus the latest
-`<!--sphereceti-intention:v1 {...}-->` marker comment by `github-actions[bot]` (type Bot); markers
-by anyone else are ignored. A marker whose holder is still assigned and whose `expires` has not
-passed means claimed; a passed expiry not yet swept means expired; an open intention without such
-a claim is "registered, unclaimed" and still blocks its exact target. Prefilled form links use
+The holder and expiry are #134's: `fold`, mirrored here, **replays** every
+`<!--sphereceti-intention:v1 {...}-->` marker by `github-actions[bot]` (type Bot) in comment-ID
+order. A `claim`/`renew` takes effect only if the target is free, held by the same person, or held
+by a claim already expired at that marker's time; a `release` applies only to the current holder;
+an `expire` only to the holder and expiry it observed. A losing claim's marker exists but never
+takes effect, so the replay, not the latest marker, names the holder. Markers by anyone else are
+ignored, and the assignees are only a mirror the workflow corrects. A replayed claim whose expiry
+has passed (not yet swept) reads as expired; an open intention with no replayed claim is
+"registered, unclaimed" and still blocks its exact target. A test checks the mirror against
+scripted sequences (a lost claim, a renewal, expire-vs-renew, release by the holder) and, once
+#134's script is present, against its `fold` directly. Prefilled form links use
 #134's ids (`target`, `roadmap_item`, `module`, `parent_pr`, `duration`) with `template=intention.yml`.
 
 ## How a PR's declarations and roadmap item are read

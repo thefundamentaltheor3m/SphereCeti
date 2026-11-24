@@ -13,9 +13,17 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools' / 'project'))
 from sphereceti.config import parse_project, resource_text
+import threading
+
 from sphereceti.intentions import (LOOKUP_SCHEMA, MARKER, SCHEMA, RegistrationRefused, added_lines,
-                                   declarations, issue_body, lookup, observe, parse_fields, register, render,
-                                   render_lookup)
+                                   declarations, issue_body, lookup, observe, parse_fields, render,
+                                   render_lookup, render_registration)
+from sphereceti.intentions import register as _register
+
+
+def register(*args, **kwargs):
+    """No real waiting between confirm reads in tests."""
+    return _register(*args, **{'delay': 0, **kwargs})
 from sphereceti.review_records import RecordError
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -55,10 +63,11 @@ ISSUE_FIELDS = {'target': 'theorem PeriodicSpherePacking.density_eq_card_div_cov
                 'module': 'SphereCeti/Packing/PeriodicDensity.lean', 'duration': '3 weeks'}
 
 
-def marker(cid, holder, expires, *, by='github-actions[bot]', kind='Bot'):
-    data = {'action': 'claim', 'comment': cid - 1, 'expires': expires, 'holder': holder, 'holder_id': 9}
-    return {'id': cid, 'user': {'login': by, 'type': kind},
-            'body': MARKER + json.dumps(data, sort_keys=True, separators=(',', ':')) + f'-->\n{holder} claimed this.'}
+def marker(cid, holder, expires, *, by='github-actions[bot]', kind='Bot', action='claim', at=None, **extra):
+    """A marker comment in #134's shape (written by its workflow at `at`)."""
+    data = {'action': action, 'comment': cid - 1, 'expires': expires, 'holder': holder, 'holder_id': 9, **extra}
+    return {'id': cid, 'user': {'login': by, 'type': kind}, 'created_at': at or '2026-11-20T10:00:00Z',
+            'body': MARKER + json.dumps(data, sort_keys=True, separators=(',', ':')) + f'-->\n{action}'}
 
 LINTEGRAL = '''module
 
@@ -156,10 +165,25 @@ def d5_world():
 class FakeClient:
     """GitHub's REST shapes, in memory. `on_create` runs just before a new issue is stored."""
 
+    LOCK = threading.RLock()  # two callers in two threads share one world
+
     def __init__(self, world, fail=None):
         self.world, self.fail, self.calls, self.on_create = world, fail, [], None
+        self.hidden = {}        # issue number -> listings that still miss it (eventual consistency)
+        self.after_create = None
 
     def call(self, endpoint, *, payload=None, paginate=False, method=None):
+        creating = bool(payload) and endpoint == f'repos/{REPO}/issues'
+        if creating and self.on_create:  # outside the lock, so the other caller can proceed
+            hook, self.on_create = self.on_create, None
+            hook()
+        with self.LOCK:
+            value = self._call(endpoint, payload=payload, paginate=paginate, method=method)
+        if creating and self.after_create:
+            self.after_create()
+        return value
+
+    def _call(self, endpoint, *, payload=None, paginate=False, method=None):
         self.calls.append((method or ('POST' if payload else 'GET'), endpoint, payload))
         if self.fail and self.fail in endpoint:
             raise RecordError('GitHub operation failed; publication is unconfirmed')
@@ -167,7 +191,15 @@ class FakeClient:
         path = endpoint[len(prefix):]
         prs = {p['pr']['number']: p for p in self.world['prs']}
         if path == 'issues?state=open&per_page=100':
-            return [[copy.deepcopy(i) for i in self.world['issues'] if i.get('state', 'open') == 'open']]
+            listed = []
+            for issue in self.world['issues']:
+                if issue.get('state', 'open') != 'open':
+                    continue
+                if self.hidden.get(issue['number'], 0) > 0:
+                    self.hidden[issue['number']] -= 1
+                    continue
+                listed.append(copy.deepcopy(issue))
+            return [listed]
         if path == 'pulls?state=open&per_page=100':
             return [[p['pr'] for p in self.world['prs']]]
         if path.startswith('pulls/') and path.endswith('/files?per_page=100'):
@@ -179,10 +211,10 @@ class FakeClient:
         if path.startswith('issues/') and path.endswith('/comments?per_page=100'):
             return [list(self.world['comments'].get(path.split('/')[1], []))]
         if path == 'issues' and payload:
-            if self.on_create:
-                hook, self.on_create = self.on_create, None
-                hook()
             number = max([i['number'] for i in self.world['issues']] + [300]) + 1
+            for other, misses in self.world.get('hide_new', {}).items():  # the other caller's view
+                if other is not self:
+                    other.hidden[number] = misses
             issue = {'number': number, 'title': payload['title'], 'body': payload['body'], 'assignees': [],
                      'labels': [], 'html_url': f'https://github.com/{REPO}/issues/{number}'}
             self.world['issues'].append(issue)  # labels dropped, as for contributors without triage rights
@@ -225,6 +257,62 @@ class FormatContractTest(unittest.TestCase):
             spec.loader.exec_module(module)
             self.assertEqual(module.parse_intention(ISSUE_BODY), parse_fields(ISSUE_BODY))
             self.assertEqual(module.MARKER, MARKER)
+
+
+T0, T1, T2, T3 = '2026-11-01T00:00:00Z', '2026-11-02T00:00:00Z', '2026-11-20T00:00:00Z', '2026-12-05T00:00:00Z'
+E1, E2 = '2026-12-01T00:00:00Z', '2026-12-31T00:00:00Z'
+SEQUENCES = {
+    # Bob's claim lands while Alice's is live: its marker exists but does not take effect.
+    'lost claim': ([marker(10, 'alice', E1, at=T0), marker(11, 'bob', E2, at=T1)],
+                   ('alice', E1), {10: True, 11: False}),
+    'renewal': ([marker(10, 'alice', E1, at=T0), marker(11, 'alice', E2, at=T2, action='renew')],
+                ('alice', E2), {10: True, 11: True}),
+    # A sweep that observed the old expiry loses to a renewal written before it.
+    'expire vs renew': ([marker(10, 'alice', E1, at=T0), marker(11, 'alice', E2, at=T2, action='renew'),
+                         marker(12, None, None, at=T3, action='expire', released='alice', observed=E1)],
+                        ('alice', E2), {10: True, 11: True, 12: False}),
+    'expire applies': ([marker(10, 'alice', E1, at=T0),
+                        marker(12, None, None, at=T3, action='expire', released='alice', observed=E1)],
+                       (None, None), {10: True, 12: True}),
+    'release by holder': ([marker(10, 'alice', E1, at=T0), marker(11, None, None, at=T1, action='release',
+                                                                    released='bob'),
+                           marker(12, None, None, at=T2, action='release', released='alice')],
+                          (None, None), {10: True, 11: False, 12: True}),
+    'claim after expiry': ([marker(10, 'alice', E1, at=T0), marker(11, 'bob', E2, at=T3)],
+                           ('bob', E2), {10: True, 11: True}),
+}
+
+
+class FoldTest(unittest.TestCase):
+    """The CLI replays #134's markers exactly as #134's `fold` does; a latest-marker reader would not."""
+
+    def test_replay_matches_134_on_scripted_marker_sequences(self):
+        from sphereceti.intentions import fold
+        theirs = None
+        script = ROOT / 'scripts' / 'intentions.py'
+        if script.is_file():  # once #134 has landed
+            import importlib.util
+            spec = importlib.util.spec_from_file_location('workflow_intentions', script)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            theirs = getattr(module, 'fold', None)
+        for name, (comments, (holder, expires), accepted) in SEQUENCES.items():
+            with self.subTest(name):
+                forged = dict(marker(99, 'mallory', E2, at=T1), user={'login': 'mallory', 'type': 'User'})
+                state, ok = fold(comments + [forged])
+                self.assertEqual((state['holder'], state['expires']), (holder, expires))
+                self.assertEqual(ok, accepted)
+                if theirs:
+                    their_state, their_ok = theirs(comments + [forged])
+                    self.assertEqual((their_state['holder'], their_state['expires'], their_ok),
+                                     (state['holder'], state['expires'], ok))
+
+    def test_the_lost_claimant_is_not_reported_as_holder_even_if_assigned(self):
+        comments, _, _ = SEQUENCES['lost claim']
+        issue = form_issue(260, target='X.y', holders=('bob',))  # a stale mirror
+        world = {'issues': [issue], 'prs': [], 'comments': {'260': comments}}
+        [found] = observe(PROJECT, client=FakeClient(world), now=datetime(2026, 11, 3, tzinfo=timezone.utc))['intentions']
+        self.assertEqual((found['holders'], found['state']), (['alice'], 'claimed'))
 
 
 class LookupTest(unittest.TestCase):
@@ -390,6 +478,114 @@ class RegisterTest(unittest.TestCase):
         with self.assertRaises(RecordError):
             register(PROJECT, result, client=failing, now=NOW)  # the pre-check read fails
         self.assertEqual(failing.writes(), [])
+
+
+class ConcurrentRegistrationTest(unittest.TestCase):
+    """Both initial lookups are empty; scripted interleavings must end on ONE open intention."""
+    TARGET = 'EuclideanSpace.box_average_tendsto'
+    MODULE = 'SphereCeti/MeasureTheory/Measure/Haar/BoxAveraging.lean'
+
+    def setUp(self):
+        self.world = d5_world()
+        self.a, self.b = FakeClient(self.world), FakeClient(self.world)
+        self.a_start = lookup(PROJECT, self.TARGET, client=self.a, item='D5', module=self.MODULE)
+        self.b_start = lookup(PROJECT, self.TARGET, client=self.b, item='D5', module=self.MODULE)
+        self.assertEqual((self.a_start['verdict'], self.b_start['verdict']), ('no_exact_claim', 'no_exact_claim'))
+
+    def open_intentions_for_target(self):
+        return [i['number'] for i in self.world['issues'] if i.get('state', 'open') == 'open'
+                and self.TARGET in (i.get('body') or '')]
+
+    def claims(self, number):
+        return [c['body'] for c in self.world['comments'].get(str(number), []) if c['body'] in ('claim', 'unclaim')]
+
+    def assert_converged(self, outcomes):
+        [winner] = self.open_intentions_for_target()
+        links = set()
+        for outcome in outcomes:
+            if outcome['state'] == 'registered':
+                links.add(outcome['issue']['number'])
+            elif outcome['state'] in ('lost_race', 'claimed'):
+                links.add(outcome['winner']['number'])
+            else:
+                self.fail(outcome)
+        self.assertEqual(links, {winner})            # both callers point to the same intention
+        self.assertEqual(self.claims(winner), ['claim'])
+        return winner
+
+    def run_both(self, a, b):
+        results = {}
+        threads = [threading.Thread(target=lambda key, f: results.__setitem__(key, f()), args=(k, f))
+                   for k, f in (('a', a), ('b', b))]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(30)
+        return results['a'], results['b']
+
+    def test_both_create_then_both_confirm_converge_on_the_lower_number(self):
+        before, after = threading.Barrier(2, timeout=10), threading.Barrier(2, timeout=10)
+        self.a.on_create = self.b.on_create = before.wait     # both pre-checks saw nothing
+        self.a.after_create = self.b.after_create = after.wait  # nobody confirms before both created
+        a, b = self.run_both(lambda: register(PROJECT, self.a_start, client=self.a, now=NOW),
+                             lambda: register(PROJECT, self.b_start, client=self.b, now=NOW))
+        winner = self.assert_converged([a, b])
+        self.assertEqual(winner, 301)  # the lower number wins, whoever posted first
+        loser = next(o for o in (a, b) if o['state'] == 'lost_race')
+        self.assertEqual(loser['issue']['number'], 302)
+        self.assertEqual(self.claims(302), [])  # the duplicate never claimed
+
+    def test_one_confirms_before_the_other_creates(self):
+        a = register(PROJECT, self.a_start, client=self.a, now=NOW)
+        b = register(PROJECT, self.b_start, client=self.b, now=NOW)  # B's pre-check sees A's issue
+        self.assert_converged([a, b])
+        self.assertEqual(b['state'], 'claimed')
+        # And when B's pre-check read also missed A's issue, B creates and then withdraws.
+        self.setUp()
+        self.world['hide_new'] = {self.b: 1}
+        a = register(PROJECT, self.a_start, client=self.a, now=NOW)
+        b = register(PROJECT, self.b_start, client=self.b, now=NOW)
+        self.assertEqual(b['state'], 'lost_race')
+        self.assert_converged([a, b])
+
+    def test_a_confirm_read_that_misses_the_other_issue_still_converges(self):
+        # A creates #301 first, but B's next reads miss it: B creates #302 and its FIRST confirm
+        # sees only #302. The second confirm pass sees #301, so B withdraws before claiming.
+        before, after = threading.Barrier(2, timeout=10), threading.Barrier(2, timeout=10)
+        self.a.on_create = self.b.on_create = before.wait
+        self.a.after_create = self.b.after_create = after.wait
+        self.world['hide_new'] = {self.b: 1, self.a: 1}  # each caller's first confirm misses the other
+        a, b = self.run_both(lambda: register(PROJECT, self.a_start, client=self.a, now=NOW),
+                             lambda: register(PROJECT, self.b_start, client=self.b, now=NOW))
+        self.assert_converged([a, b])
+        # Missed for longer, until after B claimed: B's post-claim check releases with `unclaim`.
+        self.setUp()
+        self.a.after_create = self.b.after_create = None
+        a = register(PROJECT, self.a_start, client=self.a, now=NOW)
+        self.world['hide_new'] = {}
+        self.b.hidden[a['issue']['number']] = 3  # pre-check and both confirm passes miss #301
+        b = register(PROJECT, self.b_start, client=self.b, now=NOW)
+        self.assertEqual((b['state'], b['unclaimed']), ('lost_race', True))
+        self.assertEqual(self.claims(b['issue']['number']), ['claim', 'unclaim'])
+        self.assert_converged([a, b])
+
+    def test_when_convergence_cannot_be_shown_both_links_are_surfaced(self):
+        # Both pre-checks see nothing; A creates #301, then B creates #302. B's reads never show
+        # #301 in time, so B keeps #302. A, the earliest, still holds and surfaces #302.
+        b_ready, a_created, b_created = threading.Event(), threading.Event(), threading.Event()
+        self.a.on_create = lambda: b_ready.wait(10)
+        self.b.on_create = lambda: (b_ready.set(), a_created.wait(10))
+        self.a.after_create = lambda: (a_created.set(), b_created.wait(10))  # A confirms after B created
+        self.b.after_create = b_created.set
+        self.world['hide_new'] = {self.b: 99}
+        a, b = self.run_both(lambda: register(PROJECT, self.a_start, client=self.a, now=NOW),
+                             lambda: register(PROJECT, self.b_start, client=self.b, now=NOW))
+        self.assertEqual((a['issue']['number'], b['issue']['number']), (301, 302))
+        self.assertEqual((a['state'], [w['number'] for w in a['concurrent']]), ('registered', [302]))
+        text = render_registration(a)
+        self.assertIn('another intention for this target was created at the same time: #302', text)
+        self.assertIn('coordinate there', text)
+        self.assertNotIn('commented `claim`', text)  # not reported as a clean success
 
 
 FAKE_GH = r'''
