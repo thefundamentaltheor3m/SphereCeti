@@ -16,6 +16,7 @@ import stat
 import subprocess
 
 from .auto_approval import auto_approval
+from .carry_over import ApiSource, carry
 from .merge_activation import Activation, pages
 from .merge_checks import MERGE_MISSING, MERGE_STALE, TOOLING_ATTESTATION
 from .merge_observation import Reader, pull
@@ -175,14 +176,16 @@ def local_lock(cache):
 MAINTAINERS = ('OWNER', 'MEMBER', 'COLLABORATOR')
 
 
-def formal_approval(reviews, author, head, approvers):
+def formal_approval(reviews, author, head, approvers, carried=None):
     """A qualifying formal GitHub approval: an opted-in maintainer's current APPROVE on the exact head.
 
     `approvers` is the approved automation policy's approving_reviewers (a subset of authorized_reviewers).
 
     Each reviewer's latest APPROVED, CHANGES_REQUESTED or DISMISSED review is their current state, as
     on GitHub; comments do not change it. An all-green review record without this review does not
-    qualify, and any outstanding change request blocks.
+    qualify, and any outstanding change request blocks. An APPROVE on an older commit qualifies only
+    when `carried(commit)` shows that commit carries over to the head through update-branch merges
+    (carry_over: identical change, no review input changed); the approver is never the author.
     """
     if not isinstance(reviews,list) or any(
             not isinstance(r,dict) or type(r.get('id')) is not int or not isinstance(r.get('user'),dict) or
@@ -200,10 +203,18 @@ def formal_approval(reviews, author, head, approvers):
         if review['state']!='APPROVED': continue
         if who not in approvers: rejected.append(f'{who} is not in approving_reviewers')
         elif who==author: rejected.append(f'{who} is the PR author')
-        elif review.get('commit_id')!=head: rejected.append(f"{who} approved {str(review.get('commit_id'))[:12]}, not the head")
         elif review['user'].get('type')!='User' or review.get('author_association') not in MAINTAINERS:
             rejected.append(f'{who} is not a maintainer account')
-        else: qualifying.append({'identity':who,'review_id':review['id'],'commit_id':head})
+        elif review.get('commit_id')==head: qualifying.append({'identity':who,'review_id':review['id'],'commit_id':head})
+        else:
+            older=review.get('commit_id')
+            moved=carried(older) if carried and isinstance(older,str) else None
+            if moved and moved.get('carried') is True:
+                qualifying.append({'identity':who,'review_id':review['id'],'commit_id':head,'carried_from':older,
+                                   'carried_via':[m['merge'] for m in moved['via']]})
+            else:
+                rejected.append(f"{who} approved {str(older)[:12]}, not the head"+
+                                (f" ({moved['reason']})" if moved else ''))
     if not qualifying:
         reasons.append('no qualifying approval: an opted-in maintainer (policy/automation.toml approving_reviewers) '
                        'other than the PR author must APPROVE the exact head'+(f" ({'; '.join(rejected)})" if rejected else ''))
@@ -293,8 +304,11 @@ class Backend:
         client=self.observer=Reader(self.project.repository)
         decision=auto_approval(args,self.project,client=client)
         reviews=pages(client.call(f'repos/{self.project.repository}/pulls/{number}/reviews?per_page=100',paginate=True),'review')
+        evidence=next((r['evidence'] for r in decision['requirements'] if r['id']=='review_inputs'),{})
+        source=ApiSource(client,self.project.repository)  # GET-only, revalidated with the observation.
+        carried=lambda older:carry(source,older,decision['head'],decision['tooling'],evidence.get('reviewed_at_main') or [])
         approval=formal_approval(reviews,decision['author']['identity'],decision['head'],
-                                 self.activation.policy.approving_reviewers)
+                                 self.activation.policy.approving_reviewers,carried)
         action,reasons=classify(decision,approval)
         inputs=next((r['evidence'] for r in decision['requirements'] if r['id']=='review_inputs'),{})
         merge=decision.get('merge') or {}

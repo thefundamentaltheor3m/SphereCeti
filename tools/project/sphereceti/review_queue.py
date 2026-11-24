@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 import json
 from pathlib import Path
 
+from .carry_over import ApiSource, carry, describe as carry_status
 from .local_review import ReviewError
 from .review_records import CONTEST, MARKER, RecordError, intact, parse_record
 from .review_claims import ClaimRefused, ClaimYielded, run_claimed
@@ -98,6 +99,7 @@ def queue(project, policy, prefs, *, api=None, client=None, now=None) -> dict:
     by_number = {pr["number"]: pr for pr in snapshot["pull_requests"]}
     order += sorted(n for n in by_number if n not in order)
     sections = {name: [] for name in SECTIONS}
+    main_sha = [None]  # read once, only when a record on an older head needs a carry-over check
     done, follow_ups = [], []
     from .stacks import StackGate
     gate = StackGate(snapshot, project, policy, client, ready)
@@ -122,7 +124,19 @@ def queue(project, policy, prefs, *, api=None, client=None, now=None) -> dict:
             raise RecordError("unknown review records")
         mine = my_records(comments, repository, number, actor)
         latest = mine[-1] if mine else None
-        if latest and latest[1]["head"] == pr["head"]:
+        carried = None
+        if latest and latest[1]["head"] != pr["head"]:
+            # Only update-branch merges since your review, with the same change and no review input
+            # changed on main: your review is current (carry_over), not a revision to re-review.
+            try:
+                if main_sha[0] is None:
+                    main_sha[0] = client.call(f"repos/{repository}/commits/{project.default_branch}").get("sha")
+                result = carry(ApiSource(client, repository), latest[1]["head"], pr["head"], main_sha[0],
+                               [latest[1]["tooling_revision"]])
+            except (RecordError, AttributeError):
+                result = {"carried": False}  # Unknown main: treat the PR as revised (fail closed).
+            carried = carry_status(result) if result["carried"] else None
+        if latest and (latest[1]["head"] == pr["head"] or carried):
             rubrics = [r for r, v in latest[1]["verdicts"].items() if v in CHANGES]
             if rubrics:
                 verb = "blocked" if any(latest[1]["verdicts"][r] == "block" for r in rubrics) else "requested changes"
@@ -141,8 +155,9 @@ def queue(project, policy, prefs, *, api=None, client=None, now=None) -> dict:
                         contests=len(contested), reply_url=link(repository, number, newest)))
                 else:
                     sections["waiting_on_author"].append(entry(
-                        "waiting_on_author", pr, observed, f"you {verb} ({', '.join(rubrics)}); no new head",
-                        rubrics=rubrics, record_comment=latest[0]["id"]))
+                        "waiting_on_author", pr, observed, f"you {verb} ({', '.join(rubrics)}); " +
+                        (f"no new change; {carried}" if carried else "no new head"),
+                        rubrics=rubrics, record_comment=latest[0]["id"], carried=carried))
                 continue
         if number not in ready:
             skip(pr, *readiness(pr))
@@ -159,7 +174,7 @@ def queue(project, policy, prefs, *, api=None, client=None, now=None) -> dict:
             continue
         if number in blocked_numbers:
             continue  # listed under "Blocked by a parent": review its stack root first
-        if latest and latest[1]["head"] != pr["head"]:
+        if latest and latest[1]["head"] != pr["head"] and not carried:
             old = latest[1]["head"]
             count, history = commits_since(client, repository, old, pr["head"])
             answered, contests_since = since(comments, latest[0]["id"], pr["author"])

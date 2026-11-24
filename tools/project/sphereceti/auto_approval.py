@@ -22,12 +22,13 @@ from urllib.parse import quote
 from .config import ConfigError, local_path
 from .gate import CONFIG, GateError, blob, git, git_environment, path_class, tree
 from .local_review import DOCUMENTS, RUBRICS
+from .carry_over import (NOT_REVIEW_INPUTS, ROOT_MODULE, SPEC_DOCUMENTS, GitSource, digest, input_category,
+                         rows)
 from .merge_checks import TOOLING_ATTESTATION, assess_merge, latest_statuses, timestamp
 from .merge_observation import Reader, collect
 from .review_records import RecordError, collect_records
 from .worker_checks import HUMAN_SCOPE, STALE_BASE
 
-ROOT_MODULE = 'SphereCeti.lean'
 FILE_LIMIT = 3000  # GitHub lists at most 3000 files for a pull request.
 SCOPE_FAILURE = 'trusted-scope is not successful'
 AUDIT_BINDING = ('trusted candidate: the approved pull_request_target workflow run attempt named by '
@@ -35,9 +36,6 @@ AUDIT_BINDING = ('trusted candidate: the approved pull_request_target workflow r
                  '(via scripts/sandbox-build.sh) on the exact head; run head_sha is the PR head, and the '
                  'trusted-build status attests the run\'s github.workflow_sha, which assess_checks requires '
                  'to equal the current approved main (#48)')
-SPEC_DOCUMENTS = {'README.md', 'CONVENTIONS.md', 'MIGRATION.md', 'PROVENANCE.md', 'UPSTREAM.md',
-                  'VALIDATION.md', 'AGENTS.md', 'CONTRIBUTING.md', 'INFRASTRUCTURE-PLAN.md',
-                  'SphereCetiRoadmap.lean', 'sphereceti.toml'}
 HUMAN_ROUTES = (
     ('roadmap specification', lambda p: p.startswith('SphereCetiRoadmap/') or p in SPEC_DOCUMENTS),
     ('library root', lambda p: p == ROOT_MODULE),
@@ -50,39 +48,9 @@ HUMAN_ROUTES = (
 )
 
 
-# Option 2: a review stays valid across main moves when the reviewed change is provably the same
-# and no review input changed on main since the review. Paths outside these prefixes are inputs;
-# the merged-tree trusted build at current main covers build and CI tooling, and reviewers are not
-# shown tests or infrastructure docs. Start conservatively: any other change forces re-review.
-NOT_REVIEW_INPUTS = ('tests/', 'docs/infrastructure/', 'scripts/', '.github/')
-
-
-def input_category(path):
-    """Which review input a path changed on main belongs to, or None when it is not an input."""
-    if path == ROOT_MODULE:
-        return 'library root'  # Measured separately: independent proofs each add an import here.
-    if path.startswith('SphereCeti/'):
-        return 'library'  # Imports are not traced; any library change on main forces re-review.
-    if path.startswith('policy/') or path == 'sphereceti.toml':
-        return 'policy'
-    if path.startswith('SphereCetiRoadmap/') or path in SPEC_DOCUMENTS or path in DOCUMENTS:
-        return 'specification'
-    if path in CONFIG or path in ('uv.lock', 'pyproject.toml'):
-        return 'dependencies'
-    if path.startswith('tools/'):
-        return 'review tooling'
-    if path.startswith(NOT_REVIEW_INPUTS):
-        return None
-    return 'other'
-
-
 def change(repo, base, head):
-    """The PR's own change from `base` to `head`: each differing path with both modes and blob IDs."""
-    before, after = tree(repo, base), tree(repo, head)
-    rows = [[p, *((before[p].mode, before[p].oid) if p in before else ('', '')),
-             *((after[p].mode, after[p].oid) if p in after else ('', ''))]
-            for p in sorted(before.keys() | after.keys()) if before.get(p) != after.get(p)]
-    return hashlib.sha256(json.dumps(rows).encode()).hexdigest()
+    """The PR's own change from `base` to `head`, as carry_over compares it (modes and blob IDs)."""
+    return digest(rows(GitSource(repo), base, head))
 
 
 def merge_base(repo, main, head):
@@ -123,11 +91,16 @@ def review_inputs(repo, current, head, diff_base, review, comments, context, pol
                 changed.setdefault(input_category(path) or 'not a review input', set()).add(path)
     inputs = {k: sorted(v) for k, v in sorted(changed.items()) if k != 'not a review input'}
     main_base = merge_base(repo, current, head)
+    carried = review.get('carry') if review.get('carried_from') else None
+    # A review carried over from an update-branch ancestor already proved its change identical.
+    identical = (carried['carried'] is True if carried else
+                 bool(revisions) and change(repo, diff_base, head) == change(repo, main_base, head))
     return {'reviewed_at_main': revisions, 'main': current, 'changed_inputs': inputs,
             'unrelated_changes': sorted(changed.get('not a review input', ())),
             'library_root_only': set(inputs) == {'library root'},
-            'reviewed_diff_base': diff_base, 'main_diff_base': main_base,
-            'change_identical': bool(revisions) and change(repo, diff_base, head) == change(repo, main_base, head)}
+            'reviewed_diff_base': diff_base, 'main_diff_base': main_base, 'change_identical': bool(revisions) and identical,
+            'carried_from': review.get('carried_from'),
+            'carried_via': [m['merge'] for m in carried['via']] if carried else []}
 
 
 def human_route(path):
@@ -358,6 +331,7 @@ def decide_approval(ev, paths, proof, *, comments):
         'for this exact head and base from an authorized reviewer',
         reasons=review.get('reasons') or [], rubrics=list(RUBRICS), publishers=publishers,
         complete_authorized_records_for_head=head_records,
+        carried_from=review.get('carried_from'), carry_attempts=ev.get('carry_attempts') or [],
         **({} if assessed else {'skipped': 'review context is materialized only for path-eligible PRs'})))
 
     independent = [p for p in publishers if not p['is_author']]
