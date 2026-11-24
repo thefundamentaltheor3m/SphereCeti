@@ -3,9 +3,11 @@
 Nothing here reviews, approves, posts, merges, or calls a model provider. The decision reuses merge
 observation's GET-only reader and evidence collection (`merge_observation.collect`), the trusted
 run assessor (`merge_checks.assess_checks`), the scope gate (`gate.evaluate`), and the official
-record reader (`review_records.assess_records`). It adds only the proof-topic path rule, the
-library-root import rule, reviewer independence, and pull-request predicates that do not depend
-on an existing GitHub approval, so it can run before GitHub considers the PR mergeable.
+record reader (`review_records.assess_records`). It adds only the proof-topic path rule, reviewer
+independence, and pull-request predicates that do not depend on an existing GitHub approval, so it
+can run before GitHub considers the PR mergeable. Proof PRs never edit the library root
+`SphereCeti.lean`: the `SphereCeti.*` Lake glob builds every topic module, and the compiled audit
+enumerates every source, so a root edit is an ordinary human-review change.
 """
 from __future__ import annotations
 
@@ -13,19 +15,19 @@ import hashlib
 import json
 from pathlib import Path
 import re
+import subprocess
+import tempfile
 from urllib.parse import quote
 
 from .config import ConfigError, local_path
-from .gate import CONFIG, GateError, blob, path_class, tree
-from .local_review import RUBRICS
-from .merge_checks import TOOLING_ATTESTATION, latest_statuses, timestamp
+from .gate import CONFIG, GateError, blob, git, git_environment, path_class, tree
+from .local_review import DOCUMENTS, RUBRICS
+from .merge_checks import TOOLING_ATTESTATION, assess_merge, latest_statuses, timestamp
 from .merge_observation import Reader, collect
 from .review_records import RecordError, collect_records
-from .worker_checks import HUMAN_SCOPE
+from .worker_checks import HUMAN_SCOPE, STALE_BASE
 
 ROOT_MODULE = 'SphereCeti.lean'
-# One exported topic module per added line, in the library root's existing `public import` form.
-ROOT_IMPORT = re.compile(r'public import (SphereCeti(?:\.[A-Z][A-Za-z0-9_]*)+)\n\Z')
 FILE_LIMIT = 3000  # GitHub lists at most 3000 files for a pull request.
 SCOPE_FAILURE = 'trusted-scope is not successful'
 AUDIT_BINDING = ('trusted candidate: the approved pull_request_target workflow run attempt named by '
@@ -38,6 +40,7 @@ SPEC_DOCUMENTS = {'README.md', 'CONVENTIONS.md', 'MIGRATION.md', 'PROVENANCE.md'
                   'SphereCetiRoadmap.lean', 'sphereceti.toml'}
 HUMAN_ROUTES = (
     ('roadmap specification', lambda p: p.startswith('SphereCetiRoadmap/') or p in SPEC_DOCUMENTS),
+    ('library root', lambda p: p == ROOT_MODULE),
     ('dependencies', lambda p: p in CONFIG or p in ('uv.lock', 'pyproject.toml')),
     ('CI', lambda p: p.startswith('.github/')),
     ('review policy', lambda p: p.startswith(('policy/', 'tools/review/'))),
@@ -45,6 +48,86 @@ HUMAN_ROUTES = (
     ('infrastructure', lambda p: p.startswith(('tests/', 'tools/', 'docs/'))),
     ('protected library module', lambda p: p.startswith('SphereCeti/') and path_class(p) == 'protected'),
 )
+
+
+# Option 2: a review stays valid across main moves when the reviewed change is provably the same
+# and no review input changed on main since the review. Paths outside these prefixes are inputs;
+# the merged-tree trusted build at current main covers build and CI tooling, and reviewers are not
+# shown tests or infrastructure docs. Start conservatively: any other change forces re-review.
+NOT_REVIEW_INPUTS = ('tests/', 'docs/infrastructure/', 'scripts/', '.github/')
+
+
+def input_category(path):
+    """Which review input a path changed on main belongs to, or None when it is not an input."""
+    if path == ROOT_MODULE:
+        return 'library root'  # Measured separately: independent proofs each add an import here.
+    if path.startswith('SphereCeti/'):
+        return 'library'  # Imports are not traced; any library change on main forces re-review.
+    if path.startswith('policy/') or path == 'sphereceti.toml':
+        return 'policy'
+    if path.startswith('SphereCetiRoadmap/') or path in SPEC_DOCUMENTS or path in DOCUMENTS:
+        return 'specification'
+    if path in CONFIG or path in ('uv.lock', 'pyproject.toml'):
+        return 'dependencies'
+    if path.startswith('tools/'):
+        return 'review tooling'
+    if path.startswith(NOT_REVIEW_INPUTS):
+        return None
+    return 'other'
+
+
+def change(repo, base, head):
+    """The PR's own change from `base` to `head`: each differing path with both modes and blob IDs."""
+    before, after = tree(repo, base), tree(repo, head)
+    rows = [[p, *((before[p].mode, before[p].oid) if p in before else ('', '')),
+             *((after[p].mode, after[p].oid) if p in after else ('', ''))]
+            for p in sorted(before.keys() | after.keys()) if before.get(p) != after.get(p)]
+    return hashlib.sha256(json.dumps(rows).encode()).hexdigest()
+
+
+def merge_base(repo, main, head):
+    bases = git(repo, 'merge-base', '--all', main, head).decode().split()
+    if len(bases) != 1:
+        raise RecordError('the head and current main need one unambiguous merge base')
+    return bases[0]
+
+
+def merge_tree(repo, main, head):
+    """Tree of `head` merged into `main`, as Git computes it; None on conflict. No object is written
+    into `repo`: new objects go to a temporary directory with `repo`'s objects as an alternate."""
+    objects = git(repo, 'rev-parse', '--path-format=absolute', '--git-path', 'objects').decode().strip()
+    with tempfile.TemporaryDirectory(prefix='merge-tree-') as scratch:
+        env = {**git_environment(), 'GIT_OBJECT_DIRECTORY': scratch, 'GIT_ALTERNATE_OBJECT_DIRECTORIES': objects}
+        done = subprocess.run(['git', '-C', str(repo), 'merge-tree', '--write-tree', main, head],
+                              capture_output=True, env=env)
+    if done.returncode == 1:
+        return None
+    lines = done.stdout.decode().split()
+    if done.returncode or not lines or not re.fullmatch(r'[0-9a-f]{40}', lines[0]):
+        raise RecordError('could not compute the merge of the head into current main')
+    return lines[0]
+
+
+def review_inputs(repo, current, head, diff_base, review, comments, context, policy):
+    """Measure, per accepted review, what changed on main since it ran, and whether the PR's own change
+    is still the reviewed one. None when no review was accepted for this head."""
+    selected = set((review.get('selected_comments') or {}).values())
+    if review.get('review_safe') is not True or not selected:
+        return None
+    records = collect_records(comments, context, policy)
+    revisions = sorted({records[c][1]['tooling_revision'] for c in selected if c in records})
+    changed = {}
+    for revision in revisions:
+        for path in git(repo, 'diff', '--name-only', '--no-renames', '-z', revision, current).decode().split('\0'):
+            if path:
+                changed.setdefault(input_category(path) or 'not a review input', set()).add(path)
+    inputs = {k: sorted(v) for k, v in sorted(changed.items()) if k != 'not a review input'}
+    main_base = merge_base(repo, current, head)
+    return {'reviewed_at_main': revisions, 'main': current, 'changed_inputs': inputs,
+            'unrelated_changes': sorted(changed.get('not a review input', ())),
+            'library_root_only': set(inputs) == {'library root'},
+            'reviewed_diff_base': diff_base, 'main_diff_base': main_base,
+            'change_identical': bool(revisions) and change(repo, diff_base, head) == change(repo, main_base, head)}
 
 
 def human_route(path):
@@ -111,68 +194,29 @@ def pull_files(client, repository, pr):
     return files
 
 
-def root_imports(repo, old, new, head_tree, allowed):
-    """SphereCeti.lean may only gain `public import SphereCeti.<Topic>...` lines naming eligible modules.
-
-    Every existing line must survive byte-for-byte and in order; nothing else may change.
-    """
-    if old is None or new is None:
-        return 'the library root may only be modified, never added or removed', []
-    if old.mode != '100644' or new.mode != '100644':
-        return 'the library root must stay a regular non-executable file', []
-    try:
-        before = blob(repo, old).decode('utf-8').splitlines(keepends=True)
-        after = blob(repo, new).decode('utf-8').splitlines(keepends=True)
-    except UnicodeError:
-        return 'the library root is not UTF-8 text', []
-    added, kept = [], 0
-    for line in after:
-        if kept < len(before) and line == before[kept]:
-            kept += 1
-        else:
-            added.append(line)
-    if kept != len(before):
-        return 'the library root change removes or edits existing lines', []
-    modules = []
-    for line in added:
-        match = ROOT_IMPORT.fullmatch(line)
-        if not match:
-            return f'the library root change adds a non-import line: {line.rstrip()!r}', []
-        module = match[1]
-        path = module.replace('.', '/') + '.lean'
-        if line in before or module in modules:
-            return f'the library root imports {module} twice', []
-        if path not in head_tree or not allowed(path):
-            return f'the library root imports {module}, which is not an eligible proof module', []
-        modules.append(module)
-    if not modules:
-        return 'the library root change adds no import', []
-    return None, modules
-
-
 def assess_paths(repo, files, scope, proof):
     """Requirement 1 from the API file list, cross-checked against the exact Git trees."""
     head_tree, base_tree = tree(repo, scope['head']), tree(repo, scope['diff_base'])
     allowed = lambda p: path_class(p) == 'library' and proof['match'](p)
     listed = {f['filename'] for f in files} | {f['previous_filename'] for f in files if f.get('previous_filename')}
     exact = {c['path'] for c in scope['changes']}
-    eligible, ineligible, imports, problems = [], [], [], []
+    eligible, ineligible, problems = [], [], []
     if not proof['patterns']:
         problems.append('no proof-topic paths are approved (policy mathematical_paths is empty); '
                         'a hypothetical allowlist must be assumed explicitly')
     if listed != exact:
         problems.append('the GitHub file list differs from the exact Git diff: ' +
                         ', '.join(sorted(listed ^ exact)))
-    if scope.get('config_attested') is not True:
+    # Only the PR's own change counts here; such a change is also an ineligible dependencies path. A
+    # behind head whose configuration differs only because main changed it is judged by review_inputs
+    # (a dependencies change on main) and by the trusted build of the head merged into current main.
+    if scope.get('config_attested') is not True and any(c['path'] in CONFIG for c in scope['changes']):
         problems.append('candidate dependency configuration differs from approved main')
     for f in sorted(files, key=lambda f: f['filename']):
         path, status = f['filename'], f['status']
         if status not in ('added', 'modified'):
             reason = (f"renamed from {f.get('previous_filename')}; renames are not eligible" if status == 'renamed'
                       else f'{status} files are not eligible')
-        elif path == ROOT_MODULE:
-            reason, modules = root_imports(repo, base_tree.get(path), head_tree.get(path), head_tree, allowed)
-            imports += modules
         elif not allowed(path):
             reason = human_route(path)
         elif path not in head_tree or head_tree[path].mode != '100644' or (
@@ -182,7 +226,7 @@ def assess_paths(repo, files, scope, proof):
             reason = None
         (ineligible.append({'path': path, 'status': status, 'reason': reason}) if reason else eligible.append(path))
     return {'passed': not ineligible and not problems and bool(files), 'eligible': eligible,
-            'ineligible': ineligible, 'problems': problems, 'root_imports': imports}
+            'ineligible': ineligible, 'problems': problems}
 
 
 def main_update(client, repository, branch):
@@ -223,14 +267,15 @@ def pull_request_state(pr, context, current):
     if pr['draft'] is not False: reasons.append('PR is a draft')
     if pr['base']['ref'] != 'main' or pr['base']['repo']['full_name'] != context['repository']:
         reasons.append('PR does not target main of this repository')
-    if pr['base']['sha'] != current or context['base'] != current:
-        reasons.append('PR base is not the current approved main; update the branch')
-    if context.get('diff_base') != context['base']: reasons.append('PR is behind main; update the branch')
+    # GitHub's base.sha is a snapshot that does not follow main, so it is never compared with main.
+    # Currency comes from current main itself: the review's inputs and change (review_inputs), and
+    # the trusted build of the head merged into current main (trusted_checks). A head behind main is
+    # approvable; landing it needs an up-to-date head (merge-controller.md).
     if pr['head']['sha'] != context['head']: reasons.append('PR head moved during the decision')
     # Mergeability here is conflict state only. `blocked` (an approval or check still required)
     # and `unstable` are acceptable: the approval is what a bot would issue after this decision.
     if pr['mergeable'] is False or pr['mergeable_state'] == 'dirty': reasons.append('PR conflicts with main')
-    elif pr['mergeable'] is not True or pr['mergeable_state'] in ('unknown', 'behind', 'draft'):
+    elif pr['mergeable'] is not True or pr['mergeable_state'] in ('unknown', 'draft'):
         reasons.append(f"GitHub mergeability is indeterminate ({pr['mergeable_state']}); retry")
     return reasons
 
@@ -244,29 +289,32 @@ def decide_approval(ev, paths, proof, *, comments):
     requirements = []
 
     requirements.append(requirement(
-        'paths', paths['passed'], 'every changed path is an eligible proof path or an allowed library-root import',
+        'paths', paths['passed'], 'every changed path is an eligible proof path',
         allowlist=proof['patterns'], allowlist_source=proof['source'], eligible=paths['eligible'],
-        ineligible=paths['ineligible'], problems=paths['problems'], root_imports=paths['root_imports'],
-        root_rule=f'{ROOT_MODULE} may only add `public import SphereCeti.<Topic>...` lines naming eligible modules'))
+        ineligible=paths['ineligible'], problems=paths['problems'],
+        root_rule=f'proof PRs never edit {ROOT_MODULE}; the SphereCeti.* Lake glob builds every topic module'))
 
     latest = latest_statuses(ev['statuses'])
     scope_status = latest.get('trusted-scope') or {}
-    build_reasons = [r for r in checks['reasons'] if r != SCOPE_FAILURE]
+    # STALE_BASE compares GitHub's base.sha snapshot with main; the tested merge with current main
+    # replaces it. The merge proof is part of the build: the run built and audited that merge.
+    build_reasons = ([r for r in checks['reasons'] if r not in (SCOPE_FAILURE, STALE_BASE)] +
+                     assess_merge(ev['statuses'], {'repository': context['repository'], 'head': ev['refs']['head'],
+                                                   'tooling': current}, (ev.get('merge') or {}).get('tree'),
+                                  ev['settings']))
     attestation = TOOLING_ATTESTATION.fullmatch((latest.get('trusted-build') or {}).get('description') or '')
     bound = [k for k in ('repository', 'head', 'base', 'tooling') if checks.get(k) != context.get(k)]
     bound += [f'scope {k}' for k in ('repository', 'head', 'base', 'diff_base', 'dependency_digest', 'tooling')
               if scope.get(k) != context.get(k)]
     accepted_scope = None
     if SCOPE_FAILURE in checks['reasons']:
-        # The trusted gate applies the approved allowlist (empty today) and treats the library root as
-        # protected. Its human_review verdict is replaced only by this decision's stricter path rule
-        # over the same exact trees, and only where the assumed allowlist or root import explains it.
+        # The trusted gate applies the approved allowlist (empty today). Under an explicitly assumed
+        # allowlist only, its human_review verdict is replaced by this decision's stricter path rule
+        # over the same exact trees. With an approved allowlist, a module-only PR (no root edit)
+        # already receives trusted-scope success from the gate itself.
         if (scope_status.get('state') == 'failure' and scope_status.get('description') == HUMAN_SCOPE and
-                scope.get('scope') == 'human_review' and paths['passed'] and
-                (proof['hypothetical'] or ROOT_MODULE in [c['path'] for c in scope['changes']])):
-            accepted_scope = ('human_review status replaced by the path requirement' +
-                              (' under the hypothetical allowlist' if proof['hypothetical'] else
-                               ' because the gate protects the library root'))
+                scope.get('scope') == 'human_review' and paths['passed'] and proof['hypothetical']):
+            accepted_scope = 'human_review status replaced by the path requirement under the hypothetical allowlist'
     trusted = not build_reasons and not bound and (SCOPE_FAILURE not in checks['reasons'] or accepted_scope is not None)
     statuses = {name: {k: s.get(k) for k in ('id', 'state', 'description', 'target_url')} for name, s in latest.items()}
     requirements.append(requirement(
@@ -322,15 +370,26 @@ def decide_approval(ev, paths, proof, *, comments):
 
     pr_reasons = pull_request_state(pr, context, current)
     requirements.append(requirement(
-        'pull_request', not pr_reasons, 'open, not draft, targets main, up to date with approved main, not conflicting',
+        'pull_request', not pr_reasons, 'open, not draft, targets main, not conflicting',
         reasons=pr_reasons, state=pr['state'], draft=pr['draft'], base_ref=pr['base']['ref'],
-        mergeable=pr['mergeable'], mergeable_state=pr['mergeable_state'], github_approval_required=False))
+        mergeable=pr['mergeable'], mergeable_state=pr['mergeable_state'], github_approval_required=False,
+        head_contains_main=(ev.get('merge') or {}).get('head_contains_main')))
 
     requirements.append(requirement(
         'policy', bool(proof['patterns']), 'proof-topic allowlist from the approved policy or an explicit hypothesis',
         merging=policy.merging, mathematical_paths=list(policy.mathematical_paths),
         authorized_reviewers=list(policy.authorized_reviewers), hypothetical=proof['hypothetical'],
         assumed_proof_paths=proof['patterns'] if proof['hypothetical'] else None))
+
+    inputs = ev.get('review_inputs')
+    input_reasons = [] if inputs is None else (
+        [f"{name} changed on main since the review: {', '.join(paths[:5])}" + (' ...' if len(paths) > 5 else '')
+         for name, paths in inputs['changed_inputs'].items()] +
+        ([] if inputs['change_identical'] else ['the PR change differs from the reviewed change']))
+    requirements.append(requirement(
+        'review_inputs', None if inputs is None else not input_reasons,
+        'the reviewed change is provably the same and no review input changed on main since the review',
+        reasons=input_reasons, **(inputs or {'skipped': 'no accepted official review for this head'})))
     return finish(ev, requirements, proof, author_identity, pr, publishers)
 
 
@@ -362,7 +421,7 @@ def stopped(ev, proof, name, reason, **evidence):
     requirements = [requirement(name, False, reason, reasons=[reason], **evidence)]
     requirements += [requirement(n, None, 'not assessed') for n in
                      ('paths', 'trusted_checks', 'compiled_audit', 'official_review', 'independent_reviewer',
-                      'pull_request', 'policy') if n != name]
+                      'pull_request', 'policy', 'review_inputs') if n != name]
     return finish(ev, requirements, proof, f"user:{pr['user']['id']}", pr, [])
 
 
@@ -397,8 +456,16 @@ def auto_approval(args, project, *, client=None):
     comments = ev['comments'] if 'comments' in ev else client.comments(project.repository, args.pr)
     if isinstance(ev.get('run'), dict):
         ev['main_update'] = main_update(client, project.repository, project.default_branch)
+    repo, current, head = ev['repo'], ev['current'], ev['refs']['head']
+    tested = merge_tree(repo, current, head)
+    head_tree = git(repo, 'rev-parse', f'{head}^{{tree}}').decode().strip()
+    ev['merge'] = {'main': current, 'tree': tested, 'head_tree': head_tree,
+                   'head_contains_main': merge_base(repo, current, head) == current}
+    ev['review_inputs'] = review_inputs(repo, current, head, ev['scope']['diff_base'], ev['review'], comments,
+                                        ev['context'], ev['policy'])
     result = decide_approval(ev, ev['paths'], ev['proof'], comments=comments)
     result['check_policy_digest'] = ev['check_policy_digest']
+    result['merge'] = ev['merge']
     client.revalidate()
     return digested(result)
 
