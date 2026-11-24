@@ -20,7 +20,8 @@ class PostingFixture(ReviewFixture):
                                               'comments':[],'calls':[],'advance_at':0}))
         fake=self.bin/'gh'
         fake.write_text(f'#!{sys.executable}\n'+r'''
-import json,os,pathlib,sys
+import datetime,json,os,pathlib,sys
+now=datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
 root=pathlib.Path(__file__).parent
 path=root/'github-state.json'
 s=json.loads(path.read_text())
@@ -47,15 +48,20 @@ elif endpoint==f'repos/{repo}/issues/1/comments?per_page=100':
 elif endpoint==f'repos/{repo}/issues/1/comments':
  assert a[1:]==['--method','POST','--input','-']
  payload=json.load(sys.stdin)
- out={'id':max([99]+[c['id'] for c in s['comments']])+1,'body':payload['body'],'user':{'id':7,'type':'User'},
+ out={'id':max([99]+[c['id'] for c in s['comments']])+1,'body':payload['body'],'user':{'id':7,'type':'User','login':'fixture-user'},
       'issue_url':f'https://api.github.com/repos/{repo}/issues/1',
-      'created_at':'2026-09-11T00:00:00Z','updated_at':'2026-09-11T00:00:00Z'}
+      'created_at':now,'updated_at':now}
  out['user']['id']=s.get('user_id',7)
- if s.get('post_fail')!='before':s['comments'].append(out)
- if s.get('post_fail'):  # a lost response: the comment may exist, but the caller sees an error
+ # post_fail applies to review records only; advisory review-claim comments post normally.
+ fail=s.get('post_fail') if payload['body'].startswith('<!--sphereceti-review:v1 ') else None
+ if fail!='before':s['comments'].append(out)
+ if fail:  # a lost response: the comment may exist, but the caller sees an error
   path.write_text(json.dumps(s));sys.exit(1)
 elif endpoint.startswith(f'repos/{repo}/issues/comments/'):
  out=next(c for c in s['comments'] if c['id']==int(endpoint.split('/')[-1]))
+ if a[1:]==['--method','PATCH','--input','-']:
+  out.update(body=json.load(sys.stdin)['body'],updated_at=now)
+ else:assert a[1:]==[]
 else:raise AssertionError(endpoint)
 path.write_text(json.dumps(s))
 print(json.dumps(out))
@@ -90,6 +96,10 @@ print(json.dumps(out))
         return subprocess.run(self.publish_command(run,*extra),cwd=self.foreign,env=self.env,
                               capture_output=True,text=True,timeout=120)
 
+    def records(self):
+        """Posted review records, without advisory review-claim comments."""
+        return [c for c in self.api()['comments'] if c['body'].startswith('<!--sphereceti-review:v1 ')]
+
 
 def installed_post_smoke(executable,root):
     fixture=PostingFixture(root)
@@ -99,7 +109,7 @@ def installed_post_smoke(executable,root):
     assert report['publication']['authorized'] is True
     assert report['publication']['identity']=='user:7'
     assert report['merge_eligible'] is False
-    assert len(fixture.api()['comments'])==1
+    assert len(fixture.records())==1
     assert len(fixture.calls())==10
     inspect=fixture.run(executable,output='inspect',extra=('--read-records',))
     assert inspect.returncode==0,inspect.stderr

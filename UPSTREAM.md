@@ -301,7 +301,7 @@ closure-continuity hypotheses separately.
 
 - [ ] **Destination:** Mathlib `Mathlib/Algebra/Module/ZLattice/Covolume.lean`, beside
   `ZLattice.covolume_div_covolume_eq_relIndex'`.
-- [ ] **Current source:** `SphereCeti/ZLattice/RelativeQuotient.lean`.
+- [ ] **Current source:** `SphereCeti/ZLattice/RelativeQuotient/Basic.lean`.
 - [ ] **Candidate declaration:** for full lattices `Λ ≤ Γ` in a finite-dimensional real inner
   product space, the quotient `Γ / Λ` is finite (`SphereCeti.ZLattice.finite_relativeQuotient`),
   equivalently `Λ.toAddSubgroup.relIndex Γ.toAddSubgroup ≠ 0`.  The abbreviation
@@ -357,22 +357,6 @@ closure-continuity hypotheses separately.
 - [ ] **SphereCeti use:** the periodic approximation of sphere packings (MIGRATION D5, Layer 3).
 - [ ] **Fallback:** the local declarations in the `EuclideanSpace` namespace.
 - [ ] **Upstream test:** no project import remains in a minimal reproduction.
-
-### A22. Rootless integral lattices
-
-- [ ] **Destination:** TauCeti `TauCeti/LinearAlgebra/IntegralLattice/Norm.lean`, beside
-  `TauCeti.IntegralLattice.vectorsOfNorm`.
-- [ ] **Current source:** `SphereCeti/LinearAlgebra/IntegralLattice/Rootless.lean`.
-- [ ] **Candidate declaration:** the predicate `TauCeti.IntegralLattice.IsRootless L` that `L` has
-  no vector of norm two, with its characterizations `isRootless_iff` (`L.vectorsOfNorm 2 = ∅`)
-  and `isRootless_iff_forall_norm_ne` (`∀ x, L.norm x ≠ 2`).
-- [ ] **Why general:** it involves only a rational integral lattice and its norm; nothing refers
-  to Euclidean presentations or packings.
-- [ ] **SphereCeti use:** the rootlessness hypothesis of the rank-`24` uniqueness statement
-  `Leech.rootless_even_unimodular_rank_twentyFour_unique` (B2), and
-  `IntegralPresentation.isRootless_iff_shell_two_eq_empty`, which reads it as the emptiness of
-  the real shell of squared length two.
-- [ ] **Fallback:** the local SphereCeti declaration.
 
 ## B. TauCeti IntegralLattices roadmap extensions
 

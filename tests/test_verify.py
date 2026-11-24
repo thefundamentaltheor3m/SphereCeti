@@ -165,7 +165,7 @@ class VerifyTest(unittest.TestCase):
         file.parent.mkdir(parents=True, exist_ok=True)
         file.write_text(text)
 
-    def add_topic(self, *, export=True, extra_root=''):
+    def add_topic(self, *, export=False, extra_root=''):
         self.write('SphereCeti/Topic/Main.lean', 'module\n\npublic import SphereCeti.Topic.Lemma\n')
         self.write('SphereCeti/Topic/Lemma.lean', 'module\n')
         if export:
@@ -199,15 +199,25 @@ class VerifyTest(unittest.TestCase):
         report, _ = self.verify()
         modules = report['modules']
         self.assertEqual(modules['merge_base'], self.main)
-        self.assertEqual(modules['library'], ['SphereCeti', 'SphereCeti.Topic.Lemma', 'SphereCeti.Topic.Main',
+        self.assertEqual(modules['library'], ['SphereCeti.Topic.Lemma', 'SphereCeti.Topic.Main',
                                               'SphereCeti.Topic.Scratch'])
-        self.assertEqual(modules['added_library'], ['SphereCeti.Topic.Lemma', 'SphereCeti.Topic.Main',
-                                                    'SphereCeti.Topic.Scratch'])
-        # The library root changed, so the whole library is built rather than module by module.
-        self.assertEqual([t['target'] for t in modules['build_targets']], ['@/SphereCeti'])
-        self.assertIn(['build', '@/SphereCeti'], self.lake_calls())
-        # Scratch is not reachable from the root: verify catches the forgotten export.
-        self.assertEqual(self.steps(report)['root_imports']['status'], 'fail')
+        self.assertEqual(modules['added_library'], modules['library'])
+        # The root is untouched, so each new module is built by name through the library glob.
+        self.assertEqual([t['target'] for t in modules['build_targets']],
+                         ['+SphereCeti.Topic.Lemma', '+SphereCeti.Topic.Main', '+SphereCeti.Topic.Scratch'])
+        self.assertIn(['build', '+SphereCeti.Topic.Scratch'], self.lake_calls())
+        self.assertEqual(self.steps(report)['root_imports']['status'], 'pass')
+        self.assertEqual(report['verdict'], 'pass')
+
+    def test_root_edit_builds_the_library_and_fails(self):
+        self.add_topic(export=True)
+        report, _ = self.verify()
+        self.assertEqual([t['target'] for t in report['modules']['build_targets']], ['@/SphereCeti'])
+        root = self.steps(report)['root_imports']
+        self.assertEqual(root['status'], 'fail')
+        self.assertEqual(root['failures'][0]['file'], 'SphereCeti.lean')
+        self.assertIn(f'git checkout {self.main[:12]} -- SphereCeti.lean', root['summary'])
+        self.assertEqual(report['exit_code'], 1)
 
     def test_module_changes_without_root_change_build_each_module(self):
         self.add_topic()
@@ -230,12 +240,12 @@ class VerifyTest(unittest.TestCase):
     def test_build_failure_exits_1_with_location(self):
         self.add_topic()
         failure = "error: ././SphereCeti/Topic/Main.lean:12:4: Unknown identifier `foo`\n  more context"
-        report, result = self.verify(FAKE_LAKE_FAIL=json.dumps({'@/SphereCeti': failure}))
+        report, result = self.verify(FAKE_LAKE_FAIL=json.dumps({'+SphereCeti.Topic.Main': failure}))
         self.assertEqual(report['exit_code'], 1)
         self.assertEqual(report['verdict'], 'fail')
         build = self.steps(report)['build']
         self.assertEqual(build['status'], 'fail')
-        self.assertEqual(build['failures'][0], {'target': '@/SphereCeti', 'file': 'SphereCeti/Topic/Main.lean',
+        self.assertEqual(build['failures'][0], {'target': '+SphereCeti.Topic.Main', 'file': 'SphereCeti/Topic/Main.lean',
                                                 'line': 12, 'column': 4, 'message': 'Unknown identifier `foo`'})
         self.assertIn('SphereCeti/Topic/Main.lean:12:4', build['summary'])
         self.assertEqual(report['failures'][0]['step'], 'build')
@@ -243,15 +253,13 @@ class VerifyTest(unittest.TestCase):
         self.assertEqual(self.steps(report)['audit']['status'], 'skipped')
         self.assertIn('Unknown identifier', result.stderr)  # Lake's log went to stderr
 
-    def test_missing_root_import_fails(self):
-        self.add_topic(export=False)
+    def test_new_modules_need_no_root_import(self):
+        self.add_topic()
         report, _ = self.verify()
         root = self.steps(report)['root_imports']
-        self.assertEqual(report['exit_code'], 1)
-        self.assertEqual(root['status'], 'fail')
-        self.assertEqual({f['file'] for f in root['failures']},
-                         {'SphereCeti/Topic/Main.lean', 'SphereCeti/Topic/Lemma.lean'})
-        self.assertIn('not imported from SphereCeti.lean', root['summary'])
+        self.assertEqual(root['status'], 'pass')
+        self.assertEqual(root['summary'], 'SphereCeti.lean unchanged; 2 new module(s) built by the SphereCeti.* glob')
+        self.assertFalse(root['details']['root_changed'])
 
     def test_unrelated_root_edit_fails(self):
         self.add_topic(extra_root='-- unrelated\n')
@@ -259,41 +267,30 @@ class VerifyTest(unittest.TestCase):
         root = self.steps(report)['root_imports']
         self.assertEqual(root['status'], 'fail')
         self.assertEqual(root['failures'][0]['file'], 'SphereCeti.lean')
-        self.assertIn('non-import line', root['summary'])
+        self.assertIn('proof PRs do not edit the library root', root['summary'])
 
-    def test_sorted_root_imports_pass_with_auto_approval_note(self):
-        # Most proof PRs alphabetize the root; CI accepts it, auto-approve-check does not.
-        # Like main's root today: Basic precedes a later topic that sorts before it.
+    def test_sorted_root_imports_fail(self):
+        # Like main's root before this rule: a later topic precedes Basic; sorting is still an edit.
         self.write('SphereCeti.lean', 'module\n\npublic import SphereCeti.Zeta\npublic import SphereCeti.Basic\n')
         self.write('SphereCeti/Zeta.lean', 'module\n')
         commit_all(self.repo, 'zeta')
         git(self.repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
-        self.add_topic(export=False, extra_root='public import SphereCeti.Topic.Main\n')
-        self.write('SphereCeti.lean', 'module\n\npublic import SphereCeti.Basic\npublic import SphereCeti.Topic.Main\n'
-                   'public import SphereCeti.Zeta\n')
-        report, result = self.verify()
-        root = self.steps(report)['root_imports']
-        self.assertEqual(root['status'], 'pass', root)
-        self.assertTrue(root['details']['reordered'])
-        self.assertEqual(root['details']['added_imports'], ['SphereCeti.Topic.Main'])
-        self.assertIn('auto-approve-check', root['details']['auto_approval_note'])
-        self.assertEqual(report['verdict'], 'pass')
+        self.write('SphereCeti.lean', 'module\n\npublic import SphereCeti.Basic\npublic import SphereCeti.Zeta\n')
+        report, _ = self.verify()
+        self.assertEqual(self.steps(report)['root_imports']['status'], 'fail')
+        self.assertEqual(report['verdict'], 'fail')
 
     def test_removed_root_import_fails(self):
-        self.add_topic(export=False)
-        self.write('SphereCeti.lean', 'module\n\npublic import SphereCeti.Topic.Main\n')
+        self.add_topic()
+        self.write('SphereCeti.lean', 'module\n')
         report, _ = self.verify()
         root = self.steps(report)['root_imports']
         self.assertEqual(root['status'], 'fail')
-        self.assertFalse(root['details']['reordered'])
-        self.assertIn('removes or edits existing lines', root['summary'])
+        self.assertTrue(root['details']['root_changed'])
 
-    def test_topic_submodules_reachable_through_entry_point_pass(self):
+    def test_passing_run_emits_progress_on_stderr(self):
         self.add_topic()
         report, result = self.verify()
-        root = self.steps(report)['root_imports']
-        self.assertEqual(root['status'], 'pass', root)
-        self.assertEqual(root['details']['added_imports'], ['SphereCeti.Topic.Main'])
         self.assertEqual(report['verdict'], 'pass')
         self.assertIn('verify: running', result.stderr)
 
@@ -379,13 +376,13 @@ class VerifyTest(unittest.TestCase):
         self.assertEqual(report['verdict'], 'incomplete')
         self.assertEqual(report['exit_code'], 1)
         self.assertIn('Not verified', report['next_action'])
-        # Boundary failure: the root reachability check cannot run, so it is skipped, not passed.
+        # Boundary failure: the audit inventory would reject the same import, so the audit is skipped.
         report, _ = self.verify(FAKE_BOUNDARY_ERROR='forbidden import: SphereCeti.Topic.Main (library) -> '
                                                     'SphereCetiRoadmap (roadmap)')
         steps = self.steps(report)
         self.assertEqual(steps['boundaries']['status'], 'fail')
         self.assertEqual(steps['boundaries']['failures'][0]['file'], 'SphereCeti/Topic/Main.lean')
-        self.assertEqual(steps['root_imports']['status'], 'skipped')
+        self.assertEqual(steps['root_imports']['status'], 'pass')
         self.assertEqual(steps['audit']['status'], 'skipped')
         self.assertEqual(report['verdict'], 'fail')
 
