@@ -14,7 +14,8 @@ from pathlib import Path
 
 from .local_review import ReviewError
 from .review_claims import ClaimYielded, describe, live, note as claim_note, run_claimed
-from .review_records import CONTEST, MARKER, RecordError, contests, identity, intact, parse_record
+from .review_records import (ANY_DIRECTIVE, CONTEST, MARKER, RecordError, carried_contests, contests,
+                             identity, intact, parse_record)
 from .worker import plan, timestamp
 from .worker_checks import NEEDS_REFRESH
 from .worker_cli import survey
@@ -114,6 +115,14 @@ def review_state(client, repository, pr, actor, policy, storage, *, force=False,
 
 
 def reviewed(client, comments, repository, pr, actor, policy, storage):
+    if any(isinstance(c.get("body"), str) and any(ANY_DIRECTIVE.match(line) for line in c["body"].splitlines())
+           for c in comments):
+        info = client.call(f"repos/{repository}/pulls/{pr['number']}")
+        author = (info.get("user") or {}).get("id") if isinstance(info, dict) else None
+        if type(author) is not int:
+            raise RecordError("PR author identity is unavailable")
+        if carried_contests(comments, {"repository": repository, "pr": pr["number"]}, policy, author):
+            return None  # An unanswered author contest asks for another review, on any head.
     accepted, yours = published(comments, repository, pr, actor)
     if yours:
         return "reviewed_by_you", "you already published a complete review of this head"
