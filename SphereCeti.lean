@@ -23,6 +23,7 @@ public import SphereCeti.MeasureTheory.Measure.Haar.BoxAveraging
 public import SphereCeti.MeasureTheory.Measure.Haar.EuclideanSpace
 public import SphereCeti.ZLattice.Covolume.Bound
 public import SphereCeti.ZLattice.DualPhase
+public import SphereCeti.ZLattice.PeriodicRepetition
 public import SphereCeti.ZLattice.RelativeQuotient
 
 /-!
