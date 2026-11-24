@@ -38,6 +38,16 @@ if args[:1] == ['build']:
 sys.exit(2)
 '''
 
+# The real gh is never called: this fake reports no PR unless FAKE_GH_BASE names its base.
+FAKE_GH = '''#!{python}
+import json, os, sys
+if sys.argv[1:4] == ['pr', 'view', '--json'] and os.environ.get('FAKE_GH_BASE'):
+    print(json.dumps({{'baseRefName': os.environ['FAKE_GH_BASE']}}))
+    sys.exit(0)
+print('no pull requests found for this branch', file=sys.stderr)
+sys.exit(1)
+'''
+
 CHECK_ROADMAP = '''import os, sys
 if os.environ.get('FAKE_ROADMAP_ERROR'):
     print('ERROR: ' + os.environ['FAKE_ROADMAP_ERROR'], file=sys.stderr)
@@ -132,6 +142,9 @@ class VerifyTest(unittest.TestCase):
         lake = self.bin / 'lake'
         lake.write_text(FAKE_LAKE.format(python=sys.executable))
         lake.chmod(0o755)
+        gh = self.bin / 'gh'
+        gh.write_text(FAKE_GH.format(python=sys.executable))
+        gh.chmod(0o755)
         init(self.repo)
         revs = {}
         for name in ('mathlib', 'TauCeti'):
@@ -356,7 +369,7 @@ class VerifyTest(unittest.TestCase):
         report, result = self.verify()
         self.assertEqual(report['schema'], 'sphereceti.verify/v1')
         self.assertEqual(set(report), {'schema', 'verdict', 'exit_code', 'next_action', 'root', 'head', 'base',
-                                       'environment', 'modules', 'steps', 'failures', 'seconds'})
+                                       'environment', 'modules', 'steps', 'failures', 'warnings', 'seconds'})
         self.assertEqual([s['name'] for s in report['steps']],
                          ['changes', 'roadmap', 'build', 'boundaries', 'root_imports', 'audit'])
         for s in report['steps']:
@@ -385,6 +398,47 @@ class VerifyTest(unittest.TestCase):
         self.assertEqual(steps['root_imports']['status'], 'pass')
         self.assertEqual(steps['audit']['status'], 'skipped')
         self.assertEqual(report['verdict'], 'fail')
+
+    def test_branch_on_main_tip_has_no_warning(self):
+        self.add_topic()
+        report, result = self.verify()
+        self.assertEqual(report['warnings'], [])
+        self.assertNotIn('WARNING', result.stdout)
+
+    def test_branch_behind_origin_main_warns_without_changing_the_verdict(self):
+        self.add_topic()
+        quiet, _ = self.verify()
+        # main moves on (another proof merges) while this branch stays on the old tip.
+        git(self.repo, 'switch', '-q', '-c', 'other', self.main)
+        self.write('SphereCeti/Other.lean', 'module\n')
+        other = commit_all(self.repo, 'other')
+        git(self.repo, 'update-ref', 'refs/remotes/origin/main', other)
+        git(self.repo, 'switch', '-q', 'proof/topic')
+        report, _ = self.verify()
+        self.assertEqual(report['warnings'], [f'stacked on {self.main[:7]}, not the tip of origin/main '
+                                              f'({other[:7]}): proofs stacked on unmerged PRs wait for their '
+                                              'parents; start from main when you can'])
+        self.assertEqual((report['verdict'], report['exit_code']), (quiet['verdict'], quiet['exit_code']))
+        self.assertEqual([s['status'] for s in report['steps']], [s['status'] for s in quiet['steps']])
+
+    def test_pr_targeting_another_branch_warns_and_text_shows_it(self):
+        self.add_topic()
+        report, _ = self.verify(FAKE_GH_BASE='proof/parent-topic')
+        self.assertEqual(report['warnings'], ['stacked on proof/parent-topic: proofs stacked on unmerged PRs '
+                                              'wait for their parents; start from main when you can'])
+        self.assertEqual((report['verdict'], report['exit_code']), ('pass', 0))
+        environment = {k: v for k, v in os.environ.items() if not k.startswith(('FAKE_', 'GIT_'))}
+        environment.update(PATH=f'{self.bin}{os.pathsep}{Path(GIT).parent}', FAKE_LAKE_LOG=str(self.log),
+                           PYTHONPATH=str(ROOT / 'tools/project'), REAL_SCRIPTS=str(ROOT / 'scripts'),
+                           FAKE_GH_BASE='proof/parent-topic')
+        result = subprocess.run([sys.executable, '-m', 'sphereceti.cli', 'verify'], cwd=self.repo, env=environment,
+                                capture_output=True, text=True, timeout=120)
+        self.assertEqual(result.returncode, 0)
+        self.assertIn('WARNING: stacked on proof/parent-topic:', result.stdout)
+        self.assertIn('Verdict: PASS (exit 0)', result.stdout)
+        # A PR that targets main gives no warning.
+        report, _ = self.verify(FAKE_GH_BASE='main')
+        self.assertEqual(report['warnings'], [])
 
     def test_text_output_marks_skips(self):
         self.add_topic()

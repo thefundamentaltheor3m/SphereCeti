@@ -425,12 +425,34 @@ def next_action(verdict: str, steps: list[dict], guidance: str | None) -> str:
             '. Rerun `sphereceti verify` without skipping before opening the PR.')
 
 
+STACKED = 'proofs stacked on unmerged PRs wait for their parents; start from main when you can'
+
+
+def stacked_warning(root: Path, base: str, merge_base: str) -> str | None:
+    """A warning (never a failure) when the branch is not built on the tip of `base`, or when its
+    open PR targets a branch other than main. The PR lookup is a read-only `gh pr view` for the
+    current branch; any gh failure skips it silently."""
+    try:
+        result = subprocess.run(['gh', 'pr', 'view', '--json', 'baseRefName'], cwd=root, capture_output=True,
+                                text=True, timeout=20, check=False)
+        target = json.loads(result.stdout).get('baseRefName') if result.returncode == 0 else None
+    except (OSError, subprocess.SubprocessError, ValueError, AttributeError):
+        target = None
+    if isinstance(target, str) and target and target != 'main':
+        return f'stacked on {target}: {STACKED}'
+    tip = subprocess.run(['git', '-C', str(root), 'rev-parse', '--verify', '--quiet', base + '^{commit}'],
+                         capture_output=True, text=True, check=False).stdout.strip()
+    if tip and merge_base != tip:
+        return f'stacked on {merge_base[:7]}, not the tip of {base} ({tip[:7]}): {STACKED}'
+    return None
+
+
 def verify(repo: Path, base: str = 'origin/main', explicit: list[str] | None = None, *,
            skip_audit: bool = False) -> dict:
     started = time.monotonic()
     report = {'schema': SCHEMA, 'verdict': None, 'exit_code': None, 'next_action': None,
               'root': None, 'head': None, 'base': None, 'environment': None, 'modules': None,
-              'steps': [], 'failures': [], 'seconds': None}
+              'steps': [], 'failures': [], 'warnings': [], 'seconds': None}
     guidance = None
     try:
         root = checkout(repo.resolve())
@@ -440,6 +462,9 @@ def verify(repo: Path, base: str = 'origin/main', explicit: list[str] | None = N
         report['modules'] = modules
         report['head'] = modules['head']
         report['base'] = {'ref': base, 'merge_base': modules['merge_base']}
+        warning = stacked_warning(root, base, modules['merge_base'])
+        if warning:
+            report['warnings'].append(warning)
         counts = len(modules['library']) + len(modules['roadmap'])
         summary = (f"{len(explicit)} requested module(s)" if explicit else
                    f"{counts} changed library/roadmap module(s), {len(modules['deleted'])} deleted"
@@ -499,6 +524,8 @@ def render(report: dict) -> str:
     env = report['environment'] or {}
     if env.get('problem'):
         lines.append(f"environment: {_inert(env['problem'])}")
+    for warning in report.get('warnings', []):
+        lines.append(f'WARNING: {_inert(warning)}')
     policy_note = next((s['details'].get('policy_note') for s in report['steps'] if s['name'] == 'audit'), None)
     if policy_note:
         lines.append(f'note: {policy_note}')
