@@ -99,6 +99,10 @@ def queue(project, policy, prefs, *, api=None, client=None, now=None) -> dict:
     order += sorted(n for n in by_number if n not in order)
     sections = {name: [] for name in SECTIONS}
     done, follow_ups = [], []
+    from .stacks import StackGate
+    gate = StackGate(snapshot, project, policy, client, ready)
+    blocked = blocked_by_parent(gate, by_number, actor)
+    blocked_numbers = {item["pr"] for group in blocked for item in group["items"]}
 
     def skip(pr, code, reason):
         note = pr.get("review_note") if code != "awaiting_refresh" else None
@@ -153,6 +157,8 @@ def queue(project, policy, prefs, *, api=None, client=None, now=None) -> dict:
                     follow_ups.append({"pr": number, "head": pr["head"],
                                        "reason": f"{sections['not_ready'][-1]['reason']}; " + "; ".join(parts)})
             continue
+        if number in blocked_numbers:
+            continue  # listed under "Blocked by a parent": review its stack root first
         if latest and latest[1]["head"] != pr["head"]:
             old = latest[1]["head"]
             count, history = commits_since(client, repository, old, pr["head"])
@@ -176,9 +182,14 @@ def queue(project, policy, prefs, *, api=None, client=None, now=None) -> dict:
             continue
         scope = "ready" if pr["ci"] == pr.get("review_ci", pr["ci"]) else "ready (human-review scope)"
         sections["new"].append(entry("new", pr, observed, scope + "; no review by you"))
-    # You get first chance at PRs you reviewed before; oldest update first within each section.
-    for name in ("revised", "author_replied", "waiting_on_author"):
-        sections[name].sort(key=lambda e: (e["updated_at"], e["pr"]))
+    # You get first chance at PRs you reviewed before; within a section, stack roots that block the
+    # most descendants first, then the oldest update.
+    for name in ("revised", "author_replied", "new", "waiting_on_author"):
+        for e in sections[name]:
+            e["unblocks"] = gate.descendants(e["pr"])
+        if name != "new":
+            sections[name].sort(key=lambda e: (e["updated_at"], e["pr"]))
+        sections[name].sort(key=lambda e: -e["unblocks"])
     sections["not_ready"].sort(key=lambda item: -item["pr"])
     main = None
     if any(i["code"] == "awaiting_refresh" for i in sections["not_ready"]):
@@ -188,9 +199,34 @@ def queue(project, policy, prefs, *, api=None, client=None, now=None) -> dict:
             main = None
     return {"schema": SCHEMA, "repository": repository, "actor": actor, "observed_at": snapshot["observed_at"],
             "order": "revised, then author replied, then new; oldest update first", "sections": sections, "done": done,
-            "follow_ups_not_ready": follow_ups,
+            "follow_ups_not_ready": follow_ups, "blocked_by_parent": blocked,
             "main": main, "not_ready_summary": not_ready_summary(sections["not_ready"], main)
             if sections["not_ready"] else None}
+
+
+def blocked_by_parent(gate, by_number, actor):
+    """Stacked PRs whose ancestors are not review-satisfied, grouped by stack root."""
+    groups = {}
+    for number in sorted(by_number):
+        pr = by_number[number]
+        if pr["draft"]:
+            continue
+        waiting = gate.waiting(number)
+        if not waiting:
+            continue
+        blocker, reason = waiting
+        info = gate.info[number]
+        # A base branch no PR heads has no root PR: group those by the branch instead.
+        root = info["root"] if info["chain"] else f"branch {info['base_ref']}"
+        groups.setdefault(root, []).append({
+            "pr": number, "author": pr["author"], "title": pr["title"], "head": pr["head"],
+            "parent": gate.info[number]["parent"], "blocker": blocker, "reason": reason,
+            "yours": pr["author"].casefold() == actor.casefold()})
+    out = [{"root": root if isinstance(root, int) else None,
+            "branch": root[len("branch "):] if isinstance(root, str) else None,
+            "root_title": by_number[root]["title"] if root in by_number else None,
+            "unblocks": len(items), "items": items} for root, items in groups.items()]
+    return sorted(out, key=lambda g: (g["root"] is None, -g["unblocks"], g["root"] or 0, g["branch"] or ""))
 
 
 def render(report) -> str:
@@ -200,8 +236,16 @@ def render(report) -> str:
         lines.append(f"{TITLES[name]} ({len(items)}):" + ("" if items else " none"))
         for e in items:
             title = e["title"] if len(e["title"]) <= 60 else e["title"][:57] + "..."
-            lines.append(f"  #{e['pr']} {e['author']} \"{title}\" {e['head'][:7]}: {e['reason']}; "
+            unblocks = f"; unblocks {e['unblocks']} stacked" if e.get("unblocks") else ""
+            lines.append(f"  #{e['pr']} {e['author']} \"{title}\" {e['head'][:7]}: {e['reason']}{unblocks}; "
                          f"waiting {waiting(e['waiting_seconds'])}")
+    groups = report.get("blocked_by_parent") or []
+    count = sum(len(g["items"]) for g in groups)
+    lines.append(f"Blocked by a parent ({count}):" + ("" if groups else " none"))
+    for g in groups:
+        head = f"stack #{g['root']} (unblocks {g['unblocks']})" if g["root"] else f"base branch {g['branch']}"
+        lines.append(f"  {head}: " + "; ".join(
+            f"#{i['pr']}{' (yours)' if i['yours'] else ''} {i['reason']}" for i in g["items"]))
     if report["follow_ups_not_ready"]:
         lines.append("Your follow-ups, not ready yet: " + "; ".join(
             f"#{f['pr']} {f['reason']}" for f in report["follow_ups_not_ready"]))

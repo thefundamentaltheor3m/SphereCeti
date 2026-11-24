@@ -5,9 +5,10 @@ The `sphereceti` command supplies project diagnostics and the adapters credited 
 
 | Command | Guide |
 |---|---|
+| `--version` | [Which build am I running?](#which-build-am-i-running) |
 | `doctor`, `status` | Project identity, policy and queue diagnostics (below) |
 | `review` | [Choose the PR that most needs your review](local-review.md#choosing-what-to-review) |
-| `reviews` | [Your review queue: revised, author replied, new, waiting on the author](local-review.md#your-review-queue-and-bounded-batches) |
+| `reviews` | [Your review queue: revised, author replied, new, waiting on the author, blocked by a parent](local-review.md#your-review-queue-and-bounded-batches) |
 | `review --new / --revised / --all --limit N` | [Bounded review batches](local-review.md#your-review-queue-and-bounded-batches) |
 | `review N` | [Local review, posted by default](local-review.md#posting-by-default) |
 | `review --force-claim` | [Advisory review-in-progress claims](local-review.md#review-in-progress-claims) |
@@ -27,6 +28,7 @@ The `sphereceti` command supplies project diagnostics and the adapters credited 
 | `merge-doctor / merge-control` | [Controller diagnostics and gated action](merge-controller.md) |
 | `maintenance` | [Lifecycle diagnostics and labels](lifecycle.md) |
 | `profile-plan / profile-run` | [Advisory profiling](profiling.md) |
+| `intentions`, `intend TARGET` | [Work underway on proof targets, and registering an intention](intentions-cli.md) |
 | `verify` | [Check a proof branch the way CI does, before opening the PR](#verifying-a-proof-branch) |
 
 For installation smoke tests, one-PR review rehearsal, and the boundary between contributor
@@ -47,6 +49,32 @@ uv tool install git+https://github.com/thefundamentaltheor3m/SphereCeti
 sphereceti doctor
 sphereceti status --json
 ```
+
+## Which build am I running?
+
+`sphereceti --version` prints the package version and the installed commit, for example
+`0.1.0 (main@90b0860)`. The commit and the requested revision come from the installation's
+PEP 610 `direct_url.json`, which uv writes for Git installs. A local, path or editable install, or
+a source tree on `PYTHONPATH`, prints `(local build)`, followed by `, checkout <commit>` when the
+package sits in a Git checkout (read with `git rev-parse`). Missing metadata never fails the command.
+
+Only a build of current approved main makes a review official. `doctor` checks this:
+
+```text
+installed: main@90b0860 · up to date with approved main
+installed: main@90b0860 · 3 commits behind approved main (90b0860 → abc1234); update with: uv tool install --force --refresh git+https://github.com/thefundamentaltheor3m/SphereCeti@main
+```
+
+"Up to date" is the review path's own test, `installed_tooling_matches_T`: every installed tooling
+file has the same Git blob ID at approved main T, resolved as `repos/{repo}/commits/main`.
+`doctor` reads T's tree through the API rather than fetching it. The compare API only counts
+commits. An install that is behind main but whose tooling is unchanged is still current for
+reviews, and doctor says so. `--json` adds `installed` with `installed_commit`, `approved_main`,
+`behind_by`, `up_to_date` and `state`. With `--offline`, doctor prints only the installed build.
+A GitHub failure here reports `state = error` and does not change doctor's exit code. When the
+installed tooling is not approved main, `sphereceti review` says so before any model call:
+`Your sphereceti is not current main (installed main@X, approved main Y): this review will be
+advisory, not official. Update with: …`.
 
 Without `--offline`, both commands read the canonical repository's open PR queue through `gh`.
 They never post, create branches, spend provider credits, or change repository settings.
@@ -128,13 +156,18 @@ what CI already runs, from your checkout:
 | `roadmap` | `python3 -I scripts/check_roadmap.py` (CI's "Check roadmap contracts") | a static contract fails |
 | `build` | `lake build +Module` for each changed library/roadmap module; `lake build @/SphereCeti` when `SphereCeti.lean` changed or a module was deleted; bare `lake build` when no Lean source changed or the dependency configuration changed | Lean reports an error; each is listed as `file:line:column` |
 | `boundaries` | `lake env python3 -I scripts/check_modules.py --json` (CI's "Check module boundaries") | an import crosses the library/roadmap boundary |
-| `root_imports` | The auto-approval rule for `SphereCeti.lean` (`auto_approval.root_imports`): it may only gain `public import SphereCeti.<Topic>...` lines. Sorting existing lines passes, as in CI, with a note that `auto-approve-check` requires them unchanged and in order. Every new `SphereCeti/` module must also be reachable from the root in the boundary check's import graph | the root removes or edits a line or adds a non-import line, or a new module is not exported |
+| `root_imports` | `SphereCeti.lean` is compared with the merge base. Proof PRs leave it alone and import topic modules directly; the `SphereCeti.*` Lake glob builds every module, and the root keeps its existing re-exports | the root changed; the message gives the `git checkout <merge-base> -- SphereCeti.lean` that restores it |
 | `audit` | `lake env python3 -I scripts/check_audits.py` (CI's "Build and audit every classified source"), with its verdict read back | a new `sorryAx` dependency (listed as a new admission), roadmap ledger drift, an unapproved axiom, lint finding, or empty module, or a warning in a library module |
 
 Each step prints one line: `PASS`, `FAIL` or `SKIPPED` with the reason. Then come the verdict
 and the next action. A skipped step is never a pass: `--skip-audit`, a failed build or a failed
 boundary check skips the audit, and the verdict is then `incomplete` or `fail`. A change to
 `policy/audits.json` is flagged, because the trusted build applies main's policy.
+
+A `WARNING:` line, which never changes the verdict or exit code, says when the branch is stacked:
+its open PR targets a branch other than `main` (read with `gh pr view --json baseRefName`; any gh
+failure skips this), or its merge base is not the tip of `--base`. The line reads
+`stacked on <base>: proofs stacked on unmerged PRs wait for their parents; start from main when you can`.
 
 | Exit | Verdict |
 |---|---|
@@ -147,10 +180,10 @@ document has `schema` `sphereceti.verify/v1`, `verdict`, `exit_code`, `next_acti
 `base` (`ref`, `merge_base`), `environment`, `modules` (changed paths, library/roadmap/deleted/new
 modules, build targets), `steps` (each with `name`, `status`, `summary`, `seconds`, `command`,
 `failures`, `details`), a flattened `failures` list (`step`, `message`, and `file`, `line`,
-`column` where known) and the total `seconds`.
+`column` where known), `warnings` and the total `seconds`.
 
 `verify` is advisory. It runs your checkout's own scripts, as the ordinary `CI` workflow does,
 not approved main's tooling in the sandbox, so `trusted-build` remains the merge evidence. It does
-not fetch, push, post or call a model provider. Its only repository writes are `git hash-object -w`
-of a locally modified `SphereCeti.lean`, so the root-import rule can read it as a Git object.
+not fetch, push, post or call a model provider; its only network read is the optional `gh pr view`.
+It never writes to the repository.
 With the Mathlib cache present, the first run on main took about 100 seconds, and later runs about 40 seconds.
