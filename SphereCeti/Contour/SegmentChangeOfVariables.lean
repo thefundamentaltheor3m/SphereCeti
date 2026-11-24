@@ -14,29 +14,27 @@ public import SphereCeti.Contour.ClosedOneForm
 /-!
 # Change of variables along a segment
 
-The finite branch of the Layer 8 contour deformation substitutes `z ↦ f z` (for instance the
-inversion `z ↦ -1/z`) in curve integrals of scalar one-forms along straight segments.  This file
-proves that substitution for Mathlib's `curveIntegral` along `Path.segment a b`, with the image
-path given by Mathlib's `Path.map'`.
+Let `f` be continuous on the segment `[a, b] ⊆ ℂ` and complex differentiable at its interior
+points with derivative `f'`, and suppose `F z = f' z * G (f z)` there.  Then the contour integral
+of `F` along the segment equals the contour integral of `G` along its image under `f`:
+`∫_{[a, b]} F(z) dz = ∫_{f ∘ [a, b]} G(w) dw`.  This is the substitution `w = f z` in contour
+integrals, used for instance with the inversion `z ↦ -1/z` to move segments of a contour.
 
-No integrability hypothesis is needed.  Both curve integrals are interval integrals over `[0, 1]`,
-and at every interior parameter `t` the chain rule and the substitution law make the two
-integrands equal: `F (lineMap a b t) * (b - a) = G (f (lineMap a b t)) * (f' (lineMap a b t) *
-(b - a))`.  The integrands therefore agree almost everywhere, so the integrals agree whether or not
-they converge.  When `a = b` both integrands vanish.
+Contour integrals are Mathlib's `curveIntegral` of the scalar one-form `scalarOneForm F` along
+`Path.segment a b`, and the image path is `Path.map'`.  No integrability hypothesis is needed: the
+two sides are interval integrals over `[0, 1]` whose integrands agree at every interior parameter,
+so the integrals agree whether or not they converge.
 
 ## Main results
 
-* `SphereCeti.Contour.curveIntegral_segment_change_of_variables`: the roadmap target
-  `SphereCeti.Suggested.Contour.curveIntegral_segment_change_of_variables`, with the same
-  statement.
+* `SphereCeti.Contour.curveIntegral_segment_change_of_variables`: the substitution formula above.
 
 ## Provenance
 
-The definitions and statements are the roadmap's Layer 8 targets, which are based on the `gauss2`
-branch of Sphere-Packing-Lean at commit `01f23eccf963c50250c9e48dd103e8cc88c36f85`, file
-`SpherePacking/Contour/MobiusInv/WedgeSetContour.lean` (see `PROVENANCE.md`, section 4).  The
-proofs in this file were written independently of that source; no proof text is copied from it.
+The statement follows the `gauss2` branch of Sphere-Packing-Lean at commit
+`01f23eccf963c50250c9e48dd103e8cc88c36f85`, file
+`SpherePacking/Contour/MobiusInv/WedgeSetContour.lean`.  The proofs in this file were written
+independently of that source; no proof text is copied from it.
 -/
 
 public section
@@ -46,9 +44,9 @@ open scoped Topology
 
 namespace SphereCeti.Contour
 
-/-- Change of variables along a segment, with a genuine chain-rule hypothesis: `f` is continuous
-on the segment, differentiable along its interior with derivative `f'`, and the kernels
-correspond under the substitution.  The image path is Mathlib's `Path.map'`. -/
+/-- Change of variables along a segment: if `f` is continuous on the segment from `a` to `b`, has
+derivative `f' z` at each interior point `z`, and `F z = f' z * G (f z)` there, then the contour
+integral of `F` along the segment equals the contour integral of `G` along its image under `f`. -/
 theorem curveIntegral_segment_change_of_variables
     {F G f f' : ℂ → ℂ} {a b : ℂ}
     (hf : ContinuousOn f (Set.range ⇑(Path.segment a b)))
@@ -60,6 +58,9 @@ theorem curveIntegral_segment_change_of_variables
   refine intervalIntegral.integral_congr_ae_restrict ?_
   rw [uIoc_of_le zero_le_one, ← MeasureTheory.restrict_Ioo_eq_restrict_Ioc]
   filter_upwards [MeasureTheory.ae_restrict_mem measurableSet_Ioo] with t ht
+  -- At an interior parameter `t`, the chain rule and the substitution law make the integrands
+  -- equal: `F (lineMap a b t) * (b - a) = G (f (lineMap a b t)) * (f' (lineMap a b t) * (b - a))`.
+  -- When `a = b` both integrands vanish.
   -- Near an interior parameter, the extended image path is `f ∘ lineMap a b`.
   have hext : ((Path.segment a b).map' hf).extend =ᶠ[𝓝 t] fun s => f (lineMap a b s) := by
     filter_upwards [Icc_mem_nhds ht.1 ht.2] with s hs
