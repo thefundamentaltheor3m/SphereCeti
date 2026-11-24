@@ -13,7 +13,6 @@ public import SphereCeti.Analysis.ExactZeroOrder
 public import SphereCeti.Analysis.Fourier.Exchange
 public import SphereCeti.CohnElkies.Certificate
 public import SphereCeti.Contour.HalfInfiniteRectangle
-public import SphereCeti.Contour.SegmentContinuity
 public import SphereCeti.Lattice.IntegralPresentation
 public import SphereCeti.Leech.ResidueCoordinates
 public import SphereCeti.MeasureTheory.Measure.Haar.EuclideanSpace
