@@ -51,10 +51,17 @@ def add_parser(commands):
     p.add_argument("pr", type=int, nargs="?",
                    help="PR number; omit it to review the open PR that most needs your review")
     p.add_argument("--dry-run", action="store_true", help="verify and list evidence without invoking providers")
+    batch = p.add_mutually_exclusive_group()
+    batch.add_argument("--new", action="store_true", help="batch: review PRs new to you, in queue order (needs no PR number)")
+    batch.add_argument("--revised", action="store_true", help="batch: review PRs revised since your review first")
+    batch.add_argument("--all", action="store_true", help="batch: revised, then new")
+    p.add_argument("--limit", type=int, help="batch size with --new/--revised/--all (default 1, at most 10)")
     posting = p.add_mutually_exclusive_group()
     posting.add_argument("--post", action="store_true",
                          help="publish the review record (the default for a live GitHub review); fail if policy forbids it")
     posting.add_argument("--no-post", action="store_true", help="keep the review record local")
+    p.add_argument("--force-claim", action="store_true",
+                   help="review even while another contributor's advisory review claim is live")
     p.add_argument("--read-records", action="store_true", help="inspect API-authenticated records without invoking providers")
     p.add_argument("--json", action="store_true")
     p.add_argument("--operator-config", type=Path, help="operator preferences (local subscription reviews default to ~/.config/sphereceti/operator.toml)")
