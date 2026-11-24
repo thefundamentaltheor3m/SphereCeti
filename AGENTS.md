@@ -39,3 +39,5 @@ Never:
 
 When adapting proofs from a source, record the exact commit and path.  For general material,
 consult `UPSTREAM.md`, but do not wait for upstream acceptance before proving roadmap results in SphereCeti.
+In an ordinary proof PR, leave `UPSTREAM.md` alone.  If a lemma belongs upstream, name the proposed
+destination in the PR description.

@@ -11,6 +11,7 @@ SphereCeti hosts the sphere-packing roadmap and its admission-free proof library
 - `MIGRATION.md` records mathematical dependencies and the Sphere-Packing-Lean compatibility migration.
 - `PROVENANCE.md` records sources and exact pins.
 - `UPSTREAM.md` is the issue-ready list of Mathlib and TauCeti destinations for general results.
+  Maintainers curate it; an ordinary proof PR leaves it alone.
 - `VALIDATION.md` records the current static and Lean-elaboration status.
 
 A change to `Suggested.lean` does not silently change the roadmap; update the relevant prose and
@@ -73,10 +74,11 @@ Mathlib revision only by deleting or ignoring the manifest.
 
 Suggested prompt for a coding assistant:
 
-> Read SphereCeti's AGENTS.md and CONVENTIONS.md. Pick one target from roadmap #1 (or my chosen
-> topic), identify its prerequisites, and open a focused PR to SphereCeti proving the target
-> or a needed lemma in a new or existing topic module under SphereCeti/. Use Suggested.lean
-> as the specification. Run the build and compiled audit, fix CI failures, and respond to review.
+> Read AGENTS.md and CONVENTIONS.md in https://github.com/thefundamentaltheor3m/SphereCeti. Pick
+> one target from roadmap #1 or a prerequisite it needs. Prove it in a topic module under
+> `SphereCeti/`, using `SphereCetiRoadmap/Suggested.lean` as the specification. Run
+> `sphereceti verify` in the checkout and get an overall PASS. Open a focused PR that names the
+> target, then address CI failures and review feedback.
 
 Pick one target from the roadmap or a prerequisite you can prove against the current pins.
 Add a module under `SphereCeti/<Topic>/`.
@@ -91,11 +93,24 @@ forbids direct and transitive `sorryAx` dependencies. If a target needs an admit
 definition, implement the definition or a smaller independent prerequisite in the library first.
 
 In the PR description, link the roadmap target, name the library declaration and explain how
-their hypotheses, normalization and conclusion correspond. Keep `Suggested.lean` as the
+their hypotheses, normalization and conclusion correspond.  If a lemma belongs upstream, name the
+proposed destination (the Mathlib or TauCeti file) in the PR description; leave `UPSTREAM.md` alone. Keep `Suggested.lean` as the
 specification. Landing a separate proof leaves its roadmap admission ledger entry intact
 while the target still depends on `sorryAx`. Change a target statement only in an explicit
 specification change. Start proof PRs from SphereCeti `main` or name one stacking dependency.
 Work using the current pins can start before Sphere-Packing-Lean's Phase A migration.
+
+Before opening the PR, run `sphereceti verify` and get an overall PASS. A skipped step means
+verification is incomplete, not passed; fixing the first failure often clears the skips after it.
+
+Keeping a proof PR mergeable:
+
+- For a stacked PR, when the PR below yours merges, merge `main` into your branch rather than
+  rebasing or force-pushing. The PR then shows only your own change, and existing reviews keep
+  pointing at commits that still exist.
+- For a PR from a fork, GitHub holds the ordinary CI runs for a maintainer to approve until your
+  first PR is merged. Waiting on that is expected, not a failure; the trusted build runs without
+  approval.
 
 ## Automation attributes
 

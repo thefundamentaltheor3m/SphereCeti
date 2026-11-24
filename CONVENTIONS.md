@@ -602,3 +602,6 @@ SpherePacking/
 Compatibility aliases stay near the new declaration and carry deprecation metadata.  Do not add a
 new public declaration merely to abbreviate a one-line proposition unless it is a stable
 mathematical concept used across layers.
+
+Proof PRs leave `UPSTREAM.md` alone and name any proposed upstream destination in the PR
+description; see `AGENTS.md`.

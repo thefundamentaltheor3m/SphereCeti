@@ -42,8 +42,8 @@ def readiness(pr) -> tuple[str, str]:
         return "not_ready", "is not open"
     if pr["mergeable"] == "CONFLICTING":
         return "not_ready", "is not ready (conflicting)"
-    if pr["mergeable"] != "MERGEABLE":
-        return "not_ready", "is not ready (mergeability unknown)"
+    if pr["mergeable"] != "MERGEABLE":  # GitHub recomputes it after main moves
+        return "awaiting_github", "awaits GitHub's mergeability check"
     review_ci = pr.get("review_ci", pr["ci"])
     if review_ci in ("pending", "unknown"):
         return "awaiting_ci", f"awaits CI ({review_ci})"
@@ -199,30 +199,35 @@ def intent(args) -> str:
     return "will post if policy permits" if getattr(args, "post_default", False) else "will post"
 
 
+def not_ready_summary(skipped, main=None) -> str:
+    """Why nothing is ready: stale or pending evidence is summarized, real failures stay listed."""
+    if not skipped:
+        return "No PRs need your review: the open queue is empty."
+    refresh = [i for i in skipped if i["code"] == "awaiting_refresh"]
+    pending = [i for i in skipped if i["code"] == "awaiting_ci"]
+    github = [i for i in skipped if i["code"] == "awaiting_github"]
+    if not refresh and not pending and not github:
+        return "No PRs need your review: " + "; ".join(f"#{i['pr']} {i['reason']}" for i in skipped) + "."
+    parts = []
+    if refresh:
+        parts.append(f"{count(refresh, 'await')} a refreshed trusted build" +
+                     (f" (main moved to {main[:7]})" if main else ""))
+    if pending:
+        parts.append(f"{count(pending, 'await')} CI")
+    if github:
+        parts.append(f"{count(github, 'await')} GitHub's mergeability check")
+    yours = [i for i in skipped if i["code"] == "yours"]
+    if yours:
+        parts.append(f"{len(yours)} {'is' if len(yours) == 1 else 'are'} yours")
+    parts += [f"#{i['pr']} {i['reason']}" for i in skipped
+              if i["code"] not in ("awaiting_refresh", "awaiting_ci", "awaiting_github", "yours")]
+    return "No PR is ready with current evidence: " + "; ".join(parts) + "."
+
+
 def rationale(selection, *, dry_run=False, posting=None) -> str:
     s = selection["selected"]
     if s is None:
-        skipped = selection["skipped"]
-        if not skipped:
-            return "No PRs need your review: the open queue is empty."
-        refresh = [i for i in skipped if i["code"] == "awaiting_refresh"]
-        pending = [i for i in skipped if i["code"] == "awaiting_ci"]
-        if not refresh and not pending:
-            return "No PRs need your review: " + "; ".join(f"#{i['pr']} {i['reason']}" for i in skipped) + "."
-        # Stale or pending evidence is summarized; real failures and other reasons stay listed.
-        main = selection.get("main")
-        parts = []
-        if refresh:
-            parts.append(f"{count(refresh, 'await')} a refreshed trusted build" +
-                         (f" (main moved to {main[:7]})" if main else ""))
-        if pending:
-            parts.append(f"{count(pending, 'await')} CI")
-        yours = [i for i in skipped if i["code"] == "yours"]
-        if yours:
-            parts.append(f"{len(yours)} {'is' if len(yours) == 1 else 'are'} yours")
-        parts += [f"#{i['pr']} {i['reason']}" for i in skipped
-                  if i["code"] not in ("awaiting_refresh", "awaiting_ci", "yours")]
-        return "No PR is ready with current evidence: " + "; ".join(parts) + "."
+        return not_ready_summary(selection["skipped"], selection.get("main"))
     verb = "Previewing" if dry_run else "Reviewing"
     ready = "ready" if s["ci"] == s["review_ci"] else "ready (human-review scope)"
     if s.get("note"):

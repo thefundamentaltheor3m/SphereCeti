@@ -62,6 +62,8 @@ def main(argv: list[str] | None = None) -> int:
     add_parser(commands)
     from .review_publish import add_parser as add_publish_parser
     add_publish_parser(commands)
+    from .review_queue import add_parser as add_queue_parser
+    add_queue_parser(commands)
     from .review_sandbox import add_parser as add_sandbox_parser, check_sandbox
     add_sandbox_parser(commands)
     from .archive_cli import add_parser as add_archive_parser, run_archive
@@ -78,7 +80,7 @@ def main(argv: list[str] | None = None) -> int:
     add_observer(commands)
     from .auto_approval import add_parser as add_auto_approval, auto_approval, render as render_auto_approval
     add_auto_approval(commands)
-    from .merge_controller import add_parser as add_controller, run as run_controller
+    from .merge_controller import add_parser as add_controller, render as render_controller, run as run_controller
     add_controller(commands)
     from .lifecycle_api import add_parser as add_maintenance, run as run_maintenance
     add_maintenance(commands)
@@ -124,7 +126,7 @@ def main(argv: list[str] | None = None) -> int:
         policy = parse_policy(resource_text("automation.toml"))
         sources = parse_source_lock(resource_text("upstream-lock.toml"))
         operator_path = getattr(args, "operator_config", None)
-        if operator_path is None and (args.command == "review-publish" or (
+        if operator_path is None and (args.command in ("review-publish", "reviews") or (
                 args.command == "review" and args.auth == "subscription" and not args.shadow)):
             default_path = Path.home() / ".config/sphereceti/operator.toml"
             if default_path.is_file():
@@ -155,8 +157,8 @@ def main(argv: list[str] | None = None) -> int:
                 TypeError, subprocess.SubprocessError) as error:
             reason = str(error) if isinstance(error, (RecordError, ConfigError, ReviewError)) else 'incomplete or unavailable controller evidence'
             parser.exit(2, f"sphereceti {args.command}: {reason}\n")
-        print(json.dumps(report, indent=2))
-        return 2 if report.get('state') == 'unconfirmed' else 0
+        print(json.dumps(report, indent=2) if args.json else render_controller(report))
+        return 2 if report.get('state') in ('unconfirmed', 'stopped') else 0
     if args.command == 'maintenance':
         try:
             report = run_maintenance(args, project)
@@ -219,6 +221,33 @@ def main(argv: list[str] | None = None) -> int:
         run = args.run if args.run is not None else f"--latest {args.latest}"
         print(json.dumps(report, indent=2) if args.json else "\n".join(render_publish(report, run)))
         return 0 if report["state"] in ("published", "already_published") else 2
+
+    if args.command == "reviews":
+        from .review_queue import queue, render as render_queue
+        try:
+            report = queue(project, policy, preferences)
+        except (WorkerError, RecordError, OSError, ValueError, KeyError, TypeError,
+                subprocess.SubprocessError) as error:
+            reason = str(error) if isinstance(error, (WorkerError, RecordError)) else \
+                f"queue lookup failed ({type(error).__name__}); nothing is listed"
+            parser.exit(2, f"sphereceti reviews: {reason}\n")
+        print(json.dumps(report, indent=2) if args.json else render_queue(report))
+        return 0
+
+    if args.command == "review" and (args.new or args.revised or args.all or args.limit is not None):
+        from .review_queue import run_batch
+        if args.pr is not None or not (args.new or args.revised or args.all):
+            parser.exit(2, "sphereceti review: --new/--revised/--all take no PR number, and --limit needs one of them\n")
+        try:
+            batch = run_batch(args, project, policy, preferences,
+                              announce=None if args.json else lambda line: print(line, flush=True))
+        except (WorkerError, ReviewError, RecordError, GateError, ConfigError, OSError, ValueError, KeyError,
+                TypeError, subprocess.SubprocessError) as error:
+            reason = (str(error) if isinstance(error, (WorkerError, ReviewError, RecordError, ConfigError)) else
+                      f"batch operation failed ({type(error).__name__}); no further review was started")
+            parser.exit(2, f"sphereceti review: {reason}\n")
+        print(json.dumps(batch, indent=2) if args.json else "\n".join([batch["line"], *batch["lines"]]))
+        return 2 if batch["lookup_failed"] else 1 if batch["failed"] else 0
 
     if args.command == "review" and args.pr is None:
         from .review_select import render as render_selection, run_bare

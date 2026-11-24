@@ -44,9 +44,13 @@ FROZEN_ROOT_IMPORTS = [
     "SphereCeti.Analysis.Distribution.SchwartzSpace.CompNormSq",
     "SphereCeti.Analysis.Distribution.SchwartzSpace.FourierPositivity",
     "SphereCeti.Analysis.ExactZeroOrder",
+    "SphereCeti.Analysis.Fourier.Exchange",
     "SphereCeti.CohnElkies.Certificate",
     "SphereCeti.Contour.HalfInfiniteRectangle",
     "SphereCeti.Lattice.IntegralPresentation",
+    "SphereCeti.Leech.ResidueCoordinates",
+    "SphereCeti.MeasureTheory.Measure.Haar.EuclideanSpace",
+    "SphereCeti.ZLattice.Covolume.Bound",
     "SphereCeti.ZLattice.RelativeQuotient",
 ]
 root_imports = re.findall(r"^\s*(?:public\s+)?(?:meta\s+)?import\s+(\S+)", (ROOT / "SphereCeti.lean").read_text(),
