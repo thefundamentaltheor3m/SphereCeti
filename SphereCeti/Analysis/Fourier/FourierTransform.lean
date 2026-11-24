@@ -8,7 +8,7 @@ module
 
 public import Mathlib.Analysis.Fourier.FourierTransform
 public import Mathlib.Analysis.InnerProductSpace.Projection.Reflection
-public import Mathlib.MeasureTheory.Integral.Bochner.ContinuousLinearMap
+import TauCeti.Analysis.Bochner.Fourier.Nonneg
 
 /-!
 # The Fourier transform of radial, even and real functions
@@ -18,8 +18,10 @@ its value at `x` depends only on `‖x‖`, equivalently when it is invariant un
 isometry (`Function.isRadial_iff_comp_linearIsometryEquiv`).  The Fourier transform and the inverse
 Fourier transform of a radial function are radial, and those of an even function are even.
 
-The complex conjugate of the Fourier transform of `f : V → ℂ` is the inverse Fourier transform of
-the conjugate of `f`.  Hence the Fourier transform of a real-valued even function is real-valued.
+The Fourier transform of a real-valued even function `f : V → ℂ` is real-valued.  For integrable
+`f` this is a special case of `TauCeti.fourier_im_eq_zero_of_map_neg_eq_conj`, about
+conjugate-symmetric functions; `Function.Even.im_fourier_eq_zero` assumes no integrability, and for
+a nonintegrable `f` the transform `𝓕 f` is zero.
 
 ## Main statements
 
@@ -27,14 +29,13 @@ the conjugate of `f`.  Hence the Fourier transform of a real-valued even functio
 * `Function.IsRadial.fourierInv`: the inverse Fourier transform of a radial function is radial.
 * `Function.Even.fourier`, `Function.Even.fourierInv`: the Fourier transform and the inverse Fourier
   transform of an even function are even.
-* `Real.conj_fourier`: `conj (𝓕 f ξ) = 𝓕⁻ (conj ∘ f) ξ`.
 * `Function.Even.im_fourier_eq_zero`: the Fourier transform of a real-valued even function is
   real-valued.
 -/
 
 public section
 
-open ComplexConjugate MeasureTheory
+open MeasureTheory
 open scoped FourierTransform
 
 namespace Function.IsRadial
@@ -60,50 +61,34 @@ end Function.IsRadial
 
 namespace Function.Even
 
-variable {V E : Type*} [NormedAddCommGroup V] [InnerProductSpace ℝ V] [FiniteDimensional ℝ V]
-  [MeasurableSpace V] [BorelSpace V] [NormedAddCommGroup E] [NormedSpace ℂ E] {f : V → E}
-
-/-- The Fourier transform of an even function is even. -/
-theorem fourier (hf : f.Even) : (𝓕 f).Even := by
-  intro ξ
-  have hneg : f ∘ LinearIsometryEquiv.neg ℝ = f := funext fun x ↦ hf x
-  change 𝓕 f (LinearIsometryEquiv.neg ℝ ξ) = 𝓕 f ξ
-  rw [← Real.fourier_comp_linearIsometry, hneg]
-
-/-- The inverse Fourier transform of an even function is even. -/
-theorem fourierInv (hf : f.Even) : (𝓕⁻ f).Even := by
-  intro ξ
-  have hneg : f ∘ LinearIsometryEquiv.neg ℝ = f := funext fun x ↦ hf x
-  change 𝓕⁻ f (LinearIsometryEquiv.neg ℝ ξ) = 𝓕⁻ f ξ
-  rw [← Real.fourierInv_comp_linearIsometry, hneg]
-
-end Function.Even
-
-namespace Real
-
 variable {V : Type*} [NormedAddCommGroup V] [InnerProductSpace ℝ V] [FiniteDimensional ℝ V]
   [MeasurableSpace V] [BorelSpace V]
 
-/-- The complex conjugate of the Fourier transform of `f` is the inverse Fourier transform of the
-complex conjugate of `f`. -/
-theorem conj_fourier (f : V → ℂ) (ξ : V) : conj (𝓕 f ξ) = 𝓕⁻ (fun x ↦ conj (f x)) ξ := by
-  rw [fourier_eq, fourierInv_eq, ← integral_conj]
-  congr 1 with x
-  rw [Circle.smul_def, Circle.smul_def, smul_eq_mul, smul_eq_mul, map_mul,
-    ← Circle.coe_inv_eq_conj, ← AddChar.map_neg_eq_inv, neg_neg]
+section
 
-end Real
+variable {E : Type*} [NormedAddCommGroup E] [NormedSpace ℂ E] {f : V → E}
 
-namespace Function.Even
+/-- The Fourier transform of an even function is even. -/
+theorem fourier (hf : f.Even) : (𝓕 f).Even := fun ξ ↦ by
+  rw [← Real.fourierInv_eq_fourier_neg, Real.fourierInv_eq_fourier_comp_neg, funext hf]
 
-variable {V : Type*} [NormedAddCommGroup V] [InnerProductSpace ℝ V] [FiniteDimensional ℝ V]
-  [MeasurableSpace V] [BorelSpace V] {f : V → ℂ}
+/-- The inverse Fourier transform of an even function is even. -/
+theorem fourierInv (hf : f.Even) : (𝓕⁻ f).Even := by
+  rw [Real.fourierInv_eq_fourier_comp_neg, funext hf]
+  exact hf.fourier
 
-/-- The Fourier transform of a real-valued even function is real-valued. -/
+end
+
+variable {f : V → ℂ}
+
+/-- The Fourier transform of a real-valued even function is real-valued.  No integrability is
+assumed: for a nonintegrable `f`, `𝓕 f` is zero. -/
 theorem im_fourier_eq_zero (hf : f.Even) (hre : ∀ x, (f x).im = 0) (ξ : V) :
     (𝓕 f ξ).im = 0 := by
-  have hconj : (fun x ↦ conj (f x)) = f := funext fun x ↦ Complex.conj_eq_iff_im.mpr (hre x)
-  rw [← Complex.conj_eq_iff_im, Real.conj_fourier, hconj, Real.fourierInv_eq_fourier_neg,
-    hf.fourier ξ]
+  by_cases hint : Integrable f
+  · exact TauCeti.fourier_im_eq_zero_of_map_neg_eq_conj f
+      (fun x ↦ (hf x).trans (Complex.conj_eq_iff_im.mpr (hre x)).symm) hint ξ
+  · rw [Real.fourier_eq, integral_undef (mt (Real.fourierIntegral_convergent_iff ξ).mp hint),
+      Complex.zero_im]
 
 end Function.Even
