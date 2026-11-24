@@ -285,6 +285,55 @@ class FastQueueTest(unittest.TestCase):
                 self.assertNotIn('ready_to_merge import Cached', text)
 
 
+class CarryHistoryTest(unittest.TestCase):
+    """Carry-over walks main's first-parent history; the queue reads it 100 commits per listing."""
+
+    def test_history_listings_decide_as_commit_by_commit_reads_with_far_fewer_calls(self):
+        from test_carry_over import REVIEWER, Repo, RepoAPI, git, record_comment
+        from test_review_queue import SurveyAPI, stamp
+        from test_worker import gh_pr
+        from sphereceti.config import parse_policy
+        from review_fixture import automation_policy
+        temp = tempfile.TemporaryDirectory(prefix='sphereceti-carry-history-')
+        self.addCleanup(temp.cleanup)
+        repo = Repo(Path(temp.name))
+        for i in range(30):  # a longer main history, as on SphereCeti
+            repo.main_commit({f'docs/infrastructure/n{i}.md': f'{i}\n'})
+        head = repo.update(repo.h1, repo.main())
+
+        class Listing(RepoAPI):
+            def call(self, endpoint, **kwargs):
+                path = endpoint.removeprefix(f'repos/{REPO}/')
+                if path.startswith('commits?sha='):
+                    self.calls.append(endpoint)
+                    sha = path.split('=')[1].split('&')[0]
+                    out = []
+                    for line in git(self.repo.path, 'rev-list', '--parents', '-n', '100', sha).splitlines():
+                        commit, *parents = line.split()
+                        out.append({'sha': commit, 'parents': [{'sha': p} for p in parents],
+                                    'commit': {'tree': {'sha': git(self.repo.path, 'rev-parse', f'{commit}^{{tree}}')}}})
+                    return out
+                return super().call(endpoint, **kwargs)
+
+        policy = parse_policy(automation_policy(authorized_reviewers=[f'user:{REVIEWER}']))
+        comments = {3: [record_comment(3, repo.h1, repo.m0, repo.m0, login='yvonne')]}
+        prs = [gh_pr(3, author={'login': 'bob'}, headRefOid=head, baseRefOid=repo.main(),
+                     updatedAt=stamp(timedelta(hours=1)))]
+        outputs = []
+        for client, cache in ((RepoAPI(repo, comments), False), (Listing(repo, comments), True),
+                              (Listing(repo, comments), True)):
+            prefs = OperatorPreferences(provider='claude', budget_usd=5, storage=temp.name + '/store')
+            report = queue(PROJECT, policy, prefs, api=SurveyAPI(prs, actor='yvonne'), client=client, use_cache=cache)
+            outputs.append((stable(report), [c for c in client.calls if '/git/commits/' in c or 'commits?sha=' in c]))
+        (plain, one_by_one), (cold, listed), (warm, none) = outputs
+        self.assertEqual(plain['done'][0]['code'], 'reviewed_by_you')  # carried over through update-branch
+        self.assertEqual(cold, plain)
+        self.assertEqual(warm, plain)
+        self.assertGreater(len(one_by_one), 30)
+        self.assertLessEqual(len(listed), 3)
+        self.assertEqual(none, [])  # warm: every commit fact comes from the queue cache
+
+
 class RateLimitTest(unittest.TestCase):
     def run_with(self, outcomes):
         results = iter(outcomes)

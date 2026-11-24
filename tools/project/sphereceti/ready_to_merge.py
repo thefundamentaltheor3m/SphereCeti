@@ -69,6 +69,9 @@ class Cached:
         stored = self.cache.key(kind, endpoint) if self.cache is not None else None
         if stored is not None and self.cache.has(kind, stored):
             value = self.cache.get(kind, stored)
+        elif kind == "commit" and self.history(endpoint):
+            with self.lock:
+                return self.memo[key]
         else:
             value = self.client.call(endpoint, **kwargs)
             value = keep(kind, value)
@@ -77,6 +80,35 @@ class Cached:
         with self.lock:
             self.memo[key] = value
         return value
+
+    def history(self, endpoint) -> bool:
+        """Read a commit with up to 99 of its ancestors in one listing (carry-over walks main's
+        first-parent history commit by commit). Each listed commit's SHA, tree and parents are the
+        same facts `git/commits/SHA` reports; they are remembered for this run and in the cache.
+        False when the listing does not contain the commit, so the caller reads it directly."""
+        prefix, sha = endpoint.rsplit("/git/commits/", 1)
+        try:
+            listed = self.client.call(f"{prefix}/commits?sha={sha}&per_page=100")
+        except RecordError:
+            return False
+        if not isinstance(listed, list):
+            return False
+        found = False
+        for item in listed:
+            parents = item.get("parents") if isinstance(item, dict) else None
+            tree = ((item.get("commit") or {}).get("tree") or {}).get("sha") if isinstance(item, dict) else None
+            if (not isinstance(item, dict) or not re.fullmatch(SHA, str(item.get("sha"))) or not isinstance(tree, str)
+                    or not isinstance(parents, list) or not all(isinstance(p, dict) and isinstance(p.get("sha"), str)
+                                                                for p in parents)):
+                continue
+            value = {"sha": item["sha"], "tree": {"sha": tree}, "parents": [{"sha": p["sha"]} for p in parents]}
+            path = f"{prefix}/git/commits/{item['sha']}"
+            with self.lock:
+                self.memo.setdefault(("commit", path), value)
+            if self.cache is not None:
+                self.cache.put("commit", self.cache.key("commit", path), value)
+            found = found or item["sha"] == sha
+        return found
 
     def __getattr__(self, name):
         return getattr(self.client, name)
