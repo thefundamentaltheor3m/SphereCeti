@@ -49,12 +49,42 @@ def pull_requests(repository: str) -> list[dict]:
         raise QueueError(f"GitHub returned invalid queue data: {error}") from error
 
 
+class VersionAction(argparse.Action):
+    """`--version`: the package version and which build is running, computed only when asked."""
+
+    def __init__(self, option_strings, dest=argparse.SUPPRESS, default=argparse.SUPPRESS, help=None):
+        super().__init__(option_strings, dest=dest, default=default, nargs=0,
+                         help=help or "show the version and the installed commit, then exit")
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        from .provenance import version_string
+        print(version_string(), flush=True)  # stdout, as argparse's own version action does
+        parser.exit()
+
+
+def installed_report(project, offline: bool) -> dict:
+    """doctor's installed-build check: never fails doctor; GitHub only when online."""
+    from .provenance import compare, installed
+    info = installed()
+    if offline:
+        return {"installed_commit": info.get("commit"), "installed_label": info["label"], "approved_main": None,
+                "behind_by": None, "up_to_date": None, "state": "not_checked"}
+    from .review_post import GitHub
+    from .review_records import RecordError
+    try:
+        return {**compare(project, GitHub().call, info=info), "state": "checked"}
+    except (RecordError, OSError, ValueError, KeyError, TypeError) as error:
+        return {"installed_commit": info.get("commit"), "installed_label": info["label"], "approved_main": None,
+                "behind_by": None, "up_to_date": None, "state": "error",
+                "reason": f"approved main unavailable ({type(error).__name__})"}
+
+
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     if not argv:
         argv = ["worker", "plan"]
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--version", action="version", version=__version__)
+    parser.add_argument("--version", action=VersionAction)
     commands = parser.add_subparsers(dest="command", required=True)
     from .local_review import add_parser, posting_note, resolve_posting, ReviewError
     from .gate import GateError
@@ -397,6 +427,7 @@ def main(argv: list[str] | None = None) -> int:
         report["executables"] = {name: shutil.which(name) for name in ("git", "gh", "lean", "lake")}
         if not all(report["executables"].values()):
             exit_code = 1
+        report["installed"] = installed_report(project, args.offline)
     if args.json:
         print(json.dumps(report, indent=2))
     else:
@@ -412,6 +443,9 @@ def main(argv: list[str] | None = None) -> int:
         print("Execution readiness is unverified; automated authoring and reporting are not implemented.")
         print(f"Operational setup: {report['setup']['reason']}")
         if args.command == "doctor":
+            from .provenance import doctor_line
+            installed = report["installed"]
+            print(doctor_line(installed) + (f" ({installed['reason']})" if installed.get("reason") else ""))
             for name, path in report["executables"].items():
                 print(f"{name}: {path or 'missing'}")
         pending = [s["name"] for s in sources if s["license_status"] == "unresolved" and s["state"] == "planned"]
