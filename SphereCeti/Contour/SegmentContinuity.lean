@@ -20,21 +20,24 @@ integral is the function `x ↦ ∫₀¹ g(z(t)) exp(πi ‖x‖² z(t)) (b - a)
 space `E`.  If the segment lies in the closed upper half-plane and `‖g(z(t))‖` is integrable on
 `(0, 1]`, then this function is continuous: `|exp(πi ‖x‖² z)| ≤ 1` for `Im z ≥ 0`.
 
-On a finite-dimensional space of dimension `n`, absolute integrability of
-`g(z(t)) exp(-π ‖x‖² Im z(t))` on `E × (0, 1]` already forces `‖g(z(t))‖` to be integrable on
-`(0, 1]`, since `Im z(t)` is bounded on the segment.  Conversely, for a segment in the open upper
-half-plane it follows from integrability of `‖g(z(t))‖ (Im z(t))^{-n/2}` on `(0, 1]`, since the
-Gaussian `exp(-π s ‖x‖²)` has total mass `s^{-n/2}`.  This is the integrability hypothesis of the Fourier identities of the left and
-central legs of the magic contour, so the Gaussian segment integrals of those legs are continuous.
+On a finite-dimensional space of dimension `n`, integrability of the real kernel
+`‖g(z(t))‖ exp(-π ‖x‖² Im z(t))` on `E × (0, 1]` already forces `‖g(z(t))‖` to be integrable on
+`(0, 1]`, since `Im z(t)` is bounded on the segment.  Conversely, if `z(t)` lies in the open upper
+half-plane for `0 < t ≤ 1`, then integrability of `‖g(z(t))‖ (Im z(t))^{-n/2}` on `(0, 1]` gives
+integrability of `‖g(z(t))‖ exp(-π ‖x‖² Im z(t))` on `E × (0, 1]`, since the Gaussian
+`exp(-π s ‖x‖²)` has total mass `s^{-n/2}`.  This is the integrability hypothesis of the Fourier
+identities of the left and central legs of the magic contour, so the Gaussian segment integrals of
+those legs are continuous.
 
 ## Main statements
 
 * `SphereCeti.Contour.continuous_segment_gaussian_integral`: continuity of a Gaussian segment
   integral along a segment in the closed upper half-plane.
-* `SphereCeti.Contour.integrableOn_norm_of_integrable_prod`: absolute integrability on
-  `E × (0, 1]` gives integrability of `‖g(z(t))‖` on `(0, 1]`.
+* `SphereCeti.Contour.integrableOn_norm_of_integrable_prod`: integrability of
+  `‖g(z(t))‖ exp(-π ‖x‖² Im z(t))` on `E × (0, 1]` gives integrability of `‖g(z(t))‖` on `(0, 1]`.
 * `SphereCeti.Contour.integrable_prod_of_integrableOn_rpow`: integrability of
-  `‖g(z(t))‖ (Im z(t))^{-n/2}` on `(0, 1]` gives absolute integrability on `E × (0, 1]`.
+  `‖g(z(t))‖ (Im z(t))^{-n/2}` on `(0, 1]` gives integrability of `‖g(z(t))‖ exp(-π ‖x‖² Im z(t))`
+  on `E × (0, 1]`.
 -/
 
 public section
@@ -128,8 +131,8 @@ theorem integrableOn_norm_of_integrable_prod {a b : ℂ} {g : ℂ → ℂ}
 
 /-- Conversely, if `‖g(z(t))‖ (Im z(t))^{-n/2}` is integrable on `(0, 1]`, where `n` is the
 dimension of `E` and the segment `z(t) = a + t (b - a)` lies in the upper half-plane for
-`0 < t ≤ 1`, then `g(z(t)) exp(-π ‖x‖² Im z(t))` is absolutely integrable on `E × (0, 1]`: the
-Gaussian `exp(-π s ‖x‖²)` has total mass `s^{-n/2}`. -/
+`0 < t ≤ 1`, then the real kernel `‖g(z(t))‖ exp(-π ‖x‖² Im z(t))` is integrable on
+`E × (0, 1]`: the Gaussian `exp(-π s ‖x‖²)` has total mass `s^{-n/2}`. -/
 theorem integrable_prod_of_integrableOn_rpow {a b : ℂ}
     (hab : ∀ t ∈ Ioc (0 : ℝ) 1, 0 < (a + t * (b - a)).im) {g : ℂ → ℂ}
     (hg : IntegrableOn (fun t : ℝ ↦ ‖g (a + t * (b - a))‖ *
