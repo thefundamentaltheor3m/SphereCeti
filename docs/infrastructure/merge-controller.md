@@ -109,8 +109,8 @@ For each candidate the controller runs the [auto-approval decision](merge-observ
 under the approved policy; a hypothetical allowlist never counts. It then reads the PR's reviews.
 A PR is eligible only when every item holds:
 
-- **Paths:** every changed path is an eligible proof path under `mathematical_paths`, or an allowed
-  library-root import.
+- **Paths:** every changed path is an eligible proof path under `mathematical_paths`. Proof PRs
+  never edit the library root `SphereCeti.lean`.
 - **Trusted checks:** `trusted-build` succeeded and `trusted-scope` is `mathematical`, from the
   approved producer (`policy/merge-checks.toml`). Both come from one exact run attempt bound to the
   head. The run's attested tooling is current approved `main`.
@@ -168,8 +168,8 @@ establish it. For the same head, an accepted review is valid only when all of th
   `.github/`. The merged-tree build at current main covers build and CI tooling, and reviewers are
   not shown tests or infrastructure docs. Any input change means `needs_review`.
 
-This starts conservatively. Independent proofs each add a `public import` line to `SphereCeti.lean`,
-and a main move touching only that file still forces re-review. Every result reports
+This starts conservatively. Proof PRs no longer edit `SphereCeti.lean`, which is frozen, so a main
+move touching only that file should become rare; it still forces re-review. Every result reports
 `review_inputs` (`changed_inputs` by category, `library_root_only`, `change_identical`,
 `unrelated_changes`, `reviewed_at_main`). A `SphereCeti.lean`-only case adds the reason
 `measurement: only SphereCeti.lean changed on main since the review`. This measures how often that
