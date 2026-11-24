@@ -13,6 +13,7 @@ public import SphereCeti.Analysis.ExactZeroOrder
 public import SphereCeti.Analysis.Fourier.Exchange
 public import SphereCeti.CohnElkies.Certificate
 public import SphereCeti.CohnElkies.Defects
+public import SphereCeti.CohnElkies.PeriodicBound
 public import SphereCeti.CohnElkies.StructureFactor
 public import SphereCeti.Contour.HalfInfiniteRectangle
 public import SphereCeti.Lattice.IntegralPresentation
