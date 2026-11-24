@@ -196,8 +196,12 @@ def rulesets(effective, listing, detail, repository, settings):
         elif app <= 0: missing.append(f'{name} is required from integration {producer}, but checks_app_id is unconfigured')
         elif producer != app: missing.append(f'{name} is required from integration {producer}, not checks_app_id {app}')
         else: verified.append(f'{name} is required from integration {producer}')
-    if any(c.get('strict_required_status_checks_policy') is True for c in checks):
+    strict = bool(entries) and any(c.get('strict_required_status_checks_policy') is True for c in checks)
+    if strict:
         verified.append('PR branches must be up to date with main before merging')
+    elif any(c.get('strict_required_status_checks_policy') is True for c in checks):
+        missing.append('up-to-date branches are not enforced: GitHub ignores strict_required_status_checks_policy '
+                       'without a required status check')
     else:
         missing.append('strict_required_status_checks_policy is false: GitHub would accept a merge after main advances '
                        'past the base the executor verified (humans can still update a branch and merge)')
@@ -214,7 +218,32 @@ def rulesets(effective, listing, detail, repository, settings):
                 verified.append(f'{HUMAN_BYPASS[key]} may bypass ({mode}); the write-role merge identity does not hold it')
             else: missing.append(f'bypass actor {key[0]} {key[1]} ({mode}) could cover the merge identity')
         if not bypass: verified.append('ruleset has no bypass actors')
-    return {'source': 'ruleset', 'ruleset_id': rid, 'verified': verified, 'findings': findings, 'missing': missing}
+    # Strict (with a required check, so it takes effect) is what makes GitHub refuse a head behind main:
+    # the merge API pins only the head, so this is how the tested merge tree is the tree that lands.
+    squash_only = len(reviews) == 1 and isinstance(reviews[0], dict) and reviews[0].get('allowed_merge_methods') == ['squash']
+    return {'source': 'ruleset', 'ruleset_id': rid, 'verified': verified, 'findings': findings, 'missing': missing,
+            'tested_tree_enforced': strict and not missing, 'squash_only': squash_only}
+
+
+def merge_setting(repository, name, protection):
+    """The squash-merge setting. The single ruleset's allowed_merge_methods is the authority when it is
+    exactly ["squash"]: GitHub enforces it at merge time, and the job token can read it. The repository
+    flag is omitted for a token without push access (the read-only job token, run 45274799597). When
+    visible it must be true. When hidden it is advisory, but only under that ruleset. A disabled flag
+    could only make GitHub refuse the executor's squash PUT, which is a stop, never another landing."""
+    found = {'verified': [], 'findings': [], 'missing': []}
+    if not isinstance(repository, dict) or repository.get('full_name') != name:
+        found['missing'].append('repository identity is incompatible')
+    elif 'allow_squash_merge' in repository:
+        if repository['allow_squash_merge'] is True: found['verified'].append('repository allows squash merges')
+        else: found['missing'].append('repository does not allow squash merges')
+    elif protection.get('source') == 'ruleset' and protection.get('squash_only') is True:
+        found['findings'].append('repository merge settings are not visible to this token; the ruleset\'s '
+                                 'allowed_merge_methods ["squash"] is the authority')
+    else:
+        found['missing'].append('the squash-merge setting is not visible to this token, and no ruleset restricts '
+                                'merges to squash')
+    return found
 
 
 def executor_bypass(view, rid):
@@ -246,7 +275,8 @@ def server(client, repository, settings):
             return {'source': 'classic', **empty,
                     'missing': ['classic protection is read only after controller IDs are configured']}
         found = classic(client.call(f'repos/{repository}/branches/main/protection'), repository, settings)
-        return {'source': 'classic', 'verified': [] if found else ['classic profile'], 'findings': [], 'missing': found}
+        return {'source': 'classic', 'verified': [] if found else ['classic profile'], 'findings': [], 'missing': found,
+                'tested_tree_enforced': not found}  # The classic profile requires strict checks.
     if not effective and not listing:
         return {'source': None, **empty, 'missing': ['main has neither classic protection nor a ruleset']}
     ids = {r.get('ruleset_id') for r in effective}
@@ -263,11 +293,13 @@ def automatic(policy, checks, settings, roadmap):
     producers = (f"statuses from creator {checks['status_creator_ids']} in one attempt of workflow "
                  f"{checks['workflow_id']} ({TRUSTED_WORKFLOW})") if checks['workflow_id'] else 'configured producers'
     verifies = [f'trusted-build success: {producers}, bound to the exact PR head',
-                "the trusted run's PR base equals current approved main, so approved tooling produced it",
+                "the trusted run built and audited the head merged into current approved main (trusted-merge "
+                'attests that tree and main), so approved tooling tested what would land',
                 'trusted-scope success, meaning scope "mathematical" within policy mathematical_paths',
                 'an accepted official review record for the exact head from policy authorized_reviewers, '
                 'published by someone other than the PR author',
-                'the PR is open, targets main, is up to date with approved main and has no conflicts',
+                'the review is still valid: same change and no review input changed on main since it ran (option 2)',
+                'the PR is open, targets main, has no conflicts and its head contains current main',
                 "a qualifying formal approval: an opted-in maintainer's (approving_reviewers) latest review is APPROVE on the "
                 'exact head, the maintainer is not the PR author, and no reviewer has outstanding changes requested',
                 'one squash-merge PUT pinned to that head SHA']
@@ -332,7 +364,7 @@ def executor(run, settings, revision, repository, environ):
 class Activation:
     def __init__(self, args, project, writer):
         self.args, self.project, self.writer = args, project, writer
-        self.reader = self.settings = self.policy = None
+        self.reader = self.settings = self.policy = self.checks = None
 
     def inspect(self, *, applying=False, verify_executor=False):
         """Setup diagnosis. The executor is verified with the job token for --apply or `merge-doctor --executor`."""
@@ -353,7 +385,7 @@ class Activation:
         if selected.repository != project.repository or selected.implementation_repository != project.implementation_repository:
             raise RecordError('approved controller profile has another project identity')
         policy = self.policy = parse_policy(data['policy/automation.toml'].decode())
-        checks = parse_checks(data['policy/merge-checks.toml'].decode())
+        checks = self.checks = parse_checks(data['policy/merge-checks.toml'].decode())
         settings = self.settings = parse_controller(data['policy/merge-controller.toml'].decode())
         result['merging_requested']=policy.merging
         path=automatic(policy,checks,settings,selected.roadmap_approved)
@@ -366,10 +398,8 @@ class Activation:
         result['policy_digest']=hashlib.sha256(b'\0'.join(data[p] for p in paths)).hexdigest()
         # Server rules and repository settings need no administrative credential; bypass actors do.
         protection=server(client,project.repository,settings)
-        repository=client.call(f'repos/{project.repository}')
-        if repository.get('full_name') != project.repository or repository.get('allow_squash_merge') is not True:
-            protection['missing'].append('repository identity or squash-merge setting is incompatible')
-        else: protection['verified'].append('repository allows squash merges')
+        found=merge_setting(client.call(f'repos/{project.repository}'),project.repository,protection)
+        for key in ('verified','findings','missing'): protection[key]+=found[key]
         reader_view=protection.pop('reader_view',None)
         if applying or verify_executor:
             path['missing'] += self.executor(protection,settings,current,result)
