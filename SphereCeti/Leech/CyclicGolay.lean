@@ -46,7 +46,7 @@ the other along this fixed permutation.
 ## Provenance
 
 The cyclic generator polynomial is the standard one; see Conway and Sloane, *Sphere Packings,
-Lattices and Groups*, Chapter 3, §2.8.2.  The finite-check technique used to compare the two
+Lattices and Groups*, 3rd ed., Springer (1999), Chapter 3.  The finite-check technique used to compare the two
 coordinate presentations is adapted from TauCeti, commit
 `83769e442d55cda9d85b3927a93b286831c595ff`, file
 `TauCeti/LinearAlgebra/IntegralLattice/Rank24/A1TwentyFour.lean` (Apache-2.0, The Tau Ceti
