@@ -261,6 +261,24 @@ def finding_lines(number, finding, cap):
     return lines + [""]
 
 
+def contest_lines(contests, repository, pr, cap):
+    """One line per carried author contest: whether this review considered it, and its answer."""
+    lines = []
+    for contest in contests:
+        number = contest.get("comment")
+        if type(number) is not int:
+            continue
+        link = f"[comment {number}](https://github.com/{repository}/pull/{pr}#issuecomment-{number})"
+        if contest.get("considered"):
+            answer = ("The finding still stands on this head" if contest.get("stands")
+                      else "The finding no longer stands on this head")
+            lines += [f"**Author reply considered:** {link}. {answer}: " + labelled(field(contest.get("reason") or "", cap)).lstrip(), ""]
+        else:
+            lines += [f"**Author reply not considered:** {link}: " + inline(str(contest.get("note") or "not passed to this review"))
+                      + ". It remains unanswered.", ""]
+    return lines
+
+
 def render_body(result, advisory, cap=None, details=True):
     """Deterministic Markdown for one record: summary, table, then collapsible evidence."""
     verdicts, reviews = result["verdicts"], result.get("reviews") or {}
@@ -277,7 +295,7 @@ def render_body(result, advisory, cap=None, details=True):
         summary = inline(first_sentence((reviews.get(rubric) or {}).get("summary") or ""), table=True)
         lines.append(f"| {ICON.get(verdict, '❔')} | [{rubric}]({RUBRIC_SOURCE}{rubric}.md) | "
                      f"{WORD.get(verdict, inline(str(verdict), table=True))} | {summary or '—'} |")
-    shown = [r for r in RUBRICS if (reviews.get(r) or {}).get("summary") or (reviews.get(r) or {}).get("findings")]
+    shown = [r for r in RUBRICS if any((reviews.get(r) or {}).get(k) for k in ("summary", "findings", "contests"))]
     if shown and not details:
         lines += ["", "Reasoning and evidence are omitted to fit GitHub's comment size limit; "
                   f"they are in {LOCAL_COPY}."]
@@ -290,8 +308,11 @@ def render_body(result, advisory, cap=None, details=True):
             review, verdict = reviews[rubric], verdicts.get(rubric)
             findings = review.get("findings") or []
             count = f" · {len(findings)} finding{'s' if len(findings) != 1 else ''}" if findings else ""
+            replies = review.get("contests") or []
+            count += f" · {len(replies)} author repl{'ies' if len(replies) != 1 else 'y'}" if replies else ""
             lines += [f"<details><summary>{ICON.get(verdict, '❔')} <b>{rubric}</b>: "
                       f"{WORD.get(verdict, 'unknown')}{count}</summary>", ""]
+            lines += contest_lines(replies, result["repository"], result["pr"], cap)
             if review.get("summary"):
                 lines += [field(review["summary"], cap), ""]
             for number, finding in enumerate(findings, 1):
@@ -405,6 +426,123 @@ def contests(comments, records, context, policy, author_id):
     return found
 
 
+# Author contests written in an ordinary PR comment: a line `/sphereceti contest <rubric>` and the
+# reasoning after it. `@sphereceti` is accepted as a synonym; no GitHub account `sphereceti` exists.
+DIRECTIVE = re.compile(r" {0,3}[/@]sphereceti[ \t]+contest(?:[ \t]+([A-Za-z][A-Za-z-]*))?\b[ \t]*[:—–-]?[ \t]*(.*)",
+                       re.I)
+ANY_DIRECTIVE = re.compile(r" {0,3}[/@]sphereceti\b", re.I)
+CONTESTING_ASSOCIATIONS = ("OWNER", "COLLABORATOR")
+REPLY_LIMIT = 6000        # characters of one reply passed to a reviewer
+FINDING_LIMIT = 4000      # characters of the contested finding passed with it
+CONTESTS_PER_RUBRIC = 3   # newest contests per rubric passed to one review
+
+
+def directives(body):
+    """[(rubric, reasoning)] from directive lines outside fenced code, in order."""
+    found, current, fence = [], None, None
+    for line in body.replace("\r\n", "\n").split("\n"):
+        opener = re.match(r" {0,3}(`{3,}|~{3,})", line)
+        if fence is None and opener:
+            fence = opener[1]
+        elif fence is not None and re.fullmatch(r" {0,3}" + re.escape(fence[0]) + "{%d,}[ \t]*" % len(fence), line):
+            fence = None
+            if current is not None:
+                current[1].append(line)
+            continue
+        if fence is None and not opener:
+            match = DIRECTIVE.fullmatch(line)
+            if match:
+                current = [(match[1] or "").lower(), [match[2]]]
+                found.append(current)
+                continue
+            if ANY_DIRECTIVE.match(line):
+                current = None  # another directive ends the reasoning
+                continue
+        if current is not None:
+            current[1].append(line)
+    return [(rubric, "\n".join(lines).strip()) for rubric, lines in found]
+
+
+def published_records(comments, context):
+    """Every intact, parseable record on this PR by an API-identified publisher, any head."""
+    found = {}
+    for c in comments:
+        if identity(c) is None or not intact(c, context["repository"], context["pr"]):
+            continue
+        try:
+            r = parse_record(c.get("body"))
+        except (ValueError, TypeError):
+            continue
+        if r["repository"] == context["repository"] and r["pr"] == context["pr"]:
+            found[c["id"]] = (c, r)
+    return found
+
+
+def rubric_section(body, rubric):
+    """The contested rubric's rendered reasoning and findings from a record body (untrusted text)."""
+    text = body.split("-->\n\n", 1)[-1]
+    match = (re.search(r"<details><summary>[^\n]*<b>" + re.escape(rubric) + r"</b>[^\n]*</summary>\n\n([\s\S]*?)\n</details>", text)
+             or re.search(r"^## " + re.escape(rubric) + r": [a-z_]+\n\n([\s\S]*?)(?=^## |\Z)", text, re.M))
+    return match[1].strip() if match else ""
+
+
+def directive_contests(comments, records, context, policy, author_id):
+    """Contests by the PR author, a collaborator, or an authorized reviewer, each bound to the latest
+    earlier record (any publisher, any head) whose verdict on that rubric is a finding."""
+    found = []
+    repo, pr = context["repository"], context["pr"]
+    for c in sorted(comments, key=lambda c: c.get("id", 0)):
+        body = c.get("body")
+        if (not isinstance(body, str) or body.startswith((MARKER, CONTEST)) or type(c.get("id")) is not int
+                or c.get("issue_url") != f"https://api.github.com/repos/{repo}/issues/{pr}"
+                or not isinstance(c.get("created_at"), str) or not isinstance(c.get("updated_at"), str)):
+            continue
+        actor = identity(c)
+        if actor is None or not (actor in policy.authorized_reviewers or actor == f"user:{author_id}"
+                                 or c.get("author_association") in CONTESTING_ASSOCIATIONS):
+            continue
+        for rubric, reasoning in directives(body):
+            if rubric not in RUBRICS or not reasoning:
+                continue
+            earlier = [(rc, r) for rid, (rc, r) in records.items()
+                       if rid < c["id"] and r["verdicts"][rubric] in ("request_changes", "block")]
+            if not earlier:
+                continue
+            rc, r = max(earlier, key=lambda item: item[0]["id"])
+            found.append({"id": c["id"], "rubric": rubric, "record": r["record_id"], "record_comment": rc["id"],
+                          "publisher": identity(rc), "on_head": r["head"], "by": actor, "body": reasoning,
+                          "finding": rubric_section(rc["body"], rubric), "kind": "directive",
+                          "created_at": c["created_at"], "updated_at": c["updated_at"],
+                          "url": f"https://github.com/{repo}/pull/{pr}#issuecomment-{c['id']}"})
+    return found
+
+
+def answered(contest, records):
+    """Whether a record by the contested publisher, posted after the contest's last edit, answers it."""
+    return any(identity(rc) == contest["publisher"] and rc["id"] > contest["id"]
+               and rc["created_at"] >= contest["updated_at"]
+               and r["contests_through"][contest["rubric"]] >= contest["id"]
+               for rc, r in records.values())
+
+
+def carried_contests(comments, context, policy, author_id):
+    """Directive contests still unanswered by their publisher, newest first per rubric, bounded."""
+    records = published_records(comments, context)
+    pending = [c for c in directive_contests(comments, records, context, policy, author_id)
+               if not answered(c, records)]
+    plan = {}
+    for contest in sorted(pending, key=lambda c: -c["id"]):
+        items = plan.setdefault(contest["rubric"], [])
+        reason = None
+        if len(contest["body"]) > REPLY_LIMIT:
+            reason = f"the reply is longer than {REPLY_LIMIT:,} characters; post a shorter contest"
+        elif sum(1 for i in items if i["passed"]) >= CONTESTS_PER_RUBRIC:
+            reason = f"only the newest {CONTESTS_PER_RUBRIC} contests on a rubric are passed to one review"
+        items.append({**contest, "passed": reason is None, "not_passed": reason,
+                      "finding": contest["finding"][:FINDING_LIMIT]})
+    return plan
+
+
 def collect_records(comments, context, policy):
     result = {}
     for c in comments:
@@ -423,6 +561,9 @@ def assess_records(comments, context, policy, approved_revision, author_id):
     """Review evidence only. Scope, trusted CI producer checks, and merging remain separate gates."""
     records = collect_records(comments, context, policy)
     replies = contests(comments, records, context, policy, author_id)
+    # Author contests bind to any earlier record; only the contested publisher can answer them.
+    carried = [c for c in directive_contests(comments, published_records(comments, context), context,
+                                             policy, author_id) if not answered(c, records)]
     latest = {}
     for c in sorted(comments, key=lambda c: c.get("id", 0)):
         actor = identity(c)
@@ -452,6 +593,7 @@ def assess_records(comments, context, policy, approved_revision, author_id):
             reasons.append("contest watermark is not older than the record")
         if any(reply["publisher"] == actor and r["contests_through"][reply["rubric"]] < reply["id"] for reply in replies):
             reasons.append("unresolved contest")
+        reasons += [f"unanswered contest on {c['rubric']} ({c['url']})" for c in carried if c["publisher"] == actor]
         latest[actor] = (c, r, reasons)
     reasons = []
     if not context["tooling_approved"] or not context["installed_tooling_matches_T"] or context["missing_context"] or context["config_differences"]:
@@ -462,4 +604,4 @@ def assess_records(comments, context, policy, approved_revision, author_id):
         reasons += [actor + ": " + reason for reason in denied]
     return {"review_safe": not reasons, "merge_eligible": False, "reasons": reasons,
             "selected_comments": {actor: item[0]["id"] for actor, item in latest.items()},
-            "contests": replies, "repository": context["repository"], "pr": context["pr"], "head": context["head"]}
+            "contests": replies + carried, "repository": context["repository"], "pr": context["pr"], "head": context["head"]}
