@@ -1,6 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 """What will a review do, and what happened? One line before inference, one summary after.
 
+Before inference it also says when the installed sphereceti is not approved main (the prepared
+evidence's `installed_tooling_matches_T`), because such a review is advisory, not official.
+
 Everything here reads the prepared evidence, the run's result and its local engine receipt
 (`engine-archive/records/runs`). It never calls GitHub or a provider.
 """
@@ -68,8 +71,13 @@ def plan(args, prefs, report) -> dict:
     pairs = ", ".join(f"{p} {m}" for p, m in zip(providers, models)) or "no provider selected"
     line = (f"Review #{report['pr']}: head {report['head'][:7]}, base {report['base'][:7]} · "
             f"{pairs} · {outcome}")
+    try:
+        from .provenance import review_notice
+        notice = review_notice(report, report.get("repository") or "thefundamentaltheor3m/SphereCeti")
+    except Exception:  # The notice is informational; it never blocks or changes a review.
+        notice = None
     return {"line": line, "pr": report["pr"], "head": report["head"], "base": report["base"],
-            "providers": providers, "models": models, "posting": outcome}
+            "providers": providers, "models": models, "posting": outcome, "tooling_notice": notice}
 
 
 def announcing(prefs, announce, sink=None, inner=None):
@@ -82,6 +90,8 @@ def announcing(prefs, announce, sink=None, inner=None):
                 sink.update(planned)
             if announce:
                 announce(planned["line"])
+                if planned.get("tooling_notice"):
+                    announce(planned["tooling_notice"])
             yield None
     return guard
 
