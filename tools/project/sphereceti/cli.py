@@ -60,6 +60,8 @@ def main(argv: list[str] | None = None) -> int:
     from .gate import GateError
     from .review_records import RecordError
     add_parser(commands)
+    from .intentions import add_parser as add_intentions_parser
+    add_intentions_parser(commands)
     from .review_publish import add_parser as add_publish_parser
     add_publish_parser(commands)
     from .review_queue import add_parser as add_queue_parser
@@ -134,6 +136,37 @@ def main(argv: list[str] | None = None) -> int:
         preferences = parse_operator(operator_path.read_text() if operator_path else "")
     except (ConfigError, OSError, tomllib.TOMLDecodeError) as error:
         parser.exit(2, f"sphereceti: configuration error: {error}\n")
+
+    if args.command in ("intentions", "intend"):
+        from .intentions import lookup, observe, register, render as render_intentions, render_lookup
+        try:
+            if args.command == "intentions":
+                report = observe(project)
+            else:
+                report = lookup(project, args.target, kind=args.kind, item=args.item, module=args.module)
+                wanted = args.register or args.dry_run
+                if (report["verdict"] == "no_exact_claim" and not wanted and not args.json
+                        and sys.stdin.isatty() and sys.stdout.isatty()):
+                    print(render_lookup(report))
+                    wanted = input("Register an intention for it now? [y/N] ").strip().lower() in ("y", "yes")
+                    if not wanted:
+                        return 0
+                    report["registration"] = register(project, report, parent=args.parent_pr, expires=args.expires)
+                    from .intentions import render_registration
+                    print(render_registration(report["registration"]))
+                    return 0 if report["registration"]["state"] == "registered" else 1
+                if wanted and report["verdict"] == "no_exact_claim":
+                    report["registration"] = register(project, report, parent=args.parent_pr,
+                                                      expires=args.expires, dry_run=args.dry_run)
+        except (RecordError, OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as error:
+            reason = str(error) if isinstance(error, RecordError) else f"incomplete GitHub data ({type(error).__name__})"
+            parser.exit(2, f"sphereceti {args.command}: GitHub lookup failed: {reason}; nothing was registered\n")
+        if args.json:
+            print(json.dumps(report, indent=2))
+        else:
+            print(render_intentions(report) if args.command == "intentions" else render_lookup(report))
+        state = (report.get("registration") or {}).get("state")
+        return 1 if state in ("claimed", "lost_race", "unconfirmed") else 0
 
     if args.command == "evaluation":
         try:
