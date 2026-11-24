@@ -14,6 +14,7 @@ public import SphereCeti.Analysis.Fourier.Exchange
 public import SphereCeti.CohnElkies.Certificate
 public import SphereCeti.Contour.HalfInfiniteRectangle
 public import SphereCeti.Contour.SegmentContinuity
+public import SphereCeti.E8.PlusKernelIntegrability
 public import SphereCeti.E8.PlusKernels
 public import SphereCeti.Lattice.IntegralPresentation
 public import SphereCeti.Leech.ResidueCoordinates
