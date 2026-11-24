@@ -36,7 +36,11 @@ BOT = {'login': 'github-actions[bot]', 'id': 41898282, 'type': 'Bot'}
 
 
 def proof(repo):
+    # A proof PR adds only its own module; the SphereCeti.* glob builds it without a root import.
     (repo / 'SphereCeti/E8/Lattice.lean').write_text('module\n\n-- proof\ntheorem e8 : True := trivial\n')
+
+
+def export_from_root(repo):
     root = repo / 'SphereCeti.lean'
     root.write_text(root.read_text().replace('public import SphereCeti.Basic\n',
                                              'public import SphereCeti.Basic\npublic import SphereCeti.E8.Lattice\n'))
@@ -92,6 +96,12 @@ class Harness:
             {'id': 59656455717, 'context': 'trusted-build', 'state': 'success',
              'description': f'Approved tooling build: success; tooling {self.tooling}', 'target_url': url, 'creator': BOT,
              'created_at': '2026-11-23T13:32:19Z', 'url': f'https://api.github.com/repos/{REPO}/statuses/{self.head}'}]
+        # The trusted run's tested merge: the head merged into main (here main is the head's parent).
+        self.statuses.append(
+            {'id': 59656456952, 'context': 'trusted-merge', 'state': 'success',
+             'description': f"Tested merge tree {git(self.repo, 'rev-parse', self.head + '^{tree}')} with main {self.tooling}",
+             'target_url': url, 'creator': BOT, 'created_at': '2026-11-23T13:32:20Z',
+             'url': f'https://api.github.com/repos/{REPO}/statuses/{self.head}'})
         self.run = {'id': RUN, 'run_attempt': 1, 'workflow_id': 358051984, 'path': WORKFLOW,
                     'event': 'pull_request_target', 'status': 'completed', 'conclusion': 'success',
                     'head_sha': self.head, 'head_branch': 'proof/e8', 'repository': {'full_name': REPO},
@@ -201,8 +211,9 @@ class AutoApprovalTests(unittest.TestCase):
         self.assertEqual(report['author']['identity'], f'user:{AUTHOR}')
         self.assertEqual(report['review_publishers'][0]['identity'], f'user:{REVIEWER}')
         paths = report['requirements'][0]['evidence']
-        self.assertEqual(paths['eligible'], ['SphereCeti.lean', 'SphereCeti/E8/Lattice.lean'])
-        self.assertEqual(paths['root_imports'], ['SphereCeti.E8.Lattice'])
+        self.assertEqual(paths['eligible'], ['SphereCeti/E8/Lattice.lean'])
+        self.assertNotIn('root_imports', paths)
+        self.assertIn('never edit SphereCeti.lean', paths['root_rule'])
         trusted = report['requirements'][1]['evidence']
         self.assertIn('hypothetical allowlist', trusted['trusted_scope'])
         audit = report['requirements'][2]['evidence']
@@ -250,35 +261,29 @@ class AutoApprovalTests(unittest.TestCase):
                 self.assertIn(f'paths: {path}: {ineligible[0]["reason"]}', report['reasons'])
                 self.assertEqual(status(report)['official_review'], 'not_assessed')
 
-    def test_library_root_may_only_gain_eligible_public_imports(self):
-        def edit(text):
-            def change(repo):
-                proof(repo)
-                (repo / 'SphereCeti.lean').write_text(text((repo / 'SphereCeti.lean').read_text()))
-            return change
-        bad = {
-            'non-import line': lambda t: t + 'theorem sneaky : True := trivial\n',
-            'removes or edits': lambda t: t.replace('public import SphereCeti.Basic\n', ''),
-            'not an eligible': lambda t: t.replace('public import SphereCeti.E8.Lattice', 'public import SphereCeti.Missing'),
-            'non-import line: \'import': lambda t: t.replace('public import SphereCeti.E8.Lattice', 'import SphereCeti.E8.Lattice'),
-            'twice': lambda t: t + 'public import SphereCeti.E8.Lattice\n',
-            'roadmap': lambda t: t + 'public import SphereCetiRoadmap.Suggested\n',
+    def test_any_library_root_edit_is_routed_to_human_review(self):
+        # Proof PRs no longer edit the root, so even the formerly allowed export is protected again.
+        edits = {
+            'export with the proof': lambda repo: (proof(repo), export_from_root(repo)),
+            'export alone': lambda repo: (repo / 'SphereCeti.lean').write_text(
+                (repo / 'SphereCeti.lean').read_text().replace(
+                    'public import SphereCeti.Basic\n', 'public import SphereCeti.Basic\npublic import SphereCeti.E8.Basic\n')),
+            'sorted reorder': lambda repo: (proof(repo), (repo / 'SphereCeti.lean').write_text(
+                (repo / 'SphereCeti.lean').read_text().replace(
+                    'public import SphereCeti.Basic\n', '\npublic import SphereCeti.Basic\n'))),
+            'non-import line': lambda repo: (proof(repo), (repo / 'SphereCeti.lean').write_text(
+                (repo / 'SphereCeti.lean').read_text() + 'theorem sneaky : True := trivial\n')),
         }
-        for expected, text in bad.items():
-            with self.subTest(expected=expected):
-                report = self.harness(edit(text)).decide()
-                self.assertFalse(report['would_approve'])
-                reason = report['requirements'][0]['evidence']['ineligible'][0]
-                self.assertEqual(reason['path'], 'SphereCeti.lean')
-                self.assertIn('non-import line' if expected == 'roadmap' else expected, reason['reason'])
-        # Exporting an existing allowlisted topic module alone is a valid root-only change.
-        def export(repo):
-            root = repo / 'SphereCeti.lean'
-            root.write_text(root.read_text().replace('public import SphereCeti.Basic\n',
-                                                     'public import SphereCeti.Basic\npublic import SphereCeti.E8.Basic\n'))
-        self.assertTrue(self.harness(export).decide()['would_approve'])
-        # A topic outside the allowlist cannot be exported either.
-        self.assertFalse(self.harness(export).decide(assume=('SphereCeti/Leech/**',))['would_approve'])
+        for name, change in edits.items():
+            for policy_paths in ((), ('SphereCeti/E8',)):
+                with self.subTest(name=name, policy=policy_paths):
+                    # The change applies its edits and returns None, so the harness commits it.
+                    h = self.harness(lambda repo, change=change: change(repo) and None, policy_paths=policy_paths)
+                    report = h.decide(assume=None) if policy_paths else h.decide()
+                    self.assertFalse(report['would_approve'])
+                    ineligible = report['requirements'][0]['evidence']['ineligible']
+                    self.assertEqual([p['path'] for p in ineligible], ['SphereCeti.lean'])
+                    self.assertEqual(ineligible[0]['reason'], 'library root requires human approval')
 
     def test_renames_deletions_symlinks_and_submodules_are_ineligible(self):
         def rename(repo):
@@ -304,7 +309,10 @@ class AutoApprovalTests(unittest.TestCase):
                 self.assertIn(path, report['reasons'][0])
 
     def test_github_file_list_must_match_exact_git_diff(self):
-        h = self.harness()
+        def two_modules(repo):
+            proof(repo)
+            (repo / 'SphereCeti/E8/Shell.lean').write_text('module\n')
+        h = self.harness(two_modules)
         h.files = h.files[:1]; h.pr['changed_files'] = 1
         report = h.decide()
         self.assertFalse(report['would_approve'])
@@ -361,12 +369,17 @@ class AutoApprovalTests(unittest.TestCase):
                 self.assertTrue(any(word in r for r in report['requirements'][5]['evidence']['reasons']), report['reasons'])
         h = self.harness(); h.pr['base'] = {**h.pr['base'], 'ref': 'stack'}
         self.assertIn('pull_request', failed(h.decide()))
-        # A PR whose base is no longer current main is stale even with otherwise perfect evidence.
+        # Main advanced past the trusted build: the tested merge is stale, so build and audit fail.
+        # Option 2: GitHub's base.sha snapshot is never compared with main, and the review stays valid
+        # because the change is the same and main changed no review input.
         h = self.harness()
         h.current = git(h.repo, 'commit-tree', f'{h.tooling}^{{tree}}', '-p', h.tooling, '-m', 'main advanced')
         report = h.decide()
         self.assertFalse(report['would_approve'])
-        self.assertTrue({'pull_request', 'trusted_checks', 'compiled_audit'} <= failed(report))
+        self.assertEqual(failed(report), {'trusted_checks', 'compiled_audit'})
+        self.assertIn('trusted_checks: trusted-merge tested an older main; rebuild the merge with current main',
+                      report['reasons'])
+        self.assertFalse(report['merge']['head_contains_main'])
 
     def test_failed_or_missing_trusted_build_or_audit_is_refused(self):
         def build(h, **change): h.statuses[1].update(change)
@@ -435,7 +448,7 @@ class AutoApprovalTests(unittest.TestCase):
         self.assertFalse(report['note'].startswith('HYPOTHETICAL'))
         self.assertEqual(status(report)['policy'], 'fail')
         self.assertIn('mathematical_paths is empty', report['requirements'][0]['evidence']['problems'][0])
-        policy = report['requirements'][-1]['evidence']
+        policy = next(r for r in report['requirements'] if r['id'] == 'policy')['evidence']
         self.assertEqual((policy['merging'], policy['mathematical_paths']), (False, []))
 
     def test_future_approved_policy_needs_no_hypothesis(self):
