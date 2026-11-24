@@ -6,7 +6,7 @@ Authors: SphereCeti contributors
 
 module
 
-public import SphereCeti.ZLattice.RelativeQuotientEmbedding
+public import SphereCeti.ZLattice.RelativeQuotient.Embedding
 
 /-!
 # Points meeting every coset of a subgroup
