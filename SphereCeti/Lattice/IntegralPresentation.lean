@@ -9,6 +9,7 @@ module
 public import TauCeti.Algebra.Module.ZLattice.RationalModel
 public import TauCeti.Algebra.Module.ZLattice.ModelShell
 public import SphereCeti.LinearAlgebra.IntegralLattice.Rootless
+public import SphereCeti.Algebra.Group.Pointwise.Set
 
 /-!
 # Integral presentations of Euclidean lattices
@@ -587,10 +588,10 @@ theorem affineIsometry_maps_coset (P : IntegralPresentation Λ) (Q : IntegralPre
     (v w : EuclideanSpace ℝ (Fin d)) :
     affineIsometryOfIsometry P Q e v w '' (v +ᵥ (Λ : Set (EuclideanSpace ℝ (Fin d)))) =
       w +ᵥ (Μ : Set (EuclideanSpace ℝ (Fin d))) := by
-  rw [← realIsometry_maps_carrier P Q e, ← Set.image_vadd, ← Set.image_vadd, Set.image_image,
-    Set.image_image]
-  refine Set.image_congr fun x _ ↦ ?_
-  rw [affineIsometryOfIsometry_apply, vadd_eq_add, vadd_eq_add, add_sub_cancel_left, add_comm]
+  have h : ⇑(affineIsometryOfIsometry P Q e v w) =
+      fun x ↦ realIsometryOfIsometry P Q e (x - v) + w :=
+    funext (affineIsometryOfIsometry_apply P Q e v w)
+  rw [h, Set.image_sub_add_vadd_eq, realIsometry_maps_carrier]
 
 /-- Check that `simp` computes the image of a coset. -/
 example (P : IntegralPresentation Λ) (Q : IntegralPresentation Μ)
