@@ -6,7 +6,7 @@ Authors: SphereCeti contributors
 
 module
 
-public import SphereCeti.ZLattice.RelativeQuotient
+public import SphereCeti.ZLattice.RelativeQuotient.Basic
 
 /-!
 # Points incongruent modulo a lattice embed into a relative quotient
@@ -57,11 +57,16 @@ def relativeQuotientEmbedding (hΓ : ∀ q, p q - x₀ ∈ Γ) (hp : ∀ q q', p
     simpa [sub_sub_sub_cancel_right] using h
 
 /-- The embedding sends `q` to the coset of `p q - x₀`. -/
+@[simp]
 theorem relativeQuotientEmbedding_apply (hΓ : ∀ q, p q - x₀ ∈ Γ)
     (hp : ∀ q q', p q - p q' ∈ Λ → q = q') (q : ι) :
     relativeQuotientEmbedding hΓ hp q =
       QuotientAddGroup.mk (⟨p q - x₀, hΓ q⟩ : Γ.toAddSubgroup) :=
   (rfl)
+
+example (hΓ : ∀ q, p q - x₀ ∈ Γ) (hp : ∀ q q', p q - p q' ∈ Λ → q = q') (q : ι) :
+    relativeQuotientEmbedding hΓ hp q = 0 ↔ p q - x₀ ∈ Λ := by
+  simp [AddSubgroup.mem_addSubgroupOf]
 
 end AddCommGroup
 

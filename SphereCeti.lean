@@ -13,8 +13,8 @@ public import SphereCeti.Analysis.ExactZeroOrder
 public import SphereCeti.CohnElkies.Certificate
 public import SphereCeti.Contour.HalfInfiniteRectangle
 public import SphereCeti.Lattice.IntegralPresentation
-public import SphereCeti.ZLattice.RelativeQuotient
-public import SphereCeti.ZLattice.RelativeQuotientEmbedding
+public import SphereCeti.ZLattice.RelativeQuotient.Basic
+public import SphereCeti.ZLattice.RelativeQuotient.Embedding
 
 /-!
 # SphereCeti library
