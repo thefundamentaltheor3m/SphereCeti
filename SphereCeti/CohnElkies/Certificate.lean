@@ -26,8 +26,8 @@ positivity `SchwartzMap.re_apply_zero_pos_of_fourier_nonneg`.
 Certificates transport along linear isometries `A` of `ℝ^d`, as `f ∘ A`, and along dilations by
 `c > 0`, as `x ↦ f (c⁻¹ • x)` with radius `c * r`.  The Fourier transform of the dilation is
 `y ↦ c ^ d • f̂ (c • y)`, so both transports leave the density bound unchanged, as does
-multiplication by `t > 0`.  In dimension `d > 0`, dilating until `f̂(0) = f(0)` and then dividing by
-`f(0)` gives a normalized certificate, with `f(0) = f̂(0) = 1`, and the same density bound.
+multiplication by `t > 0`.  Every certificate has a normalized counterpart: a certificate with
+`f(0) = f̂(0) = 1` and the same density bound, possibly of another radius.
 
 ## Main definitions
 
@@ -48,8 +48,8 @@ multiplication by `t > 0`.  In dimension `d > 0`, dilating until `f̂(0) = f(0)`
 * `SphereCeti.CohnElkies.Certificate.bound_compLinearIsometryEquiv`,
   `SphereCeti.CohnElkies.Certificate.bound_dilate`, `SphereCeti.CohnElkies.Certificate.bound_smul`:
   the transports and positive multiples keep the density bound.
-* `SphereCeti.CohnElkies.Certificate.exists_isNormalized`: in dimension `d > 0`, every certificate
-  gives a normalized certificate with the same density bound.
+* `SphereCeti.CohnElkies.Certificate.exists_isNormalized`: for every certificate there is a
+  normalized certificate with the same density bound.
 
 ## References
 
@@ -249,6 +249,10 @@ noncomputable def smul (C : Certificate d r) {t : ℝ} (ht : 0 < t) : Certificat
     rw [FourierSMul.fourier_smul, smul_apply, smul_eq_mul, Complex.re_ofReal_mul]
     exact mul_pos ht C.fourier_zero_pos
 
+/-- The function of the multiple of a certificate by `t` is `t • f`. -/
+theorem smul_f (C : Certificate d r) {t : ℝ} (ht : 0 < t) : (C.smul ht).f = (t : ℂ) • C.f :=
+  (rfl)
+
 /-- The multiple of a certificate by `t` is `x ↦ t • f x`. -/
 @[simp]
 theorem smul_f_apply (C : Certificate d r) {t : ℝ} (ht : 0 < t) (x : EuclideanSpace ℝ (Fin d)) :
@@ -259,8 +263,7 @@ theorem smul_f_apply (C : Certificate d r) {t : ℝ} (ht : 0 < t) (x : Euclidean
 @[simp]
 theorem fourier_smul_f_apply (C : Certificate d r) {t : ℝ} (ht : 0 < t)
     (x : EuclideanSpace ℝ (Fin d)) : 𝓕 (C.smul ht).f x = t * 𝓕 C.f x := by
-  change 𝓕 ((t : ℂ) • C.f) x = _
-  rw [FourierSMul.fourier_smul, smul_apply, smul_eq_mul]
+  rw [smul_f, FourierSMul.fourier_smul, smul_apply, smul_eq_mul]
 
 /-- Multiplying a certificate by `t > 0` does not change the density bound. -/
 @[simp]
@@ -268,33 +271,36 @@ theorem bound_smul (C : Certificate d r) {t : ℝ} (ht : 0 < t) : (C.smul ht).bo
   rw [bound_def, bound_def, smul_f_apply, fourier_smul_f_apply, Complex.re_ofReal_mul,
     Complex.re_ofReal_mul, mul_div_mul_left _ _ ht.ne']
 
-/-- **Normalization.**  In dimension `d > 0`, every certificate gives a normalized certificate,
-of another radius, with the same density bound: dilate until `f̂(0) = f(0)`, then divide by
-`f(0)`. -/
-theorem exists_isNormalized (C : Certificate d r) (hd : 0 < d) :
+/-- **Normalization.**  For every certificate there is a normalized certificate, possibly of
+another radius, with the same density bound. -/
+theorem exists_isNormalized (C : Certificate d r) :
     ∃ (r' : ℝ) (C' : Certificate d r'), C'.IsNormalized ∧ C'.bound = C.bound := by
-  set a := (C.f 0).re
-  set b := (𝓕 C.f 0).re
-  have ha : 0 < a := C.f_zero_pos
-  have hb : 0 < b := C.fourier_zero_pos
-  -- The dilation by `c = (a / b) ^ (1 / d)` makes `f̂(0) = c ^ d * b = a`.
-  set c := (a / b) ^ (1 / d : ℝ)
-  have hc : 0 < c := Real.rpow_pos_of_pos (div_pos ha hb) _
-  have hcd : c ^ d * b = a := by
-    rw [← Real.rpow_natCast, ← Real.rpow_mul (div_pos ha hb).le, one_div_mul_cancel
-      (Nat.cast_ne_zero.mpr hd.ne'), Real.rpow_one, div_mul_cancel₀ _ hb.ne']
-  -- Real values at the origin are their real parts.
-  have hreal (z : ℂ) (hz : z.im = 0) : z = z.re := Complex.ext rfl (by simpa using hz)
-  refine ⟨c * r, (C.dilate hc).smul (inv_pos.mpr ha), ⟨?_, ?_⟩, by simp⟩
-  · rw [smul_f_apply, dilate_f_apply, smul_zero, hreal _ (C.real_f 0)]
-    push_cast
-    exact inv_mul_cancel₀ (Complex.ofReal_ne_zero.mpr ha.ne')
-  · rw [fourier_smul_f_apply]
-    change ((a⁻¹ : ℝ) : ℂ) * 𝓕 (dilateFun C.f hc) 0 = 1
-    rw [fourier_dilateFun, smul_zero, hreal _ (C.real_fourier 0), Complex.real_smul]
-    push_cast
-    rw [← Complex.ofReal_pow, ← Complex.ofReal_mul, hcd]
-    exact inv_mul_cancel₀ (Complex.ofReal_ne_zero.mpr ha.ne')
+  -- It suffices to find a certificate with the same bound and `f̂(0) = f(0)`: dividing it by the
+  -- real number `f(0) > 0` normalizes it and keeps the bound.
+  suffices h : ∃ (r' : ℝ) (C' : Certificate d r'), 𝓕 C'.f 0 = C'.f 0 ∧ C'.bound = C.bound by
+    obtain ⟨r', C', h0, hbound⟩ := h
+    have ha := C'.f_zero_pos
+    have h1 : (((C'.f 0).re⁻¹ : ℝ) : ℂ) * C'.f 0 = 1 :=
+      Complex.ext (by simp [ha.ne']) (by simp [C'.real_f 0])
+    refine ⟨r', C'.smul (inv_pos.mpr ha), ⟨?_, ?_⟩, by rw [bound_smul, hbound]⟩
+    · rw [smul_f_apply, h1]
+    · rw [fourier_smul_f_apply, h0, h1]
+  obtain rfl | hd := Nat.eq_zero_or_pos d
+  · -- In dimension `0` the volume is the Dirac mass at the origin, so `f̂(0) = f(0)`.
+    refine ⟨r, C, ?_, rfl⟩
+    rw [SchwartzMap.fourier_coe, Real.fourier_eq, volume_euclideanSpace_eq_dirac, integral_dirac]
+    simp
+  · -- In dimension `d > 0` the dilation by `c = (f(0) / f̂(0)) ^ (1 / d)` makes `f̂(0) = f(0)`.
+    have hab : 0 < (C.f 0).re / (𝓕 C.f 0).re := div_pos C.f_zero_pos C.fourier_zero_pos
+    obtain ⟨c, hc, hcd⟩ : ∃ c : ℝ, 0 < c ∧ c ^ d * (𝓕 C.f 0).re = (C.f 0).re :=
+      ⟨_, Real.rpow_pos_of_pos hab (1 / d), by
+        rw [← Real.rpow_natCast, ← Real.rpow_mul hab.le,
+          one_div_mul_cancel (Nat.cast_ne_zero.mpr hd.ne'), Real.rpow_one,
+          div_mul_cancel₀ _ C.fourier_zero_pos.ne']⟩
+    refine ⟨c * r, C.dilate hc, ?_, C.bound_dilate hc⟩
+    rw [fourier_dilate_f_apply, dilate_f_apply, smul_zero, smul_zero, ← Complex.ofReal_pow]
+    exact Complex.ext (by rw [Complex.re_ofReal_mul, hcd])
+      (by rw [Complex.im_ofReal_mul, C.real_fourier, C.real_f, mul_zero])
 
 /-- Check that `simp` computes the function, the Fourier transform and the bound of a transported,
 dilated certificate. -/
