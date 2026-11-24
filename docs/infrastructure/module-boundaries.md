@@ -41,7 +41,13 @@ The ordinary CI tests the candidate checker. [#6](trusted-build.md) adds trusted
 isolation; [#8](compiled-audits.md) adds compiled axiom/module audits, lint, and builds of the
 complete inventory. Run `lake env python3 -I scripts/check_audits.py` for that combined gate.
 
-Add proofs under `SphereCeti/<Topic>/` and export them from `SphereCeti.lean`.
+Add proofs under `SphereCeti/<Topic>/` and import topic modules directly. Do not edit
+`SphereCeti.lean`: each library's `<Library>.*` glob in `lakefile.toml` (Lake's `andSubmodules`)
+builds every module below it. The inventory and compiled audit come from the source tree, not from
+the root's imports, so a module the root does not import is still built and checked. The root
+keeps its existing re-exports, so `import SphereCeti` still works downstream, and is otherwise
+frozen. `scripts/check_roadmap.py` keeps both globs and the root's import list fixed, and the
+trusted gate and auto-approval decision route any root edit to human review.
 The library imports only pinned dependencies and other admission-free library modules.
 Roadmap declarations may depend on the library. Use the roadmap as the proof specification.
 
