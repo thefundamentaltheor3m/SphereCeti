@@ -357,7 +357,21 @@ def exact(work, kind, target) -> bool:
     return kind == "declaration" and any(same_declaration(target, d) for d in work["declarations"])
 
 
-def lookup(project, target, *, observed=None, client=None, kind=None, item=None, module=None) -> dict:
+PARENT_WARNING = "parent #{n} is not merged: stacked proofs wait for their parents; start from main when you can"
+
+
+def parent_warning(project, client, parent):
+    """A warning when the declared parent PR is not merged (read-only, one call)."""
+    if not parent:
+        return None
+    pr = client.call(f"repos/{project.repository}/pulls/{parent}")
+    if not isinstance(pr, dict) or "merged" not in pr:
+        raise RecordError(f"cannot read parent PR #{parent}")
+    return None if pr["merged"] else PARENT_WARNING.format(n=parent)
+
+
+def lookup(project, target, *, observed=None, client=None, kind=None, item=None, module=None,
+           parent=None) -> dict:
     """Has `target` an exact claim (an open intention or an open PR adding it)? And what is related?
 
     For callers that must decide before spending model time (the planner, automated authoring).
@@ -365,7 +379,11 @@ def lookup(project, target, *, observed=None, client=None, kind=None, item=None,
     another name, so related work (same module or roadmap item) is always listed. Raises
     RecordError when GitHub cannot be read: an unknown board never yields "no exact claim".
     """
+    if client is None and (observed is None or parent):
+        from .review_post import GitHub
+        client = GitHub()
     observed = observed or observe(project, client=client)
+    warning = parent_warning(project, client, parent)
     kind = classify(target, kind)
     item = (item or (target if kind == "item" else "")).upper() or None
     module = module_path(module or target) if (module or kind == "module") else None
@@ -379,9 +397,9 @@ def lookup(project, target, *, observed=None, client=None, kind=None, item=None,
             related.append(brief(w))
     claimed.sort(key=lambda w: (w["kind"] != "intention", w["number"]))
     prefill = {"title": f"[Intention]: {target}", "target": target if kind == "declaration" else None,
-               "roadmap_item": item, "module": module}
+               "roadmap_item": item, "module": module, "parent_pr": f"#{parent}" if parent else None}
     return {"schema": LOOKUP_SCHEMA, "repository": project.repository, "target": target, "kind": kind,
-            "item": item, "module": module,
+            "item": item, "module": module, "parent_pr": parent, "warnings": [warning] if warning else [],
             "verdict": "claimed" if claimed else "no_exact_claim", "claimed": claimed, "related": related,
             "register_url": register_url(project, **prefill), "observed_at": observed["observed_at"],
             "registration": None}
@@ -516,6 +534,12 @@ def render(report) -> str:
 
 
 def render_lookup(result) -> str:
+    warnings = [f"Warning: {w}" for w in result.get("warnings") or []]
+    text = _render_lookup(result)
+    return "\n".join(warnings + [text])
+
+
+def _render_lookup(result) -> str:
     target = f"{result['kind']} {result['target']}"
     if result["verdict"] == "claimed":
         lines = [f"Already claimed: {target}"] + ["  " + describe_brief(w) for w in result["claimed"]]
