@@ -23,10 +23,11 @@ vanishes exactly when all of its terms do, provided its terms have one sign:
   exactly when `Re 𝓕 f(y) * S_p(y)` vanishes at every nonzero dual frequency `y`, where `S_p` is
   the structure factor of `p`.  This allows `Re 𝓕 f(y) ≠ 0` at frequencies where `S_p(y) = 0`.
 
-If moreover the points are pairwise incongruent modulo `L`, both defects vanish exactly when the
-periodic bound is attained, that is `N * Re f(0) = N² / covol(L) * Re 𝓕 f(0)` for `N` points.
-So under these hypotheses, equality in the periodic Cohn–Elkies bound holds exactly when `Re f`
-vanishes at the nonzero differences and `Re 𝓕 f * S_p` vanishes at the nonzero dual frequencies.
+If moreover the points are pairwise incongruent modulo `L`, both defects vanish exactly when
+`N * Re f(0) = N² / covol(L) * Re 𝓕 f(0)` for the `N` points.  For a nonempty family with
+`Re 𝓕 f(0) > 0`, this identity says that `N / covol(L)` equals the Cohn–Elkies bound
+`Re f(0) / Re 𝓕 f(0)`; read through the density formula of a periodic packing with these points
+as orbit representatives, it is the attainment of the periodic Cohn–Elkies bound.
 
 ## Main statements
 
@@ -37,7 +38,7 @@ vanishes at the nonzero differences and `Re 𝓕 f * S_p` vanishes at the nonzer
   Fourier defect vanishes exactly when `Re 𝓕 f * S_p` vanishes at the nonzero dual frequencies.
 * `SphereCeti.CohnElkies.directDefect_eq_zero_and_fourierDefect_eq_zero_iff`: under both sign
   conditions, the separation, and incongruence of the points modulo `L`, both defects vanish
-  exactly when the periodic bound is attained.
+  exactly when `N * Re f(0) = N² / covol(L) * Re 𝓕 f(0)`.
 
 ## References
 
@@ -128,11 +129,11 @@ theorem fourierDefect_eq_zero_iff (L : Submodule ℤ E) [DiscreteTopology L] [Is
   refine forall_congr' fun y ↦ ?_
   split_ifs with hy <;> simp [hy]
 
-/-- **Equality in the periodic Cohn–Elkies bound.**  For a family of `N` points pairwise
-incongruent modulo `L` and a Schwartz function `f` with the sign conditions of a Cohn–Elkies
-certificate of radius `r`, where every nonzero difference `z + p q - p q'` has norm at least `r`,
-both defects vanish exactly when the periodic bound is attained:
-`N * Re f(0) = N² / covol(L) * Re 𝓕 f(0)`. -/
+/-- For a family of `N` points pairwise incongruent modulo `L` and a Schwartz function `f` with the
+sign conditions of a Cohn–Elkies certificate of radius `r`, where every nonzero difference
+`z + p q - p q'` has norm at least `r`, both defects vanish exactly when
+`N * Re f(0) = N² / covol(L) * Re 𝓕 f(0)`.  For `N > 0` and `Re 𝓕 f(0) > 0`, this identity says
+that `N / covol(L)` equals `Re f(0) / Re 𝓕 f(0)`. -/
 theorem directDefect_eq_zero_and_fourierDefect_eq_zero_iff (L : Submodule ℤ E)
     [DiscreteTopology L] [IsZLattice ℝ L] {p : ι → E} (hp : ∀ q q', p q - p q' ∈ L → q = q')
     {f : 𝓢(E, ℂ)} {r : ℝ} (hf : ∀ x, r ≤ ‖x‖ → (f x).re ≤ 0)
