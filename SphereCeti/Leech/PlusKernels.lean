@@ -8,9 +8,8 @@ module
 
 public import Mathlib.NumberTheory.ModularForms.Discriminant
 public import Mathlib.NumberTheory.ModularForms.EisensteinSeries.E2.MDifferentiable
-public import Mathlib.NumberTheory.ModularForms.EisensteinSeries.E2.Transform
 public import Mathlib.NumberTheory.ModularForms.LevelOne.Basic
-public import Mathlib.NumberTheory.ModularForms.QExpansion
+public import TauCeti.Analysis.Complex.UpperHalfPlane.Topology
 
 /-!
 # The kernels of the `+1` eigencomponent of the Leech magic function
@@ -73,33 +72,27 @@ noncomputable def varphiExt (z : ℂ) : ℂ :=
   if hz : 0 < z.im then varphi ⟨z, hz⟩ else 0
 
 /-- On the upper half-plane, `varphiExt` is `φ`. -/
+@[simp]
 theorem varphiExt_of_im_pos {z : ℂ} (hz : 0 < z.im) : varphiExt z = varphi ⟨z, hz⟩ := by
   simp [varphiExt, hz]
 
 /-- Off the upper half-plane, `varphiExt` vanishes. -/
+@[simp]
 theorem varphiExt_of_im_nonpos {z : ℂ} (hz : z.im ≤ 0) : varphiExt z = 0 := by
   simp [varphiExt, hz.not_gt]
-
-/-- A function on the upper half-plane whose composition with `ofComplex` is `1`-periodic takes the
-same value at `z + 1` and at `z`. -/
-private lemma apply_add_one {f : ℍ → ℂ} (hf : Function.Periodic (f ∘ ofComplex) 1) {z : ℂ}
-    (hz : 0 < z.im) (hz' : 0 < (z + 1).im) : f ⟨z + 1, hz'⟩ = f ⟨z, hz⟩ := by
-  have h := hf z
-  simp only [Function.comp_apply] at h
-  rwa [ofComplex_apply_of_im_pos hz', ofComplex_apply_of_im_pos hz] at h
 
 /-- `φ` is `1`-periodic. -/
 theorem varphiExt_add_one (z : ℂ) : varphiExt (z + 1) = varphiExt z := by
   by_cases hz : 0 < z.im
   · have hz' : 0 < (z + 1).im := by simpa using hz
-    rw [varphiExt_of_im_pos hz', varphiExt_of_im_pos hz, varphi, varphi,
-      apply_add_one E2_periodic hz hz',
-      apply_add_one (SlashInvariantFormClass.periodic_comp_ofComplex (f := E₄)
-        one_mem_strictPeriods_SL) hz hz',
-      apply_add_one (SlashInvariantFormClass.periodic_comp_ofComplex (f := E₆)
-        one_mem_strictPeriods_SL) hz hz',
-      apply_add_one (SlashInvariantFormClass.periodic_comp_ofComplex
-        (f := CuspForm.discriminant) one_mem_strictPeriods_SL) hz hz']
+    have hτ : (⟨z + 1, hz'⟩ : ℍ) = (1 : ℝ) +ᵥ ⟨z, hz⟩ := UpperHalfPlane.ext (by simp [add_comm])
+    have h {f : ℍ → ℂ} (hf : Function.Periodic (f ∘ ofComplex) 1) : f ⟨z + 1, hz'⟩ = f ⟨z, hz⟩ :=
+      hτ ▸ TauCeti.UpperHalfPlane.periodic_comp_ofComplex_iff.mp hf _
+    rw [varphiExt_of_im_pos hz', varphiExt_of_im_pos hz, varphi, varphi, h E2_periodic,
+      h (SlashInvariantFormClass.periodic_comp_ofComplex (f := E₄) one_mem_strictPeriods_SL),
+      h (SlashInvariantFormClass.periodic_comp_ofComplex (f := E₆) one_mem_strictPeriods_SL),
+      h (SlashInvariantFormClass.periodic_comp_ofComplex (f := CuspForm.discriminant)
+        one_mem_strictPeriods_SL)]
   · have hz' : (z + 1).im ≤ 0 := by simpa using hz
     rw [varphiExt_of_im_nonpos hz', varphiExt_of_im_nonpos (not_lt.mp hz)]
 
@@ -172,8 +165,7 @@ theorem plusKernel_law_leftRight (z : ℂ) :
     ring
   have hpow : (-z⁻¹ - 1) ^ 10 = (z + 1) ^ 10 / z ^ 10 := by
     rw [hw, div_pow, Even.neg_pow (by decide)]
-  have hI : I ^ 12 = 1 := by
-    rw [show 12 = 4 * 3 by norm_num, pow_mul, I_pow_four, one_pow]
+  have hI : I ^ 12 = 1 := by norm_num
   rw [plusKernelLeft, plusKernelRight, harg, varphiExt_add_one, hpow, div_pow, hI]
   field_simp
 
@@ -182,8 +174,7 @@ theorem plusKernel_law_centralRay (z : ℂ) :
     (I / z) ^ 12 * plusKernelCentral z = -(z ^ 2)⁻¹ * plusKernelRay (-z⁻¹) := by
   rcases eq_or_ne z 0 with rfl | hz0
   · simp
-  have hI : I ^ 12 = 1 := by
-    rw [show 12 = 4 * 3 by norm_num, pow_mul, I_pow_four, one_pow]
+  have hI : I ^ 12 = 1 := by norm_num
   rw [plusKernelCentral, plusKernelRay, div_pow, hI, neg_div, one_div]
   field_simp
 
