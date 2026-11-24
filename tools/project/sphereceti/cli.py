@@ -56,12 +56,16 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--version", action="version", version=__version__)
     commands = parser.add_subparsers(dest="command", required=True)
-    from .local_review import add_parser, posting_note, resolve_posting, run_review, ReviewError
+    from .local_review import add_parser, posting_note, resolve_posting, ReviewError
     from .gate import GateError
     from .review_records import RecordError
     add_parser(commands)
+    from .intentions import add_parser as add_intentions_parser
+    add_intentions_parser(commands)
     from .review_publish import add_parser as add_publish_parser
     add_publish_parser(commands)
+    from .review_queue import add_parser as add_queue_parser
+    add_queue_parser(commands)
     from .review_sandbox import add_parser as add_sandbox_parser, check_sandbox
     add_sandbox_parser(commands)
     from .archive_cli import add_parser as add_archive_parser, run_archive
@@ -78,7 +82,7 @@ def main(argv: list[str] | None = None) -> int:
     add_observer(commands)
     from .auto_approval import add_parser as add_auto_approval, auto_approval, render as render_auto_approval
     add_auto_approval(commands)
-    from .merge_controller import add_parser as add_controller, run as run_controller
+    from .merge_controller import add_parser as add_controller, render as render_controller, run as run_controller
     add_controller(commands)
     from .lifecycle_api import add_parser as add_maintenance, run as run_maintenance
     add_maintenance(commands)
@@ -124,7 +128,7 @@ def main(argv: list[str] | None = None) -> int:
         policy = parse_policy(resource_text("automation.toml"))
         sources = parse_source_lock(resource_text("upstream-lock.toml"))
         operator_path = getattr(args, "operator_config", None)
-        if operator_path is None and (args.command == "review-publish" or (
+        if operator_path is None and (args.command in ("review-publish", "reviews") or (
                 args.command == "review" and args.auth == "subscription" and not args.shadow)):
             default_path = Path.home() / ".config/sphereceti/operator.toml"
             if default_path.is_file():
@@ -132,6 +136,40 @@ def main(argv: list[str] | None = None) -> int:
         preferences = parse_operator(operator_path.read_text() if operator_path else "")
     except (ConfigError, OSError, tomllib.TOMLDecodeError) as error:
         parser.exit(2, f"sphereceti: configuration error: {error}\n")
+
+    if args.command in ("intentions", "intend"):
+        from .intentions import (RegistrationRefused, lookup, observe, register, render as render_intentions,
+                                 render_lookup)
+        try:
+            if args.command == "intentions":
+                report = observe(project)
+            else:
+                report = lookup(project, args.target, kind=args.kind, item=args.item, module=args.module)
+                wanted = args.register or args.dry_run
+                if (report["verdict"] == "no_exact_claim" and not wanted and not args.json
+                        and sys.stdin.isatty() and sys.stdout.isatty()):
+                    print(render_lookup(report))
+                    wanted = input("Register an intention for it now? [y/N] ").strip().lower() in ("y", "yes")
+                    if not wanted:
+                        return 0
+                    report["registration"] = register(project, report, parent=args.parent_pr, duration=args.duration)
+                    from .intentions import render_registration
+                    print(render_registration(report["registration"]))
+                    return 0 if report["registration"]["state"] == "registered" else 1
+                if wanted and report["verdict"] == "no_exact_claim":
+                    report["registration"] = register(project, report, parent=args.parent_pr,
+                                                      duration=args.duration, dry_run=args.dry_run)
+        except RegistrationRefused as error:
+            parser.exit(2, f"sphereceti intend: not registered: {error}\n")
+        except (RecordError, OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as error:
+            reason = str(error) if isinstance(error, RecordError) else f"incomplete GitHub data ({type(error).__name__})"
+            parser.exit(2, f"sphereceti {args.command}: GitHub lookup failed: {reason}; nothing was registered\n")
+        if args.json:
+            print(json.dumps(report, indent=2))
+        else:
+            print(render_intentions(report) if args.command == "intentions" else render_lookup(report))
+        state = (report.get("registration") or {}).get("state")
+        return 1 if state in ("claimed", "lost_race", "unconfirmed") else 0
 
     if args.command == "evaluation":
         try:
@@ -155,8 +193,8 @@ def main(argv: list[str] | None = None) -> int:
                 TypeError, subprocess.SubprocessError) as error:
             reason = str(error) if isinstance(error, (RecordError, ConfigError, ReviewError)) else 'incomplete or unavailable controller evidence'
             parser.exit(2, f"sphereceti {args.command}: {reason}\n")
-        print(json.dumps(report, indent=2))
-        return 2 if report.get('state') == 'unconfirmed' else 0
+        print(json.dumps(report, indent=2) if args.json else render_controller(report))
+        return 2 if report.get('state') in ('unconfirmed', 'stopped') else 0
     if args.command == 'maintenance':
         try:
             report = run_maintenance(args, project)
@@ -220,6 +258,33 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(report, indent=2) if args.json else "\n".join(render_publish(report, run)))
         return 0 if report["state"] in ("published", "already_published") else 2
 
+    if args.command == "reviews":
+        from .review_queue import queue, render as render_queue
+        try:
+            report = queue(project, policy, preferences)
+        except (WorkerError, RecordError, OSError, ValueError, KeyError, TypeError,
+                subprocess.SubprocessError) as error:
+            reason = str(error) if isinstance(error, (WorkerError, RecordError)) else \
+                f"queue lookup failed ({type(error).__name__}); nothing is listed"
+            parser.exit(2, f"sphereceti reviews: {reason}\n")
+        print(json.dumps(report, indent=2) if args.json else render_queue(report))
+        return 0
+
+    if args.command == "review" and (args.new or args.revised or args.all or args.limit is not None):
+        from .review_queue import run_batch
+        if args.pr is not None or not (args.new or args.revised or args.all):
+            parser.exit(2, "sphereceti review: --new/--revised/--all take no PR number, and --limit needs one of them\n")
+        try:
+            batch = run_batch(args, project, policy, preferences,
+                              announce=None if args.json else lambda line: print(line, flush=True))
+        except (WorkerError, ReviewError, RecordError, GateError, ConfigError, OSError, ValueError, KeyError,
+                TypeError, subprocess.SubprocessError) as error:
+            reason = (str(error) if isinstance(error, (WorkerError, ReviewError, RecordError, ConfigError)) else
+                      f"batch operation failed ({type(error).__name__}); no further review was started")
+            parser.exit(2, f"sphereceti review: {reason}\n")
+        print(json.dumps(batch, indent=2) if args.json else "\n".join([batch["line"], *batch["lines"]]))
+        return 2 if batch["lookup_failed"] else 1 if batch["failed"] else 0
+
     if args.command == "review" and args.pr is None:
         from .review_select import render as render_selection, run_bare
         try:
@@ -238,11 +303,13 @@ def main(argv: list[str] | None = None) -> int:
         return 1 if review is not None and review["completion"] == "error" else 0
 
     if args.command == "review":
+        from .review_claims import note as claim_note, run_claimed
         from .review_summary import announcing, summarize
         planned = {}
+        say = None if args.json else lambda line: print(line, flush=True)
         try:
-            report = run_review(args, project, preferences, guard=announcing(
-                preferences, None if args.json else lambda line: print(line, flush=True), planned))
+            report = run_claimed(args, project, preferences,
+                                 wrap=lambda inner: announcing(preferences, say, planned, inner=inner))
         except (ReviewError, GateError, ConfigError, OSError, ValueError, KeyError,
                 subprocess.SubprocessError) as error:
             reason = (str(error) if isinstance(error, (ReviewError, RecordError, ConfigError)) else
@@ -265,6 +332,9 @@ def main(argv: list[str] | None = None) -> int:
                       "; ".join(report["reasons"])))
             if not args.read_records:
                 print(posting_note(args, report))
+            if report.get("claim"):
+                print(claim_note(report["claim"]))
+            if not args.read_records:
                 print(report["summary"]["line"])
                 print("Next: " + report["summary"]["next_action"])
         return 1 if report["completion"] == "error" else 0
