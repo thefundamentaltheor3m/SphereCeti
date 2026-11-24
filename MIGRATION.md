@@ -279,16 +279,21 @@ Add explicit, short specializations for one-coset lattice packings.
 
 Use translated coordinate boxes with a guard band of one center separation.  Define the finite
 patch, its period lattice, and the repeated center set, then state explicit equations
-for the centers and separation of `ofFinitePatternInBoxAt`.  Prove in order:
+for the centers and separation of `ofFinitePatternInBoxAt`.
+
+The volume estimate for coordinate boxes does not involve packings and may land first:
+
+- a fixed-width coordinate-box boundary layer has volume ratio tending to zero.
+
+Then prove in order:
 
 - a Fubini/Følner averaging lemma: from an arbitrarily large ball whose finite density approaches
   the ball-limsup density, extract an arbitrarily large translated coordinate box whose normalized
   center count loses only a prescribed error;
 - the repeated patch satisfies the packing inequality, including across adjacent boxes;
 - its exact density in terms of the patch cardinality and box covolume;
-- a fixed-width coordinate-box boundary layer has volume ratio tending to zero;
 - for every positive `ε`, every packing has a periodic packing `Q` with
-  `P.density ≤ Q.density + ε`.
+  `P.density ≤ Q.density + ε`, using the boundary-layer estimate.
 
 Deduce:
 
