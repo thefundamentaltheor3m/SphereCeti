@@ -16,10 +16,10 @@ public import SphereCeti.Contour.HalfInfiniteRectangle
 public import SphereCeti.Lattice.IntegralPresentation
 public import SphereCeti.Lattice.MinNorm
 public import SphereCeti.Leech.ResidueCoordinates
-public import SphereCeti.LinearAlgebra.IntegralLattice.Rootless
 public import SphereCeti.MeasureTheory.Measure.Haar.EuclideanSpace
 public import SphereCeti.ZLattice.Covolume.Bound
-public import SphereCeti.ZLattice.RelativeQuotient
+public import SphereCeti.ZLattice.RelativeQuotient.Basic
+public import SphereCeti.ZLattice.RelativeQuotient.Embedding
 
 /-!
 # SphereCeti library
