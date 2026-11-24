@@ -45,3 +45,8 @@ area:infrastructure:
     - 'pyproject.toml'
     - 'uv.lock'
     - 'sphereceti.toml'
+
+# A pull request whose base is not main is stacked on another, unmerged PR: it can only merge after
+# its parent does. With sync-labels on, the label goes away when the PR is retargeted to main.
+stacked:
+- base-branch: '^(?!main$)'
