@@ -7,6 +7,7 @@ Authors: SphereCeti contributors
 module
 
 public import Mathlib.Analysis.Complex.Basic
+public import Mathlib.Analysis.Calculus.DSlope
 
 /-!
 # Exact zero orders of functions of a real variable
@@ -30,6 +31,12 @@ quantitative stability estimates.
   cofactor.
 * `SphereCeti.HasExactZeroOrder.quantitativeLowerBound`: near an exact zero of order `m`, `‖f x‖`
   is bounded below by a positive multiple of `|x - a| ^ m`.
+* `SphereCeti.hasExactZeroOrder_one_of_hasDerivAt`: a zero with nonzero derivative has exact
+  order one, using Mathlib's continuous divided difference as its cofactor.
+* `SphereCeti.HasExactZeroOrder.mul`, `SphereCeti.HasExactZeroOrder.pow`: orders add under
+  products and multiply under powers.
+* `SphereCeti.HasExactZeroOrder.mul_continuousAt`: a continuous factor nonzero at the basepoint
+  preserves the exact order.
 -/
 
 public section
@@ -52,6 +59,48 @@ theorem hasExactZeroOrder_iff :
     HasExactZeroOrder f a m ↔
       ∃ g : ℝ → ℂ, ContinuousAt g a ∧ g a ≠ 0 ∧ ∀ᶠ x in 𝓝 a, f x = (x - a) ^ m * g x :=
   Iff.rfl
+
+/-- A function continuous and nonzero at `a` has exact order zero there. -/
+theorem hasExactZeroOrder_zero (hf : ContinuousAt f a) (hfa : f a ≠ 0) :
+    HasExactZeroOrder f a 0 := by
+  refine ⟨f, hf, hfa, .of_forall fun x ↦ ?_⟩
+  simp
+
+/-- A zero with nonzero derivative has exact order one. The continuous divided difference
+`dslope f a` is the nonvanishing cofactor. -/
+theorem hasExactZeroOrder_one_of_hasDerivAt {f' : ℂ}
+    (hf : HasDerivAt f f' a) (hfa : f a = 0) (hf' : f' ≠ 0) :
+    HasExactZeroOrder f a 1 := by
+  refine ⟨dslope f a, continuousAt_dslope_same.mpr hf.differentiableAt, ?_, ?_⟩
+  · simpa only [dslope_same, hf.deriv] using hf'
+  · refine .of_forall fun x ↦ ?_
+    simpa only [pow_one, Complex.ofReal_sub, Complex.real_smul] using
+      (sub_smul_dslope_of_zero hfa x).symm
+
+/-- Exact zero orders add under products. -/
+theorem HasExactZeroOrder.mul {g : ℝ → ℂ} {n : ℕ}
+    (hf : HasExactZeroOrder f a m) (hg : HasExactZeroOrder g a n) :
+    HasExactZeroOrder (fun x ↦ f x * g x) a (m + n) := by
+  obtain ⟨u, hu, hua, hfu⟩ := hf
+  obtain ⟨v, hv, hva, hgv⟩ := hg
+  refine ⟨fun x ↦ u x * v x, hu.mul hv, mul_ne_zero hua hva, ?_⟩
+  filter_upwards [hfu, hgv] with x hfx hgx
+  rw [hfx, hgx, pow_add]
+  ring
+
+/-- Raising a function to the `k`-th power multiplies its exact zero order by `k`. -/
+theorem HasExactZeroOrder.pow (hf : HasExactZeroOrder f a m) (k : ℕ) :
+    HasExactZeroOrder (fun x ↦ f x ^ k) a (m * k) := by
+  obtain ⟨u, hu, hua, hfu⟩ := hf
+  refine ⟨fun x ↦ u x ^ k, hu.pow k, pow_ne_zero _ hua, ?_⟩
+  filter_upwards [hfu] with x hx
+  simp only [hx, mul_pow, pow_mul]
+
+/-- Multiplying by a function continuous and nonzero at `a` preserves the exact zero order. -/
+theorem HasExactZeroOrder.mul_continuousAt {g : ℝ → ℂ}
+    (hf : HasExactZeroOrder f a m) (hg : ContinuousAt g a) (hga : g a ≠ 0) :
+    HasExactZeroOrder (fun x ↦ f x * g x) a m := by
+  simpa using hf.mul (hasExactZeroOrder_zero hg hga)
 
 /-- Near an exact zero of order `m`, `‖f x‖` is at least a positive multiple of `|x - a| ^ m`. -/
 theorem HasExactZeroOrder.quantitativeLowerBound (h : HasExactZeroOrder f a m) :
