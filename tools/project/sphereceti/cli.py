@@ -316,9 +316,11 @@ def main(argv: list[str] | None = None) -> int:
         if args.pr is not None or not (args.new or args.revised or args.all):
             parser.exit(2, "sphereceti review: --new/--revised/--all take no PR number, and --limit needs one of them\n")
         try:
-            batch = run_batch(args, project, policy, preferences,
-                              announce=None if args.json else lambda line: print(line, flush=True),
-                              prepare=(lambda: first_run(provider=args.provider)) if setup_needed else None)
+            from .review_approval import Approval
+            say = None if args.json else lambda line: print(line, flush=True)
+            batch = run_batch(args, project, policy, preferences, announce=say,
+                              prepare=(lambda: first_run(provider=args.provider)) if setup_needed else None,
+                              approval=lambda: Approval(project, announce=say))
         except (WorkerError, ReviewError, RecordError, GateError, ConfigError, OSError, ValueError, KeyError,
                 TypeError, subprocess.SubprocessError) as error:
             reason = (str(error) if isinstance(error, (WorkerError, ReviewError, RecordError, ConfigError,
@@ -330,9 +332,11 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "review" and args.pr is None:
         from .review_select import render as render_selection, run_bare
+        from .review_approval import Approval
+        announce = None if args.json else lambda line: print(line, flush=True)
         try:
             selection = run_bare(args, project, policy, preferences,
-                                 announce=None if args.json else lambda line: print(line, flush=True),
+                                 approval=lambda: Approval(project, announce=announce), announce=announce,
                                  prepare=(lambda: first_run(provider=args.provider)) if setup_needed else None)
         except (WorkerError, ReviewError, RecordError, GateError, ConfigError, OSError, ValueError,
                 KeyError, TypeError, subprocess.SubprocessError) as error:
@@ -352,6 +356,7 @@ def main(argv: list[str] | None = None) -> int:
         from .review_summary import announcing, summarize
         planned = {}
         say = None if args.json else lambda line: print(line, flush=True)
+        from .review_approval import Approval, note as approval_note
         if setup_needed:
             try:
                 preferences = first_run(provider=args.provider)
@@ -359,7 +364,8 @@ def main(argv: list[str] | None = None) -> int:
                 parser.exit(2, f"sphereceti: {error}\n")
         try:
             report = run_claimed(args, project, preferences,
-                                 wrap=lambda inner: announcing(preferences, say, planned, inner=inner))
+                                 wrap=lambda inner: announcing(preferences, say, planned, inner=inner),
+                                 approval=Approval(project, announce=say))
         except (ReviewError, GateError, ConfigError, OSError, ValueError, KeyError,
                 subprocess.SubprocessError) as error:
             reason = (str(error) if isinstance(error, (ReviewError, RecordError, ConfigError)) else
@@ -384,6 +390,8 @@ def main(argv: list[str] | None = None) -> int:
                     print(f"  Older review {item['from'][:7]}: {item['status']}")
             if not args.read_records:
                 print(posting_note(args, report))
+            if report.get("approval"):
+                print(approval_note(report["approval"]))
             if report.get("claim"):
                 print(claim_note(report["claim"]))
             if not args.read_records:

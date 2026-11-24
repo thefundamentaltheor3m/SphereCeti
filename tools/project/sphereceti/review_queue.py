@@ -349,13 +349,15 @@ def outcome(result) -> str:
     return f"incomplete ({result.get('completion')})"
 
 
-def run_batch(args, project, policy, prefs, *, api=None, client=None, announce=None, run=None, prepare=None):
+def run_batch(args, project, policy, prefs, *, api=None, client=None, announce=None, run=None, prepare=None,
+              approval=None):
     """Review up to --limit distinct PRs from one queue section, one at a time.
 
     Before each item the queue is surveyed again and the review is bound to the head it selects.
     A finding ends only that PR's review; an execution failure stops the batch.
     """
     from .local_review import posting_note
+    from .review_approval import note as approval_note
     from .review_select import check_arguments
     from .review_summary import announcing, summarize
     check_arguments(args)
@@ -404,7 +406,8 @@ def run_batch(args, project, policy, prefs, *, api=None, client=None, announce=N
         try:
             # As bare review: the claim guard rechecks the head right before inference and binds it.
             result = run_claimed(args, project, prefs, expect=item, run=run,
-                                 wrap=lambda inner: announcing(prefs, announce, planned, inner=inner))
+                                 wrap=lambda inner: announcing(prefs, announce, planned, inner=inner),
+                                 approval=approval() if approval else None)
         except (ClaimRefused, ClaimYielded) as error:
             skipped.append({"pr": item["pr"], "head": item["head"], "reason": str(error).split(": ", 1)[-1]})
             say(f"  skipped #{item['pr']}: {skipped[-1]['reason']}")
@@ -419,23 +422,30 @@ def run_batch(args, project, policy, prefs, *, api=None, client=None, announce=N
                 items.append({"pr": item["pr"], "head": item["head"], "section": item["section"],
                               "outcome": "head moved during the review; new revision left for a later run",
                               "output": None, "completion": "moved", "posting": "Not posted: the PR moved.",
-                              "posted": None, "plan": planned or None, "summary": None})
+                              "posted": None, "plan": planned or None, "summary": None,
+                              "approval": None})
                 say(f"  #{item['pr']}: head moved during the review; left for a later run")
                 continue
             stopped = f"#{item['pr']}: publication unconfirmed ({error})"
             items.append({"pr": item["pr"], "head": item["head"], "section": item["section"],
                           "outcome": "publication unconfirmed", "output": None, "completion": "error",
                           "posting": f"Not posted: {error}", "posted": None, "plan": planned or None,
-                          "summary": None})
+                          "summary": None, "approval": None})
             untouched = [e["pr"] for e in pending[1:]]
             break
         posting = posting_note(args, result)
         summary = summarize(args, result, posting=posting)
         say(summary["line"])
         say("Next: " + summary["next_action"])
+        approved = result.get("approval") or {}
+        if approved:
+            say(approval_note(approved))
         items.append({"pr": item["pr"], "head": result["head"], "section": item["section"],
-                      "outcome": outcome(result), "output": result["output"], "completion": result["completion"],
-                      "posting": posting, "posted": summary["posted"], "plan": planned or None, "summary": summary})
+                      "outcome": outcome(result) + ("; approval submitted" if approved.get("state") == "submitted"
+                                                    else ""),
+                      "output": result.get("output"), "completion": result["completion"], "posting": posting,
+                      "posted": summary["posted"], "plan": planned or None, "summary": summary,
+                      "approval": approved or None})
         stopped = stop_reason(result, summary)
         if stopped:
             untouched = [e["pr"] for e in pending[1:]]

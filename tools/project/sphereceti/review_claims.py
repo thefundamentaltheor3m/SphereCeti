@@ -9,7 +9,7 @@ identity check and post-then-confirm discipline they follow. Each ignores the ot
 """
 from __future__ import annotations
 
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from datetime import timedelta
 from pathlib import Path
 import json
@@ -292,25 +292,37 @@ def note(receipt) -> str | None:
     return f"Claim {receipt['url']} marked {receipt['state']}."
 
 
-def run_claimed(args, project, prefs, *, expect=None, run=None, wrap=None):
-    """run_review with an advisory claim when it will post; abandon on any failure or signal."""
+def run_claimed(args, project, prefs, *, expect=None, run=None, wrap=None, approval=None):
+    """run_review with an advisory claim when it will post; abandon on any failure or signal.
+
+    An optional maintainer `approval` decides applicability inside the claim (before inference)
+    and acts after the review, before the claim is marked finished. `wrap` adds an outer guard
+    (e.g. the plan line) around both.
+    """
     from .local_review import run_review
     run = run or run_review
     claim = ReviewClaim(project, prefs, force=getattr(args, "force_claim", False), expect=expect)
+
+    @contextmanager
+    def guard(args, report, policy, client):
+        with claim.guard(args, report, policy, client):
+            with (approval.guard(args, report, policy, client) if approval else nullcontext()):
+                yield None
 
     def interrupted(signum, frame):
         raise KeyboardInterrupt("review stopped")
     prior = signal.signal(signal.SIGTERM, interrupted)
     try:
         try:
-            # `wrap` adds an outer guard (e.g. the plan line) around the claim's own guard.
-            result = run(args, project, prefs, guard=wrap(claim.guard) if wrap else claim.guard)
+            result = run(args, project, prefs, guard=wrap(guard) if wrap else guard)
         except BaseException as error:
             receipt = claim.abandon("interrupted" if isinstance(error, KeyboardInterrupt) else
                                     "review failed: " + (str(error) or type(error).__name__)[:200])
             if receipt and receipt["edit"] == "failed":
                 print("sphereceti review: " + note(receipt), file=sys.stderr)
             raise
+        if approval and not args.dry_run and not getattr(args, "read_records", False):
+            result["approval"] = approval.after(args, result)
         receipt = claim.finish(result)
         if receipt:
             result["claim"] = receipt

@@ -159,6 +159,66 @@ The command never starts the engine or a provider. In order, it:
 
 The command exits 0 when the record is published or already on the PR, and 2 otherwise.
 
+## Approvals by opted-in maintainers
+
+A maintainer runs `sphereceti review N` (or bare `review`) once. If the PR qualifies and every
+rubric approves, the CLI also submits a formal GitHub **APPROVE** under that maintainer's own
+account. A separate CI merge step, not this CLI, lands the PR. There is no bot account, and the
+CLI has no merge path.
+
+**Policy.** Approved main's `policy/automation.toml` gates it with two fields, both optional when
+parsing (absent means off and empty):
+
+```toml
+approving = false            # the switch
+approving_reviewers = []     # "user:ID" maintainers, a subset of authorized_reviewers
+```
+
+Both ship off and empty. A maintainer is added by a separately reviewed policy PR once they agree.
+
+**Guards before inference, in order** (inside the review claim, after evidence preparation):
+`--no-approve` not given; the record is being posted (not `--no-post`, a dry run, or posting
+degraded by policy); approved policy available at T; `approving = true`; your `gh` identity
+(`user:ID`) is in `approving_reviewers`; you are not the PR author. When all hold, the CLI prints
+`If all rubrics approve and this PR qualifies, I'll submit your GitHub approval.` before any
+model call. Otherwise it prints nothing then, and the result names the first failing guard.
+
+**After the review, in order**, stopping at the first failure:
+
+1. The record was posted and confirmed under your identity.
+2. The review is complete, with no stop, and all ten rubrics approve.
+3. Confirmed readback through the official reader (`assess_records`, the `--read-records`
+   semantics): `review_safe`, for this exact head and base, with your posted comment selected. An
+   author contest on your earlier record that this record leaves unanswered therefore blocks the
+   approval. The PR's head and base are re-read and must be unchanged.
+4. The read-only decision (`sphereceti auto-approve-check`, `auto_approval.py`), never
+   hypothetical, must say `would_approve: true` for the same head and base. It covers scope, the
+   trusted build and its tooling attestation, the compiled audit, the independent reviewer and
+   the PR state.
+5. If your current review state already approves this head, nothing is written. As in the merge
+   controller, your current state is your latest `APPROVED`, `CHANGES_REQUESTED` or `DISMISSED`
+   review, so a later change request supersedes an earlier approval.
+6. One `POST repos/<repo>/pulls/N/reviews` with `event = APPROVE`, `commit_id` = the exact head,
+   and a short body linking the review record. A failed or ambiguous POST is reported and never
+   retried; check the PR before rerunning.
+
+**Reporting.** The text result reports both outcomes separately:
+`Posted: <url>` / `Not posted: <reason>` and `Approval: submitted <url>` /
+`Approval: not submitted: <reason>`. Reasons include `--no-approve`, `approving is off in the
+approved policy`, `you (user:N) are not opted in`, `you are the PR author`, `not all rubrics
+approve (naming)`, `readback did not accept your record ...`, and `the auto-approval decision
+refused (<its reasons>)`. `--json` carries `approval` (`state`: `submitted`, `existing` or
+`not_submitted`, with `reason`, `decision_reasons`, `review_id`, `url`); bare `review` also
+repeats it at the top level. `--no-approve` posts the findings and leaves the merge decision to
+the maintainer. Batch items (`review --new/--revised/--all`) and bare `review`, including its
+stack-aware selection, go through the same approval inside the same claim, and each batch item's
+line says when an approval was submitted.
+
+The merge controller counts this approval only as it counts any other: a current `APPROVE` on the
+exact head, by a maintainer in `approving_reviewers` who is not the author. The CLI approves only
+the head it just reviewed; whether an approval still counts after the head moves is the merge
+controller's rule, not the CLI's.
+
 ## Review-in-progress claims
 
 A review that will post announces itself so contributors do not race each other. The claim is
