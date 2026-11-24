@@ -1,0 +1,63 @@
+name: Intention (one proof target)
+description: Say that you are proving one specific declaration or lemma, so anyone starting the same proof finds you.
+title: "[Intention]: "
+labels: ["intention"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Register **one lemma or declaration**, not a whole roadmap item or layer. Several people
+        can advance the same item at once: counting, averaging, separation and periodicity all
+        advance D5 but are separate jobs. Claim the one you are proving so the others stay open.
+
+        Before opening this, check the [open PRs](https://github.com/thefundamentaltheor3m/SphereCeti/pulls)
+        and [open intentions](https://github.com/thefundamentaltheor3m/SphereCeti/issues?q=is%3Aissue+is%3Aopen+label%3Aintention).
+
+        After opening it, **comment `claim`** (30 days) or `claim 3 weeks` (at most 90 days) to be
+        assigned. Comment `unclaim` to release it, and `claim` again to renew. An expired claim is
+        released automatically. Intentions are advisory: they help contributors find each other,
+        and they never block or allow a merge.
+  - type: textarea
+    id: target
+    attributes:
+      label: Target declaration
+      description: >
+        The specific Lean declaration you are proving: its name from `SphereCetiRoadmap/Suggested.lean`,
+        or a precise statement for a prerequisite lemma.
+      placeholder: |
+        theorem PeriodicSpherePacking.density_eq_card_div_covolume ...
+      render: lean
+    validations:
+      required: true
+  - type: input
+    id: roadmap_item
+    attributes:
+      label: Roadmap item or layer
+      description: The roadmap item or layer this declaration advances.
+      placeholder: "D5, layer 4"
+    validations:
+      required: true
+  - type: input
+    id: parent_pr
+    attributes:
+      label: Parent PR
+      description: The PR this work stacks on, if any.
+      placeholder: "#105"
+    validations:
+      required: false
+  - type: input
+    id: module
+    attributes:
+      label: Intended module
+      description: Where the proof will live.
+      placeholder: SphereCeti/Packing/PeriodicDensity.lean
+    validations:
+      required: true
+  - type: input
+    id: duration
+    attributes:
+      label: Expected duration
+      description: Optional. Comment `claim` with a matching duration, for example `claim 3 weeks`.
+      placeholder: 3 weeks
+    validations:
+      required: false
