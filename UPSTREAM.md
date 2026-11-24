@@ -358,6 +358,7 @@ closure-continuity hypotheses separately.
   `CentralIntegrable` of the Layer 8 component identities, reduced to one-variable conditions on
   the kernels (MIGRATION J3).
 - [ ] **Fallback:** the local SphereCeti declarations.
+- [ ] **Upstream test:** no project import remains in a minimal reproduction.
 
 ### A20. Coordinate boxes in Euclidean space and their boundary layers
 
@@ -373,7 +374,6 @@ closure-continuity hypotheses separately.
   refers to packings.
 - [ ] **SphereCeti use:** the periodic approximation of sphere packings (MIGRATION D5, Layer 3).
 - [ ] **Fallback:** the local declarations in the `EuclideanSpace` namespace.
-
 - [ ] **Upstream test:** no project import remains in a minimal reproduction.
 
 ## B. TauCeti IntegralLattices roadmap extensions
