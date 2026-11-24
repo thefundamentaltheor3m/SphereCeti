@@ -7,7 +7,7 @@ Authors: SphereCeti contributors
 module
 
 public import TauCeti.Algebra.Module.ZLattice.RationalModel
-public import TauCeti.Algebra.Module.ZLattice.Shell
+public import TauCeti.Algebra.Module.ZLattice.ModelShell
 public import SphereCeti.LinearAlgebra.IntegralLattice.Rootless
 
 /-!
@@ -335,19 +335,30 @@ theorem mem_dual_iff_exists_dualCarrier_coordinates (P : IntegralPresentation Λ
     P.ratModelIsometry.apply_mem_dualCarrier_iff]
   exact q.2
 
+/-- A vector of `Λ` lies in the shell of squared length `n` exactly when its coordinate vector has
+norm `n`: TauCeti's shell comparison `ZLattice.shell_eq_image_vectorsOfNorm_ratModel`, transported
+along `ratModelIsometry`. -/
+private theorem mem_shell_iff_carrierEquiv_mem (P : IntegralPresentation Λ) (n : ℕ) (x : Λ) :
+    (x : EuclideanSpace ℝ (Fin d)) ∈ ZLattice.shell Λ n ↔
+      P.carrierEquiv x ∈ P.toIntegralLattice.vectorsOfNorm n := by
+  rw [← Rat.cast_natCast (α := ℝ) n,
+    ZLattice.shell_eq_image_vectorsOfNorm_ratModel P.isIntegral_real,
+    ← P.ratModelIsometry.carrierEquiv_mem_vectorsOfNorm_iff]
+  -- The rational model vector of `x` is the image of its coordinate vector.
+  have hx : ZLattice.ratModelMap Λ (P.ratModelIsometry.carrierEquiv (P.carrierEquiv x) :
+      ℚ ⊗[ℤ] Λ) = x := by
+    simpa using P.ratModelMap_ratModelIsometry_carrierEquiv x
+  refine ⟨fun ⟨y, hy, hyx⟩ ↦ ?_, fun h ↦ ⟨_, h, hx⟩⟩
+  rwa [Subtype.ext (ZLattice.ratModelMap_injective (hyx.trans hx.symm))] at hy
+
 /-- The coordinate identification restricted to shells: the vectors of `Λ` of squared length `n`
 correspond to the vectors of norm `n` of the lattice in Gram coordinates. -/
 noncomputable def shellEquiv (P : IntegralPresentation Λ) (n : ℕ) :
     ↑(ZLattice.shell Λ n) ≃ ↑(P.toIntegralLattice.vectorsOfNorm n) where
-  toFun v := ⟨P.carrierEquiv ⟨v, (ZLattice.mem_shell.mp v.2).1⟩, by
-    rw [TauCeti.IntegralLattice.mem_vectorsOfNorm, ← (Rat.cast_injective (α := ℝ)).eq_iff,
-      P.norm_carrierEquiv]
-    exact_mod_cast (ZLattice.mem_shell.mp v.2).2⟩
-  invFun w := ⟨P.carrierEquiv.symm w, by
-    refine ZLattice.mem_shell.mpr ⟨(P.carrierEquiv.symm w).2, ?_⟩
-    have h := P.norm_carrierEquiv (P.carrierEquiv.symm w)
-    rw [LinearEquiv.apply_symm_apply, TauCeti.IntegralLattice.mem_vectorsOfNorm.mp w.2] at h
-    exact_mod_cast h.symm⟩
+  toFun v := ⟨P.carrierEquiv ⟨v, (ZLattice.mem_shell.mp v.2).1⟩,
+    (P.mem_shell_iff_carrierEquiv_mem n _).mp v.2⟩
+  invFun w := ⟨P.carrierEquiv.symm w,
+    (P.mem_shell_iff_carrierEquiv_mem n _).mpr (by simp)⟩
   left_inv v := by simp
   right_inv w := by simp
 
