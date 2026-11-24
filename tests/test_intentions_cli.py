@@ -13,16 +13,52 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools' / 'project'))
 from sphereceti.config import parse_project, resource_text
-from sphereceti.intentions import (LOOKUP_SCHEMA, SCHEMA, added_lines, declarations, issue_body, lookup,
-                                   observe, register, render, render_lookup)
+from sphereceti.intentions import (LOOKUP_SCHEMA, MARKER, SCHEMA, RegistrationRefused, added_lines,
+                                   declarations, issue_body, lookup, observe, parse_fields, register, render,
+                                   render_lookup)
 from sphereceti.review_records import RecordError
 
 ROOT = Path(__file__).resolve().parents[1]
 PROJECT = parse_project(resource_text('sphereceti.toml'))
 REPO = PROJECT.repository
 NOW = datetime.now(timezone.utc)
-FUTURE = (NOW + timedelta(days=7)).strftime('%Y-%m-%d')
-PAST = (NOW - timedelta(days=2)).strftime('%Y-%m-%d')
+FUTURE = (NOW + timedelta(days=7)).strftime('%Y-%m-%dT%H:%M:%SZ')
+PAST = (NOW - timedelta(days=2)).strftime('%Y-%m-%dT%H:%M:%SZ')
+
+# #134's rendered-form fixture (tests/test_intentions.py ISSUE_BODY at 89aefc1), copied verbatim.
+ISSUE_BODY = """### Target declaration
+
+```lean
+theorem PeriodicSpherePacking.density_eq_card_div_covolume (P : PeriodicSpherePacking d) :
+    P.density = P.numReps / covolume P.lattice
+```
+
+### Roadmap item or layer
+
+D5, layer 4
+
+### Parent PR
+
+_No response_
+
+### Intended module
+
+SphereCeti/Packing/PeriodicDensity.lean
+
+### Expected duration
+
+3 weeks
+"""
+ISSUE_FIELDS = {'target': 'theorem PeriodicSpherePacking.density_eq_card_div_covolume (P : PeriodicSpherePacking d) :\n'
+                          '    P.density = P.numReps / covolume P.lattice',
+                'roadmap_item': 'D5, layer 4', 'parent_pr': None,
+                'module': 'SphereCeti/Packing/PeriodicDensity.lean', 'duration': '3 weeks'}
+
+
+def marker(cid, holder, expires, *, by='github-actions[bot]', kind='Bot'):
+    data = {'action': 'claim', 'comment': cid - 1, 'expires': expires, 'holder': holder, 'holder_id': 9}
+    return {'id': cid, 'user': {'login': by, 'type': kind},
+            'body': MARKER + json.dumps(data, sort_keys=True, separators=(',', ':')) + f'-->\n{holder} claimed this.'}
 
 LINTEGRAL = '''module
 
@@ -88,17 +124,18 @@ def pr(number, title, path, source, *, status='added', old='', body='', author='
             'contents': {f'{path}?ref={head}': source}}
 
 
-def form_issue(number, *, declarations_text=None, item=None, module=None, expires=FUTURE, holders=('alice',),
-               labels=('intention',)):
-    return {'number': number, 'title': f'Intention {number}', 'html_url': f'https://github.com/{REPO}/issues/{number}',
-            'body': issue_body(declarations_text, item, module, None, expires),
+def form_issue(number, *, target=None, item='D5', module='SphereCeti/Packing/X.lean', holders=('alice',),
+               labels=('intention',), body=None):
+    return {'number': number, 'title': f'[Intention]: {number}', 'html_url': f'https://github.com/{REPO}/issues/{number}',
+            'body': body or issue_body(target, item, module, None, None),
             'assignees': [{'login': h} for h in holders], 'labels': [{'name': l} for l in labels]}
 
 
 def d5_world():
     return {
-        'issues': [form_issue(200, declarations_text='EuclideanSpace.periodicRepetition_card', item='D5'),
-                   form_issue(201, declarations_text='Foo.bar', expires=PAST, holders=('bob',)),
+        'issues': [form_issue(200, target='theorem EuclideanSpace.periodicRepetition_card (n : ℕ) :\n    True'),
+                   form_issue(201, target='Foo.bar', item='A1', holders=('bob',)),
+                   form_issue(203, body=ISSUE_BODY, holders=(), labels=()),  # form body, label not applied
                    {'number': 202, 'title': 'An ordinary bug', 'body': 'Nothing to see', 'assignees': [], 'labels': [],
                     'html_url': f'https://github.com/{REPO}/issues/202'}],
         'prs': [pr(105, 'Count the points of a finite set in the translates of a set (Layer 3, D5 averaging step)',
@@ -110,6 +147,9 @@ def d5_world():
                         'html_url': '', 'head': {'sha': 'f' * 40}},
                  'files': [{'filename': 'CONTRIBUTING.md', 'status': 'modified', 'patch': '@@ -1 +1 @@\n+x'}],
                  'contents': {}}],
+        'comments': {'200': [marker(5, 'alice', FUTURE)],
+                     '201': [marker(6, 'bob', PAST)],
+                     '203': [marker(7, 'mallory', FUTURE, by='mallory', kind='User')]},  # forged: ignored
     }
 
 
@@ -136,6 +176,8 @@ class FakeClient:
             key = path[len('contents/'):]
             source = next(p['contents'][key] for p in self.world['prs'] if key in p['contents'])
             return {'encoding': 'base64', 'content': base64.b64encode(source.encode()).decode()}
+        if path.startswith('issues/') and path.endswith('/comments?per_page=100'):
+            return [list(self.world['comments'].get(path.split('/')[1], []))]
         if path == 'issues' and payload:
             if self.on_create:
                 hook, self.on_create = self.on_create, None
@@ -146,7 +188,9 @@ class FakeClient:
             self.world['issues'].append(issue)  # labels dropped, as for contributors without triage rights
             return dict(issue)
         if path.startswith('issues/') and path.endswith('/comments') and payload:
-            return {'id': 1, 'body': payload['body']}
+            comment = {'id': 900 + len(self.calls), 'body': payload['body'], 'user': {'login': 'me', 'type': 'User'}}
+            self.world['comments'].setdefault(path.split('/')[1], []).append(comment)
+            return comment
         if path.startswith('issues/') and method == 'PATCH':
             issue = next(i for i in self.world['issues'] if i['number'] == int(path.split('/')[1]))
             issue.update(payload)
@@ -166,6 +210,23 @@ class DeclarationTest(unittest.TestCase):
                                                         'EuclideanSpace.averaged', 'volume_closedBall_ratio'])
 
 
+class FormatContractTest(unittest.TestCase):
+    def test_parser_mirrors_134_on_its_rendered_form_fixture(self):
+        self.assertEqual(parse_fields(ISSUE_BODY), ISSUE_FIELDS)
+        self.assertEqual(parse_fields('free text'), dict.fromkeys(ISSUE_FIELDS))
+        # The CLI writes #134's layout: the target in a ```lean block, `_No response_` when empty.
+        written = issue_body(ISSUE_FIELDS['target'], 'D5, layer 4', ISSUE_FIELDS['module'], None, '3 weeks')
+        self.assertEqual(written, ISSUE_BODY)
+        script = ROOT / 'scripts' / 'intentions.py'
+        if script.is_file():  # once #134 has landed, both parsers must agree on its fixture
+            import importlib.util
+            spec = importlib.util.spec_from_file_location('workflow_intentions', script)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            self.assertEqual(module.parse_intention(ISSUE_BODY), parse_fields(ISSUE_BODY))
+            self.assertEqual(module.MARKER, MARKER)
+
+
 class LookupTest(unittest.TestCase):
     def setUp(self):
         self.world = d5_world()
@@ -177,23 +238,26 @@ class LookupTest(unittest.TestCase):
 
     def test_observation_lists_intentions_beside_proof_prs_grouped_by_item(self):
         self.assertEqual(self.observed['schema'], SCHEMA)
-        self.assertEqual([i['number'] for i in self.observed['intentions']], [200, 201])
+        self.assertEqual([i['number'] for i in self.observed['intentions']], [200, 201, 203])  # not the bug #202
         self.assertEqual([p['number'] for p in self.observed['pull_requests']], [105, 112])  # #98 has no module
         d5 = next(g for g in self.observed['groups'] if g['key'] == 'D5')
-        self.assertEqual((d5['intentions'], d5['pull_requests']), ([200], [105, 112]))
-        self.assertEqual(set(self.observed['pull_requests'][0]), {
-            'kind', 'number', 'url', 'title', 'author', 'draft', 'head', 'modules', 'declarations', 'declared',
-            'items', 'layers', 'incomplete'})
+        self.assertEqual((d5['intentions'], d5['pull_requests']), ([200, 203], [105, 112]))
+        form = next(i for i in self.observed['intentions'] if i['number'] == 203)
+        self.assertEqual((form['declarations'], form['items'], form['layers'], form['state']),
+                         (['PeriodicSpherePacking.density_eq_card_div_covolume'], ['D5'], ['4'], 'unclaimed'))
         text = render(self.observed)
         self.assertIn('Roadmap item D5:', text)
-        self.assertIn(f'intention #200 claimed by alice until {FUTURE}: EuclideanSpace.periodicRepetition_card', text)
-        self.assertIn(f'intention #201 EXPIRED claim by bob (expired {PAST}): Foo.bar', text)
+        self.assertIn(f'intention #200 claimed by alice until {FUTURE[:10]}: EuclideanSpace.periodicRepetition_card', text)
+        self.assertIn(f'intention #201 EXPIRED claim by bob (expired {PAST[:10]}): Foo.bar', text)
+        self.assertIn('intention #203 registered, unclaimed', text)  # mallory's forged marker is ignored
 
     def test_exact_match_on_an_intention(self):
         result = self.look('EuclideanSpace.periodicRepetition_card')
         self.assertEqual((result['verdict'], [w['number'] for w in result['claimed']]), ('claimed', [200]))
         self.assertTrue(render_lookup(result).startswith('Already claimed: declaration '))
-        self.assertIn('https://github.com/thefundamentaltheor3m/SphereCeti/issues/200', render_lookup(result))
+        self.assertIn(f'https://github.com/{REPO}/issues/200', render_lookup(result))
+        # Registered but unclaimed still blocks its exact target.
+        self.assertEqual(self.look('PeriodicSpherePacking.density_eq_card_div_covolume')['verdict'], 'claimed')
 
     def test_exact_match_on_an_open_prs_added_declaration_even_unqualified(self):
         for target in ('lintegral_encard_inter_vadd', 'MeasureTheory.lintegral_encard_inter_vadd'):
@@ -204,12 +268,14 @@ class LookupTest(unittest.TestCase):
     def test_same_item_different_lemma_is_related_not_claimed(self):
         result = self.look('EuclideanSpace.box_average_tendsto', item='D5')
         self.assertEqual(result['verdict'], 'no_exact_claim')
-        self.assertEqual(sorted(w['number'] for w in result['related']), [105, 112, 200])
+        self.assertEqual(sorted(w['number'] for w in result['related']), [105, 112, 200, 203])
         text = render_lookup(result)
         self.assertTrue(text.startswith('No exact claim found for declaration EuclideanSpace.box_average_tendsto.'))
         self.assertIn('Related open PRs and intentions', text)
         item = self.look('D5')
-        self.assertEqual((item['kind'], item['verdict'], len(item['related'])), ('item', 'no_exact_claim', 3))
+        self.assertEqual((item['kind'], item['verdict'], len(item['related'])), ('item', 'no_exact_claim', 4))
+        self.assertIn('target=EuclideanSpace.box_average_tendsto', result['register_url'])
+        self.assertIn('template=intention.yml', result['register_url'])
 
     def test_nothing_related_never_says_free(self):
         result = self.look('Totally.unrelated_lemma')
@@ -228,12 +294,14 @@ class LookupTest(unittest.TestCase):
         self.assertEqual([(w['number'], w['state']) for w in result['related']], [(201, 'expired')])
 
     def test_a_failed_lookup_raises_and_never_reports_no_claim(self):
-        for endpoint in ('issues?state=open', 'pulls?state=open', '/files', 'contents/'):
+        for endpoint in ('issues?state=open', '/comments?per_page', 'pulls?state=open', '/files', 'contents/'):
             with self.subTest(endpoint=endpoint), self.assertRaises(RecordError):
                 lookup(PROJECT, 'X.y', client=FakeClient(d5_world(), fail=endpoint))
 
 
 class RegisterTest(unittest.TestCase):
+    MODULE = 'SphereCeti/MeasureTheory/Measure/Haar/BoxAveraging.lean'
+
     def setUp(self):
         self.world = d5_world()
 
@@ -241,72 +309,82 @@ class RegisterTest(unittest.TestCase):
         return FakeClient(self.world)
 
     def start(self, client, target, **kwargs):
-        return lookup(PROJECT, target, client=client, **kwargs)
+        return lookup(PROJECT, target, client=client, **{'item': 'D5', 'module': self.MODULE, **kwargs})
 
-    def test_register_creates_a_form_format_issue_that_lists_like_a_form_issue(self):
+    def test_register_creates_134s_issue_comments_claim_and_lists_like_a_form_issue(self):
         client = self.client()
-        result = self.start(client, 'EuclideanSpace.box_average_tendsto', item='D5')
-        outcome = register(PROJECT, result, client=client, parent=112, now=NOW)
+        result = self.start(client, 'EuclideanSpace.box_average_tendsto')
+        outcome = register(PROJECT, result, client=client, parent=112, duration='3 weeks', now=NOW)
         self.assertEqual(outcome['state'], 'registered')
-        [(_, endpoint, payload)] = [w for w in client.writes()]
-        self.assertEqual(endpoint, f'repos/{REPO}/issues')
-        self.assertEqual(payload['labels'], ['intention'])
-        self.assertIn('### Declarations\n\nEuclideanSpace.box_average_tendsto', payload['body'])
-        self.assertIn('### Roadmap item\n\nD5', payload['body'])
-        self.assertIn('### Parent PR\n\n#112', payload['body'])
-        # The created issue (unlabelled, as for a contributor without triage rights) parses exactly
-        # like the form-filed #200, and now claims the declaration for everyone else.
+        number = outcome['issue']['number']
+        [(_, create, payload), (_, comment, claim)] = client.writes()
+        self.assertEqual((create, payload['title'], payload['labels']),
+                         (f'repos/{REPO}/issues', '[Intention]: EuclideanSpace.box_average_tendsto', ['intention']))
+        self.assertEqual(payload['body'], issue_body('EuclideanSpace.box_average_tendsto', 'D5', self.MODULE, 112,
+                                                     '3 weeks'))
+        self.assertIn('### Target declaration\n\n```lean\nEuclideanSpace.box_average_tendsto\n```', payload['body'])
+        self.assertEqual((comment, claim), (f'repos/{REPO}/issues/{number}/comments', {'body': 'claim 3 weeks'}))
+        # The created issue (unlabelled, as for a contributor without triage rights) parses like the
+        # form-filed #203, and its exact target is now claimed for everyone else.
         again = self.start(self.client(), 'EuclideanSpace.box_average_tendsto')
-        self.assertEqual([w['number'] for w in again['claimed']], [outcome['issue']['number']])
-        form = next(i for i in observe(PROJECT, client=self.client(), now=NOW)['intentions'] if i['number'] == 200)
-        mine = next(i for i in observe(PROJECT, client=self.client(), now=NOW)['intentions']
-                    if i['number'] == outcome['issue']['number'])
-        self.assertEqual(set(form), set(mine))
+        self.assertEqual([w['number'] for w in again['claimed']], [number])
+        listed = {i['number']: i for i in observe(PROJECT, client=self.client(), now=NOW)['intentions']}
+        self.assertEqual(set(listed[203]), set(listed[number]))
+        self.assertEqual(listed[number]['parent_pr'], 112)
 
     def test_near_simultaneous_same_declaration_race_the_second_sees_the_first(self):
-        # Both contributors looked and saw no exact claim. A registers first; B's pre-check sees it.
+        # Both looked and saw no exact claim. A registers first; B's pre-check sees A's issue, even
+        # before #134's workflow has assigned A, and writes nothing.
         a_client, b_client = self.client(), self.client()
-        a = self.start(a_client, 'EuclideanSpace.box_average_tendsto', item='D5')
-        b = self.start(b_client, 'EuclideanSpace.box_average_tendsto', item='D5')
-        self.assertEqual(register(PROJECT, a, client=a_client, now=NOW)['state'], 'registered')
+        a = self.start(a_client, 'EuclideanSpace.box_average_tendsto')
+        b = self.start(b_client, 'EuclideanSpace.box_average_tendsto')
+        first = register(PROJECT, a, client=a_client, now=NOW)
+        self.assertEqual(first['state'], 'registered')
         lost = register(PROJECT, b, client=b_client, now=NOW)
         self.assertEqual(lost['state'], 'claimed')
-        self.assertIn('/issues/', lost['winner']['url'])
+        self.assertEqual(lost['winner']['url'], first['issue']['url'])
         self.assertEqual(b_client.writes(), [])
         # Truly simultaneous: A's issue lands between B's pre-check and B's creation.
         world = d5_world()
         b_client = FakeClient(world)
-        b = self.start(b_client, 'EuclideanSpace.other_lemma', item='D5')
-        rival = form_issue(250, declarations_text='EuclideanSpace.other_lemma', item='D5', holders=())
+        b = lookup(PROJECT, 'EuclideanSpace.other_lemma', client=b_client, item='D5', module=self.MODULE)
+        rival = form_issue(250, target='EuclideanSpace.other_lemma', holders=())
         b_client.on_create = lambda: world['issues'].append(rival)
         lost = register(PROJECT, b, client=b_client, now=NOW)
         self.assertEqual(lost['state'], 'lost_race')
-        self.assertEqual(lost['winner']['number'], 250)
-        self.assertEqual(lost['winner']['url'], f'https://github.com/{REPO}/issues/250')
+        self.assertEqual((lost['winner']['number'], lost['winner']['url']), (250, f'https://github.com/{REPO}/issues/250'))
         mine = lost['issue']['number']
         self.assertEqual([(m, e) for m, e, _ in b_client.writes()],
                          [('POST', f'repos/{REPO}/issues'), ('POST', f'repos/{REPO}/issues/{mine}/comments'),
-                          ('PATCH', f'repos/{REPO}/issues/{mine}')])  # only our own duplicate is touched
+                          ('PATCH', f'repos/{REPO}/issues/{mine}')])  # only our own duplicate, and no `claim`
         self.assertIn('Duplicate of #250', b_client.writes()[1][2]['body'])
-        text = render_lookup({**b, 'registration': lost})
-        self.assertIn('Lost the race: intention #250', text)
+        self.assertIn('Lost the race: intention #250', render_lookup({**b, 'registration': lost}))
+
+    def test_an_expired_intention_is_claimed_in_place_not_duplicated(self):
+        client = self.client()
+        result = lookup(PROJECT, 'Foo.bar', client=client, item='A1', module='SphereCeti/Packing/X.lean')
+        outcome = register(PROJECT, result, client=client, now=NOW)
+        self.assertEqual((outcome['state'], outcome['issue']['number']), ('claim_requested', 201))
+        self.assertEqual([(e, p) for _, e, p in client.writes()], [(f'repos/{REPO}/issues/201/comments', {'body': 'claim'})])
 
     def test_distinct_d5_lemmas_both_go_through(self):
         first, second = self.client(), self.client()
-        a = self.start(first, 'EuclideanSpace.box_average_tendsto', item='D5')
-        b = self.start(second, 'EuclideanSpace.periodic_density_limit', item='D5')
+        a = self.start(first, 'EuclideanSpace.box_average_tendsto')
+        b = self.start(second, 'EuclideanSpace.periodic_density_limit')
         self.assertEqual(register(PROJECT, a, client=first, now=NOW)['state'], 'registered')
         self.assertEqual(register(PROJECT, b, client=second, now=NOW)['state'], 'registered')
-        claimed = observe(PROJECT, client=self.client(), now=NOW)['intentions']
-        self.assertEqual(len([i for i in claimed if 'D5' in i['items']]), 3)
+        listed = observe(PROJECT, client=self.client(), now=NOW)['intentions']
+        self.assertEqual(len([i for i in listed if 'D5' in i['items']]), 4)
 
-    def test_no_write_on_dry_run_claim_or_lookup_failure(self):
+    def test_no_write_on_dry_run_claim_refusal_or_lookup_failure(self):
         client = self.client()
-        result = self.start(client, 'EuclideanSpace.box_average_tendsto', item='D5')
+        result = self.start(client, 'EuclideanSpace.box_average_tendsto')
         dry = register(PROJECT, result, client=client, dry_run=True, now=NOW)
-        self.assertEqual(dry['state'], 'dry_run')
+        self.assertEqual((dry['state'], dry['claim']), ('dry_run', 'claim'))
         claimed = self.start(client, 'lintegral_encard_inter_vadd')
         self.assertEqual(register(PROJECT, claimed, client=client, now=NOW)['state'], 'claimed')
+        with self.assertRaises(RegistrationRefused):  # the form requires an item and a module
+            register(PROJECT, lookup(PROJECT, 'X.y', client=client), client=client, now=NOW)
         self.assertEqual(client.writes(), [])
         failing = FakeClient(self.world, fail='issues?state=open')
         with self.assertRaises(RecordError):
@@ -329,13 +407,20 @@ if world.get("fail") and world["fail"] in endpoint:
 repo = "thefundamentaltheor3m/SphereCeti"
 path = endpoint[len(f"repos/{repo}/"):]
 prs = {str(p["pr"]["number"]): p for p in world["prs"]}
-if "--input" in args:
+if "--input" in args and path.endswith("/comments"):
+    payload = json.load(sys.stdin)
+    out = {"id": 900, "body": payload["body"], "user": {"login": "me", "type": "User"}}
+    world["comments"].setdefault(path.split("/")[1], []).append(out)
+    state_path.write_text(json.dumps(world))
+elif "--input" in args:
     payload = json.load(sys.stdin)
     number = max([i["number"] for i in world["issues"]] + [300]) + 1
     out = {"number": number, "title": payload["title"], "body": payload["body"], "assignees": [], "labels": [],
            "html_url": f"https://github.com/{repo}/issues/{number}"}
     world["issues"].append(out)
     state_path.write_text(json.dumps(world))
+elif path.endswith("/comments?per_page=100"):
+    out = [world["comments"].get(path.split("/")[1], [])]
 elif path == "issues?state=open&per_page=100":
     out = [world["issues"]]
 elif path == "pulls?state=open&per_page=100":
@@ -383,18 +468,23 @@ class IntentionsCliTest(unittest.TestCase):
         looked = self.run_cli('intend', 'lintegral_encard_inter_vadd', '--json')
         self.assertEqual(looked.returncode, 0, looked.stderr)
         self.assertEqual(json.loads(looked.stdout)['verdict'], 'claimed')
-        dry = self.run_cli('intend', 'EuclideanSpace.box_average_tendsto', '--item', 'D5', '--register', '--dry-run')
+        flags = ('--item', 'D5', '--module', 'SphereCeti/MeasureTheory/Measure/Haar/BoxAveraging.lean')
+        dry = self.run_cli('intend', 'EuclideanSpace.box_average_tendsto', *flags, '--register', '--dry-run')
         self.assertIn('Dry run: would create an intention issue', dry.stdout)
         self.assertEqual(self.writes(), [])
-        made = self.run_cli('intend', 'EuclideanSpace.box_average_tendsto', '--item', 'D5', '--register')
+        missing = self.run_cli('intend', 'EuclideanSpace.box_average_tendsto', '--register')
+        self.assertEqual(missing.returncode, 2)
+        self.assertIn('not registered: an intention claims one declaration', missing.stderr)
+        made = self.run_cli('intend', 'EuclideanSpace.box_average_tendsto', *flags, '--register')
         self.assertEqual(made.returncode, 0, made.stderr)
         self.assertIn('No exact claim found for declaration EuclideanSpace.box_average_tendsto.', made.stdout)
-        self.assertIn(f'Registered intention #301: https://github.com/{REPO}/issues/301', made.stdout)
-        self.assertEqual(len(self.writes()), 1)
+        self.assertIn(f'Registered intention #301: https://github.com/{REPO}/issues/301 and commented `claim`',
+                      made.stdout)
+        self.assertEqual(len(self.writes()), 2)  # the issue, then `claim` as the contributor
         again = self.run_cli('intend', 'EuclideanSpace.box_average_tendsto', '--register')
         self.assertEqual(again.returncode, 0)
         self.assertTrue(again.stdout.startswith('Already claimed: declaration EuclideanSpace.box_average_tendsto'))
-        self.assertEqual(len(self.writes()), 1)
+        self.assertEqual(len(self.writes()), 2)
 
     def test_a_failed_lookup_exits_two_and_writes_nothing(self):
         world = d5_world()

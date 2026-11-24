@@ -11,7 +11,8 @@ free on a guess.
 from __future__ import annotations
 
 import base64
-from datetime import datetime, timedelta, timezone
+import json
+from datetime import datetime, timezone
 import re
 from urllib.parse import quote, urlencode
 
@@ -21,18 +22,14 @@ SCHEMA = "sphereceti.intentions/v1"
 LOOKUP_SCHEMA = "sphereceti.intend/v1"
 LABEL = "intention"
 TEMPLATE = "intention.yml"
-EXPIRY_DAYS = 14  # default claim lifetime for `sphereceti intend --register`; the form asks for a date
-# Issue-form field ids (stable; used to prefill the form) and the labels GitHub renders as
-# `### <label>` headings in the issue body (used to read it back). Both are part of the format.
-FIELDS = {
-    "declarations": "Declarations",
-    "roadmap_item": "Roadmap item",
-    "module": "Module",
-    "parent_pr": "Parent PR",
-    "expires": "Claim expires",
-}
-PLACEHOLDER = re.compile(r"^_?no response_?$", re.I)
-COMMENT = re.compile(r"<!--.*?-->", re.S)
+# The format is defined by #134 (.github/ISSUE_TEMPLATE/intention.yml, scripts/intentions.py,
+# docs/infrastructure/intentions.md). Mirrored here, and pinned by a test against #134's fixture:
+# the headings GitHub renders from the form, keyed to the form's stable ids.
+FIELDS = {"Target declaration": "target", "Roadmap item or layer": "roadmap_item",
+          "Parent PR": "parent_pr", "Intended module": "module", "Expected duration": "duration"}
+# The holder and expiry are recorded by #134's workflow in its own marker comments.
+MARKER = "<!--sphereceti-intention:v1 "
+BOT = "github-actions[bot]"
 ITEM = re.compile(r"^[A-N][0-9]{1,2}$")
 # A roadmap item named the way proof PRs cite it: "MIGRATION [PR D5]" or a "(Layer 3, D5 ...)" title.
 ITEM_IN_TEXT = re.compile(r"\bPR ([A-N][0-9]{1,2})\b|\(Layer [0-9]+, ([A-N][0-9]{1,2})\b")
@@ -117,38 +114,79 @@ def pages(client, endpoint):
     return [item for page in value for item in page]
 
 
-def field(body: str, name: str) -> str:
-    match = re.search(rf"^###\s+{re.escape(FIELDS[name])}\s*$\n(.*?)(?=^###\s|\Z)", body or "", re.S | re.M | re.I)
-    if not match:
-        return ""
-    text = COMMENT.sub("", match.group(1)).strip()
-    return "" if PLACEHOLDER.match(text) else text
+def parse_fields(body: str) -> dict:
+    """Mirror of #134's scripts/intentions.py:parse_intention: form fields by stable form id, the
+    target's fenced ```lean block unwrapped, and None for an empty or `_No response_` answer."""
+    fields = {key: None for key in FIELDS.values()}
+    parts = re.split(r"^### (.+?)[ \t]*$", (body or "").replace("\r\n", "\n"), flags=re.M)
+    for heading, value in zip(parts[1::2], parts[2::2]):
+        key = FIELDS.get(heading.strip())
+        if key is None:
+            continue
+        value = value.strip()
+        fence = re.fullmatch(r"(`{3,})[^\n]*\n([\s\S]*?)\n?\1", value)
+        value = fence[2].strip() if fence else value
+        fields[key] = None if value in ("", "_No response_") else value
+    return fields
 
 
-def names(text: str) -> list[str]:
-    parts = re.split(r"[\n,]+", text)
-    return [p.strip().strip("-*` ").strip() for p in parts if p.strip().strip("-*` ").strip()]
+def target_names(target: str | None) -> list[str]:
+    """The declaration a target block names: `theorem A.b ...`, or a bare name on its own."""
+    if not target:
+        return []
+    for line in target.splitlines():
+        text = line.strip()
+        match = DECLARATION.match(text)
+        if match and match.group(2):
+            return [match.group(2).removeprefix("_root_.")]
+        bare = re.fullmatch(r"[^\s:({\[⦃]+", text)
+        if bare:
+            return [text]
+    return []
 
 
-def parse_intention(issue, now):
-    body = issue.get("body") or ""
-    expires_text = field(body, "expires")
-    expires = None
-    if expires_text:
+def instant(text: str) -> datetime:
+    return datetime.strptime(text, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+
+
+def claim_state(comments, assignees, now):
+    """#134's rule: the latest marker by github-actions[bot] (type Bot) names the holder and expiry;
+    a claim counts while that holder is still assigned. Markers by anyone else are ignored."""
+    for comment in sorted(comments, key=lambda c: c.get("id", 0), reverse=True):
+        user, body = comment.get("user") or {}, comment.get("body") or ""
+        if user.get("login") != BOT or user.get("type") != "Bot" or not body.startswith(MARKER):
+            continue
         try:
-            expires = datetime.strptime(expires_text.split()[0], "%Y-%m-%d").replace(
-                hour=23, minute=59, second=59, tzinfo=timezone.utc)
+            data = json.loads(body[len(MARKER):].split("-->", 1)[0])
         except ValueError:
-            expires = None
-    holders = [a["login"] for a in issue.get("assignees") or [] if isinstance(a, dict) and a.get("login")]
-    state = "unclaimed" if not holders else "expired" if expires and expires < now else "claimed"
-    module = field(body, "module")
-    item = field(body, "roadmap_item")
-    parent = re.search(r"#?([0-9]+)", field(body, "parent_pr") or "")
+            continue
+        if not isinstance(data, dict):
+            continue
+        if not data.get("holder") or data["holder"] not in assignees or not data.get("expires"):
+            return None
+        try:
+            expired = instant(data["expires"]) <= now
+        except (TypeError, ValueError):
+            return None
+        return {"holder": data["holder"], "expires": data["expires"], "expired": expired}
+    return None
+
+
+def parse_intention(issue, comments, now):
+    fields = parse_fields(issue.get("body") or "")
+    assignees = [a["login"] for a in issue.get("assignees") or [] if isinstance(a, dict) and a.get("login")]
+    claim = claim_state(comments, assignees, now)
+    state = "unclaimed" if not claim else "expired" if claim["expired"] else "claimed"
+    item_text = fields["roadmap_item"] or ""
+    parent = re.search(r"#?([0-9]+)", fields["parent_pr"] or "")
     return {"kind": "intention", "number": issue["number"], "url": issue.get("html_url") or issue.get("url"),
-            "title": issue.get("title") or "", "holders": holders, "state": state,
-            "expires": expires_text or None, "declarations": names(field(body, "declarations")),
-            "modules": [module_path(module)] if module else [], "items": [item.upper()] if item else [],
+            "title": issue.get("title") or "", "holders": [claim["holder"]] if claim else [], "state": state,
+            "expires": claim["expires"] if claim else None, "target": fields["target"],
+            "declarations": target_names(fields["target"]),
+            "modules": [module_path(fields["module"])] if fields["module"] else [],
+            "items": list(dict.fromkeys(m.upper() for m in re.findall(r"\b([A-N][0-9]{1,2})\b", item_text))),
+            "layers": list(dict.fromkeys(re.findall(r"\blayer\s*([0-9]+)", item_text, re.I))),
+            "roadmap_item": fields["roadmap_item"], "duration": fields["duration"],
             "parent_pr": int(parent.group(1)) if parent else None}
 
 
@@ -214,18 +252,25 @@ def observe(project, *, client=None, now=None) -> dict:
 
 
 def is_intention(issue) -> bool:
-    """Labelled `intention`, or carrying the form's headings: a contributor without triage rights
-    cannot label an issue it creates through the API, so the body is the shared format."""
+    """Labelled `intention`, or carrying the form's required headings: a contributor without triage
+    rights cannot label an issue it creates through the API, so the body is the shared format."""
     labels = {(l.get("name") if isinstance(l, dict) else str(l)).lower() for l in issue.get("labels") or []}
     body = issue.get("body") or ""
-    return LABEL in labels or all(re.search(rf"^###\s+{re.escape(FIELDS[k])}\s*$", body, re.M)
-                                  for k in ("declarations", "roadmap_item", "module"))
+    return LABEL in labels or all(re.search(rf"^###\s+{re.escape(h)}\s*$", body, re.M)
+                                  for h in ("Target declaration", "Roadmap item or layer", "Intended module"))
 
 
 def read_intentions(project, client, now):
-    """Every open intention, whether filed through the issue form or by `sphereceti intend`."""
+    """Every open intention, whether filed through the issue form or by `sphereceti intend`, with
+    its claim read from #134's workflow markers."""
     issues = pages(client, f"repos/{project.repository}/issues?state=open&per_page=100")
-    return [parse_intention(i, now) for i in issues if "pull_request" not in i and is_intention(i)]
+    found = []
+    for issue in issues:
+        if "pull_request" in issue or not is_intention(issue):
+            continue
+        comments = pages(client, f"repos/{project.repository}/issues/{issue['number']}/comments?per_page=100")
+        found.append(parse_intention(issue, comments, now))
+    return found
 
 
 def groups(intentions, prs):
@@ -261,6 +306,10 @@ def classify(target: str, kind: str | None = None) -> str:
     return "declaration"
 
 
+class RegistrationRefused(ValueError):
+    """The request cannot become an intention (not a single declaration, or missing fields)."""
+
+
 def same_declaration(a: str, b: str) -> bool:
     """Equal, or equal up to a namespace prefix one side did not spell out."""
     return a == b or a.endswith("." + b) or b.endswith("." + a)
@@ -270,21 +319,15 @@ def brief(work) -> dict:
     out = {k: work[k] for k in ("kind", "number", "url", "title", "modules", "items")}
     if work["kind"] == "intention":
         out.update(holders=work["holders"], state=work["state"], expires=work["expires"],
-                   declarations=work["declarations"])
+                   declarations=work["declarations"], target=work["target"])
     else:
         out.update(author=work["author"], draft=work["draft"], declarations=work["declarations"])
     return out
 
 
-def exact(work, kind, target, module, item) -> bool:
-    """An exact claim: the same declaration, or a whole-module / whole-item intention."""
-    if kind == "declaration":
-        return any(same_declaration(target, d) for d in work["declarations"])
-    if work["kind"] != "intention" or work["declarations"]:
-        return False
-    if kind == "module":
-        return module in work["modules"]
-    return not work["modules"] and item in work["items"]
+def exact(work, kind, target) -> bool:
+    """An exact claim: the same declaration (#134 intentions name exactly one)."""
+    return kind == "declaration" and any(same_declaration(target, d) for d in work["declarations"])
 
 
 def lookup(project, target, *, observed=None, client=None, kind=None, item=None, module=None) -> dict:
@@ -302,14 +345,14 @@ def lookup(project, target, *, observed=None, client=None, kind=None, item=None,
     claimed, related = [], []
     for w in observed["intentions"] + observed["pull_requests"]:
         live = not (w["kind"] == "intention" and w["state"] == "expired")
-        if exact(w, kind, target, module, item):
+        if exact(w, kind, target):
             (claimed if live else related).append(brief(w))
         elif (module and module in w["modules"]) or (item and (item in w["items"] or (
                 item.startswith("LAYER ") and item[6:] in w.get("layers", [])))):
             related.append(brief(w))
     claimed.sort(key=lambda w: (w["kind"] != "intention", w["number"]))
-    prefill = {"declarations": target if kind == "declaration" else None,
-               "roadmap_item": item, "module": module, "title": f"Intention: {target}"}
+    prefill = {"title": f"[Intention]: {target}", "target": target if kind == "declaration" else None,
+               "roadmap_item": item, "module": module}
     return {"schema": LOOKUP_SCHEMA, "repository": project.repository, "target": target, "kind": kind,
             "item": item, "module": module,
             "verdict": "claimed" if claimed else "no_exact_claim", "claimed": claimed, "related": related,
@@ -317,20 +360,23 @@ def lookup(project, target, *, observed=None, client=None, kind=None, item=None,
             "registration": None}
 
 
-def issue_body(declarations_text, item, module, parent, expires) -> str:
-    """The issue form's rendering, so form-filed and CLI-filed intentions parse the same way."""
-    values = {"declarations": declarations_text, "roadmap_item": item, "module": module,
-              "parent_pr": f"#{parent}" if parent else None, "expires": expires}
-    return "\n\n".join(f"### {FIELDS[k]}\n\n{values[k] or '_No response_'}" for k in FIELDS) + "\n"
+def issue_body(target, item, module, parent, duration) -> str:
+    """#134's form rendering exactly, so form-filed and CLI-filed intentions parse the same way."""
+    values = {"target": f"```lean\n{target}\n```" if target else None, "roadmap_item": item,
+              "parent_pr": f"#{parent}" if parent else None, "module": module, "duration": duration}
+    return "\n\n".join(f"### {heading}\n\n{values[key] or '_No response_'}"
+                        for heading, key in FIELDS.items()) + "\n"
 
 
-def register(project, result, *, client=None, parent=None, expires=None, dry_run=False, now=None) -> dict:
-    """Create the intention issue as the contributor, then confirm it is the earliest claim.
+def register(project, result, *, client=None, parent=None, duration=None, dry_run=False, now=None) -> dict:
+    """Create #134's intention issue as the contributor, confirm it is first, then comment `claim`.
 
-    Re-checks open intentions immediately before creating (no write if an exact claim appeared)
-    and again after creating it. If an earlier intention for the same target now exists, this one
-    lost the race: it is closed with a comment pointing at the winner (only our own issue is ever
-    touched) and the winner is reported.
+    Re-checks open intentions immediately before creating: an open intention with the same target
+    (claimed or only registered) is shown with its link and nothing is written; one whose claim
+    expired is claimed in place instead of duplicated. After creating, it reads them again: if an
+    earlier one for the same target now exists, this one lost the race and is closed with a comment
+    pointing at the winner (only our own issue is ever touched). Otherwise it comments `claim`
+    (`claim <duration>`) so #134's workflow assigns the contributor.
     """
     if client is None:
         from .review_post import GitHub
@@ -338,38 +384,45 @@ def register(project, result, *, client=None, parent=None, expires=None, dry_run
     now = now or datetime.now(timezone.utc)
     if result["verdict"] == "claimed":
         return {"state": "claimed", "winner": result["claimed"][0], "issue": None}
-    target, kind = result["target"], result["kind"]
-    expires = expires or (now + timedelta(days=EXPIRY_DAYS)).strftime("%Y-%m-%d")
-    title = f"Intention: {target}"
-    body = issue_body(target if kind == "declaration" else None, result["item"], result["module"], parent, expires)
-    payload = {"title": title, "body": body, "labels": [LABEL]}
+    target = result["target"]
+    if result["kind"] != "declaration" or not result["item"] or not result["module"]:
+        raise RegistrationRefused("an intention claims one declaration: give its name with --item and "
+                                  "--module, which the form requires")
+    payload = {"title": f"[Intention]: {target}", "labels": [LABEL],
+               "body": issue_body(target, result["item"], result["module"], parent, duration)}
+    command = "claim" + (f" {duration}" if duration else "")
+    repo = project.repository
 
     def rivals():
-        found = [w for w in read_intentions(project, client, now)
-                 if w["state"] != "expired" and exact(w, kind, target, result["module"], result["item"])]
-        return sorted(found, key=lambda w: w["number"])
+        found = sorted((w for w in read_intentions(project, client, now) if exact(w, "declaration", target)),
+                       key=lambda w: w["number"])
+        return [w for w in found if w["state"] != "expired"], [w for w in found if w["state"] == "expired"]
 
     if dry_run:
-        return {"state": "dry_run", "issue": None, "winner": None, "would_create": payload}
-    before = rivals()
-    if before:
-        return {"state": "claimed", "winner": brief(before[0]), "issue": None}
-    created = client.call(f"repos/{project.repository}/issues", payload=payload)
+        return {"state": "dry_run", "issue": None, "winner": None, "would_create": payload, "claim": command}
+    live, expired = rivals()
+    if live:
+        return {"state": "claimed", "winner": brief(live[0]), "issue": None}
+    if expired:  # take over the lapsed intention instead of opening a duplicate
+        client.call(f"repos/{repo}/issues/{expired[0]['number']}/comments", payload={"body": command})
+        return {"state": "claim_requested", "issue": {"number": expired[0]["number"], "url": expired[0]["url"]},
+                "winner": None, "claim": command}
+    created = client.call(f"repos/{repo}/issues", payload=payload)
     if not isinstance(created, dict) or type(created.get("number")) is not int:
         raise RecordError("GitHub did not confirm the new intention issue; check before retrying")
     mine = {"number": created["number"], "url": created.get("html_url")}
-    after = rivals()
-    earlier = [w for w in after if w["number"] < mine["number"]]
-    if not any(w["number"] == mine["number"] for w in after):
+    live, _ = rivals()
+    if not any(w["number"] == mine["number"] for w in live):
         return {"state": "unconfirmed", "issue": mine, "winner": None}
+    earlier = [w for w in live if w["number"] < mine["number"]]
     if earlier:
         winner = brief(earlier[0])
-        client.call(f"repos/{project.repository}/issues/{mine['number']}/comments", payload={
-            "body": f"Duplicate of #{winner['number']}, which claimed `{target}` first. Closing this one."})
-        client.call(f"repos/{project.repository}/issues/{mine['number']}", payload={"state": "closed"},
-                    method="PATCH")
+        client.call(f"repos/{repo}/issues/{mine['number']}/comments", payload={
+            "body": f"Duplicate of #{winner['number']}, which registered `{target}` first. Closing this one."})
+        client.call(f"repos/{repo}/issues/{mine['number']}", payload={"state": "closed"}, method="PATCH")
         return {"state": "lost_race", "issue": mine, "winner": winner}
-    return {"state": "registered", "issue": mine, "winner": None}
+    client.call(f"repos/{repo}/issues/{mine['number']}/comments", payload={"body": command})
+    return {"state": "registered", "issue": mine, "winner": None, "claim": command}
 
 
 # --- Rendering -----------------------------------------------------------------------------------
@@ -377,10 +430,11 @@ def register(project, result, *, client=None, parent=None, expires=None, dry_run
 def describe(w) -> str:
     if w["kind"] == "intention":
         who = ", ".join(w["holders"]) or "nobody"
-        state = {"claimed": f"claimed by {who}" + (f" until {w['expires']}" if w["expires"] else ""),
-                 "expired": f"EXPIRED claim by {who} (expired {w['expires']})",
+        state = {"claimed": f"claimed by {who}" + (f" until {w['expires'][:10]}" if w["expires"] else ""),
+                 "expired": f"EXPIRED claim by {who} (expired {(w['expires'] or '')[:10]})",
                  "unclaimed": "registered, unclaimed"}[w["state"]]
-        what = ", ".join(w["declarations"]) or ", ".join(w["modules"]) or ", ".join(w["items"]) or w["title"]
+        first_line = ((w.get("target") or "").splitlines() or [""])[0]
+        what = ", ".join(w["declarations"]) or first_line or w["title"]
         return f"intention #{w['number']} {state}: {what}"
     adds = ", ".join(w["declarations"][:6]) + (f", … ({len(w['declarations'])} in all)"
                                                 if len(w["declarations"]) > 6 else "")
@@ -428,7 +482,11 @@ def render_lookup(result) -> str:
 
 def render_registration(r) -> str:
     if r["state"] == "registered":
-        return f"Registered intention #{r['issue']['number']}: {r['issue']['url']}"
+        return (f"Registered intention #{r['issue']['number']}: {r['issue']['url']} and commented "
+                f"`{r['claim']}`; the intentions workflow assigns you shortly.")
+    if r["state"] == "claim_requested":
+        return (f"An earlier intention for it had expired: commented `{r['claim']}` on "
+                f"#{r['issue']['number']} ({r['issue']['url']}) instead of opening a duplicate.")
     if r["state"] == "dry_run":
         return "Dry run: would create an intention issue titled " + repr(r["would_create"]["title"])
     if r["state"] == "claimed":
@@ -456,6 +514,6 @@ def add_parser(commands):
                    help="create the intention issue (as you, via gh) when no exact claim is found")
     q.add_argument("--dry-run", action="store_true", help="with --register: show the issue, create nothing")
     q.add_argument("--parent-pr", type=int, help="the PR this work builds on")
-    q.add_argument("--expires", help="claim expiry date, YYYY-MM-DD (default: 14 days from today)")
+    q.add_argument("--duration", help="claim length for the `claim` comment, e.g. '3 weeks' (default: 30 days)")
     q.add_argument("--json", action="store_true")
     return p, q

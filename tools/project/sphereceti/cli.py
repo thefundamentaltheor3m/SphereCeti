@@ -138,7 +138,8 @@ def main(argv: list[str] | None = None) -> int:
         parser.exit(2, f"sphereceti: configuration error: {error}\n")
 
     if args.command in ("intentions", "intend"):
-        from .intentions import lookup, observe, register, render as render_intentions, render_lookup
+        from .intentions import (RegistrationRefused, lookup, observe, register, render as render_intentions,
+                                 render_lookup)
         try:
             if args.command == "intentions":
                 report = observe(project)
@@ -151,13 +152,15 @@ def main(argv: list[str] | None = None) -> int:
                     wanted = input("Register an intention for it now? [y/N] ").strip().lower() in ("y", "yes")
                     if not wanted:
                         return 0
-                    report["registration"] = register(project, report, parent=args.parent_pr, expires=args.expires)
+                    report["registration"] = register(project, report, parent=args.parent_pr, duration=args.duration)
                     from .intentions import render_registration
                     print(render_registration(report["registration"]))
                     return 0 if report["registration"]["state"] == "registered" else 1
                 if wanted and report["verdict"] == "no_exact_claim":
                     report["registration"] = register(project, report, parent=args.parent_pr,
-                                                      expires=args.expires, dry_run=args.dry_run)
+                                                      duration=args.duration, dry_run=args.dry_run)
+        except RegistrationRefused as error:
+            parser.exit(2, f"sphereceti intend: not registered: {error}\n")
         except (RecordError, OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as error:
             reason = str(error) if isinstance(error, RecordError) else f"incomplete GitHub data ({type(error).__name__})"
             parser.exit(2, f"sphereceti {args.command}: GitHub lookup failed: {reason}; nothing was registered\n")
