@@ -19,8 +19,8 @@ integer matrix `M` with those rows (before the `√8` scaling) and computes its 
 The matrix is lower triangular with diagonal
 `8, 4, 4, 4, 4, 4, 4, 2, 4, 4, 4, 2, 4, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 1`, so
 `det M = 2 ^ 36 = 8 ^ 12`.  Since dividing all `24` rows by `√8` multiplies the determinant by
-`(√8)⁻²⁴ = 8⁻¹²`, the scaled basis has determinant `1`; this is the covolume computation showing
-that the lattice spanned by the scaled rows is unimodular.
+`(√8)⁻²⁴ = 8⁻¹²`, the scaled basis has determinant `1`, so the lattice spanned by the scaled rows
+has covolume `1`.
 
 ## Main definitions and results
 
