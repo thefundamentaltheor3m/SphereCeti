@@ -278,7 +278,7 @@ def check_arguments(args) -> None:
         raise ReviewError("reply mode requires an explicit PR number")
 
 
-def run_bare(args, project, policy, prefs, *, api=None, client=None, announce=None, run=None):
+def run_bare(args, project, policy, prefs, *, api=None, client=None, announce=None, run=None, prepare=None):
     """Select, say why in one line (announced before a long review starts), then review.
 
     If another contributor's earlier claim wins the race for the chosen PR, the claim yields
@@ -295,6 +295,8 @@ def run_bare(args, project, policy, prefs, *, api=None, client=None, announce=No
         selection["rationale"] = rationale(selection, dry_run=args.dry_run, posting=intent(args))
         if announce:
             announce(selection["rationale"])
+        if prepare:  # first-run preferences, asked only once a review will really start
+            prefs, prepare = prepare(), None
         args.pr = candidate["pr"]
         if output and attempt:
             args.output = output.with_name(f"{output.name}-pr{candidate['pr']}")  # --output must be new

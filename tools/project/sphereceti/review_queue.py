@@ -319,7 +319,7 @@ def outcome(result) -> str:
     return f"incomplete ({result.get('completion')})"
 
 
-def run_batch(args, project, policy, prefs, *, api=None, client=None, announce=None, run=None):
+def run_batch(args, project, policy, prefs, *, api=None, client=None, announce=None, run=None, prepare=None):
     """Review up to --limit distinct PRs from one queue section, one at a time.
 
     Before each item the queue is surveyed again and the review is bound to the head it selects.
@@ -364,6 +364,9 @@ def run_batch(args, project, policy, prefs, *, api=None, client=None, announce=N
         item = pending[0]
         attempted.append(item["pr"])
         say(f"[{len(items) + 1}/{limit}] #{item['pr']} {item['author']} {item['head'][:7]}: {item['reason']}")
+        if prepare:  # first-run preferences, asked once, only when a review will really start
+            prefs, prepare = prepare(), None
+            budget = args.budget_usd if args.budget_usd is not None else prefs.budget_usd
         args.pr = item["pr"]
         if output and len(attempted) > 1:
             args.output = output.with_name(f"{output.name}-pr{item['pr']}")  # --output must be new
