@@ -101,9 +101,9 @@ class ForkBindingTest(unittest.TestCase):
         reasons = self.reasons(description=older, association=False, run_repo=FORK, pr_repo=FORK)
         self.assertIn('trusted-build ran with tooling other than approved main; refresh the trusted run', reasons)
         workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/pr-build.yml').read_text()
-        self.assertIn('PR_NUMBER: ${{ github.event.pull_request.number }}', workflow)
-        self.assertIn('BASE_SHA: ${{ github.event.pull_request.base.sha }}', workflow)
-        self.assertIn('build_description="Approved tooling build: $BUILD_RESULT; tooling $TOOLING_SHA; '
+        self.assertIn('PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr }}', workflow)
+        self.assertIn('BASE_SHA: ${{ github.event.pull_request.base.sha || needs.candidate.outputs.base }}', workflow)
+        self.assertIn('build_description="Approved tooling $kind: $BUILD_RESULT; tooling $TOOLING_SHA; '
                       'pr $PR_NUMBER; base $BASE_SHA"', workflow)
         longest = f"Approved tooling build: cancelled; tooling {'a'*40}; pr 99999; base {'b'*40}"
         self.assertLessEqual(len(longest), 140)  # GitHub's commit-status description limit

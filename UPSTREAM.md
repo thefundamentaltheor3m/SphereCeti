@@ -301,7 +301,7 @@ closure-continuity hypotheses separately.
 
 - [ ] **Destination:** Mathlib `Mathlib/Algebra/Module/ZLattice/Covolume.lean`, beside
   `ZLattice.covolume_div_covolume_eq_relIndex'`.
-- [ ] **Current source:** `SphereCeti/ZLattice/RelativeQuotient.lean`.
+- [ ] **Current source:** `SphereCeti/ZLattice/RelativeQuotient/Basic.lean`.
 - [ ] **Candidate declaration:** for full lattices `Λ ≤ Γ` in a finite-dimensional real inner
   product space, the quotient `Γ / Λ` is finite (`SphereCeti.ZLattice.finite_relativeQuotient`),
   equivalently `Λ.toAddSubgroup.relIndex Γ.toAddSubgroup ≠ 0`.  The abbreviation
@@ -356,19 +356,6 @@ closure-continuity hypotheses separately.
   refers to packings.
 - [ ] **SphereCeti use:** the periodic approximation of sphere packings (MIGRATION D5, Layer 3).
 - [ ] **Fallback:** the local declarations in the `EuclideanSpace` namespace.
-- [ ] **Upstream test:** no project import remains in a minimal reproduction.
-
-### A21. Phases at dual frequencies
-
-- [ ] **Destination:** TauCeti `TauCeti/Algebra/Module/ZLattice/Dual.lean`, beside
-  `ZLattice.mem_dual`.
-- [ ] **Current source:** `SphereCeti/ZLattice/DualPhase.lean`.
-- [ ] **Candidate declaration:** for `y` in the dual of `L` and `s - t ∈ L`,
-  `exp (2πi ⟪y, s⟫) = exp (2πi ⟪y, t⟫)` (`ZLattice.phase_eq_of_sub_mem_lattice`).
-- [ ] **Why general:** it is character theory of the dual lattice; nothing refers to packings.
-- [ ] **SphereCeti use:** representative independence of the structure amplitude of a periodic
-  configuration (Layer 4).
-- [ ] **Fallback:** the local declaration in the `ZLattice` namespace.
 - [ ] **Upstream test:** no project import remains in a minimal reproduction.
 
 ## B. TauCeti IntegralLattices roadmap extensions
