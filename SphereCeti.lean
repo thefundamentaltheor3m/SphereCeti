@@ -15,11 +15,10 @@ public import SphereCeti.CohnElkies.Certificate
 public import SphereCeti.Contour.HalfInfiniteRectangle
 public import SphereCeti.Lattice.IntegralPresentation
 public import SphereCeti.Leech.ResidueCoordinates
-public import SphereCeti.MeasureTheory.Group.LIntegral
-public import SphereCeti.MeasureTheory.Measure.Haar.BoxAveraging
 public import SphereCeti.MeasureTheory.Measure.Haar.EuclideanSpace
 public import SphereCeti.ZLattice.Covolume.Bound
-public import SphereCeti.ZLattice.RelativeQuotient
+public import SphereCeti.ZLattice.RelativeQuotient.Basic
+public import SphereCeti.ZLattice.RelativeQuotient.Embedding
 
 /-!
 # SphereCeti library
