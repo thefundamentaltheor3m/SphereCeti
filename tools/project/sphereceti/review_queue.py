@@ -7,6 +7,7 @@ reviewer gets first chance at a revised PR. Independently written; no TauCetiWor
 
 The queue reuses the worker's survey and planner and bare selection's readiness and "already
 reviewed" rules. One survey per listing; any failed GitHub lookup raises (exit 2), never a guess.
+PRs ready to merge (ready_to_merge.py) are listed first.
 """
 from __future__ import annotations
 
@@ -89,6 +90,8 @@ def queue(project, policy, prefs, *, api=None, client=None, now=None) -> dict:
     if client is None:
         from .review_post import GitHub
         client = GitHub()
+    from .ready_to_merge import HELD, Cached, held_reason, held_runs, ready_to_merge
+    client = Cached(client)  # one comments read per PR for every section
     snapshot = survey(project, None, api=api)
     planned = plan(snapshot, project, now=now or datetime.now(timezone.utc))
     actor, repository = snapshot["actor"], project.repository
@@ -108,8 +111,10 @@ def queue(project, policy, prefs, *, api=None, client=None, now=None) -> dict:
 
     def skip(pr, code, reason):
         note = pr.get("review_note") if code != "awaiting_refresh" else None
+        held = held_reason(client, repository, pr) if code == "awaiting_ci" else None
         sections["not_ready"].append({"pr": pr["number"], "head": pr["head"], "code": code,
-                                      "reason": reason + (f" ({note})" if note else ""), "note": note})
+                                      "reason": (held or reason) + (f" ({note})" if note else ""), "note": note,
+                                      **({"held": True} if held else {})})
 
     for number in order:
         pr = by_number[number]
@@ -202,6 +207,12 @@ def queue(project, policy, prefs, *, api=None, client=None, now=None) -> dict:
     for name in ("revised", "author_replied", "new", "waiting_on_author"):
         for e in sections[name]:
             e["unblocks"] = gate.descendants(e["pr"])
+            # Ready to review, but a fork's workflow runs may still be held (CI never ran): say so.
+            pr = by_number[e["pr"]]
+            e["held_workflows"] = ([] if pr.get("head_repo") == repository else
+                                   held_runs(client, repository, pr["head"]))
+            if e["held_workflows"]:
+                e["reason"] += f"; CI held, {HELD} ({', '.join(e['held_workflows'])})"
         if name != "new":
             sections[name].sort(key=lambda e: (e["updated_at"], e["pr"]))
         sections[name].sort(key=lambda e: -e["unblocks"])
@@ -213,7 +224,9 @@ def queue(project, policy, prefs, *, api=None, client=None, now=None) -> dict:
         except (RecordError, KeyError, AttributeError):
             main = None
     return {"schema": SCHEMA, "repository": repository, "actor": actor, "observed_at": snapshot["observed_at"],
-            "order": "revised, then author replied, then new; oldest update first", "sections": sections, "done": done,
+            "ready_to_merge": ready_to_merge(client, project, policy, snapshot),
+            "order": "ready to merge first; then revised, then author replied, then new; oldest update first",
+            "sections": sections, "done": done,
             "follow_ups_not_ready": follow_ups, "blocked_by_parent": blocked,
             "main": main, "not_ready_summary": not_ready_summary(sections["not_ready"], main)
             if sections["not_ready"] else None}
@@ -245,7 +258,9 @@ def blocked_by_parent(gate, by_number, actor):
 
 
 def render(report) -> str:
+    from .ready_to_merge import render as render_ready
     lines = [f"Review queue for {report['actor']} ({report['repository']}, observed {report['observed_at']})"]
+    lines += render_ready(report["ready_to_merge"])
     for name in ("revised", "author_replied", "new", "waiting_on_author"):
         items = report["sections"][name]
         lines.append(f"{TITLES[name]} ({len(items)}):" + ("" if items else " none"))
@@ -272,8 +287,8 @@ def render(report) -> str:
 
 
 def add_parser(commands):
-    p = commands.add_parser("reviews", help="read-only: your review queue (revised, author replied, new, "
-                                            "waiting on the author)")
+    p = commands.add_parser("reviews", help="read-only: PRs ready to merge, then your review queue (revised, "
+                                            "author replied, new, waiting on the author)")
     p.add_argument("--json", action="store_true")
     p.add_argument("--operator-config", type=Path, help="preferences (default ~/.config/sphereceti/operator.toml)")
     return p
@@ -334,7 +349,7 @@ def outcome(result) -> str:
     return f"incomplete ({result.get('completion')})"
 
 
-def run_batch(args, project, policy, prefs, *, api=None, client=None, announce=None, run=None):
+def run_batch(args, project, policy, prefs, *, api=None, client=None, announce=None, run=None, prepare=None):
     """Review up to --limit distinct PRs from one queue section, one at a time.
 
     Before each item the queue is surveyed again and the review is bound to the head it selects.
@@ -379,6 +394,9 @@ def run_batch(args, project, policy, prefs, *, api=None, client=None, announce=N
         item = pending[0]
         attempted.append(item["pr"])
         say(f"[{len(items) + 1}/{limit}] #{item['pr']} {item['author']} {item['head'][:7]}: {item['reason']}")
+        if prepare:  # first-run preferences, asked once, only when a review will really start
+            prefs, prepare = prepare(), None
+            budget = args.budget_usd if args.budget_usd is not None else prefs.budget_usd
         args.pr = item["pr"]
         if output and len(attempted) > 1:
             args.output = output.with_name(f"{output.name}-pr{item['pr']}")  # --output must be new

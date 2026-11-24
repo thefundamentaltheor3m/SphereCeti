@@ -60,8 +60,10 @@ The eligible path requires all of:
 - Successful trusted build and scope statuses from the configured producer and exact successful
   run attempt of the approved `pull_request_target` workflow, including its candidate/status jobs.
 
-SphereCeti's mathematical allowlist stays empty. Proof PRs require human merging.
-Roadmap and infrastructure changes therefore take the human route. A missing policy on current
+SphereCeti's mathematical allowlist names the first proof topics, `SphereCeti/Contour/` and
+`SphereCeti/E8/`. A module-only PR in those topics can be `eligible` here. `merging` is false, so
+proof PRs still require human merging. Other topics, library-root edits, and roadmap and
+infrastructure changes take the human route. A missing policy on current
 main is explicitly reported; feature-branch policy cannot activate itself. Tests exercise the
 future mathematical path using disposable evidence, not production mathematical implementations.
 The `merging` switch is reported separately and cannot turn this observer into a merger.
@@ -161,8 +163,9 @@ merge. It reviews, approves, posts and merges nothing, and calls no model provid
 sphereceti auto-approve-check 50 --assume-proof-paths 'SphereCeti/E8/**' --json
 ```
 
-The approved `mathematical_paths` list is empty, so a decision today needs an explicit
-**hypothetical** allowlist. `--assume-proof-paths` never changes policy. The output then sets
+Without options, the decision uses the approved `mathematical_paths`: `SphereCeti/Contour/` and
+`SphereCeti/E8/`. To ask about another topic, pass an explicit **hypothetical** allowlist.
+`--assume-proof-paths` never changes policy. The output then sets
 `hypothetical: true`, repeats the assumed globs, and starts its note with `HYPOTHETICAL`.
 Globs must lie under `SphereCeti/`; `*` and `?` stay within a segment, and `**` is a whole
 segment. Without the flag, the approved policy's prefixes apply.
@@ -177,7 +180,7 @@ author against the review publishers, and the reasons for any refusal. A compute
 |---|---|
 | `paths` | The PR's complete file list from the API; a count differing from `changed_files`, GitHub's 3000-file cap, or a list differing from the exact Git diff fails closed. Each path must be an added or modified regular `SphereCeti/**/*.lean` library file under the allowlist; protected library modules are excluded. Renames, deletions, mode changes, symlinks and submodules are ineligible. Roadmap/specification, dependency, CI, policy, review and machinery paths are listed with their human route. |
 | library root | Proof PRs never edit `SphereCeti.lean`; the `SphereCeti.*` Lake glob builds every topic module, and the root keeps its existing re-exports. An edit to the root is ineligible and routed to human review, like any other protected path. |
-| `trusted_checks` | `assess_checks`: `trusted-build` success and `trusted-scope` present from the approved producer and one exact `pull_request_target` run attempt (or a dispatched refresh). `trusted-merge` from that run must attest the tree of the head merged into current main and that main, recomputed locally with `git merge-tree`; this replaces the `base.sha`-equals-main check. The run's `head_sha` is the PR head, its head repository is the PR's, and the attested PR binding (or, for older runs, the PR association) names this PR and base. The gate reports `human_review` while the allowlist is empty, and it protects the library root. That status is replaced by the stricter path rule only under the hypothesis. With an approved allowlist, a module-only PR receives `mathematical` from the gate itself. |
+| `trusted_checks` | `assess_checks`: `trusted-build` success and `trusted-scope` present from the approved producer and one exact `pull_request_target` run attempt (or a dispatched refresh). `trusted-merge` from that run must attest the tree of the head merged into current main and that main, recomputed locally with `git merge-tree`; this replaces the `base.sha`-equals-main check. The run's `head_sha` is the PR head, its head repository is the PR's, and the attested PR binding (or, for older runs, the PR association) names this PR and base. The gate protects the library root and reports `human_review` outside the approved allowlist. That status is replaced by the stricter path rule only under the hypothesis. Within the approved allowlist (`SphereCeti/Contour/`, `SphereCeti/E8/`), a module-only PR receives `mathematical` from the gate itself. |
 | `compiled_audit` | The `candidate` job of that same run attempt. It ran the approved tooling's `scripts/check_audits.py` through `scripts/sandbox-build.sh` on the exact head. The tooling is bound by #48's attestation: `trusted-build` publishes the run's `github.workflow_sha`, and `assess_checks` requires it to equal current main. The output reports the attested SHA. The ordinary `build` check runs candidate-controlled scripts, and its name alone is not used. |
 | `official_review` | `assess_records` accepts a complete, non-advisory record covering all ten rubrics. Its exact head, base, diff base and context digests come from an authorized reviewer. Run it from installed tooling equal to main; otherwise the installed-tooling comparison fails. |
 | `independent_reviewer` | At least one accepted publisher is not the PR author, by API user ID. The author can never supply the sole approval. |

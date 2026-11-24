@@ -18,6 +18,7 @@ from .review_claims import ClaimYielded, describe, live, note as claim_note, run
 from .review_records import (ANY_DIRECTIVE, CONTEST, MARKER, RecordError, carried_contests, contests,
                              identity, intact, parse_record)
 from .worker import plan, timestamp
+from .ready_to_merge import HELD, held_reason
 from .worker_checks import NEEDS_REFRESH
 from .worker_cli import survey
 from .worker_leases import utcnow
@@ -183,8 +184,10 @@ def select(project, policy, prefs, *, api=None, client=None, now=None, force=Fal
     def skip(pr, code, reason):
         # An informational readiness note (e.g. an older trusted build) never makes a PR not ready.
         note = pr.get("review_note") if code != "awaiting_refresh" else None
+        held = held_reason(client, project.repository, pr) if code == "awaiting_ci" else None
         skipped.append({"pr": pr["number"], "head": pr["head"], "code": code,
-                        "reason": reason + (f" ({note})" if note else ""), "note": note})
+                        "reason": (held or reason) + (f" ({note})" if note else ""), "note": note,
+                        **({"held": True} if held else {})})
 
     # The planner's order is the priority: stage, then oldest updatedAt, then PR number.
     order = [c["pr"] for c in planned["candidates"] if "pr" in c]
@@ -253,7 +256,9 @@ def not_ready_summary(skipped, main=None) -> str:
         parts.append(f"{count(refresh, 'await')} a refreshed trusted build" +
                      (f" (main moved to {main[:7]})" if main else ""))
     if pending:
-        parts.append(f"{count(pending, 'await')} CI")
+        held = sum(1 for i in pending if i.get("held"))
+        parts.append(f"{count(pending, 'await')} CI" +
+                     (f" ({held} {'is' if held == 1 else 'are'} {HELD})" if held else ""))
     if github:
         parts.append(f"{count(github, 'await')} GitHub's mergeability check")
     yours = [i for i in skipped if i["code"] == "yours"]
@@ -291,7 +296,7 @@ def check_arguments(args) -> None:
         raise ReviewError("reply mode requires an explicit PR number")
 
 
-def run_bare(args, project, policy, prefs, *, api=None, client=None, announce=None, run=None):
+def run_bare(args, project, policy, prefs, *, api=None, client=None, announce=None, run=None, prepare=None):
     """Select, say why in one line (announced before a long review starts), then review.
 
     If another contributor's earlier claim wins the race for the chosen PR, the claim yields
@@ -308,6 +313,8 @@ def run_bare(args, project, policy, prefs, *, api=None, client=None, announce=No
         selection["rationale"] = rationale(selection, dry_run=args.dry_run, posting=intent(args))
         if announce:
             announce(selection["rationale"])
+        if prepare:  # first-run preferences, asked only once a review will really start
+            prefs, prepare = prepare(), None
         args.pr = candidate["pr"]
         if output and attempt:
             args.output = output.with_name(f"{output.name}-pr{candidate['pr']}")  # --output must be new
