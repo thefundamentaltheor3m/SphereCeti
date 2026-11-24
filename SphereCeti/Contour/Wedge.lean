@@ -8,34 +8,37 @@ module
 
 public import Mathlib.Analysis.Complex.Basic
 public import Mathlib.Analysis.Convex.Basic
-public import Mathlib.Analysis.Convex.Topology
 
 /-!
-# The wedge of the signed contour permutations
+# The wedge at `1` in the upper half-plane
 
-The finite branch of the Layer 8 contour deformation compares the left legs `-1 → -1+i → i` of
-the magic contour with the right legs `1 → 1+i → i` under the inversion `z ↦ -1/z`.  The
-homotopies of that argument take place in the wedge
+This file studies the open wedge
 
-`{z : 0 < Im z, |Re z - 1| < Im z}`,
+`W = {z ∈ ℂ | 0 < Im z, |Re z - 1| < Im z}`,
 
-an open convex subset of the upper half-plane whose closure meets the real axis only at `1`.
-This file defines the wedge and proves those three geometric facts.
+the region of the upper half-plane lying strictly above both lines `Im z = Re z - 1` and
+`Im z = 1 - Re z` through the point `1`. It is a right-angled cone with apex `1` opening upwards.
+
+The wedge is the domain of the homotopies in the finite part of the magic-contour deformation,
+which compares the legs `-1 → -1 + i → i` with the legs `1 → 1 + i → i` under the inversion
+`z ↦ -1/z`. Openness and convexity let straight-line homotopies between such paths stay inside an
+open set, and the closure of `W` touches the real axis only at the apex `1`.
 
 ## Main definitions and results
 
-* `SphereCeti.Contour.wedgeSet`: the wedge, with the defining formula of the roadmap's
-  `SphereCeti.Suggested.Contour.wedgeSet`.
-* `SphereCeti.Contour.isOpen_wedgeSet`, `SphereCeti.Contour.convex_wedgeSet`, and
-  `SphereCeti.Contour.closure_wedgeSet_inter_real`: the roadmap targets of the same names, with
-  the same statements.
+* `SphereCeti.Contour.wedgeSet`: the wedge `W`.
+* `SphereCeti.Contour.mem_wedgeSet`: membership in `W` as three strict coordinate inequalities.
+* `SphereCeti.Contour.isOpen_wedgeSet`: `W` is open.
+* `SphereCeti.Contour.convex_wedgeSet`: `W` is convex over `ℝ`.
+* `SphereCeti.Contour.closure_wedgeSet_inter_real`: the closure of `W` meets the real axis
+  exactly in `{1}`.
 
 ## Provenance
 
-The definitions and statements are the roadmap's Layer 8 targets, which are based on the `gauss2`
-branch of Sphere-Packing-Lean at commit `01f23eccf963c50250c9e48dd103e8cc88c36f85`, file
-`SpherePacking/Contour/MobiusInv/WedgeSetContour.lean` (see `PROVENANCE.md`, section 4).  The
-proofs in this file were written independently of that source; no proof text is copied from it.
+The definition and statements follow the `gauss2` branch of Sphere-Packing-Lean at commit
+`01f23eccf963c50250c9e48dd103e8cc88c36f85`, file
+`SpherePacking/Contour/MobiusInv/WedgeSetContour.lean`. The proofs in this file were written
+independently of that source; no proof text is copied from it.
 -/
 
 public section
@@ -45,22 +48,26 @@ open scoped Topology
 
 namespace SphereCeti.Contour
 
-/-- The wedge: an open convex subset of the upper half-plane whose closure meets the real axis
-only at `1`. -/
-@[expose]
+/-- The open wedge `{z | 0 < Im z, |Re z - 1| < Im z}` with apex `1` in the upper half-plane. -/
 def wedgeSet : Set ℂ := {z | 0 < z.im ∧ z.re - 1 < z.im ∧ 1 - z.re < z.im}
 
+/-- A complex number `z` lies in the wedge exactly when `0 < Im z`, `Re z - 1 < Im z`, and
+`1 - Re z < Im z`. -/
+@[simp]
 theorem mem_wedgeSet {z : ℂ} :
     z ∈ wedgeSet ↔ 0 < z.im ∧ z.re - 1 < z.im ∧ 1 - z.re < z.im :=
   Iff.rfl
 
+/-- The wedge is an open subset of `ℂ`. -/
 theorem isOpen_wedgeSet : IsOpen wedgeSet :=
   (isOpen_lt continuous_const Complex.continuous_im).inter
     ((isOpen_lt (by fun_prop) Complex.continuous_im).inter
       (isOpen_lt (by fun_prop) Complex.continuous_im))
 
-/-- The wedge is the intersection of three open half-planes cut out by real-linear functionals. -/
+/-- The wedge is convex over `ℝ`. -/
 theorem convex_wedgeSet : Convex ℝ wedgeSet := by
+  -- The wedge is the intersection of three open half-planes cut out by the real-linear
+  -- functionals `Im`, `Im - Re`, and `Im + Re`, each of which is convex.
   have h : wedgeSet = {z | 0 < Complex.imLm z} ∩
       ({z | -1 < (Complex.imLm - Complex.reLm) z} ∩ {z | 1 < (Complex.imLm + Complex.reLm) z}) := by
     ext z
@@ -72,6 +79,7 @@ theorem convex_wedgeSet : Convex ℝ wedgeSet := by
     ((convex_halfSpace_gt (Complex.imLm - Complex.reLm).isLinear _).inter
       (convex_halfSpace_gt (Complex.imLm + Complex.reLm).isLinear _))
 
+/-- The closure of the wedge meets the real axis `{z | Im z = 0}` exactly at the apex `1`. -/
 theorem closure_wedgeSet_inter_real : closure wedgeSet ∩ {z : ℂ | z.im = 0} = {1} := by
   ext z
   simp only [mem_inter_iff, mem_ofPred_eq, mem_singleton_iff]
@@ -99,5 +107,11 @@ theorem closure_wedgeSet_inter_real : closure wedgeSet ∩ {z : ℂ | z.im = 0} 
     filter_upwards [self_mem_nhdsWithin] with t ht0
     have ht0' : (0 : ℝ) < t := ht0
     refine ⟨?_, ?_, ?_⟩ <;> simpa using ht0'
+
+/-! ### Automation checks -/
+
+/-- Check that `simp` unfolds membership in the wedge to coordinate inequalities. -/
+example : (1 + Complex.I : ℂ) ∈ wedgeSet := by
+  simp
 
 end SphereCeti.Contour
