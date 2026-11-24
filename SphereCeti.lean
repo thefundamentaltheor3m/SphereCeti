@@ -14,6 +14,7 @@ public import SphereCeti.Contour.HalfInfiniteRectangle
 public import SphereCeti.Lattice.Generated
 public import SphereCeti.Lattice.IntegralPresentation
 public import SphereCeti.LinearAlgebra.IntegralLattice.Rootless
+public import SphereCeti.ZLattice.Integral
 
 /-!
 # SphereCeti library
