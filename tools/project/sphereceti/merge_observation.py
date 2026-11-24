@@ -17,7 +17,8 @@ from .gate import blob, evaluate, tree
 from .local_review import object_source, prepare
 from .merge_checks import assess_checks, latest_statuses, parse_checks, run_reference
 from .review_post import GitHub
-from .review_records import RecordError, assess_records
+from .carry_over import GitSource, carry
+from .review_records import RecordError, assess_records, collect_records
 
 
 class Reader(GitHub):
@@ -164,8 +165,21 @@ def collect(args, project, client, *, assess_review=mathematical_scope, evidence
                                        local_sources=False)
             context = prepare(prepared, selected, refs, cache, root / 'workspace', root / 'engine')
         comments = ev['comments'] = client.comments(project.repository, args.pr)
-        review = assess_records(comments, context, policy,
-                                lambda rev:client.approved_revision(project.repository, rev, current), pr['user']['id'])
+        approve = lambda rev:client.approved_revision(project.repository, rev, current)
+        review = assess_records(comments, context, policy, approve, pr['user']['id'])
+        if review.get('review_safe') is not True:
+            def replay(head, base):
+                # The older head's context at current main, exactly as a review of it would bind now.
+                with tempfile.TemporaryDirectory(prefix='merge-carry-', dir=cache) as scratch:
+                    root = Path(scratch); (root / 'workspace').mkdir()
+                    prepared = SimpleNamespace(pr=args.pr, source_repo=repo, dependencies_dir=args.dependencies_dir,
+                                               local_sources=False)
+                    return prepare(prepared, selected, {**refs, 'head': head, 'base': base}, cache,
+                                   root / 'workspace', root / 'engine')
+            carried, ev['carry_attempts'] = carry_review(repo, comments, context, policy, current, approve,
+                                                         pr['user']['id'], replay)
+            if carried is not None:
+                review = carried
     ev.update(context=context, review=review)
     statuses = ev['statuses'] = client.statuses(refs['head'])
     runs = {run_reference(s.get('target_url'), project.repository) for s in latest_statuses(statuses).values()}
@@ -177,6 +191,36 @@ def collect(args, project, client, *, assess_review=mathematical_scope, evidence
     bound = {**context, 'head_repository': ((pr['head'] or {}).get('repo') or {}).get('full_name')}
     ev.update(run=run, jobs=jobs, checks=assess_checks(statuses, run, jobs, bound, settings))
     return ev
+
+
+def carry_review(repo, comments, context, policy, current, approve, author, replay):
+    """A review on an older head that carries over to this head through update-branch merges only.
+
+    Candidates are authorized, complete, non-advisory records on other heads, newest first. Each
+    must pass carry_over's rule; its record is then assessed unchanged against the older head's
+    context replayed at current main, so its own bindings, contests and verdicts still apply.
+    Returns (review or None, attempts with precise reasons).
+    """
+    heads = {}
+    for _, (_, record) in sorted(collect_records(comments, context, policy).items(), reverse=True):
+        if (record['head'] != context['head'] and not record['advisory'] and record['completion'] == 'complete'
+                and record['execution_mode'] in ('commit', 'manual')):
+            heads.setdefault(record['head'], []).append(record)
+    attempts, source = [], GitSource(repo)
+    for older, records in heads.items():
+        result = carry(source, older, context['head'], current, [r['tooling_revision'] for r in records])
+        attempts.append(result)
+        if not result['carried']:
+            continue
+        denied = []
+        for base in dict.fromkeys(r['base'] for r in records):
+            review = assess_records(comments, replay(older, base), policy, approve, author)
+            if review.get('review_safe') is True:
+                review.update(head=context['head'], carried_from=older, carry=result)
+                return review, attempts
+            denied += review.get('reasons') or []
+        result.update(carried=False, reason=f'the review of {older[:12]} is not accepted: ' + '; '.join(denied[:3]))
+    return None, attempts
 
 
 def observe(args, project, *, client=None):

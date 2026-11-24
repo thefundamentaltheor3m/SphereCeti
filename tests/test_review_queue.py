@@ -75,6 +75,8 @@ class Client:
     def call(self, endpoint, **kwargs):
         self.calls.append(endpoint)
         assert not kwargs.get('payload'), 'the queue never writes'
+        if '/actions/runs?head_sha=' in endpoint:
+            return [{'total_count': 0, 'workflow_runs': []}]  # a fork head's runs: none held
         if '/compare/' in endpoint:
             value = self.compare.get(endpoint.rsplit('/', 1)[1])
             if value is None:
@@ -185,15 +187,20 @@ class QueueTest(unittest.TestCase):
 
     def test_render_and_json_shape(self):
         report = self.classify([pr(2, title='A' * 80)])
-        self.assertEqual(set(report), {'schema', 'repository', 'actor', 'observed_at', 'order', 'sections',
-                                       'done', 'follow_ups_not_ready', 'main', 'not_ready_summary'})
+        self.assertEqual(set(report), {'schema', 'repository', 'actor', 'observed_at', 'order', 'ready_to_merge',
+                                       'sections',
+                                       'done', 'follow_ups_not_ready', 'blocked_by_parent', 'main',
+                                       'not_ready_summary'})
         self.assertEqual(report['schema'], SCHEMA)
         self.assertEqual(set(report['sections']), {'revised', 'author_replied', 'new', 'waiting_on_author',
                                                    'not_ready'})
         self.assertEqual(set(report['sections']['new'][0]), {'section', 'pr', 'author', 'title', 'head', 'base',
-                                                             'updated_at', 'waiting_seconds', 'reason', 'note'})
+                                                             'updated_at', 'waiting_seconds', 'reason', 'note',
+                                                             'unblocks', 'held_workflows'})
         text = render(report)
         self.assertIn('Revised since your review (0): none', text)
+        self.assertEqual(report['ready_to_merge'], {'items': [], 'not_ready': [], 'required_checks': []})
+        self.assertTrue(text.split('\n')[1].startswith('Ready to merge (0): none'))
         self.assertIn(f'  #2 bob "{"A" * 57}..." aaaaaaa: ready; no review by you; waiting 1h', text)
 
     def test_lookup_failures_raise_instead_of_guessing(self):
@@ -424,7 +431,7 @@ class QueueCliTest(unittest.TestCase):
                     baseRefOid=self.fixture.tooling, updatedAt='2026-01-01T00:00:00Z', state='OPEN',
                     isDraft=False, mergeable='MERGEABLE',
                     statusCheckRollup=[{'__typename': 'CheckRun', 'status': 'COMPLETED', 'conclusion': 'SUCCESS'}],
-                    headRepository={'nameWithOwner': REPO})
+                    headRepository={'nameWithOwner': REPO}, baseRefName='main', headRefName='change-47')
         self.table = {'user': {'login': ME}, 'pr list': [item], 'poster_id': 7, 'accept_posts': False}
         (self.fixture.bin / 'gh.json').write_text(json.dumps(self.table))
 
