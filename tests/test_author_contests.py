@@ -211,8 +211,11 @@ class Issue65Scenario(unittest.TestCase):
         text = (root / 'second/record.md').read_text()
         self.assertIn(f'**Author reply considered:** [comment 150](https://github.com/{REPO}/pull/1#issuecomment-150). '
                       'The finding no longer stands on this head: Fixture: the reply was weighed against the current code.', text)
-        comments = f.api()['comments']
-        self.assertEqual([c['id'] for c in comments], [100, 150, 151])
+        # Each posting review also leaves its review-in-progress claim (#102); records and contests
+        # are what this scenario checks.
+        # The claims take ids 100 and 151, so the records are 101 and 152 around the contest (150).
+        comments = [c for c in f.api()['comments'] if 'sphereceti-review-claim:v1' not in c['body']]
+        self.assertEqual([c['id'] for c in comments], [101, 150, 152])
         policy = replace(parse_policy(resource_text('automation.toml')), authorized_reviewers=('user:7',))
         context = {**{k: record[k] for k in record if k not in ('record_id', 'body_sha256')},
                    'tooling_approved': True, 'installed_tooling_matches_T': True,
