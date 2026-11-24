@@ -760,6 +760,10 @@ Fourier-side root set.
 Show the generated rank-eight lattice is positive-definite, even, unimodular, and has the inherited
 minimum norm; invoke M1; transport back through translation and scale to `IsSimilar E8.packing`.
 
+The transport does not involve packings and may land before N1–N3: by M1 and the Layer 2 real
+extension of an isometry, any two even unimodular lattices in `ℝ⁸` are carried onto each other by
+a linear isometry, and any coset of one onto any coset of the other by an affine isometry.
+
 ### PR N5 — Leech periodic uniqueness
 
 Show the generated rank-24 lattice is positive-definite, even, unimodular, and rootless using the
