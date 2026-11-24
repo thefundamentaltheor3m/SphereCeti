@@ -31,7 +31,11 @@ case "$EXPECTED_SHA" in
   ''|*[!0-9a-f]*) fail "expected head is not a lowercase hexadecimal object ID" ;;
 esac
 [ "${#EXPECTED_SHA}" = 40 ] || fail "expected head is not a 40-character object ID"
-[ "$EVENT_NAME" = "pull_request_target" ] || fail "unsupported attestation event"
+# A dispatched refresh on main runs the same trusted-base isolation as pull_request_target.
+case "$EVENT_NAME" in
+  pull_request_target|workflow_dispatch) ;;
+  *) fail "unsupported attestation event" ;;
+esac
 [ "$MERGEBASE_EXACT" = "1" ] \
   || fail "the approved snapshot was not resolved exactly"
 case "$PINS_CHANGED" in
