@@ -7,22 +7,18 @@ Authors: SphereCeti contributors
 module
 
 public import SphereCeti.Basic
-public import SphereCeti.Algebra.Group.Pointwise.Set
 public import SphereCeti.Analysis.Distribution.SchwartzSpace.CompNormSq
 public import SphereCeti.Analysis.Distribution.SchwartzSpace.FourierPositivity
 public import SphereCeti.Analysis.ExactZeroOrder
 public import SphereCeti.Analysis.Fourier.Exchange
 public import SphereCeti.CohnElkies.Certificate
 public import SphereCeti.Contour.HalfInfiniteRectangle
-public import SphereCeti.Lattice.EvenUnimodularRankEight
-public import SphereCeti.Lattice.Generated
 public import SphereCeti.Lattice.IntegralPresentation
 public import SphereCeti.Leech.ResidueCoordinates
-public import SphereCeti.LinearAlgebra.IntegralLattice.Rootless
 public import SphereCeti.MeasureTheory.Measure.Haar.EuclideanSpace
 public import SphereCeti.ZLattice.Covolume.Bound
-public import SphereCeti.ZLattice.Integral
-public import SphereCeti.ZLattice.RelativeQuotient
+public import SphereCeti.ZLattice.RelativeQuotient.Basic
+public import SphereCeti.ZLattice.RelativeQuotient.Embedding
 
 /-!
 # SphereCeti library

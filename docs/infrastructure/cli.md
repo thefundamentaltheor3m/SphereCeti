@@ -7,7 +7,10 @@ The `sphereceti` command supplies project diagnostics and the adapters credited 
 |---|---|
 | `doctor`, `status` | Project identity, policy and queue diagnostics (below) |
 | `review` | [Choose the PR that most needs your review](local-review.md#choosing-what-to-review) |
+| `reviews` | [Your review queue: revised, author replied, new, waiting on the author](local-review.md#your-review-queue-and-bounded-batches) |
+| `review --new / --revised / --all --limit N` | [Bounded review batches](local-review.md#your-review-queue-and-bounded-batches) |
 | `review N` | [Local review, posted by default](local-review.md#posting-by-default) |
+| `review --force-claim` | [Advisory review-in-progress claims](local-review.md#review-in-progress-claims) |
 | `review --read-records / --no-post` | [Authenticated records and publication](review-records.md) |
 | `review-publish RUN` | [Publish a saved run without reviewing again](local-review.md#publishing-a-saved-run) |
 | `review-check-sandbox` | [Credential-free Codex sandbox diagnostic](local-review.md#codex-sandbox-diagnostic) |
@@ -23,6 +26,7 @@ The `sphereceti` command supplies project diagnostics and the adapters credited 
 | `merge-doctor / merge-control` | [Controller diagnostics and gated action](merge-controller.md) |
 | `maintenance` | [Lifecycle diagnostics and labels](lifecycle.md) |
 | `profile-plan / profile-run` | [Advisory profiling](profiling.md) |
+| `intentions`, `intend TARGET` | [Work underway on proof targets, and registering an intention](intentions-cli.md) |
 | `verify` | [Check a proof branch the way CI does, before opening the PR](#verifying-a-proof-branch) |
 
 For installation smoke tests, one-PR review rehearsal, and the boundary between contributor
@@ -123,7 +127,7 @@ what CI already runs, from your checkout:
 | `roadmap` | `python3 -I scripts/check_roadmap.py` (CI's "Check roadmap contracts") | a static contract fails |
 | `build` | `lake build +Module` for each changed library/roadmap module; `lake build @/SphereCeti` when `SphereCeti.lean` changed or a module was deleted; bare `lake build` when no Lean source changed or the dependency configuration changed | Lean reports an error; each is listed as `file:line:column` |
 | `boundaries` | `lake env python3 -I scripts/check_modules.py --json` (CI's "Check module boundaries") | an import crosses the library/roadmap boundary |
-| `root_imports` | The auto-approval rule for `SphereCeti.lean` (`auto_approval.root_imports`): it may only gain `public import SphereCeti.<Topic>...` lines. Sorting existing lines passes, as in CI, with a note that `auto-approve-check` requires them unchanged and in order. Every new `SphereCeti/` module must also be reachable from the root in the boundary check's import graph | the root removes or edits a line or adds a non-import line, or a new module is not exported |
+| `root_imports` | `SphereCeti.lean` is compared with the merge base. Proof PRs leave it alone and import topic modules directly; the `SphereCeti.*` Lake glob builds every module, and the root keeps its existing re-exports | the root changed; the message gives the `git checkout <merge-base> -- SphereCeti.lean` that restores it |
 | `audit` | `lake env python3 -I scripts/check_audits.py` (CI's "Build and audit every classified source"), with its verdict read back | a new `sorryAx` dependency (listed as a new admission), roadmap ledger drift, an unapproved axiom, lint finding, or empty module, or a warning in a library module |
 
 Each step prints one line: `PASS`, `FAIL` or `SKIPPED` with the reason. Then come the verdict
@@ -146,6 +150,5 @@ modules, build targets), `steps` (each with `name`, `status`, `summary`, `second
 
 `verify` is advisory. It runs your checkout's own scripts, as the ordinary `CI` workflow does,
 not approved main's tooling in the sandbox, so `trusted-build` remains the merge evidence. It does
-not fetch, push, post or call a model provider. Its only repository writes are `git hash-object -w`
-of a locally modified `SphereCeti.lean`, so the root-import rule can read it as a Git object.
+not fetch, push, post or call a model provider. It never writes to the repository.
 With the Mathlib cache present, the first run on main took about 100 seconds, and later runs about 40 seconds.

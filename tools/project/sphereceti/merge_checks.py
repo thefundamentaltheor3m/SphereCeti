@@ -17,8 +17,25 @@ CONTEXTS = ('trusted-build', 'trusted-scope')
 # the run happened, so this attestation is what binds a run to its tooling. Newer runs also attest
 # the pull_request_target event's PR number and base; the head is the status's own commit. That
 # binding works for fork PRs, whose runs GitHub reports with an empty pull_requests association.
-TOOLING_ATTESTATION = re.compile(r'Approved tooling build: [a-z_]+; tooling ([0-9a-f]{40})'
+# A dispatched refresh (pr-build.yml on main, `workflow_dispatch`) says "refresh" instead of
+# "build", and always carries the PR binding. Older readers do not match it, so they fail closed.
+TOOLING_ATTESTATION = re.compile(r'Approved tooling (?:build|refresh): [a-z_]+; tooling ([0-9a-f]{40})'
                                  r'(?:; pr ([1-9][0-9]{0,8}); base ([0-9a-f]{40}))?')
+REFRESH_PREFIX = 'Approved tooling refresh: '
+# The trusted run builds and audits the PR head merged with the main commit whose workflow ran, and
+# publishes that tested tree in a third status on the head (140 characters do not fit it in the
+# trusted-build description). Main is the run's own workflow_sha, also attested as `tooling`.
+MERGE_CONTEXT = 'trusted-merge'
+MERGE_ATTESTATION = re.compile(r'Tested merge tree ([0-9a-f]{40}) with main ([0-9a-f]{40})')
+MERGE_MISSING = 'trusted-merge is missing; rebuild the merge with current main'
+MERGE_STALE = 'trusted-merge tested an older main; rebuild the merge with current main'
+MERGE_MISMATCH = 'trusted-merge tested another tree than the merge of current main and the head'
+MERGE_CONFLICT = 'the head does not merge cleanly with current main'
+
+
+def refresh_title(pr, head):
+    """pr-build.yml's run-name for a dispatched refresh, as the runs API reports it (display_title)."""
+    return f'refresh #{pr} at {head}'
 
 
 def parse_checks(text):
@@ -49,7 +66,7 @@ def latest_statuses(statuses):
             raise RecordError('invalid or duplicate commit status')
         seen.add(status['id'])
         context = status['context']
-        if context in CONTEXTS and status['id'] > latest.get(context, {}).get('id', 0):
+        if context in (*CONTEXTS, MERGE_CONTEXT) and status['id'] > latest.get(context, {}).get('id', 0):
             latest[context] = status
     return latest
 
@@ -59,6 +76,59 @@ def run_reference(url, repository):
     match = re.fullmatch(re.escape(f'https://github.com/{repository}/actions/runs/') +
                          r'([1-9][0-9]*)/attempts/([1-9][0-9]*)', url or '')
     return tuple(map(int, match.groups())) if match else None
+
+
+def assess_merge(statuses, context, expected_tree, settings):
+    """The tested merge must be current main merged with this head, from the same trusted run.
+
+    `expected_tree` is the tree of the head merged into current main, computed by the caller from
+    Git objects (None when they conflict). The trusted run's other provenance checks (producer,
+    exact run attempt, status job window) are assess_checks', which reads this status too.
+    """
+    latest = latest_statuses(statuses)
+    status, build = latest.get(MERGE_CONTEXT), latest.get('trusted-build') or {}
+    if expected_tree is None:
+        return [MERGE_CONFLICT]
+    if status is None:
+        return [MERGE_MISSING]
+    reasons = []
+    attested = MERGE_ATTESTATION.fullmatch(status.get('description') or '')
+    creator = status.get('creator') or {}
+    if (creator.get('type') != 'Bot' or type(creator.get('id')) is not int or
+            creator['id'] not in settings['status_creator_ids']):
+        reasons.append('trusted-merge has an unapproved producer')
+    if status.get('url') != f"https://api.github.com/repos/{context['repository']}/statuses/{context['head']}":
+        reasons.append('trusted-merge has a wrong head/location')
+    if run_reference(status.get('target_url'), context['repository']) != run_reference(
+            build.get('target_url'), context['repository']):
+        reasons.append('trusted-merge and trusted-build come from different run attempts')
+    if attested is None:
+        reasons.append('trusted-merge does not attest its tested tree')
+    elif attested.group(2) != context['tooling']:
+        reasons.append(MERGE_STALE)
+    elif attested.group(1) != expected_tree:
+        reasons.append(MERGE_MISMATCH)
+    if status.get('state') != 'success':
+        reasons.append('trusted-merge is not successful')
+    return reasons
+
+
+def refresh_binding(run, description, context):
+    """Extra requirements for a dispatched refresh run; the shared checks still apply."""
+    reasons = []
+    attested = TOOLING_ATTESTATION.fullmatch(description)
+    if run.get('head_branch') != 'main':
+        reasons.append('refresh run was not dispatched on main')
+    if run.get('display_title') != refresh_title(context['pr'], context['head']):
+        reasons.append('refresh run-name does not name this PR and exact head')
+    if not description.startswith(REFRESH_PREFIX) or attested is None or not attested.group(2):
+        reasons.append('refresh run did not publish a refresh attestation with its PR binding')
+    elif attested.group(1) != run.get('head_sha'):
+        reasons.append('refresh attests tooling other than the dispatched main commit')
+    # The run's creation after the head's last push is not readable for fork heads. The workflow
+    # instead read the PR at its start and again before publishing and found this exact head and
+    # base both times, so the head was current throughout the build (the race guard).
+    return reasons
 
 
 def assess_checks(statuses, run, jobs, context, settings):
@@ -85,20 +155,30 @@ def assess_checks(statuses, run, jobs, context, settings):
         reasons.append('trusted workflow run is unavailable')
     else:
         rid, attempt = refs[0]
+        description = (latest.get('trusted-build') or {}).get('description') or ''
+        refresh = run.get('event') == 'workflow_dispatch'
         # GitHub reports a pull_request_target run's head_sha as the PR head, not the commit whose
         # workflow ran, so the run must name the exact PR head. The tooling is bound by the
         # trusted-build attestation checked below. The run's PR association reflects the PR's current
         # state, so its base proves only that the PR is up to date with approved main, not which
         # tooling an older run used.
+        # A dispatched refresh instead runs main's own workflow: its head_sha is the dispatched main
+        # commit, which must be the attested tooling. Its run-name names the PR and exact head; its
+        # statuses live on that head commit; its attestation binds the PR number and base.
         expected = {'id': rid, 'run_attempt': attempt, 'workflow_id': settings['workflow_id'],
-                    'path': WORKFLOW, 'event': 'pull_request_target', 'status': 'completed',
-                    'conclusion': 'success', 'head_sha': context['head']}
+                    'path': WORKFLOW, 'event': 'workflow_dispatch' if refresh else 'pull_request_target',
+                    'status': 'completed', 'conclusion': 'success',
+                    'head_sha': context['tooling'] if refresh else context['head']}
         for key, value in expected.items():
             if run.get(key) != value or (type(value) is int and type(run.get(key)) is not int):
                 reasons.append(f'trusted run has wrong {key}')
         if (run.get('repository') or {}).get('full_name') != context['repository']:
             reasons.append('trusted run belongs to another repository')
-        associated = run.get('pull_requests')
+        if refresh:
+            reasons += refresh_binding(run, description, context)
+        elif description.startswith(REFRESH_PREFIX):
+            reasons.append('a refresh attestation must come from a dispatched refresh run')
+        associated = [] if refresh else run.get('pull_requests')
         mine = [p for p in associated if isinstance(p, dict) and type(p.get('number')) is int and
                 p['number'] == context['pr']] if isinstance(associated, list) else []
         exact = any((p.get('head') or {}).get('sha') == context['head'] and
@@ -113,8 +193,9 @@ def assess_checks(statuses, run, jobs, context, settings):
         elif not exact:
             # Older descriptions carry no PR binding: only the association can supply it.
             reasons.append('trusted run lacks the exact PR head/base association')
-        if (not context.get('head_repository') or
+        if not refresh and (not context.get('head_repository') or
                 (run.get('head_repository') or {}).get('full_name') != context['head_repository']):
+            # A refresh runs from main; the exact head SHA, not a repository, binds its candidate.
             reasons.append('trusted run head repository differs from the PR head repository')
         if context['base'] != context['tooling']:
             reasons.append('PR base is not approved main; update the PR and refresh the trusted run')
