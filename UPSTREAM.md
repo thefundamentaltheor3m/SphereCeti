@@ -342,25 +342,6 @@ closure-continuity hypotheses separately.
 
 - [ ] **Upstream test:** no project import remains in a minimal reproduction.
 
-### A24. The scaled cubic lattice and periodic repetitions
-
-- [ ] **Destination:** TauCeti `TauCeti/Algebra/Module/ZLattice/Scaling.lean`, beside
-  `ZLattice.covolume_smul`, for the lattice `c ℤ^ι`; beside the periodic repetition of A20 for
-  the rest.
-- [ ] **Current source:** `SphereCeti/ZLattice/PeriodicRepetition.lean`.
-- [ ] **Candidate declarations:** membership in `c ℤ^ι = c • span ℤ (Set.range (basisFun ι ℝ))`
-  (`EuclideanSpace.mem_smul_span_basisFun_iff`) and its covolume `|c|ⁿ`
-  (`EuclideanSpace.covolume_smul_span_basisFun`); the periodic repetition of a set along `c ℤ^ι`
-  as a union of cosets (`EuclideanSpace.periodicRepetition_eq_iUnion_vadd`), its invariance
-  (`EuclideanSpace.add_mem_periodicRepetition`), and the incongruence of the points of a box of
-  radius `R` modulo `c ℤ^ι` for `2R < |c|` (`EuclideanSpace.eq_of_sub_mem_smul_span_basisFun`).
-- [ ] **Why general:** these are facts about the cubic lattice and coordinate boxes; nothing refers
-  to packings.
-- [ ] **SphereCeti use:** the period lattice and orbit representatives of the periodic packing
-  repeating the centers in a box (MIGRATION D5, Layer 3).
-- [ ] **Fallback:** the local declarations in the `EuclideanSpace` namespace.
-- [ ] **Upstream test:** no project import remains in a minimal reproduction.
-
 ### A20. Coordinate boxes in Euclidean space and their boundary layers
 
 - [ ] **Destination:** TauCeti `TauCeti/MeasureTheory/Measure/Haar/EuclideanSpace.lean`, beside the
