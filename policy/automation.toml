@@ -8,7 +8,12 @@ reporting = false
 # policy PR enables it (`sphereceti review N` then approves only after every guard passes).
 approving = false
 merging = false
-mathematical_paths = []
+# First proof topics eligible for the automatic route. Prefix semantics as in gate.py: library
+# modules under SphereCeti/Contour/ and SphereCeti/E8/ only. Contributors may work on any roadmap
+# target; PRs outside these topics, any edit to the frozen library root SphereCeti.lean, and any
+# change mixed with specification, CI, policy, dependency or tooling paths take the human route.
+# This grants no merge (merging stays false) and no formal approval (approving_reviewers is empty).
+mathematical_paths = ["SphereCeti/Contour/", "SphereCeti/E8/"]
 # Reviewers whose posted review records count as official (immutable GitHub user ids, verified
 # read-only on 2026-11-24 with `gh api users/<login>` and the repository collaborator list).
 # Authorization covers review records only: it grants no merge authority, and a reviewer's record

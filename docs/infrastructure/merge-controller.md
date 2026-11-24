@@ -35,7 +35,8 @@ unconfigured, and `executor` reports the run and job-token checks
 exit 0; unavailable/invalid data and unconfirmed write outcomes exit 2.
 
 `--apply` is explicit and requires both ready setup and the verified executor. The shipped `merging`
-switch is false, the mathematical allowlist and `approving_reviewers` are empty, and controller IDs are zero.
+switch is false. The mathematical allowlist names `SphereCeti/Contour/` and `SphereCeti/E8/`,
+`approving_reviewers` is empty, and controller IDs are zero.
 The CLI cannot configure those settings. Library proof PRs currently require human merging. The
 workflow is installed read-only ([first run](#the-read-only-first-run)); no live merge, secret,
 bot account or branch-rule change is part of it.
@@ -173,8 +174,37 @@ move touching only that file should become rare; it still forces re-review. Ever
 `review_inputs` (`changed_inputs` by category, `library_root_only`, `change_identical`,
 `unrelated_changes`, `reviewed_at_main`). A `SphereCeti.lean`-only case adds the reason
 `measurement: only SphereCeti.lean changed on main since the review`. This measures how often that
-file alone forces re-review before any exception is designed; none is built. Only the same head is
-considered. A review is not carried over to a new head, such as an update-branch merge commit.
+file alone forces re-review before any exception is designed; none is built.
+
+**Carry-over to "Update branch" heads** (decision 2 on #100). GitHub's "Update branch" merges main
+into the PR, so the head changes while the PR's own change does not. A review record or a formal
+APPROVE on head H1 carries over to the current head H2 only if all of these hold
+(`tools/project/sphereceti/carry_over.py`):
+
+1. **Only update merges.** Every commit from H2 back to H1 has exactly two parents: the previous
+   head first, and a commit on current main's first-parent history second. At most 20 such merges;
+   no other commit may appear.
+2. **Same change.** `merge-base(M, H1)..H1` equals `merge-base(main, H2)..H2` path by path in mode
+   and blob ID, where M is the newest merged main commit. A conflict resolution, a main change to a
+   file the PR changes, or any extra change in a merge commit makes them differ.
+3. **No review input changed** on main between the review's `tooling_revision` and current main
+   (which contains M), by the classification above, including the `SphereCeti.lean` measurement.
+4. **Approvals.** The approver's latest review is APPROVE on H1, H1 to H2 meets 1 to 3 (with the
+   accepted review's `tooling_revision`), and the approver is not the PR author.
+
+In the decision, a carried record must also still be accepted: its context for H1 is replayed at
+current main and checked by the unchanged record reader, so its bindings, verdicts and contests
+apply as before. Any doubt means no carry-over, and the reason is reported: an extra commit, a
+non-main parent, a changed input, an unreadable or truncated tree listing. The decision reports
+`carried_from` and the merges in `official_review` and `review_inputs`; the controller's formal
+approval reports `carried_from` and `carried_via`. Selection, the review queue and
+`review --read-records` evaluate the same rule through GET-only API reads.
+
+**GitHub's `base.sha` follows head updates, not main.** When a PR's head merges main, GitHub
+re-snapshots `base.sha` to the merged main commit. Read-only on 2026-11-24, every PR whose head is
+a merge of main (#44, #50, #55, #67, #69, #70, #79, #85, #86, #91, #97, #99, #102, #107) reports
+`base.sha` equal to that merge's second parent. So after "Update branch" the PR's base is the merged
+main, and its scope is exactly its own change.
 
 **GitHub's `base.sha` is a snapshot, not live.** Observed read-only on 2026-11-23, after main
 moved to `e64e506`, every open PR into main still reported an older main as `base.sha`. #85 had a
@@ -202,11 +232,10 @@ that lands. The options (evidence read-only, 2026-11-23):
   tree. That equals the tested merge of that head with that main, which the decision verifies, and
   the `sha` pin fixes the head. So the tested tree lands or nothing does.
   - The live ruleset has strict off (#49 already reports it), and `allow_update_branch` is on.
-  - An update-branch merge commit is a new head, so today it invalidates both the review binding
-    (records bind the head) and the exact-head formal approval. Under criterion 1 the PR's own
-    change from `merge-base(main, new head)` is identical when main touched none of the PR's files.
-  - Carrying the review and the approval over to such a head is the next step; it needs its own
-    approval and is not built. Until then, a behind PR is `needs_update` and then re-reviewed.
+  - An update-branch merge commit is a new head. The review and the formal approval carry over
+    to it under the rule above, so turning strict on does not force a re-review for each update.
+    A behind PR is `needs_update`; once updated, its carried review and approval and a fresh
+    trusted run of the new head let it land.
   - A required trusted check is not needed for enforcement: the executor verifies the trusted
     statuses itself, and requiring them for every PR would block the human route.
 - **Others: not viable.** GitHub documents its merge queue only for organization-owned

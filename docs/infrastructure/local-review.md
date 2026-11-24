@@ -341,6 +341,12 @@ information only. Then it skips:
   written as `/sphereceti contest <rubric>` in an ordinary comment, whatever head it was
   written against. Selection does not recompute tooling, context or engine digests (that would mean
   materializing every candidate's sources); the record reader still checks them all.
+- **Carried over from an older head:** when the only commits since a reviewed head are "Update
+  branch" merges of main, the PR's own change is identical, and no review input changed on main,
+  the older review is current ([rule](merge-controller.md#per-pr-actions-stale-build-versus-stale-review)).
+  The reason ends with `current (carried over from <H1> via update-branch)`, and no fresh review is
+  asked for. Selection reads this through GET-only API calls (commits, trees and compare); any
+  doubt means no carry-over.
 - **Reviewed by you:** a complete commit/manual record for this head and base that you posted
   (comment author login equals yours, advisory or not), or that you produced locally: a
   `record.json` under your storage's `runs/`, or a record in the local archive journal, which
@@ -441,6 +447,10 @@ PR's comments, and lists your queue in sections:
 
 ```text
 Review queue for yvonne (thefundamentaltheor3m/SphereCeti, observed 2026-11-23T21:29:38Z)
+Ready to merge (2):
+  #57 erin "Prove the theta identity" 4c1d2e3: approve + merge; no approval on this head; record https://github.com/thefundamentaltheor3m/SphereCeti/pull/57#issuecomment-12
+  #153 arajasek "Give the Euclidean Leech lattice an even unimodular integ..." 5c590b4: waiting on CI (held: needs maintainer approval) (CI, Documentation and cache, Progress sources); no approval on this head; record <URL>
+Accepted 10/10 but not ready to merge: #72 CI not done: build was cancelled on this head; re-run it; #150 stacked on leech-shells; merge its parent first
 Revised since your review (1):
   #66 bob "Prove the contour deformation" 6031efc: revised 1a2b3c4 → 6031efc, 2 commits; author replied 1×; waiting 3h
 Author replied (1):
@@ -452,8 +462,32 @@ Waiting on the author (1):
 Not ready: No PR is ready with current evidence: 8 open PRs await CI; 7 are yours; #41 is not ready (CI failed).
 ```
 
+- **Ready to merge** (listed first, for maintainers): open PRs where all of these hold:
+  - the base is `main` (not stacked);
+  - an accepted official record approves all ten rubrics on the **current** head. It must be
+    authorized, intact, complete and not advisory, by someone other than the author, with every
+    author contest on that publisher's records answered;
+  - CI passes on the current head apart from the expected `trusted-scope` human-review result
+    (bare `review`'s review CI), and every check main's ruleset requires (today `build`) has
+    completed and succeeded there. A cancelled run is not done;
+  - GitHub reports it mergeable: not conflicting, and not `blocked` by anything other than the
+    missing approval or a required check (for example unresolved review threads).
+
+  Each entry gives the next step:
+  - `approve + merge`: no formal GitHub approval of the current head by a non-author. An approval
+    of an older head is shown but does not count;
+  - `merge`: there is one;
+  - `waiting on CI (held: needs maintainer approval)`: the latest run of a workflow on this head
+    is `action_required`, which is how GitHub holds a fork PR's runs until a maintainer approves
+    them. The held workflows are named.
+
+  It also gives the formal approval state and the record link. PRs with such a record that fail
+  another condition are listed after it with the reason (`ready_to_merge.not_ready` in JSON). The
+  listing only reads; it never approves or merges.
 - **Revised since your review:** your latest posted (unedited, commit/manual) record names an
-  older head and the PR is ready. It shows the old and new short heads, the commits since (the
+  older head and the PR is ready, unless that review carries over through update-branch merges.
+  Then the PR is done (`current (carried over from <H1> via update-branch)`), or, if you requested
+  changes, it waits on the author with `no new change`. It shows the old and new short heads, the commits since (the
   compare API; a rewritten history is reported, never guessed), and author replies and contests
   posted after your record. These rank first.
 - **Author replied:** your latest record names the current head and requested changes or
@@ -462,6 +496,13 @@ Not ready: No PR is ready with current evidence: 8 open PRs await CI; 7 are your
 - **New to you:** exactly bare `review`'s eligible PRs.
 - **Waiting on the author:** your latest record names the current head and requested changes or
   blocked, and there is neither a revision nor a response; it names those rubrics.
+- **Awaiting CI, held:** wherever readiness says a fork PR awaits CI and the latest run of a
+  workflow on its head is `action_required`, the reason reads `awaits CI: awaiting maintainer
+  approval of workflow runs (<workflows>)`, and the summary counts them. Bare `review` words it
+  the same way. A fork PR can also look ready to review while its `pull_request` workflows were
+  never run: the rollup then holds only the `pull_request_target` runs, as on #153. Its entry in
+  the sections above then ends with `CI held, awaiting maintainer approval of workflow runs
+  (<workflows>)` (`held_workflows` in JSON).
 - **Your follow-ups, not ready yet:** a PR you reviewed that was revised or answered but awaits
   CI, GitHub or a refreshed build is named on its own line instead of disappearing into the
   summary (`follow_ups_not_ready` in JSON).
@@ -481,9 +522,13 @@ Not ready: No PR is ready with current evidence: 8 open PRs await CI; 7 are your
   already have the review they need are listed as already reviewed.
 
 Each entry gives the PR, author, title, short head, the reason and how long it has waited (since
-`updatedAt`). `--json` prints `sphereceti.review-queue/v1` with `sections` (`revised`, `author_replied`, `new`,
+`updatedAt`). `--json` prints `sphereceti.review-queue/v1` with `ready_to_merge` (`items`, each with `next_step`,
+`record`, `record_publisher`, `approval` (`on_head`, `older_heads`, `changes_requested`),
+`held_workflows`, `required_checks` and `mergeable_state`; `not_ready` with `reason`; and the
+`required_checks` names), `sections` (`revised`, `author_replied`, `new`,
 `waiting_on_author`, `not_ready`), `done`, `follow_ups_not_ready`, `not_ready_summary`, `main` and `order`. A failed
-lookup (survey, comments, compare response) exits 2 and lists nothing.
+lookup (survey, comments, compare response, and for Ready to merge the branch rules, check runs,
+workflow runs, PR and its reviews) exits 2 and lists nothing.
 
 `sphereceti review --new --limit N`, `--revised --limit N` (your follow-ups: revised, then author
 replied) or `--all --limit N` (follow-ups, then new) reviews up to N **distinct** PRs (default 1,
