@@ -25,7 +25,9 @@ positivity `SchwartzMap.re_apply_zero_pos_of_fourier_nonneg`.
 
 Certificates transport along linear isometries `A` of `ℝ^d`, as `f ∘ A`, and along dilations by
 `c > 0`, as `x ↦ f (c⁻¹ • x)` with radius `c * r`.  The Fourier transform of the dilation is
-`y ↦ c ^ d • f̂ (c • y)`, so both transports leave the density bound unchanged.
+`y ↦ c ^ d • f̂ (c • y)`, so both transports leave the density bound unchanged, as does
+multiplication by `t > 0`.  In dimension `d > 0`, dilating until `f̂(0) = f(0)` and then dividing by
+`f(0)` gives a normalized certificate, with `f(0) = f̂(0) = 1`, and the same density bound.
 
 ## Main definitions
 
@@ -35,6 +37,8 @@ Certificates transport along linear isometries `A` of `ℝ^d`, as `f ∘ A`, and
 * `SphereCeti.CohnElkies.Certificate.compLinearIsometryEquiv`,
   `SphereCeti.CohnElkies.Certificate.dilate`: the transports along a linear isometry and a
   dilation.
+* `SphereCeti.CohnElkies.Certificate.smul`: the multiple of a certificate by `t > 0`.
+* `SphereCeti.CohnElkies.Certificate.IsNormalized`: a certificate with `f(0) = f̂(0) = 1`.
 
 ## Main statements
 
@@ -42,7 +46,10 @@ Certificates transport along linear isometries `A` of `ℝ^d`, as `f ∘ A`, and
 * `SphereCeti.CohnElkies.Certificate.f_zero_pos`: the value of a certificate at `0` is positive.
 * `SphereCeti.CohnElkies.Certificate.bound_pos`: the density bound of a certificate is positive.
 * `SphereCeti.CohnElkies.Certificate.bound_compLinearIsometryEquiv`,
-  `SphereCeti.CohnElkies.Certificate.bound_dilate`: the transports keep the density bound.
+  `SphereCeti.CohnElkies.Certificate.bound_dilate`, `SphereCeti.CohnElkies.Certificate.bound_smul`:
+  the transports and positive multiples keep the density bound.
+* `SphereCeti.CohnElkies.Certificate.exists_isNormalized`: in dimension `d > 0`, every certificate
+  gives a normalized certificate with the same density bound.
 
 ## References
 
@@ -199,11 +206,93 @@ theorem bound_dilate (C : Certificate d r) {c : ℝ} (hc : 0 < c) :
   congr 2
   field_simp
 
+/-! ### Normalization -/
+
+/-- A certificate is normalized when `f(0) = 1` and `f̂(0) = 1`, the normalization of the magic
+functions. -/
+def IsNormalized (C : Certificate d r) : Prop :=
+  C.f 0 = 1 ∧ 𝓕 C.f 0 = 1
+
+/-- A certificate is normalized exactly when `f(0) = 1` and `f̂(0) = 1`. -/
+theorem isNormalized_iff (C : Certificate d r) : C.IsNormalized ↔ C.f 0 = 1 ∧ 𝓕 C.f 0 = 1 :=
+  Iff.rfl
+
+/-- The multiple `t • f` of a certificate by `t > 0`, again a certificate of radius `r`. -/
+noncomputable def smul (C : Certificate d r) {t : ℝ} (ht : 0 < t) : Certificate d r where
+  radius_pos := C.radius_pos
+  f := (t : ℂ) • C.f
+  real_f x := by simp [C.real_f x]
+  real_fourier x := by
+    rw [FourierSMul.fourier_smul, smul_apply, smul_eq_mul, Complex.im_ofReal_mul, C.real_fourier,
+      mul_zero]
+  nonpos_of_radius_le_norm x hx := by
+    simpa [Complex.re_ofReal_mul] using mul_nonpos_of_nonneg_of_nonpos ht.le
+      (C.nonpos_of_radius_le_norm x hx)
+  fourier_nonneg x := by
+    rw [FourierSMul.fourier_smul, smul_apply, smul_eq_mul, Complex.re_ofReal_mul]
+    exact mul_nonneg ht.le (C.fourier_nonneg x)
+  fourier_zero_pos := by
+    rw [FourierSMul.fourier_smul, smul_apply, smul_eq_mul, Complex.re_ofReal_mul]
+    exact mul_pos ht C.fourier_zero_pos
+
+/-- The multiple of a certificate by `t` is `x ↦ t • f x`. -/
+@[simp]
+theorem smul_f_apply (C : Certificate d r) {t : ℝ} (ht : 0 < t) (x : EuclideanSpace ℝ (Fin d)) :
+    (C.smul ht).f x = t * C.f x :=
+  (rfl)
+
+/-- The Fourier transform of the multiple of a certificate by `t` is `t • f̂`. -/
+@[simp]
+theorem fourier_smul_f_apply (C : Certificate d r) {t : ℝ} (ht : 0 < t)
+    (x : EuclideanSpace ℝ (Fin d)) : 𝓕 (C.smul ht).f x = t * 𝓕 C.f x := by
+  change 𝓕 ((t : ℂ) • C.f) x = _
+  rw [FourierSMul.fourier_smul, smul_apply, smul_eq_mul]
+
+/-- Multiplying a certificate by `t > 0` does not change the density bound. -/
+@[simp]
+theorem bound_smul (C : Certificate d r) {t : ℝ} (ht : 0 < t) : (C.smul ht).bound = C.bound := by
+  rw [bound_def, bound_def, smul_f_apply, fourier_smul_f_apply, Complex.re_ofReal_mul,
+    Complex.re_ofReal_mul, mul_div_mul_left _ _ ht.ne']
+
+/-- **Normalization.**  In dimension `d > 0`, every certificate gives a normalized certificate,
+of another radius, with the same density bound: dilate until `f̂(0) = f(0)`, then divide by
+`f(0)`. -/
+theorem exists_isNormalized (C : Certificate d r) (hd : 0 < d) :
+    ∃ (r' : ℝ) (C' : Certificate d r'), C'.IsNormalized ∧ C'.bound = C.bound := by
+  set a := (C.f 0).re
+  set b := (𝓕 C.f 0).re
+  have ha : 0 < a := C.f_zero_pos
+  have hb : 0 < b := C.fourier_zero_pos
+  -- The dilation by `c = (a / b) ^ (1 / d)` makes `f̂(0) = c ^ d * b = a`.
+  set c := (a / b) ^ (1 / d : ℝ)
+  have hc : 0 < c := Real.rpow_pos_of_pos (div_pos ha hb) _
+  have hcd : c ^ d * b = a := by
+    rw [← Real.rpow_natCast, ← Real.rpow_mul (div_pos ha hb).le, one_div_mul_cancel
+      (Nat.cast_ne_zero.mpr hd.ne'), Real.rpow_one, div_mul_cancel₀ _ hb.ne']
+  -- Real values at the origin are their real parts.
+  have hreal (z : ℂ) (hz : z.im = 0) : z = z.re := Complex.ext rfl (by simpa using hz)
+  refine ⟨c * r, (C.dilate hc).smul (inv_pos.mpr ha), ⟨?_, ?_⟩, by simp⟩
+  · rw [smul_f_apply, dilate_f_apply, smul_zero, hreal _ (C.real_f 0)]
+    push_cast
+    exact inv_mul_cancel₀ (Complex.ofReal_ne_zero.mpr ha.ne')
+  · rw [fourier_smul_f_apply]
+    change ((a⁻¹ : ℝ) : ℂ) * 𝓕 (dilateFun C.f hc) 0 = 1
+    rw [fourier_dilateFun, smul_zero, hreal _ (C.real_fourier 0), Complex.real_smul]
+    push_cast
+    rw [← Complex.ofReal_pow, ← Complex.ofReal_mul, hcd]
+    exact inv_mul_cancel₀ (Complex.ofReal_ne_zero.mpr ha.ne')
+
 /-- Check that `simp` computes the function and the bound of a transported, dilated certificate. -/
 example (C : Certificate d r) (A : EuclideanSpace ℝ (Fin d) ≃ₗᵢ[ℝ] EuclideanSpace ℝ (Fin d))
     {c : ℝ} (hc : 0 < c) (x : EuclideanSpace ℝ (Fin d)) :
     ((C.compLinearIsometryEquiv A).dilate hc).f x = C.f (A (c⁻¹ • x)) ∧
       ((C.compLinearIsometryEquiv A).dilate hc).bound = C.bound := by
+  simp
+
+/-- Check that `simp` computes the values and the bound of a positive multiple of a certificate. -/
+example (C : Certificate d r) {t : ℝ} (ht : 0 < t) (x : EuclideanSpace ℝ (Fin d)) :
+    (C.smul ht).f x = t * C.f x ∧ 𝓕 (C.smul ht).f x = t * 𝓕 C.f x ∧
+      (C.smul ht).bound = C.bound := by
   simp
 
 end Certificate
