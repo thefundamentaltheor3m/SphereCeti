@@ -96,6 +96,9 @@ def main(argv: list[str] | None = None) -> int:
     add_publish_parser(commands)
     from .review_queue import add_parser as add_queue_parser
     add_queue_parser(commands)
+    from .operator_setup import (SetupError, add_parser as add_setup_parser, first_run,
+                                 needs_first_run, run_setup)
+    add_setup_parser(commands)
     from .review_sandbox import add_parser as add_sandbox_parser, check_sandbox
     add_sandbox_parser(commands)
     from .archive_cli import add_parser as add_archive_parser, run_archive
@@ -132,6 +135,12 @@ def main(argv: list[str] | None = None) -> int:
         sub.add_argument("--offline", action="store_true", help="do not query GitHub; queue remains unknown")
         sub.add_argument("--operator-config", type=Path, help="preferences only; cannot override repository policy")
     args = parser.parse_args(argv)
+    if args.command == "setup":
+        try:
+            print(run_setup(args))
+        except (SetupError, ConfigError, OSError) as error:
+            parser.exit(2, f"sphereceti setup: {error}\n")
+        return 0
     if args.command == "verify":
         # Local checks of the caller's checkout; no repository policy or GitHub access needed.
         return run_verify(args)
@@ -164,6 +173,7 @@ def main(argv: list[str] | None = None) -> int:
             if default_path.is_file():
                 operator_path = default_path
         preferences = parse_operator(operator_path.read_text() if operator_path else "")
+        setup_needed = needs_first_run(args, operator_path)
     except (ConfigError, OSError, tomllib.TOMLDecodeError) as error:
         parser.exit(2, f"sphereceti: configuration error: {error}\n")
 
@@ -306,11 +316,15 @@ def main(argv: list[str] | None = None) -> int:
         if args.pr is not None or not (args.new or args.revised or args.all):
             parser.exit(2, "sphereceti review: --new/--revised/--all take no PR number, and --limit needs one of them\n")
         try:
-            batch = run_batch(args, project, policy, preferences,
-                              announce=None if args.json else lambda line: print(line, flush=True))
+            from .review_approval import Approval
+            say = None if args.json else lambda line: print(line, flush=True)
+            batch = run_batch(args, project, policy, preferences, announce=say,
+                              prepare=(lambda: first_run(provider=args.provider)) if setup_needed else None,
+                              approval=lambda: Approval(project, announce=say))
         except (WorkerError, ReviewError, RecordError, GateError, ConfigError, OSError, ValueError, KeyError,
                 TypeError, subprocess.SubprocessError) as error:
-            reason = (str(error) if isinstance(error, (WorkerError, ReviewError, RecordError, ConfigError)) else
+            reason = (str(error) if isinstance(error, (WorkerError, ReviewError, RecordError, ConfigError,
+                                                       SetupError)) else
                       f"batch operation failed ({type(error).__name__}); no further review was started")
             parser.exit(2, f"sphereceti review: {reason}\n")
         print(json.dumps(batch, indent=2) if args.json else "\n".join([batch["line"], *batch["lines"]]))
@@ -318,12 +332,16 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "review" and args.pr is None:
         from .review_select import render as render_selection, run_bare
+        from .review_approval import Approval
+        announce = None if args.json else lambda line: print(line, flush=True)
         try:
             selection = run_bare(args, project, policy, preferences,
-                                 announce=None if args.json else lambda line: print(line, flush=True))
+                                 approval=lambda: Approval(project, announce=announce), announce=announce,
+                                 prepare=(lambda: first_run(provider=args.provider)) if setup_needed else None)
         except (WorkerError, ReviewError, RecordError, GateError, ConfigError, OSError, ValueError,
                 KeyError, TypeError, subprocess.SubprocessError) as error:
-            reason = (str(error) if isinstance(error, (WorkerError, ReviewError, RecordError, ConfigError)) else
+            reason = (str(error) if isinstance(error, (WorkerError, ReviewError, RecordError, ConfigError,
+                                                       SetupError)) else
                       f"queue or source operation failed ({type(error).__name__}); nothing was selected")
             parser.exit(2, f"sphereceti review: {reason}\n")
         if args.json:
@@ -338,9 +356,16 @@ def main(argv: list[str] | None = None) -> int:
         from .review_summary import announcing, summarize
         planned = {}
         say = None if args.json else lambda line: print(line, flush=True)
+        from .review_approval import Approval, note as approval_note
+        if setup_needed:
+            try:
+                preferences = first_run(provider=args.provider)
+            except (SetupError, ConfigError, OSError) as error:
+                parser.exit(2, f"sphereceti: {error}\n")
         try:
             report = run_claimed(args, project, preferences,
-                                 wrap=lambda inner: announcing(preferences, say, planned, inner=inner))
+                                 wrap=lambda inner: announcing(preferences, say, planned, inner=inner),
+                                 approval=Approval(project, announce=say))
         except (ReviewError, GateError, ConfigError, OSError, ValueError, KeyError,
                 subprocess.SubprocessError) as error:
             reason = (str(error) if isinstance(error, (ReviewError, RecordError, ConfigError)) else
@@ -361,8 +386,12 @@ def main(argv: list[str] | None = None) -> int:
             if "review_safe" in report:
                 print("Authorized review evidence: " + ("current and approving" if report["review_safe"] else
                       "; ".join(report["reasons"])))
+                for item in report.get("carry_over") or []:
+                    print(f"  Older review {item['from'][:7]}: {item['status']}")
             if not args.read_records:
                 print(posting_note(args, report))
+            if report.get("approval"):
+                print(approval_note(report["approval"]))
             if report.get("claim"):
                 print(claim_note(report["claim"]))
             if not args.read_records:

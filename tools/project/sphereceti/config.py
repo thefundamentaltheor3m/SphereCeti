@@ -95,12 +95,12 @@ class AutomationPolicy:
     merging: bool
     mathematical_paths: tuple[str, ...]
     authorized_reviewers: tuple[str, ...]
-    # Optional, so an approved policy without it still parses: absent means empty.
-    # (infra/review-approves also adds `approving`; reconcile on rebase.)
+    # Optional, so an approved policy without them still parses: absent means off and empty.
+    approving: bool = False
     approving_reviewers: tuple[str, ...] = ()
 
 
-OPTIONAL_POLICY = {"approving_reviewers"}
+OPTIONAL_POLICY = {"approving", "approving_reviewers"}
 
 
 @dataclass(frozen=True)
@@ -148,7 +148,7 @@ def parse_policy(text: str) -> AutomationPolicy:
             ({"schema_version"} | names) - OPTIONAL_POLICY - set(data):
         raise ConfigError(f"policy: expected fields {', '.join(sorted({'schema_version'} | names))} "
                           f"({', '.join(sorted(OPTIONAL_POLICY))} optional)")
-    data = {"approving_reviewers": [], **data}
+    data = {"approving": False, "approving_reviewers": [], **data}
     version(data, "policy")
     for name in names - {"mathematical_paths", "authorized_reviewers", "approving_reviewers"}:
         if type(data[name]) is not bool:

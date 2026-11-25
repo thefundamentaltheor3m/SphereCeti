@@ -197,7 +197,11 @@ structured `sphereceti-contest:v1` marker above keeps its same-head rules.
 ## Review evidence is one input
 
 `--read-records` returns `review_safe` and concrete denial reasons. It checks approved current
-context, full records, API authorization, staleness, supersession, and contests. It always
+context, full records, API authorization, staleness, supersession, and contests. When no record is
+accepted for the current head, `carry_over` lists each older reviewed head with whether its records
+carry over through "Update branch" merges and exactly why or why not
+([rule](merge-controller.md#per-pr-actions-stale-build-versus-stale-review)). The text output prints
+one `Older review <H1>: ...` line per head. It always
 returns `merge_eligible: false`: trusted build/scope producer checks, the compiled audits from
 [#8](https://github.com/thefundamentaltheor3m/SphereCeti/pull/8), branch protection, and path
 eligibility are inputs to the later shared merge-decision PR. A green record does not claim
