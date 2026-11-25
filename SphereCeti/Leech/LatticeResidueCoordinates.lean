@@ -18,10 +18,14 @@ A vector of `EuclideanSpace ℝ (Fin 24)` lies in the Euclidean Leech lattice
 `SphereCeti.Leech.IsLeechIntegralCoordinate` relative to TauCeti's extended binary Golay code
 `TauCeti.BinaryGolay.code`, with no coordinate permutation.
 
-The proof transports the rational characterization
+This reduces membership in the Euclidean Leech lattice to integer arithmetic: with the
+normalization `x = a / √8` (squared norm `4` for the minimal vectors), a real vector is a lattice
+vector exactly when its integer coordinate vector `a` satisfies two congruence conditions: for each
+residue `r` modulo `4`, the coordinates `i` with `aᵢ ≡ r (mod 4)` form the support of a Golay
+codeword, and `∑ⱼ aⱼ ≡ 4 aᵢ (mod 8)` for every `i`.
+It is the Euclidean form of the rational characterization
 `SphereCeti.Leech.mem_leechLattice_carrier_iff_isLeechIntegralCoordinate` (vectors `a / 2` of
-`TauCeti.leechLattice.carrier`) through the injective embedding `SphereCeti.Leech.embedding`,
-which sends `a / 2` to `a / √8`.
+`TauCeti.leechLattice.carrier`), since `SphereCeti.Leech.embedding` sends `a / 2` to `a / √8`.
 
 ## Main statements
 
