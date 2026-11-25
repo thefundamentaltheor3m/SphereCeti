@@ -23,7 +23,9 @@ class ControllerFixture(MergeFixture):
             prefix:{'full_name':REPO,'allow_squash_merge':True,'allow_merge_commit':False,'allow_rebase_merge':False},
             # A preview classifies PR 1 read-only even while switches are off.
             prefix+'/pulls/1/files?per_page=100':[[{'filename':'README.md','status':'modified'}]],
-            prefix+'/pulls/1/reviews?per_page=100':[[]]}))
+            prefix+'/pulls/1/reviews?per_page=100':[[]],
+            # Applying runs read the controller halt issues (decision 3); there are none.
+            prefix+'/issues?creator=github-actions%5Bbot%5D&state=all&per_page=100':[[]]}))
         fake=self.bin/'gh';source=fake.read_text().replace('import json,pathlib,sys','import json,pathlib,sys,os\nassert "SPHERECETI_MERGE_TOKEN" not in os.environ')
         source=source.replace("'mergeable_state':'clean'}","'mergeable_state':'clean','changed_files':1,'auto_merge':None}")
         source=source.replace('else:raise AssertionError(endpoint)',
@@ -78,6 +80,7 @@ def installed_controller_smoke(executable,root):
     # Main, branch summary, rules, ruleset list/detail and repository, each refreshed, per setup (3x12);
     # the preview's GET-only PR evidence (12); the disabled apply lists no work.
     calls=[c[0] for c in f.api()['calls']]
-    assert len(calls)==48 and not any('pulls?state=open' in c for c in calls),calls
+    # The disabled apply also reads (and refreshes) the halt inventory.
+    assert len(calls)==50 and not any('pulls?state=open' in c for c in calls),calls
     assert not any('protection' in c[0] or 'collaborators' in c[0] for c in f.api()['calls'])
     return f

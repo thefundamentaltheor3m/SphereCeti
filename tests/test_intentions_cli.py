@@ -373,7 +373,8 @@ class LookupTest(unittest.TestCase):
         self.assertIn('No exact claim found for declaration Totally.unrelated_lemma.', text)
         self.assertIn('issues/new?template=intention.yml', text)
         self.assertEqual(set(result), {'schema', 'repository', 'target', 'kind', 'item', 'module', 'verdict',
-                                       'claimed', 'related', 'register_url', 'observed_at', 'registration'})
+                                       'claimed', 'related', 'register_url', 'observed_at', 'registration',
+                                       'parent_pr', 'warnings'})
         self.assertEqual(result['schema'], LOOKUP_SCHEMA)
 
     def test_expired_claims_are_shown_expired_and_do_not_block(self):

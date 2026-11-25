@@ -12,17 +12,21 @@ from datetime import datetime, timezone
 import json
 from pathlib import Path
 
+from .carry_over import carried_records, describe as carry_status
 from .local_review import ReviewError
+from .review_approval import note as approval_note
 from .review_claims import ClaimYielded, describe, live, note as claim_note, run_claimed
 from .review_records import (ANY_DIRECTIVE, CONTEST, MARKER, RecordError, carried_contests, contests,
                              identity, intact, parse_record)
 from .worker import plan, timestamp
+from .ready_to_merge import HELD, held_reason
 from .worker_checks import NEEDS_REFRESH
 from .worker_cli import survey
 from .worker_leases import utcnow
 
 SCHEMA = "sphereceti.review-selection/v1"
 PRIORITY = ("Planner stage first (every eligible PR is at review-assessment, so they tie); "
+            "then stack roots blocking the most descendants; "
             "then longest waiting by the PR's GitHub updatedAt, oldest first; then lowest PR number.")
 
 
@@ -129,6 +133,16 @@ def reviewed(client, comments, repository, pr, actor, policy, storage):
     path = local_record(storage, repository, pr["number"], pr["head"], pr["base"])
     if path:
         return "reviewed_by_you", f"you already reviewed this head locally ({path})"
+    carried = ""
+    if not accepted:
+        # Only update-branch merges since an older reviewed head, with the same change and no review
+        # input changed on main: that review is current (carry_over), so no fresh review is needed.
+        items, result = carried_records(client, comments, repository, pr["number"], pr["head"])
+        if items:
+            carried = carry_status(result)
+            if any((c.get("user") or {}).get("login", "").casefold() == actor.casefold() for c, _ in items):
+                return "reviewed_by_you", f"you already reviewed this change; {carried}"
+            accepted = items
     accepted = {c["id"]: (c, r) for c, r in accepted if identity(c) in policy.authorized_reviewers}
     if not accepted:
         return None
@@ -146,6 +160,8 @@ def reviewed(client, comments, repository, pr, actor, policy, storage):
     if pending:
         return None  # An authenticated contest newer than the record asks for another review.
     publisher = identity(accepted[max(accepted)][0])
+    if carried:
+        return "reviewed", f"already has an accepted review ({publisher}); {carried}"
     return "reviewed", f"already has an accepted review of this head ({publisher})"
 
 
@@ -163,12 +179,16 @@ def select(project, policy, prefs, *, api=None, client=None, now=None, force=Fal
     ready = {c["pr"] for c in planned["candidates"] if c["stage"] == "review-assessment"}
     by_number = {pr["number"]: pr for pr in snapshot["pull_requests"]}
     skipped, candidates = [], []
+    from .stacks import StackGate
+    gate = StackGate(snapshot, project, policy, client, ready)
 
     def skip(pr, code, reason):
         # An informational readiness note (e.g. an older trusted build) never makes a PR not ready.
         note = pr.get("review_note") if code != "awaiting_refresh" else None
+        held = held_reason(client, project.repository, pr) if code == "awaiting_ci" else None
         skipped.append({"pr": pr["number"], "head": pr["head"], "code": code,
-                        "reason": reason + (f" ({note})" if note else ""), "note": note})
+                        "reason": (held or reason) + (f" ({note})" if note else ""), "note": note,
+                        **({"held": True} if held else {})})
 
     # The planner's order is the priority: stage, then oldest updatedAt, then PR number.
     order = [c["pr"] for c in planned["candidates"] if "pr" in c]
@@ -181,6 +201,8 @@ def select(project, policy, prefs, *, api=None, client=None, now=None, force=Fal
             skip(pr, "draft", "is a draft")
         elif number not in ready:
             skip(pr, *readiness(pr))
+        elif gate.waiting(number):
+            skip(pr, "waiting_on_parent", gate.waiting(number)[1])
         else:
             state = review_state(client, project.repository, pr, actor, policy, storage, force=force)
             if state:
@@ -191,7 +213,9 @@ def select(project, policy, prefs, *, api=None, client=None, now=None, force=Fal
                                    "head": pr["head"], "base": pr["base"], "updated_at": pr["updated_at"],
                                    "waiting_seconds": seconds, "ci": pr["ci"],
                                    "review_ci": pr.get("review_ci", pr["ci"]),
-                                   "note": pr.get("review_note")})
+                                   "note": pr.get("review_note"), "unblocks": gate.descendants(number)})
+    # Stack roots first: among equally eligible PRs, the one blocking the most descendants leads.
+    candidates.sort(key=lambda c: -c["unblocks"])
     skipped.sort(key=lambda item: -item["pr"])  # Display order only: newest PR first.
     selected = candidates[0] if candidates else None
     main = None
@@ -204,7 +228,7 @@ def select(project, policy, prefs, *, api=None, client=None, now=None, force=Fal
             "repository": project.repository, "actor": actor, "observed_at": snapshot["observed_at"],
             "priority": PRIORITY, "waiting_since": "updatedAt",
             "selected": selected, "candidates": candidates, "skipped": skipped,
-            "rationale": None, "posting": None, "plan": None, "summary": None, "review": None}
+            "rationale": None, "posting": None, "approval": None, "plan": None, "summary": None, "review": None}
 
 
 def count(items, verb) -> str:
@@ -233,7 +257,9 @@ def not_ready_summary(skipped, main=None) -> str:
         parts.append(f"{count(refresh, 'await')} a refreshed trusted build" +
                      (f" (main moved to {main[:7]})" if main else ""))
     if pending:
-        parts.append(f"{count(pending, 'await')} CI")
+        held = sum(1 for i in pending if i.get("held"))
+        parts.append(f"{count(pending, 'await')} CI" +
+                     (f" ({held} {'is' if held == 1 else 'are'} {HELD})" if held else ""))
     if github:
         parts.append(f"{count(github, 'await')} GitHub's mergeability check")
     yours = [i for i in skipped if i["code"] == "yours"]
@@ -252,7 +278,9 @@ def rationale(selection, *, dry_run=False, posting=None) -> str:
     ready = "ready" if s["ci"] == s["review_ci"] else "ready (human-review scope)"
     if s.get("note"):
         ready = ready[:-1] + f"; {s['note']})" if ready.endswith(")") else f"ready ({s['note']})"
-    return (f"{verb} #{s['pr']} (head {s['head'][:7]}): {ready}, not yours, no current review; "
+    unblocks = s.get("unblocks") or 0
+    stack = f"; unblocks {unblocks} stacked PR{'s' if unblocks != 1 else ''}" if unblocks else ""
+    return (f"{verb} #{s['pr']} (head {s['head'][:7]}): {ready}, not yours, no current review{stack}; "
             f"waiting {waiting(s['waiting_seconds'])}" + (f"; {posting}." if posting else "."))
 
 
@@ -269,7 +297,8 @@ def check_arguments(args) -> None:
         raise ReviewError("reply mode requires an explicit PR number")
 
 
-def run_bare(args, project, policy, prefs, *, api=None, client=None, announce=None, run=None):
+def run_bare(args, project, policy, prefs, *, api=None, client=None, announce=None, run=None, prepare=None,
+             approval=None):
     """Select, say why in one line (announced before a long review starts), then review.
 
     If another contributor's earlier claim wins the race for the chosen PR, the claim yields
@@ -286,13 +315,16 @@ def run_bare(args, project, policy, prefs, *, api=None, client=None, announce=No
         selection["rationale"] = rationale(selection, dry_run=args.dry_run, posting=intent(args))
         if announce:
             announce(selection["rationale"])
+        if prepare:  # first-run preferences, asked only once a review will really start
+            prefs, prepare = prepare(), None
         args.pr = candidate["pr"]
         if output and attempt:
             args.output = output.with_name(f"{output.name}-pr{candidate['pr']}")  # --output must be new
         planned = {}
         try:
             selection["review"] = run_claimed(args, project, prefs, expect=candidate, run=run,
-                                              wrap=lambda inner: announcing(prefs, announce, planned, inner=inner))
+                                              wrap=lambda inner: announcing(prefs, announce, planned, inner=inner),
+                                              approval=approval() if approval else None)
         except ClaimYielded as error:
             winner = error.winner
             selection["skipped"].append({"pr": candidate["pr"], "head": candidate["head"], "code": "claimed",
@@ -301,6 +333,7 @@ def run_bare(args, project, policy, prefs, *, api=None, client=None, announce=No
         selection["posting"] = posting_note(args, selection["review"])
         selection["plan"] = planned or None
         selection["summary"] = summarize(args, selection["review"], posting=selection["posting"])
+        selection["approval"] = selection["review"].get("approval")
         return selection
     selection.update(selected=None, state="nothing_to_review")
     selection["skipped"].sort(key=lambda item: -item["pr"])
@@ -331,6 +364,8 @@ def render(selection, args) -> list[str]:
         elif archive:
             lines.append(f"Archive: {archive.get('state')}: {archive.get('reason', '')}".rstrip(": "))
     lines.append(selection["posting"])
+    if report.get("approval"):
+        lines.append(approval_note(report["approval"]))
     if report.get("claim"):
         lines.append(claim_note(report["claim"]))
     lines.append("This command does not authorize merging.")
