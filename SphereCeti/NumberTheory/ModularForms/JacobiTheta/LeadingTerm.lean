@@ -6,22 +6,22 @@ Authors: Sphere-Packing-Lean contributors, Bakhyt Momunov
 
 module
 
-public import SphereCeti.ModularForms.ThetaConstants.Basic
+public import SphereCeti.NumberTheory.ModularForms.JacobiTheta.Basic
 public import Mathlib.Analysis.Complex.UpperHalfPlane.FunctionsBoundedAtInfty
 
 import TauCeti.NumberTheory.ModularForms.JacobiTheta.OneVariable
 import Mathlib.Analysis.Normed.Group.Tannery
 
 /-!
-# Cusp limits of the classical theta constants
+# Leading term of the second theta constant
 
-At the infinite cusp, `H2` tends to zero and `H3`, `H4` tend to one. The sharper
-normalization `H2(τ) / exp(π i τ) → 16` records the leading coefficient of `H2`.
+At the infinite cusp, `H₂(τ) / exp(π i τ) → 16`. The diagonal Jacobi series
+`jacobiTheta₂ (τ/2) τ` tends to two, from the terms indexed by `-1` and `0`.
 
 The dominated-convergence argument for the diagonal theta series is adapted from
 `thefundamentaltheor3m/Sphere-Packing-Lean@bad3de916074748eb88b7d1ee6dbf9494361ad17`,
-`SpherePacking/ModularForms/JacobiTheta/Basic.lean` (Apache-2.0).
-The other limits reuse the pinned TauCeti theta limit and the translation identity.
+`SpherePacking/ModularForms/JacobiTheta/Basic.lean` and `JacobiIdentity.lean` (Apache-2.0).
+The result complements the unnormalized theta limits in `JacobiTheta.Basic`.
 -/
 
 @[expose] public noncomputable section
@@ -30,7 +30,7 @@ open Complex Filter Topology
 open UpperHalfPlane hiding I
 open scoped UpperHalfPlane
 
-namespace SphereCeti.ThetaConstants
+namespace TauCeti.ModularForm
 
 private theorem norm_theta_half_term (n : ℤ) (τ : ℂ) :
     ‖jacobiTheta₂_term n (τ / 2) τ‖ =
@@ -90,12 +90,12 @@ theorem tendsto_theta_half :
   rw [he] at h
   exact h
 
-/-- The leading coefficient of `H2` with respect to `exp(π i τ)` is `16`. -/
-theorem tendsto_H2_div_exp :
-    Tendsto (fun τ : ℍ => H2 τ / cexp (Real.pi * I * τ)) atImInfty (𝓝 16) := by
-  have he (τ : ℍ) : H2 τ / cexp (Real.pi * I * τ) =
+/-- The leading coefficient of `H₂` with respect to `exp(π i τ)` is `16`. -/
+theorem tendsto_H₂_div_exp_atImInfty :
+    Tendsto (fun τ : ℍ => H₂ τ / cexp (Real.pi * I * τ)) atImInfty (𝓝 16) := by
+  have he (τ : ℍ) : H₂ τ / cexp (Real.pi * I * τ) =
       jacobiTheta₂ (τ / 2) τ ^ 4 := by
-    rw [H2, mul_pow, ← Complex.exp_nat_mul]
+    rw [H₂_def, Θ₂_def, mul_pow, ← Complex.exp_nat_mul]
     norm_num only [Nat.cast_ofNat]
     rw [show (4 : ℂ) * (Real.pi * I * τ / 4) = Real.pi * I * τ by ring]
     exact mul_div_cancel_left₀ _ (Complex.exp_ne_zero _)
@@ -103,33 +103,4 @@ theorem tendsto_H2_div_exp :
   convert tendsto_theta_half.pow 4 using 1
   norm_num
 
-/-- `H2` vanishes at the infinite cusp. -/
-theorem tendsto_H2 : Tendsto H2 atImInfty (𝓝 0) := by
-  have he : Tendsto (fun τ : ℍ => cexp (Real.pi * I * τ / 4)) atImInfty (𝓝 0) := by
-    apply tendsto_zero_iff_norm_tendsto_zero.mpr
-    have hn (τ : ℍ) : ‖cexp (Real.pi * I * τ / 4)‖ =
-        Real.exp ((-Real.pi / 4) * τ.im) := by
-      rw [Complex.norm_exp]
-      congr 1
-      simp
-      ring
-    simp_rw [hn]
-    exact Real.tendsto_exp_atBot.comp
-      (tendsto_comap.const_mul_atTop_of_neg (by linarith [Real.pi_pos]))
-  change Tendsto (fun τ : ℍ => (cexp (Real.pi * I * τ / 4) * jacobiTheta₂ (τ / 2) τ) ^ 4) _ _
-  simpa using (he.mul tendsto_theta_half).pow 4
-
-/-- `H3` has constant term one. -/
-theorem tendsto_H3 : Tendsto H3 atImInfty (𝓝 1) := by
-  change Tendsto (fun τ : ℍ => jacobiTheta τ ^ 4) _ _
-  simpa using
-    (TauCeti.tendsto_jacobiTheta_comap_im_atTop.comp tendsto_coe_atImInfty).pow 4
-
-/-- `H4` has constant term one. -/
-theorem tendsto_H4 : Tendsto H4 atImInfty (𝓝 1) := by
-  have ht : Tendsto (fun τ : ℍ => (1 : ℝ) +ᵥ τ) atImInfty atImInfty := by
-    simpa [atImInfty, tendsto_comap_iff, Function.comp_def] using
-      (tendsto_comap : Tendsto UpperHalfPlane.im atImInfty atTop)
-  simpa only [Function.comp_def, H3_T] using tendsto_H3.comp ht
-
-end SphereCeti.ThetaConstants
+end TauCeti.ModularForm
