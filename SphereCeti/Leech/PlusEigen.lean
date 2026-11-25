@@ -9,7 +9,7 @@ module
 public import SphereCeti.Contour.SixPiece
 public import SphereCeti.Leech.PlusKernels
 
-import SphereCeti.Contour.Components
+import SphereCeti.Contour.Eigenfunction
 import SphereCeti.Contour.PieceRegularity
 import SphereCeti.Leech.PlusKernelContinuity
 import SphereCeti.Leech.PlusKernelIntegrability
@@ -31,6 +31,8 @@ eigenfunction with eigenvalue `1`.
 
 ## Main statements
 
+* `SphereCeti.Leech.integrableOn_norm_plusKernelRay_mul_I`: `t ↦ ‖g_Ray(it)‖` is integrable on
+  `(1, ∞)`.
 * `SphereCeti.Leech.integrable_leftLegs_plusKernelLeft`,
   `SphereCeti.Leech.integrable_rightLegs_plusKernelRight`,
   `SphereCeti.Leech.integrable_centralLeg_plusKernelCentral`,
@@ -95,6 +97,14 @@ theorem closedOneFormOn_expKernel_plusKernelRight (r : ℝ) :
   rw [hk, ← hw]
   exact ClosedOneFormOn.of_diffContOnCl (diffContOnCl_plusKernelRight_mul_cexp r)
 
+/-- The norm `t ↦ ‖g_Ray(it)‖` of the ray kernel on the imaginary axis is integrable on
+`(1, ∞)`. -/
+theorem integrableOn_norm_plusKernelRay_mul_I :
+    IntegrableOn (fun t : ℝ ↦ ‖plusKernelRay (t * I)‖) (Ioi 1) := by
+  refine IntegrableOn.congr_fun (integrableOn_varphiExt_mul_I.norm.const_mul 2) (fun t _ ↦ ?_)
+    measurableSet_Ioi
+  rw [plusKernelRay_def, norm_mul, Complex.norm_two]
+
 variable {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E] [FiniteDimensional ℝ E]
   [MeasurableSpace E] [BorelSpace E]
 
@@ -118,11 +128,8 @@ theorem integrable_centralLeg_plusKernelCentral :
 /-- The vertical-ray piece `x ↦ verticalRay (expKernel g_Ray ‖x‖²)` of the `+1` kernels is
 integrable. -/
 theorem integrable_verticalRay_plusKernelRay :
-    Integrable fun x : E ↦ verticalRay (expKernel plusKernelRay (‖x‖ ^ 2)) := by
-  refine integrable_verticalRay_expKernel ?_
-  refine IntegrableOn.congr_fun (integrableOn_varphiExt_mul_I.norm.const_mul 2) (fun t _ ↦ ?_)
-    measurableSet_Ioi
-  rw [plusKernelRay_def, norm_mul, Complex.norm_two]
+    Integrable fun x : E ↦ verticalRay (expKernel plusKernelRay (‖x‖ ^ 2)) :=
+  integrable_verticalRay_expKernel integrableOn_norm_plusKernelRay_mul_I
 
 /-- **The `+1` eigencomponent of the Leech magic function is a Fourier eigenfunction.**  On a
 real inner product space `E` of dimension `24`, the six-piece contour component of the `+1`
@@ -131,31 +138,11 @@ theorem fourier_sixPiece_plus (hE : Module.finrank ℝ E = 24) :
     𝓕 (sixPieceComponent (E := E) plusKernelLeft plusKernelRight plusKernelCentral
         plusKernelRay) =
       sixPieceComponent plusKernelLeft plusKernelRight plusKernelCentral plusKernelRay := by
-  have hk : Module.finrank ℝ E = 2 * 12 := hE.trans (by norm_num)
-  have hL := integrable_leftLegs_plusKernelLeft (E := E)
-  have hR := integrable_rightLegs_plusKernelRight (E := E)
-  have hC := integrable_centralLeg_plusKernelCentral (E := E)
-  have hRay := integrable_verticalRay_plusKernelRay (E := E)
-  -- The Fourier transform carries the left legs to the right legs and the central leg to the
-  -- vertical ray, with eigenvalue `1`.
-  have hLR : 𝓕 (fun x : E ↦ leftLegs (expKernel plusKernelLeft (‖x‖ ^ 2))) =
-      fun ξ ↦ rightLegs (expKernel plusKernelRight (‖ξ‖ ^ 2)) := by
-    simpa only [one_mul] using fourier_leftLegs_expKernel (s := 1) hk integrable_plusKernelLeft
-      (fun z _ ↦ by rw [plusKernel_law_leftRight, one_mul])
-      fun r _ ↦ closedOneFormOn_expKernel_plusKernelRight r
-  have hCRay : 𝓕 (fun x : E ↦ centralLeg (expKernel plusKernelCentral (‖x‖ ^ 2))) =
-      fun ξ ↦ verticalRay (expKernel plusKernelRay (‖ξ‖ ^ 2)) := by
-    simpa only [one_mul] using fourier_centralLeg_expKernel (s := 1) hk
-      integrable_plusKernelCentral fun t _ ↦ by rw [plusKernel_law_centralRay, neg_one_mul]
-  -- Fourier inversion reverses both identities, since the left-leg and central-leg pieces are
-  -- continuous and even.
-  have hRL := hL.fourier_reverse hR continuous_leftLegs_plusKernelLeft
-    (fun x ↦ by simp only [norm_neg]) (one_pow 2) (by rw [hLR, one_smul])
-  have hRayC := hC.fourier_reverse hRay continuous_centralLeg_plusKernelCentral
-    (fun x ↦ by simp only [norm_neg]) (one_pow 2) (by rw [hCRay, one_smul])
-  rw [one_smul] at hRL hRayC
-  simpa only [one_mul] using fourier_sixPieceComponent (s := 1) hL hR hC hRay
-    (by simpa only [one_mul] using hLR) (by simpa only [one_mul] using hRL)
-    (by simpa only [one_mul] using hCRay) (by simpa only [one_mul] using hRayC)
+  simpa only [one_mul] using fourier_sixPieceComponent_of_laws (k := 12) (s := 1)
+    (hE.trans (by norm_num)) (one_pow 2) integrable_plusKernelLeft integrable_plusKernelRight
+    integrable_plusKernelCentral integrableOn_norm_plusKernelRay_mul_I
+    (fun z _ ↦ by rw [plusKernel_law_leftRight, one_mul])
+    (fun r _ ↦ closedOneFormOn_expKernel_plusKernelRight r)
+    fun t _ ↦ by rw [plusKernel_law_centralRay, neg_one_mul]
 
 end SphereCeti.Leech
