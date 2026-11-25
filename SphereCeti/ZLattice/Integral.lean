@@ -17,7 +17,8 @@ moreover, every point of `S` has even squared norm.
 
 If `S` contains `0` and every squared distance `‖x - y‖²` between two of its points is an even
 integer, polarization, `2⟪x, y⟫ = ‖x‖² + ‖y‖² - ‖x - y‖²`, gives both conditions, so the `ℤ`-span
-of `S` is an even lattice.
+of `S` is an even lattice.  Translating any point `x₀` of a set with even integral squared
+distances to the origin, the inner products `⟪x - x₀, y - x₀⟫` are therefore integers.
 
 ## Main statements
 
@@ -27,6 +28,9 @@ of `S` is an even lattice.
   `S` have even squared norms.
 * `ZLattice.isEven_span_of_even_sq_dist`: a set containing `0` with even integral squared
   distances spans an even lattice.
+* `ZLattice.integral_inner_of_even_distanceSpectrum`: if a set has even integral squared
+  distances, then after translating any of its points to the origin, the inner products of its
+  points are integers.
 
 ## References
 
@@ -92,5 +96,18 @@ theorem isEven_span_of_even_sq_dist (hzero : 0 ∈ S)
   rw [sub_zero] at ha hb
   rw [norm_sub_sq_real] at hc
   exact ⟨a + b - c, by push_cast; linarith⟩
+
+/-- If all squared distances between points of `X` are even integers, then for any `x₀ ∈ X` the
+inner products `⟪x - x₀, y - x₀⟫` of points of `X` translated by `-x₀` are integers. -/
+theorem integral_inner_of_even_distanceSpectrum (X : Set E) (x₀ : E) (hx₀ : x₀ ∈ X)
+    (heven : ∀ x ∈ X, ∀ y ∈ X, ∃ n : ℤ, ‖x - y‖ ^ 2 = 2 * n) :
+    ∀ x ∈ X, ∀ y ∈ X, ∃ n : ℤ, ⟪x - x₀, y - x₀⟫_ℝ = n := by
+  -- The translated set contains `0` and has the same pairwise distances.
+  have hS : IsEven (span ℤ ((fun x ↦ x - x₀) '' X)) := by
+    refine isEven_span_of_even_sq_dist ⟨x₀, hx₀, sub_self x₀⟩ ?_
+    rintro _ ⟨x, hx, rfl⟩ _ ⟨y, hy, rfl⟩
+    simpa using heven x hx y hy
+  intro x hx y hy
+  exact isIntegral_span_iff.mp hS.isIntegral _ ⟨x, hx, rfl⟩ _ ⟨y, hy, rfl⟩
 
 end ZLattice
