@@ -40,8 +40,9 @@ presentation, and the Euclidean Leech lattice has covolume one.
 
 ## Source
 
-The Leech lattice, its evenness `TauCeti.isEven_leechLattice` and its unimodularity
-`TauCeti.isUnimodular_leechLattice` are TauCeti's (repository `TauCetiProject/TauCeti`, commit
+The Leech lattice, its rank `TauCeti.finrank_leechLattice`, its evenness
+`TauCeti.isEven_leechLattice` and its unimodularity `TauCeti.isUnimodular_leechLattice` are
+TauCeti's (repository `TauCetiProject/TauCeti`, commit
 `83769e442d55cda9d85b3927a93b286831c595ff`, file
 `TauCeti/LinearAlgebra/IntegralLattice/Rank24/Leech/Basic.lean`); Gram matrices and the isometry
 `TauCeti.IntegralLattice.Isometry.ofGramMatrixEq` between lattices with bases of equal Gram
@@ -59,13 +60,10 @@ open scoped InnerProductSpace
 
 namespace SphereCeti.Leech
 
-/-- TauCeti's Leech carrier has `ℤ`-rank `24`. -/
-theorem finrank_carrier_leechLattice : Module.finrank ℤ TauCeti.leechLattice.carrier = 24 := by
-  rw [TauCeti.IntegralLattice.finrank_carrier, Module.finrank_fin_fun]
-
-/-- A `ℤ`-basis of TauCeti's Leech carrier, indexed by `Fin 24`, chosen from its rank. -/
+/-- A `ℤ`-basis of TauCeti's Leech carrier, indexed by `Fin 24`, chosen from its rank `24`
+(`TauCeti.finrank_leechLattice`). -/
 noncomputable def carrierBasis : Module.Basis (Fin 24) ℤ TauCeti.leechLattice.carrier :=
-  Module.finBasisOfFinrankEq ℤ _ finrank_carrier_leechLattice
+  Module.finBasisOfFinrankEq ℤ _ TauCeti.finrank_leechLattice
 
 /-- The `ℤ`-linear equivalence from TauCeti's Leech carrier onto the Euclidean Leech lattice
 induced by the injective map `embedding`. -/
