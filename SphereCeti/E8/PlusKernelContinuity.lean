@@ -6,18 +6,19 @@ Authors: SphereCeti contributors
 
 module
 
+public import Mathlib.NumberTheory.ModularForms.Petersson
+public import SphereCeti.Contour.KernelContinuity
 public import SphereCeti.E8.PlusKernels
 
 /-!
 # Continuity of the `+1` E8 kernels at the cusps of the contour
 
 The kernels of the `+1` eigencomponent of the E8 magic function involve `φ₀(-1/w) w²` with
-`w = z ± 1` or `w = z`, which is defined by `0` at `w = 0`.  In the closed cone
-`{w | |Re w| ≤ Im w}` the point `-1/w` tends to `i∞` as `w → 0`, where `φ₀` decays, so
-`φ₀(-1/w) w² → 0`.  The left legs `-1 → -1 + i → i` of the magic contour lie in `-1` plus this
-cone, so the transported left kernel `(i/z)⁴ g_L(z) exp(πir (-1/z))` is continuous on them, for
-every `r`.  The wedge `{0 < Im z, |Re z - 1| < Im z}` is `1` plus the open cone, so the right
-kernel times `exp(πirz)` is holomorphic on it and continuous on its closure.
+`w = z ± 1` or `w = z`, which is `0` at `w = 0`.  As `w → 0` in the closed cone
+`{w | |Re w| ≤ Im w}`, `φ₀(-1/w) w² → 0`.  The transported left kernel
+`(i/z)⁴ g_L(z) exp(πir (-1/z))` is continuous on the left legs `-1 → -1 + i → i`, and the right
+kernel times `exp(πirz)` is holomorphic on the wedge `{0 < Im z, |Re z - 1| < Im z}` and
+continuous on its closure, for every `r`.
 
 ## Main statements
 
@@ -30,190 +31,40 @@ kernel times `exp(πirz)` is holomorphic on it and continuous on its closure.
 
 public section
 
-open Complex Filter Topology Asymptotics
+open Complex Filter Topology
 open UpperHalfPlane hiding I
 open scoped Real
 
 namespace SphereCeti.E8
 
-/-- For `w` in the cone `|Re w| ≤ Im w`, `w ≠ 0`, the point `-1/w` has imaginary part at least
-`1 / (2 ‖w‖)`. -/
-private lemma one_div_two_mul_norm_le_im_neg_one_div {w : ℂ} (hw : |w.re| ≤ w.im) (hw0 : w ≠ 0) :
-    1 / (2 * ‖w‖) ≤ (-1 / w).im := by
-  have him : 0 < w.im := by
-    rcases (abs_nonneg w.re).trans hw |>.lt_or_eq with h | h
-    · exact h
-    · exfalso
-      apply hw0
-      have hre : w.re = 0 := abs_eq_zero.mp (le_antisymm (h ▸ hw) (abs_nonneg _))
-      exact Complex.ext hre h.symm
-  have hnorm : 0 < ‖w‖ := norm_pos_iff.mpr hw0
-  have hsq : ‖w‖ ^ 2 ≤ 2 * w.im ^ 2 := by
-    rw [← Complex.normSq_eq_norm_sq, Complex.normSq_apply]
-    nlinarith [sq_abs w.re, sq_le_sq' (neg_le_of_abs_le hw) (le_of_abs_le hw)]
-  have hdiv : (-1 / w).im = w.im / ‖w‖ ^ 2 := by
-    rw [div_im, Complex.normSq_eq_norm_sq]
-    simp only [neg_im, one_im, neg_zero, zero_mul, zero_div, neg_re, one_re, neg_mul, one_mul,
-      zero_sub, neg_div, neg_neg]
-  rw [hdiv, div_le_div_iff₀ (by positivity) (by positivity)]
-  nlinarith [Complex.im_le_norm w]
+/-- `φ₀` is bounded at `i∞`. -/
+private lemma isBoundedAtImInfty_phi0Ext : IsBoundedAtImInfty fun τ : ℍ ↦ phi0Ext τ :=
+  (IsZeroAtImInfty.of_exp_decay ⟨2 * π, Real.two_pi_pos,
+    (isBigO_phi0.congr_left fun τ ↦ (phi0Ext_of_im_pos τ.im_pos).symm).congr_right
+      fun τ ↦ by ring_nf⟩).isBoundedAtImInfty
 
 /-- `φ₀(-1/w) w² → 0` as `w → 0` within the cone `|Re w| ≤ Im w`. -/
 theorem tendsto_phi0Ext_neg_one_div_mul_sq :
-    Tendsto (fun w : ℂ ↦ phi0Ext (-1 / w) * w ^ 2) (𝓝[{w : ℂ | |w.re| ≤ w.im}] 0) (𝓝 0) := by
-  -- `φ₀` is bounded by `max C 0` where `Im ≥ A`.
-  obtain ⟨C, hC⟩ := isBigO_phi0.bound
-  obtain ⟨A, hA⟩ := (atImInfty_mem _).mp hC
-  set M := max A 1
-  have hM : 0 < M := lt_of_lt_of_le one_pos (le_max_right A 1)
-  have hb : Tendsto (fun w : ℂ ↦ max C 0 * ‖w‖ ^ 2) (𝓝 0) (𝓝 0) := by
-    have hc : Continuous fun w : ℂ ↦ max C 0 * ‖w‖ ^ 2 := by fun_prop
-    simpa using hc.tendsto 0
-  refine squeeze_zero_norm' ?_ (tendsto_nhdsWithin_of_tendsto_nhds hb)
-  rw [eventually_nhdsWithin_iff, Metric.eventually_nhds_iff]
-  refine ⟨1 / (2 * M), by positivity, fun w hwdist hw ↦ ?_⟩
-  rcases eq_or_ne w 0 with rfl | hw0
-  · simp
-  rw [dist_zero_right] at hwdist
-  have hnorm : 0 < ‖w‖ := norm_pos_iff.mpr hw0
-  have hIm := one_div_two_mul_norm_le_im_neg_one_div hw hw0
-  have hlarge : M < (-1 / w).im := by
-    refine lt_of_lt_of_le ?_ hIm
-    rw [lt_div_iff₀ (by positivity)]
-    rw [lt_div_iff₀ (by positivity)] at hwdist
-    linarith
-  have hpos : 0 < (-1 / w).im := hM.trans hlarge
-  have hφ := hA ⟨-1 / w, hpos⟩ ((le_max_left A 1).trans hlarge.le)
-  simp only [Set.mem_ofPred_eq, Real.norm_eq_abs, abs_of_pos (Real.exp_pos _)] at hφ
-  rw [norm_mul, norm_pow, phi0Ext_of_im_pos hpos]
-  have hexp : Real.exp (-2 * π * (⟨-1 / w, hpos⟩ : ℍ).im) ≤ 1 := by
-    rw [Real.exp_le_one_iff]
-    have : 0 < (⟨-1 / w, hpos⟩ : ℍ).im := hpos
-    nlinarith [Real.pi_pos]
-  have hφ' : ‖phi0 ⟨-1 / w, hpos⟩‖ ≤ max C 0 :=
-    hφ.trans ((mul_le_mul_of_nonneg_right (le_max_left C 0) (Real.exp_pos _).le).trans
-      (by nlinarith [le_max_right C 0, Real.exp_pos (-2 * π * (⟨-1 / w, hpos⟩ : ℍ).im)]))
-  exact mul_le_mul_of_nonneg_right hφ' (by positivity)
-
-/-- The closed cone `|Re w| ≤ Im w` is convex. -/
-private lemma convex_cone : Convex ℝ {w : ℂ | |w.re| ≤ w.im} := by
-  intro x hx y hy a b ha hb hab
-  simp only [Set.mem_ofPred_eq] at hx hy ⊢
-  simp only [add_re, add_im, smul_re, smul_im, smul_eq_mul]
-  calc |a * x.re + b * y.re| ≤ |a * x.re| + |b * y.re| := abs_add_le _ _
-    _ = a * |x.re| + b * |y.re| := by rw [abs_mul, abs_mul, abs_of_nonneg ha, abs_of_nonneg hb]
-    _ ≤ a * x.im + b * y.im := by gcongr
-
-/-- The left legs, shifted by `1`, lie in the cone `|Re w| ≤ Im w`. -/
-private lemma add_one_mem_cone {z : ℂ}
-    (hz : z ∈ segment ℝ (-1) (-1 + I) ∪ segment ℝ (-1 + I) I) :
-    z + 1 ∈ {w : ℂ | |w.re| ≤ w.im} := by
-  have hmem : ∀ {a b : ℂ}, a + 1 ∈ {w : ℂ | |w.re| ≤ w.im} → b + 1 ∈ {w : ℂ | |w.re| ≤ w.im} →
-      z ∈ segment ℝ a b → z + 1 ∈ {w : ℂ | |w.re| ≤ w.im} := by
-    intro a b ha hb hz
-    have h : 1 + z ∈ segment ℝ (1 + a) (1 + b) := (mem_segment_translate ℝ 1).mpr hz
-    rw [add_comm 1 z, add_comm 1 a, add_comm 1 b] at h
-    exact convex_cone.segment_subset ha hb h
-  rcases hz with hz | hz
-  · exact hmem (by simp) (by simp) hz
-  · exact hmem (by simp) (by simp) hz
+    Tendsto (fun w : ℂ ↦ phi0Ext (-1 / w) * w ^ 2) (𝓝[{w : ℂ | |w.re| ≤ w.im}] 0) (𝓝 0) :=
+  isBoundedAtImInfty_phi0Ext.tendsto_neg_one_div_mul_pow two_ne_zero
 
 /-- The transported left kernel `(i/z)⁴ g_L(z) exp(πir (-1/z))` is continuous on the left legs
 `-1 → -1 + i → i`, for every `r`. -/
 theorem continuousOn_plusKernelLeft_transport (r : ℝ) :
     ContinuousOn (fun z : ℂ ↦ (I / z) ^ 4 * plusKernelLeft z * cexp (π * I * r * (-z⁻¹)))
-      (segment ℝ (-1) (-1 + I) ∪ segment ℝ (-1 + I) I) := by
-  intro z hz
-  have hcone := add_one_mem_cone hz
-  have hz0 : z ≠ 0 := by
-    rintro rfl
-    norm_num at hcone
-  have hsplit : (fun z : ℂ ↦ (I / z) ^ 4 * plusKernelLeft z * cexp (π * I * r * (-z⁻¹))) =
-      fun z ↦ ((I / z) ^ 4 * cexp (π * I * r * (-z⁻¹))) *
-        (phi0Ext (-1 / (z + 1)) * (z + 1) ^ 2) := by
-    funext z
-    rw [plusKernelLeft_def]
-    ring
-  rw [hsplit]
-  have hA : ContinuousAt (fun z : ℂ ↦ (I / z) ^ 4 * cexp (π * I * r * (-z⁻¹))) z := by
-    fun_prop (disch := exact hz0)
-  rcases eq_or_ne z (-1) with rfl | hz1
-  · -- At `-1` the kernel factor tends to `0`.
-    have hB : Tendsto (fun z : ℂ ↦ phi0Ext (-1 / (z + 1)) * (z + 1) ^ 2)
-        (𝓝[segment ℝ (-1) (-1 + I) ∪ segment ℝ (-1 + I) I] (-1)) (𝓝 0) := by
-      refine tendsto_phi0Ext_neg_one_div_mul_sq.comp (tendsto_nhdsWithin_iff.mpr ⟨?_, ?_⟩)
-      · have h : Tendsto (fun z : ℂ ↦ z + 1) (𝓝 (-1)) (𝓝 0) := by
-          have hc : Continuous fun z : ℂ ↦ z + 1 := by fun_prop
-          simpa using hc.tendsto (-1 : ℂ)
-        exact h.mono_left nhdsWithin_le_nhds
-      · exact eventually_nhdsWithin_of_forall fun z hz ↦ add_one_mem_cone hz
-    have h := (hA.tendsto.mono_left nhdsWithin_le_nhds).mul hB
-    simpa [ContinuousWithinAt] using h
-  · -- Elsewhere `-1/(z+1)` lies in the upper half-plane, where `φ₀` is continuous.
-    have hz1' : z + 1 ≠ 0 := fun h ↦ hz1 (eq_neg_of_add_eq_zero_left h)
-    have hpos : 0 < (-1 / (z + 1)).im :=
-      lt_of_lt_of_le (by positivity) (one_div_two_mul_norm_le_im_neg_one_div hcone hz1')
-    have hφ : ContinuousAt (fun z : ℂ ↦ phi0Ext (-1 / (z + 1))) z :=
-      (continuousOn_phi0Ext.continuousAt ((isOpen_lt continuous_const
-        Complex.continuous_im).mem_nhds hpos)).comp (f := fun z : ℂ ↦ -1 / (z + 1))
-        (by fun_prop (disch := exact hz1'))
-    exact (hA.mul (hφ.mul (by fun_prop))).continuousWithinAt
+      (segment ℝ (-1) (-1 + I) ∪ segment ℝ (-1 + I) I) :=
+  Contour.continuousOn_I_div_pow_mul_mul_cexp
+    ((Contour.continuousOn_neg_one_div_add_one_mul_pow continuousOn_phi0Ext
+      isBoundedAtImInfty_phi0Ext two_ne_zero).congr fun z _ ↦ plusKernelLeft_def z) 4 _
 
 /-- The transported right kernel `g_R(z) exp(πirz)` is holomorphic on the wedge
 `{z | 0 < Im z, Re z - 1 < Im z, 1 - Re z < Im z}` and continuous on its closure, for every `r`. -/
 theorem diffContOnCl_plusKernelRight_mul_cexp (r : ℝ) :
     DiffContOnCl ℂ (fun z : ℂ ↦ plusKernelRight z * cexp (π * I * r * z))
       {z : ℂ | 0 < z.im ∧ z.re - 1 < z.im ∧ 1 - z.re < z.im} := by
-  set W : Set ℂ := {z : ℂ | 0 < z.im ∧ z.re - 1 < z.im ∧ 1 - z.re < z.im}
-  -- The closure of the wedge lies in `1` plus the closed cone.
-  have hclosed : IsClosed {z : ℂ | |(z - 1).re| ≤ (z - 1).im} :=
-    isClosed_le (by fun_prop) (by fun_prop)
-  have hsub : closure W ⊆ {z : ℂ | |(z - 1).re| ≤ (z - 1).im} := by
-    refine closure_minimal (fun z hz ↦ ?_) hclosed
-    simp only [W, Set.mem_ofPred_eq] at hz ⊢
-    simp only [sub_re, one_re, sub_im, one_im, sub_zero]
-    exact abs_le.mpr ⟨by linarith [hz.2.2], hz.2.1.le⟩
-  have hsplit : (fun z : ℂ ↦ plusKernelRight z * cexp (π * I * r * z)) =
-      fun z ↦ (phi0Ext (-1 / (z - 1)) * (z - 1) ^ 2) * cexp (π * I * r * z) := by
-    funext z
-    rw [plusKernelRight_def]
-  rw [hsplit]
-  -- Away from `1`, `-1/(z-1)` lies in the upper half-plane, where `φ₀` is holomorphic.
-  have hpos {z : ℂ} (hz : |(z - 1).re| ≤ (z - 1).im) (hz1 : z ≠ 1) : 0 < (-1 / (z - 1)).im :=
-    lt_of_lt_of_le (by have := sub_ne_zero.mpr hz1; positivity)
-      (one_div_two_mul_norm_le_im_neg_one_div hz (sub_ne_zero.mpr hz1))
-  have hopen : IsOpen {w : ℂ | 0 < w.im} := isOpen_lt continuous_const Complex.continuous_im
-  have hdiff {z : ℂ} (hz : |(z - 1).re| ≤ (z - 1).im) (hz1 : z ≠ 1) :
-      DifferentiableAt ℂ (fun z : ℂ ↦ (phi0Ext (-1 / (z - 1)) * (z - 1) ^ 2) *
-        cexp (π * I * r * z)) z := by
-    have hz1' : z - 1 ≠ 0 := sub_ne_zero.mpr hz1
-    have hφ : DifferentiableAt ℂ (fun z : ℂ ↦ phi0Ext (-1 / (z - 1))) z :=
-      (differentiableOn_phi0Ext.differentiableAt (hopen.mem_nhds (hpos hz hz1))).comp
-        (f := fun z : ℂ ↦ -1 / (z - 1)) z (by fun_prop (disch := exact hz1'))
-    exact (hφ.mul (by fun_prop)).mul (by fun_prop)
-  refine ⟨fun z hz ↦ ?_, fun z hz ↦ ?_⟩
-  · -- On the open wedge `z ≠ 1`.
-    have hz' : |(z - 1).re| ≤ (z - 1).im := hsub (subset_closure hz)
-    have hz1 : z ≠ 1 := by
-      rintro rfl
-      simp [W] at hz
-    exact (hdiff hz' hz1).differentiableWithinAt
-  · have hz' := hsub hz
-    rcases eq_or_ne z 1 with rfl | hz1
-    · -- At the corner `1` the kernel factor tends to `0`.
-      have hB : Tendsto (fun z : ℂ ↦ phi0Ext (-1 / (z - 1)) * (z - 1) ^ 2) (𝓝[closure W] 1)
-          (𝓝 0) := by
-        refine tendsto_phi0Ext_neg_one_div_mul_sq.comp (tendsto_nhdsWithin_iff.mpr ⟨?_, ?_⟩)
-        · have h : Tendsto (fun z : ℂ ↦ z - 1) (𝓝 1) (𝓝 0) := by
-            have hc : Continuous fun z : ℂ ↦ z - 1 := by fun_prop
-            simpa using hc.tendsto (1 : ℂ)
-          exact h.mono_left nhdsWithin_le_nhds
-        · exact eventually_nhdsWithin_of_forall fun z hz ↦ hsub hz
-      have hC : Tendsto (fun z : ℂ ↦ cexp (π * I * r * z)) (𝓝[closure W] 1)
-          (𝓝 (cexp (π * I * r * 1))) :=
-        ((by fun_prop : Continuous fun z : ℂ ↦ cexp (π * I * r * z)).tendsto 1).mono_left
-          nhdsWithin_le_nhds
-      simpa [ContinuousWithinAt] using hB.mul hC
-    · exact (hdiff hz' hz1).continuousAt.continuousWithinAt
+  have h := Contour.diffContOnCl_neg_one_div_sub_one_mul_pow differentiableOn_phi0Ext
+    isBoundedAtImInfty_phi0Ext two_ne_zero
+  simp only [plusKernelRight_def]
+  exact ⟨h.differentiableOn.mul (by fun_prop), h.continuousOn.mul (by fun_prop)⟩
 
 end SphereCeti.E8
