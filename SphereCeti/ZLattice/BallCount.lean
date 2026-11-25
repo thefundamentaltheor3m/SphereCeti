@@ -1,13 +1,14 @@
 /-
-Copyright (c) 2026 SphereCeti contributors. All rights reserved.
+Copyright (c) 2026 The Tau Ceti contributors, SphereCeti contributors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: SphereCeti contributors
+Authors: The Tau Ceti contributors, SphereCeti contributors
 -/
 
 module
 
-public import Mathlib.Data.Set.Card.Arithmetic
+public import Mathlib.Algebra.Group.Pointwise.Set.Card
 public import TauCeti.Algebra.Module.ZLattice.Covolume
+public import TauCeti.Topology.MetricSpace.DiscreteAddSubgroup
 
 /-!
 # Lattice points in balls
@@ -31,43 +32,32 @@ of radius `ρ`.
 * `ZLattice.tendsto_ncard_closedBall_inter_vadd_div_volume`: the same for a translate `p + L`.
 * `ZLattice.tendsto_ncard_closedBall_inter_iUnion_vadd_div_volume`: for finitely many pairwise
   incongruent points `p q`, `#(B(R) ∩ ⋃ q, (p q + L)) / vol B(R) → N / covol(L)`.
+
+## Provenance
+
+The proof of `ZLattice.tendsto_ncard_closedBall_inter_div_volume` is adapted from the proof of
+`ZLattice.ncard_closedBall_inter_isBigO` in TauCeti (`TauCetiProject/TauCeti`) at commit
+`83769e442d55cda9d85b3927a93b286831c595ff`, file `TauCeti/Algebra/Module/ZLattice/Covolume.lean`.
 -/
 public section
 
-open Filter Metric MeasureTheory Module Topology
+open Filter Function Metric MeasureTheory Module Topology
 open scoped Pointwise
 
 namespace ZLattice
 
+/-- A translate `p + L` of a discrete `ℤ`-submodule `L` of a proper normed additive group has
+finitely many points in each closed ball. -/
+theorem finite_closedBall_inter_vadd {E : Type*} [NormedAddCommGroup E] [ProperSpace E]
+    (L : Submodule ℤ E) [DiscreteTopology L] (p : E) (R : ℝ) :
+    (closedBall (0 : E) R ∩ (p +ᵥ (L : Set E))).Finite := by
+  have h : closedBall (0 : E) R ∩ (p +ᵥ (L : Set E)) = p +ᵥ (closedBall (-p) R ∩ (L : Set E)) := by
+    rw [Set.vadd_set_inter, Metric.vadd_closedBall, vadd_eq_add, add_neg_cancel]
+  rw [h]
+  exact (L.toAddSubgroup.finite_inter isBounded_closedBall).vadd_set
+
 variable {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E] [FiniteDimensional ℝ E]
   [MeasurableSpace E] [BorelSpace E]
-
-omit [MeasurableSpace E] [BorelSpace E] in
-/-- A full lattice has finitely many points in each closed ball. -/
-theorem finite_closedBall_inter (L : Submodule ℤ E) [DiscreteTopology L] (R : ℝ) :
-    (closedBall (0 : E) R ∩ L).Finite :=
-  Metric.finite_isBounded_inter_isClosed (isDiscrete_iff_discreteTopology.mpr ‹_›)
-    isBounded_closedBall L.toAddSubgroup.isClosed_of_discreteTopology
-
-omit [InnerProductSpace ℝ E] [FiniteDimensional ℝ E] [MeasurableSpace E] [BorelSpace E] in
-/-- The points of `p + L` in the ball of radius `R` are translates of lattice points in the ball of
-radius `R + ‖p‖`. -/
-private theorem closedBall_inter_vadd_subset (L : Submodule ℤ E) (p : E) (R : ℝ) :
-    closedBall (0 : E) R ∩ (p +ᵥ (L : Set E)) ⊆
-      (fun x ↦ p + x) '' (closedBall (0 : E) (R + ‖p‖) ∩ L) := by
-  rintro _ ⟨hy, x, hx, rfl⟩
-  refine ⟨x, ⟨?_, hx⟩, rfl⟩
-  rw [mem_closedBall_zero_iff] at hy ⊢
-  simp only [vadd_eq_add] at hy
-  have := norm_sub_le (p + x) p
-  rw [add_sub_cancel_left] at this
-  linarith
-
-omit [MeasurableSpace E] [BorelSpace E] in
-/-- A translate of a full lattice has finitely many points in each closed ball. -/
-theorem finite_closedBall_inter_vadd (L : Submodule ℤ E) [DiscreteTopology L] (p : E) (R : ℝ) :
-    (closedBall (0 : E) R ∩ (p +ᵥ (L : Set E))).Finite :=
-  ((finite_closedBall_inter L (R + ‖p‖)).image _).subset (closedBall_inter_vadd_subset L p R)
 
 /-- **Lattice points in balls.** The number of points of a full lattice `L` in the closed ball of
 radius `R` about the origin, divided by the volume of the ball, tends to `1 / covol(L)` as
@@ -86,27 +76,12 @@ theorem tendsto_ncard_closedBall_inter_div_volume [Nontrivial E] (L : Submodule 
     simp [pow_le_pow_iff_left₀ (norm_nonneg x) hR hn]
   have h1 : {x : E | x ∈ Set.univ ∧ ‖x‖ ^ n ≤ 1} = closedBall 0 1 := by
     simpa using hball 1 zero_le_one
-  -- Mathlib's asymptotic count in the dilates of the unit ball, in the coordinates of a basis.
-  let b := Free.chooseBasis ℤ L
-  have : Nonempty (Free.ChooseBasisIndex ℤ L) := by
-    have : Nontrivial L := nontrivial_of_finrank_pos <| (ZLattice.rank ℝ L).symm ▸ finrank_pos
-    infer_instance
-  have hcard : Fintype.card (Free.ChooseBasisIndex ℤ L) = n := by
-    rw [← finrank_eq_card_chooseBasisIndex, ZLattice.rank ℝ L]
-  have hnull :
-      volume (frontier ((b.ofZLatticeBasis ℝ L).equivFun '' closedBall (0 : E) 1)) = 0 :=
-    ((convex_closedBall (0 : E) 1).linear_image
-      (b.ofZLatticeBasis ℝ L).equivFun.toLinearMap).addHaar_frontier volume
-  have key := ZLattice.covolume.tendsto_card_le_div'' b (X := Set.univ) (F := fun x ↦ ‖x‖ ^ n)
-    (fun _ _ _ _ ↦ Set.mem_univ _)
-    (fun x r hr ↦ by rw [hcard, norm_smul, Real.norm_of_nonneg hr, mul_pow])
-    (h1 ▸ isBounded_closedBall) (h1 ▸ measurableSet_closedBall) (h1 ▸ hnull)
-  -- The limit is `vol(B₁) / covol(L)`.
-  have hV : volume.real ((b.ofZLatticeBasis ℝ L).equivFun ''
-      {x : E | x ∈ Set.univ ∧ ‖x‖ ^ n ≤ 1}) = volume.real (closedBall (0 : E) 1) / covolume L := by
-    rw [h1, measureReal_def, ZLattice.volume_image_eq_measure_div_covolume L b,
-      ENNReal.toReal_div, ENNReal.toReal_ofReal (covolume_pos L volume).le, measureReal_def]
-  rw [hV] at key
+  -- Mathlib's asymptotic count of lattice points in the dilates of the unit ball.
+  have key := ZLattice.covolume.tendsto_card_le_div' L (X := Set.univ) (F := fun x ↦ ‖x‖ ^ n)
+    (fun _ _ _ _ ↦ Set.mem_univ _) (fun x r hr ↦ by rw [norm_smul, Real.norm_of_nonneg hr, mul_pow])
+    (h1 ▸ isBounded_closedBall) (h1 ▸ measurableSet_closedBall)
+    (h1 ▸ (convex_closedBall (0 : E) 1).addHaar_frontier volume)
+  rw [h1] at key
   -- Along `c = R ^ n`, the count is that of the closed ball of radius `R`.
   have h2 : Tendsto (fun R : ℝ ↦ ((closedBall (0 : E) R ∩ L).ncard : ℝ) / R ^ n) atTop
       (𝓝 (volume.real (closedBall (0 : E) 1) / covolume L)) := by
@@ -167,20 +142,20 @@ theorem tendsto_ncard_closedBall_inter_vadd_div_volume [Nontrivial E] (L : Submo
     Tendsto (fun R : ℝ ↦ ((closedBall (0 : E) R ∩ (p +ᵥ (L : Set E))).ncard : ℝ) /
         volume.real (closedBall (0 : E) R))
       atTop (𝓝 (ZLattice.covolume L)⁻¹) := by
-  -- `x ↦ p + x` carries the lattice points of `B(R - ‖p‖)` into `B(R) ∩ (p + L)`, and
-  -- `y ↦ y - p` carries `B(R) ∩ (p + L)` into the lattice points of `B(R + ‖p‖)`.
+  -- Translation by `-p` carries `B(R) ∩ (p + L)` onto the lattice points of the ball of radius `R`
+  -- about `-p`, which lies between the balls of radii `R ∓ ‖p‖` about the origin.
+  have hcard (R : ℝ) : (closedBall (0 : E) R ∩ (p +ᵥ (L : Set E))).ncard =
+      (closedBall (-p) R ∩ (L : Set E)).ncard := by
+    rw [← Set.ncard_vadd_set (-p), Set.vadd_set_inter, Metric.vadd_closedBall, vadd_vadd,
+      neg_add_cancel, zero_vadd, vadd_eq_add, add_zero]
   have hlow (R : ℝ) : (closedBall (0 : E) (R + -‖p‖) ∩ L).ncard ≤
-      (closedBall (0 : E) R ∩ (p +ᵥ (L : Set E))).ncard := by
-    refine Set.ncard_le_ncard_of_injOn (fun x ↦ p + x) (fun x ⟨hx, hxL⟩ ↦ ⟨?_, x, hxL, rfl⟩)
-      (fun x _ y _ h ↦ add_left_cancel h) (finite_closedBall_inter_vadd L p R)
-    rw [mem_closedBall_zero_iff] at hx ⊢
-    linarith [norm_add_le p x]
+      (closedBall (0 : E) R ∩ (p +ᵥ (L : Set E))).ncard :=
+    hcard R ▸ Set.ncard_le_ncard (Set.inter_subset_inter_left _
+      (closedBall_subset_closedBall' (by simp))) (L.toAddSubgroup.finite_inter isBounded_closedBall)
   have hupp (R : ℝ) : (closedBall (0 : E) R ∩ (p +ᵥ (L : Set E))).ncard ≤
-      (closedBall (0 : E) (R + ‖p‖) ∩ L).ncard := by
-    refine Set.ncard_le_ncard_of_injOn (fun y ↦ y - p) (fun y hy ↦ ?_)
-      (fun x _ y _ h ↦ sub_left_inj.mp h) (finite_closedBall_inter L _)
-    obtain ⟨x, hx, rfl⟩ := closedBall_inter_vadd_subset L p R hy
-    simpa using hx
+      (closedBall (0 : E) (R + ‖p‖) ∩ L).ncard :=
+    hcard R ▸ Set.ncard_le_ncard (Set.inter_subset_inter_left _
+      (closedBall_subset_closedBall' (by simp))) (L.toAddSubgroup.finite_inter isBounded_closedBall)
   refine tendsto_of_tendsto_of_tendsto_of_le_of_le'
     (tendsto_ncard_closedBall_add_inter_div_volume L (-‖p‖))
     (tendsto_ncard_closedBall_add_inter_div_volume L ‖p‖) (Eventually.of_forall fun R ↦ ?_)
@@ -201,9 +176,8 @@ theorem tendsto_ncard_closedBall_inter_iUnion_vadd_div_volume [Nontrivial E]
   -- The cosets are pairwise disjoint, so the count is the sum of the counts of the cosets.
   have hcount (R : ℝ) : ((closedBall (0 : E) R ∩ ⋃ q, (p q +ᵥ (L : Set E))).ncard : ℝ) =
       ∑ q, ((closedBall (0 : E) R ∩ (p q +ᵥ (L : Set E))).ncard : ℝ) := by
-    have hdisj : (Set.univ : Set ι).PairwiseDisjoint
-        fun q ↦ closedBall (0 : E) R ∩ (p q +ᵥ (L : Set E)) := by
-      intro q _ q' _ hqq'
+    have hdisj : Pairwise (Disjoint on fun q ↦ closedBall (0 : E) R ∩ (p q +ᵥ (L : Set E))) := by
+      intro q q' hqq'
       refine Set.disjoint_left.mpr fun y hy hy' ↦ hqq' (hp q q' ?_)
       obtain ⟨x, hx, rfl⟩ := hy.2
       obtain ⟨x', hx', hxx'⟩ := hy'.2
@@ -212,8 +186,8 @@ theorem tendsto_ncard_closedBall_inter_iUnion_vadd_div_volume [Nontrivial E]
         rw [sub_eq_sub_iff_add_eq_add, ← hxx', add_comm]
       rw [this]
       exact L.sub_mem hx' hx
-    rw [Set.inter_iUnion, ← Set.biUnion_univ, Set.Finite.ncard_biUnion Set.finite_univ
-      (fun q _ ↦ finite_closedBall_inter_vadd L (p q) R) hdisj, finsum_mem_univ,
+    rw [Set.inter_iUnion,
+      Set.ncard_iUnion_of_finite (fun q ↦ finite_closedBall_inter_vadd L (p q) R) hdisj,
       finsum_eq_sum_of_fintype, Nat.cast_sum]
   simp_rw [hcount, Finset.sum_div]
   have hsum := tendsto_finsetSum Finset.univ fun q _ ↦
