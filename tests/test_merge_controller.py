@@ -731,13 +731,15 @@ class WorkflowTests(unittest.TestCase):
         installed=(ROOT/WORKFLOW).read_bytes()
         self.assertEqual(installed,(ROOT/'tools/ci/merge-controller.yml').read_bytes())
         text=installed.decode()
-        self.assertIn('permissions:\n  contents: read\n  actions: read\nconcurrency:',text)
-        self.assertNotIn('write',text.split('\njobs:')[1])
+        # Inert: every permission read, the doctor selected, and the schedule commented out.
+        self.assertIn('permissions:\n  contents: read\n  pull-requests: read\n  actions: read\n  issues: read\nconcurrency:',text)
+        self.assertNotIn(': write',text)
         self.assertNotRegex(text,r'(?m)^\s+schedule:')  # Scheduled runs stay commented out.
         self.assertIn('  workflow_dispatch:\n',text)
         self.assertIn("if: github.ref == 'refs/heads/main'",text)
         self.assertIn('ref: ${{ github.sha }}\n          persist-credentials: false',text)
-        self.assertIn('merge-doctor --executor --json',text);self.assertIsNone(re.search(r'merge-control(?![a-z])',text.split('\njobs:')[1]))
+        self.assertEqual(re.findall(r'(?m)^ *CONTROLLER: (\S+)$',text),['doctor'])
+        self.assertIn('merge-doctor --executor',text)
         self.assertNotIn('secrets.',text);self.assertNotIn('pull_request',text)
         self.assertIn('SPHERECETI_MERGE_TOKEN: ${{ github.token }}',text)
         for use in re.findall(r'uses: (\S+)',text):self.assertRegex(use,r'@[0-9a-f]{40}$')
