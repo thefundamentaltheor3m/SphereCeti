@@ -8,7 +8,8 @@ The `sphereceti` command supplies project diagnostics and the adapters credited 
 | `--version` | [Which build am I running?](#which-build-am-i-running) |
 | `doctor`, `status` | Project identity, policy and queue diagnostics (below) |
 | `review` | [Choose the PR that most needs your review](local-review.md#choosing-what-to-review) |
-| `reviews` | [Your review queue: ready to merge, revised, author replied, new, waiting on the author, blocked by a parent](local-review.md#your-review-queue-and-bounded-batches) |
+| `reviews` | [Your review queue on one screen: counts, the top PRs to review or merge, and the next command](local-review.md#your-review-queue-and-bounded-batches) |
+| `reviews --all`, `reviews -v` | [The full listing (and, with `-v`, each phase's progress)](local-review.md#your-review-queue-and-bounded-batches) |
 | `review --new / --revised / --all --limit N` | [Bounded review batches](local-review.md#your-review-queue-and-bounded-batches) |
 | `review N` | [Local review, posted by default](local-review.md#posting-by-default) |
 | `review N --no-approve` | [Opted-in maintainers: review without submitting the GitHub approval](local-review.md#approvals-by-opted-in-maintainers) |

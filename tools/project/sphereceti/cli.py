@@ -10,6 +10,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import time
 import tomllib
 
 from . import __version__
@@ -138,7 +139,9 @@ def main(argv: list[str] | None = None) -> int:
     # Progress lines on stderr through each long phase of `review` and `reviews`, unless --quiet;
     # stdout (and --json) stays the result alone.
     from .feedback import Progress, install
-    install(Progress(enabled=args.command in ("review", "reviews") and not getattr(args, "quiet", False)))
+    install(Progress(enabled=args.command in ("review", "reviews") and not getattr(args, "quiet", False),
+                     # `reviews` says one updating line unless --verbose; reviews themselves say each phase.
+                     verbose=args.command != "reviews" or getattr(args, "verbose", False)))
     if args.command == "setup":
         try:
             print(run_setup(args))
@@ -304,15 +307,23 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if report["state"] in ("published", "already_published") else 2
 
     if args.command == "reviews":
-        from .review_queue import queue, render as render_queue
+        from .feedback import current as progress, duration
+        from .review_queue import queue, render as render_queue, render_concise
+        began = time.monotonic()
+        progress().summary("Reading open PRs…")
         try:
             report = queue(project, policy, preferences, use_cache=not args.no_cache)
         except (WorkerError, RecordError, OSError, ValueError, KeyError, TypeError,
                 subprocess.SubprocessError) as error:
             reason = str(error) if isinstance(error, (WorkerError, RecordError)) else \
                 f"queue lookup failed ({type(error).__name__}); nothing is listed"
+            progress().summary("Reading open PRs… failed", final=True)
             parser.exit(2, f"sphereceti reviews: {reason}\n")
-        print(json.dumps(report, indent=2) if args.json else render_queue(report))
+        total = progress().total
+        progress().summary(f"Reading {total if total is not None else 'the'} open PRs… done in "
+                           f"{duration(time.monotonic() - began)}", final=True)
+        print(json.dumps(report, indent=2) if args.json else
+              render_queue(report) if args.all or args.verbose else render_concise(report))
         return 0
 
     if args.command == "review" and (args.new or args.revised or args.all or args.limit is not None):

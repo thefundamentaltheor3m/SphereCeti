@@ -29,9 +29,13 @@ def duration(seconds: float) -> str:
 
 
 class Progress:
-    def __init__(self, stream=None, *, enabled=True, tty=None, clock=time.monotonic, now=time.localtime):
+    def __init__(self, stream=None, *, enabled=True, tty=None, clock=time.monotonic, now=time.localtime,
+                 verbose=True):
         self.stream = stream if stream is not None else sys.stderr
         self.enabled = enabled
+        # Not verbose: per-phase lines and counters are dropped; only `summary` speaks.
+        self.verbose = verbose
+        self.total = None
         self.tty = self.stream.isatty() if tty is None and hasattr(self.stream, "isatty") else bool(tty)
         self.clock, self.now = clock, now
         self.lock = threading.Lock()
@@ -41,8 +45,21 @@ class Progress:
     def stamp(self) -> str:
         return time.strftime("%H:%M:%S", self.now())
 
-    def line(self, text: str) -> None:
+    def summary(self, text: str, *, final=False) -> None:
+        """One status line for a whole command: overwritten in place on a terminal; elsewhere only
+        the final version is printed."""
         if not self.enabled:
+            return
+        with self.lock:
+            if self.tty:
+                self.stream.write(f"\r\033[K{text}" + ("\n" if final else ""))
+                self.pending = not final
+            elif final:
+                self.stream.write(text + "\n")
+            self.stream.flush()
+
+    def line(self, text: str) -> None:
+        if not self.enabled or not self.verbose:
             return
         with self.lock:
             if self.pending:
@@ -65,7 +82,7 @@ class Progress:
 
     def counter(self, label: str, done: int, total: int) -> None:
         """`label done/total`: overwritten in place on a terminal, every tenth line elsewhere."""
-        if not self.enabled or total <= 0:
+        if not self.enabled or not self.verbose or total <= 0:
             return
         final = done >= total
         if self.tty:

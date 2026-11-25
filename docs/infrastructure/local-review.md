@@ -442,8 +442,44 @@ and review-only [rounds](https://github.com/TauCetiProject/TauCetiWorker#what-a-
 previous reviewer gets first chance at a revised PR. No TauCetiWorker code is used.
 
 `sphereceti reviews` is read-only (no model call, no GitHub write). It surveys the open queue
-once, with the same survey, planner and readiness rules as bare `review`, reads each candidate
-PR's comments, and lists your queue in sections:
+once, with the same survey, planner and readiness rules as bare `review`, and reads each candidate
+PR's comments. By default it fits on about one screen:
+
+```text
+Queue: 1 ready to merge · 19 revised · 26 new · 28 waiting on parents · 32 awaiting CI
+Ready to merge:
+  #57 erin  Prove the theta identity  (approve + merge)
+Revised since your review:
+  #64 CBirkbeck  Prove that the even presented lattice has no roo…  (author replied, unblocks 3)
+  #66 bob  Prove the contour deformation
+  … and 17 more (sphereceti reviews --all)
+New to you:
+  #121 CBirkbeck  Prove that the Fourier transform preserves radia…  (unblocks 2)
+  #55 carol  Prove the lower bound  (CI held)
+  … and 24 more (sphereceti reviews --all)
+28 PRs wait on a parent (biggest stacks: #64 ×3, #121 ×2, #132 ×2)
+32 PRs await CI (2 held for a maintainer's approval)
+Not ready: 6 yours, 5 failing CI, 1 conflicting
+Also: 14 of your follow-ups not ready yet; 3 already reviewed (sphereceti reviews --all)
+Next: sphereceti merge-ready --apply
+```
+
+- **Counts:** the first line counts each part of the queue.
+- **Top PRs:** the actionable sections (Ready to merge, Revised, Author replied, New) list their
+  top 8 in priority order, one short line each.
+- **Tags:** a tag appears only when it changes what to do: `unblocks N`, `CI held`,
+  `author replied`, `contested`, `history rewritten`, or the merge step.
+- **Collapsed counts:** waiting on authors, waiting on parents, awaiting CI and not ready are one
+  count line each.
+- **Next:** the line suggests one command:
+  - `sphereceti merge-ready --apply` when something is ready to merge;
+  - otherwise `sphereceti review --revised --limit N` for your follow-ups;
+  - otherwise `sphereceti review --new --limit N`.
+- **Progress:** stderr gets one line, `Reading 84 open PRs… done in 26s`, which updates in place on
+  a terminal.
+
+`--all` prints the full listing below, every PR with its reason. `-v`/`--verbose` prints the same
+and also each phase's progress lines. `--json` is unchanged.
 
 ```text
 Review queue for yvonne (thefundamentaltheor3m/SphereCeti, observed 2026-11-23T21:29:38Z)
@@ -656,8 +692,9 @@ official or advisory is said once, on the summary line.
 
 ### Progress lines
 
-During the long steps, `review` (explicit, bare and batches) and `reviews` write short progress
-lines to **stderr**, each stamped with the local time. Stdout keeps the plan, summary and `--json`
+During the long steps, `review` (explicit, bare and batches) and `reviews --verbose` write short
+progress lines to **stderr**, each stamped with the local time. Plain `reviews` writes one line
+instead: `Reading N open PRs… done in 26s`. Stdout keeps the plan, summary and `--json`
 document unchanged. `--quiet` turns them off. They print on a terminal and off one (logs, CI), but
 counters behave differently. On a terminal they overwrite one line, at most every two seconds.
 Elsewhere they print every tenth item and the last, so a log never gets carriage returns.
