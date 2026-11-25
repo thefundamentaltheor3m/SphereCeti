@@ -109,12 +109,8 @@ theorem add_mem_periodicRepetition {S : Set (EuclideanSpace ℝ ι)} {c : ℝ}
     (hv : v ∈ c • span ℤ (Set.range (EuclideanSpace.basisFun ι ℝ).toBasis))
     (hx : x ∈ periodicRepetition S c) : v + x ∈ periodicRepetition S c := by
   obtain ⟨w, hw⟩ := mem_smul_span_basisFun_iff.mp hv
-  obtain ⟨z, s, hs, hx⟩ := mem_periodicRepetition.mp hx
-  refine mem_periodicRepetition.mpr ⟨w + z, s, hs, ?_⟩
-  rw [WithLp.ofLp_add, hw, hx]
-  ext i
-  simp only [Pi.add_apply, Int.cast_add]
-  ring
+  rw [← WithLp.toLp_ofLp (x := v), hw]
+  exact toLp_add_mem_periodicRepetition_iff.mpr hx
 
 /-- Two points of a translated box of radius `R` that are congruent modulo `c ℤ^ι` with
 `2R < |c|` are equal. -/
