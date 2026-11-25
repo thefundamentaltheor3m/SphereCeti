@@ -9,6 +9,7 @@ module
 public import Mathlib.NumberTheory.ModularForms.Discriminant
 public import SphereCeti.NumberTheory.ModularForms.JacobiTheta.SlashActions
 import Mathlib.NumberTheory.ModularForms.Identities
+import SphereCeti.NumberTheory.ModularForms.JacobiTheta.JacobiIdentity
 import TauCeti.NumberTheory.ModularForms.Basic
 
 /-!
@@ -22,14 +23,15 @@ discriminant `Δ`, Cohn, Kumar, Miller, Radchenko and Viazovska build the functi
 * `ψ_S = -(7 H₂⁵ H₄² + 7 H₂⁶ H₄ + 2 H₂⁷) / Δ²`,
 * `ψ_T = (7 H₃⁵ H₂² - 7 H₃⁶ H₂ + 2 H₃⁷) / Δ²`,
 
-and in weight `-10` they satisfy `ψ_T ∣ T = ψ_I`, `ψ_S ∣ S = ψ_I` and `ψ_S ∣ (S T) = ψ_T`. All three
-are holomorphic on the upper half-plane.
+so that `ψ_I = ψ_T + ψ_S`, and in weight `-10` they satisfy `ψ_T ∣ T = ψ_I`, `ψ_S ∣ S = ψ_I`,
+`ψ_S ∣ (S T) = ψ_T`, `ψ_T ∣ S = -ψ_T` and `ψ_S ∣ T = -ψ_S`. All three are holomorphic on the upper
+half-plane.
 
 The `-1` eigencomponent of the Leech magic function is a six-piece contour integral of four kernels
 built from these functions, extended by `0` to `ℂ`: `ψ_T(z)` on the left legs and on the right
-legs, `-2 ψ_I(z)` on the central leg and `-2 ψ_S(z)` on the vertical ray. The central and ray
-kernels satisfy the signed transformation law under `z ↦ -1/z` in dimension `24`, for every
-`z ∈ ℂ`: `(i/z)¹² g_C(z) = z⁻² g_Ray(-1/z)`.
+legs, `-2 ψ_I(z)` on the central leg and `-2 ψ_S(z)` on the vertical ray. They satisfy the signed
+transformation laws under `z ↦ -1/z` in dimension `24`, for every `z ∈ ℂ`:
+`(i/z)¹² g_L(z) = -z⁻² g_R(-1/z)` and `(i/z)¹² g_C(z) = z⁻² g_Ray(-1/z)`.
 
 ## Main definitions
 
@@ -45,14 +47,16 @@ kernels satisfy the signed transformation law under `z ↦ -1/z` in dimension `2
 * `SphereCeti.Leech.psiI_def`, `SphereCeti.Leech.psiS_def`, `SphereCeti.Leech.psiT_def`,
   `SphereCeti.Leech.psiIExt_of_im_pos`, `SphereCeti.Leech.psiIExt_of_im_nonpos`,
   `SphereCeti.Leech.minusKernelLeft_def` and their siblings: the defining formulas.
-* `SphereCeti.Leech.psiS_eq`, `SphereCeti.Leech.psiT_eq`: the explicit formulas.
+* `SphereCeti.Leech.psiS_eq`, `SphereCeti.Leech.psiT_eq`, `SphereCeti.Leech.psiI_eq_psiT_add_psiS`:
+  the explicit formulas.
 * `SphereCeti.Leech.psiT_slash_T`, `SphereCeti.Leech.psiS_slash_S`,
-  `SphereCeti.Leech.psiS_slash_ST`: the slash relations.
+  `SphereCeti.Leech.psiS_slash_ST`, `SphereCeti.Leech.psiT_slash_S`,
+  `SphereCeti.Leech.psiS_slash_T`: the slash relations.
 * `SphereCeti.Leech.mdifferentiable_psiI`, `SphereCeti.Leech.differentiableOn_psiIExt`,
   `SphereCeti.Leech.continuousOn_psiIExt` and their siblings for `ψ_S` and `ψ_T`: holomorphy and
   continuity on the upper half-plane.
-* `SphereCeti.Leech.minusKernel_law_centralRay`: the signed transformation law of the central and
-  ray kernels.
+* `SphereCeti.Leech.minusKernel_law_leftRight`, `SphereCeti.Leech.minusKernel_law_centralRay`:
+  the signed transformation laws of the kernels.
 
 ## References
 
@@ -170,6 +174,28 @@ theorem psiS_slash_S : psiS ∣[(-10 : ℤ)] S = psiI := by
 /-- `ψ_S ∣[-10] (S T) = ψ_T`. -/
 theorem psiS_slash_ST : psiS ∣[(-10 : ℤ)] (S * T) = psiT := by
   rw [SlashAction.slash_mul, psiS_slash_S, psiT_def]
+
+/-- `ψ_I = ψ_T + ψ_S`. -/
+theorem psiI_eq_psiT_add_psiS : psiI = psiT + psiS := by
+  rw [psiT_eq, psiS_eq, psiI_def]
+  ext z
+  -- Jacobi's identity `H₂ + H₄ = H₃` at `z`
+  have h := congrFun jacobi_identity z
+  simp only [Pi.add_apply] at h
+  simp only [Pi.div_apply, Pi.add_apply, Pi.sub_apply, Pi.smul_apply, Pi.mul_apply, Pi.pow_apply,
+    Pi.neg_apply, smul_eq_mul]
+  rw [← h]
+  ring
+
+/-- `ψ_T ∣[-10] S = -ψ_T`. -/
+theorem psiT_slash_S : psiT ∣[(-10 : ℤ)] S = -psiT := by
+  rw [eq_sub_of_add_eq psiI_eq_psiT_add_psiS.symm, SlashAction.sub_slash, psiS_slash_S,
+    ← psiS_def, neg_sub]
+
+/-- `ψ_S ∣[-10] T = -ψ_S`. -/
+theorem psiS_slash_T : psiS ∣[(-10 : ℤ)] T = -psiS := by
+  rw [eq_sub_of_add_eq' psiI_eq_psiT_add_psiS.symm, SlashAction.sub_slash, psiT_slash_T,
+    ← psiT_def, neg_sub]
 
 /-! ### Extensions by zero -/
 
@@ -299,7 +325,30 @@ example {z : ℂ} (hz : 0 < z.im) : minusKernelLeft z = psiT ⟨z, hz⟩ := by
 example {z : ℂ} (hz : z.im ≤ 0) : minusKernelCentral z + minusKernelRay z = 0 := by
   simp [minusKernelCentral_def, minusKernelRay_def, hz]
 
-/-! ### The central/ray transformation law -/
+/-! ### The transformation laws -/
+
+/-- The left/right transformation law of the `-1` kernels: `(i/z)¹² g_L(z) = -z⁻² g_R(-1/z)`. -/
+theorem minusKernel_law_leftRight (z : ℂ) :
+    (I / z) ^ 12 * minusKernelLeft z = -(z ^ 2)⁻¹ * minusKernelRight (-z⁻¹) := by
+  rcases le_or_gt z.im 0 with hz | hz
+  · have hz' : (-z⁻¹).im ≤ 0 := by
+      rw [neg_im, inv_im, neg_div, neg_neg]
+      exact div_nonpos_of_nonpos_of_nonneg hz (normSq_nonneg z)
+    rw [minusKernelLeft_def, minusKernelRight_def, psiTExt_of_im_nonpos hz,
+      psiTExt_of_im_nonpos hz', mul_zero, mul_zero]
+  · have hz0 : z ≠ 0 := fun h0 ↦ by simp [h0] at hz
+    have hz' : 0 < (-z⁻¹).im := by
+      rw [neg_im, inv_im, neg_div, neg_neg]
+      exact div_pos hz (normSq_pos.mpr hz0)
+    -- `ψ_T ∣[-10] S = -ψ_T` at `z` reads `ψ_T(-1/z) z¹⁰ = -ψ_T(z)`
+    have h := congrFun psiT_slash_S ⟨z, hz⟩
+    simp only [SlashInvariantForm.slash_S_apply, Pi.neg_apply, inv_neg, neg_neg, zpow_ofNat] at h
+    rw [minusKernelLeft_def, minusKernelRight_def, psiTExt_of_im_pos hz, psiTExt_of_im_pos hz']
+    generalize psiT ⟨-z⁻¹, hz'⟩ = a at h ⊢
+    generalize psiT ⟨z, hz⟩ = b at h ⊢
+    rw [div_pow, (by norm_num [pow_mul, I_pow_four] : I ^ 12 = 1)]
+    field_simp
+    linear_combination h
 
 /-- The central/ray transformation law of the `-1` kernels: `(i/z)¹² g_C(z) = z⁻² g_Ray(-1/z)`. -/
 theorem minusKernel_law_centralRay (z : ℂ) :
