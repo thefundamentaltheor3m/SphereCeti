@@ -53,7 +53,9 @@ open scoped Real RealInnerProductSpace SchwartzMap FourierTransform
 
 namespace SphereCeti.CohnElkies
 
-variable {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E] [FiniteDimensional ℝ E]
+section Direct
+
+variable {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E] [FiniteDimensional ℝ E]
   {ι : Type*} [Fintype ι]
 
 open Classical in
@@ -100,7 +102,10 @@ theorem directDefect_eq_zero_iff (L : Submodule ℤ E) [DiscreteTopology L] {p :
   refine forall_congr' fun q' ↦ ?_
   split_ifs with h <;> simp [h]
 
-variable [MeasurableSpace E] [BorelSpace E]
+end Direct
+
+variable {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E] [FiniteDimensional ℝ E]
+  [MeasurableSpace E] [BorelSpace E] {ι : Type*} [Fintype ι]
 
 /-- When `Re 𝓕 f ≥ 0` at the nonzero dual frequencies, the Fourier defect of a Schwartz function
 `f` vanishes exactly when `Re 𝓕 f(y) * S_p(y)` vanishes at every nonzero dual frequency `y`. -/
