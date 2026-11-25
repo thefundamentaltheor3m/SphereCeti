@@ -320,26 +320,41 @@ class ClassificationTests(unittest.TestCase):
 
     def test_an_unexpected_refusal_stops_and_reports_without_retrying(self):
         # Neither a permissions 403 nor an unrelated missing approval tests the race: stop and report.
+        # The run id is fixed: the halt record names it, and CI's GITHUB_RUN_ID must not change the test.
+        from sphereceti import controller_halt
         for status, message in (('403', 'Resource not accessible by integration'),
                                 ('405', 'At least 1 approving review is required by reviewers with write access.')):
-            with self.subTest(status=status):
-                self.setUp()
+            for halt_accepted in (True, False):
+                with self.subTest(status=status, halt_accepted=halt_accepted), \
+                        patch.dict(os.environ, {'GITHUB_RUN_ID': '100'}):
+                    self.setUp()
 
-                class Refusing(RecordingWriter):
-                    def run(writer, command, payload, env):
-                        writer.requests.append((command[4], command[6] if '--method' in command else 'GET', payload))
-                        return subprocess.CompletedProcess(command, 1, '', f'gh: {message} (HTTP {status})')
-                backend, _ = self.backend()
-                backend.writer = writer = Refusing()
-                with patch.object(GitHub, 'call', side_effect=self.github), \
-                        patch('sphereceti.merge_observation.prepare', side_effect=self.h.prepared):
-                    result = reconcile(backend, lambda: [1, 1], applying=True)
-                item = result['results'][0]
-                self.assertEqual((result['state'], item['state']), ('stopped', 'rejected_unexpected'))
-                self.assertEqual(item['refusal'], {'status': status, 'message': message})
-                self.assertIn('stops and reports', item['reason'])
-                self.assertEqual(len(writer.requests), 1);self.assertEqual(len(result['results']), 1)
-                self.assertEqual((self.h.pr['state'], self.h.pr['merged']), ('open', False))
+                    class Refusing(RecordingWriter):
+                        def run(writer, command, payload, env):
+                            writer.requests.append((command[4], command[6] if '--method' in command else 'GET', payload))
+                            if command[4].endswith('/issues') and halt_accepted:
+                                return subprocess.CompletedProcess(command, 0, '{"number": 31}', '')
+                            return subprocess.CompletedProcess(command, 1, '', f'gh: {message} (HTTP {status})')
+                    backend, _ = self.backend()
+                    backend.writer = writer = Refusing()
+                    with patch.object(GitHub, 'call', side_effect=self.github), \
+                            patch('sphereceti.merge_observation.prepare', side_effect=self.h.prepared):
+                        result = reconcile(backend, lambda: [1, 1], applying=True)
+                    item = result['results'][0]
+                    self.assertEqual((result['state'], item['state']), ('stopped', 'rejected_unexpected'))
+                    self.assertEqual(item['refusal'], {'status': status, 'message': message})
+                    self.assertIn('stops and reports', item['reason'])
+                    # Exactly one merge PUT, never retried, and one halt issue (decision 3).
+                    merges = [r for r in writer.requests if r[0].endswith('/merge')]
+                    halts = [r for r in writer.requests if r[0].endswith('/issues')]
+                    self.assertEqual([r[:2] for r in merges], [(f'repos/{REPO}/pulls/1/merge', 'PUT')])
+                    self.assertEqual([(r[1], r[2]['title']) for r in halts], [('POST', controller_halt.TITLE)])
+                    self.assertEqual(len(writer.requests), 2);self.assertEqual(len(result['results']), 1)
+                    if halt_accepted:
+                        self.assertEqual(item['halt_issue'], 31)
+                    else:
+                        self.assertIsNone(item['halt_issue']);self.assertIn(f'HTTP {status}', item['halt_error'])
+                    self.assertEqual((self.h.pr['state'], self.h.pr['merged']), ('open', False))
 
     def test_only_a_definite_refusal_with_nothing_landed_is_reported_as_rejected(self):
         writer = RecordingWriter()
