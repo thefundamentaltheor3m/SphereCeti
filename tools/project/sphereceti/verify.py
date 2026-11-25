@@ -7,22 +7,19 @@ workflow's `build` job also runs the candidate's own scripts):
 * build: `lake build` of the changed modules (`+Module`), the library (`@/SphereCeti`) when its
   root changed, or the default targets when no Lean source changed;
 * module boundaries: `lake env python3 -I scripts/check_modules.py --json`;
-* library root imports: `auto_approval.root_imports`, the same rule the auto-approval decision
-  applies to `SphereCeti.lean`, plus reachability of each new library module in the import graph
-  the boundary check just produced. CI accepts sorted root imports, and most proof PRs sort them,
-  so a pure reordering passes with a note that auto-approval would refuse it;
+* library root: `SphereCeti.lean` is unchanged from the merge base. Proof PRs never edit it; the
+  `SphereCeti.*` Lake glob builds every topic module, `scripts/check_roadmap.py` rejects topic
+  imports in the root, and the auto-approval decision routes any root edit to human review;
 * compiled audit: `lake env python3 -I scripts/check_audits.py --report ...`, whose verdict
   is read back to list new admissions and other regressions against `policy/audits.json`.
 
 This is advisory. It is not the trusted build, which runs approved main's tooling and policy on
 the exact PR head in a sandbox. Nothing here posts, pushes, fetches or calls a model provider.
-The only repository writes are `git hash-object -w` of a locally modified `SphereCeti.lean` (and
-of its original-order form), so the unchanged Git-object reader of the root-import rule can read it.
+It never writes to the repository.
 """
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 import re
 import shutil
@@ -327,101 +324,33 @@ def boundaries_step(root: Path) -> tuple[dict, list | None]:
                 seconds=seconds, command=command), modules
 
 
-def reachable(graph: list[dict], start: str) -> set[str]:
-    edges = {m['name']: m.get('imports', []) for m in graph}
-    seen, todo = set(), [start]
-    while todo:
-        name = todo.pop()
-        if name not in seen:
-            seen.add(name)
-            todo += edges.get(name, [])
-    return seen
-
-
-# auto_approval.root_imports' refusal when an existing line moved, vanished or changed.
-ORDER_ONLY = 'the library root change removes or edits existing lines'
-
-
 def _blob(root: Path, oid: str) -> bytes:
     return subprocess.run(['git', '-C', str(root), 'cat-file', 'blob', oid], capture_output=True,
                           check=True).stdout
 
 
-def _git_input(root: Path, data: bytes, *args: str) -> str:
-    return subprocess.run(['git', '-C', str(root), *args], input=data, capture_output=True,
-                          check=True).stdout.decode()
+def root_step(root: Path, modules: dict) -> dict:
+    """Proof PRs never edit SphereCeti.lean: the `SphereCeti.*` Lake glob builds every topic module.
 
-
-def in_original_order(before: bytes, after: bytes) -> bytes | None:
-    """`after` with `before`'s lines first in their original order, if no line was removed or edited."""
-    old, new = before.splitlines(keepends=True), after.splitlines(keepends=True)
-    remaining = list(new)
-    for line in old:
-        if line not in remaining:
-            return None
-        remaining.remove(line)
-    return b''.join(old + remaining)
-
-
-def root_step(root: Path, modules: dict, graph: list[dict] | None) -> dict:
-    """The auto-approval rule for SphereCeti.lean, plus: every new library module is exported."""
-    from .auto_approval import root_imports
-    from .gate import Entry, path_class, tree
-    progress('checking library root imports')
+    The same rule as the auto-approval decision (any root edit needs human review) and as the
+    checkout's `scripts/check_roadmap.py` (the root imports only its stable scaffold).
+    """
+    from .gate import tree
+    progress('checking that the library root is unchanged')
     started = time.monotonic()
-    failures, added_imports = [], []
     base_entry = tree(root, modules['merge_base']).get(ROOT_MODULE)
-    current = (root / ROOT_MODULE).read_bytes()
-    root_changed = base_entry is None or current != _blob(root, base_entry.oid)
-    reordered = False
-    if root_changed:
-        oid = _git(root, 'hash-object', '-w', '--', ROOT_MODULE).strip()
-        mode = '100755' if os.access(root / ROOT_MODULE, os.X_OK) else '100644'
-        present = {p.relative_to(root).as_posix() for p in (root / 'SphereCeti').rglob('*.lean')}
-        check = lambda entry: root_imports(root, base_entry, entry, present, lambda p: path_class(p) == 'library')
-        reason, added_imports = check(Entry(mode, oid))
-        if reason == ORDER_ONLY and base_entry is not None:
-            # Sorting the imports keeps every existing line, which CI accepts. Judge the additions
-            # with the same rule, applied to the root as it would be with the original order kept.
-            normalized = in_original_order(_blob(root, base_entry.oid), current)
-            if normalized is not None:
-                reordered = True
-                oid = _git_input(root, normalized, 'hash-object', '-w', '--stdin').strip()
-                reason, added_imports = check(Entry(mode, oid))
-        if reason:
-            failures.append({'file': ROOT_MODULE, 'message': reason})
-    exported = None
-    if modules['added_library']:
-        if graph is None:
-            if not failures:
-                return step('root_imports', 'skipped', 'the import graph is unavailable because the '
-                            'module boundary check failed', seconds=time.monotonic() - started,
-                            details={'root_changed': root_changed, 'added_imports': added_imports})
-        else:
-            exported = reachable(graph, 'SphereCeti')
-            for name in modules['added_library']:
-                if name not in exported:
-                    failures.append({'file': name.replace('.', '/') + '.lean',
-                                     'message': f'{name} is not imported from {ROOT_MODULE}; add '
-                                                f'`public import` of its topic entry point to the library root'})
-    details = {'root_changed': root_changed, 'added_imports': added_imports,
-               'new_modules': modules['added_library'], 'reordered': reordered}
-    if reordered:
-        details['auto_approval_note'] = (f'{ROOT_MODULE} reorders existing lines; CI accepts this, but '
-                                         '`sphereceti auto-approve-check` requires them unchanged and in order')
-    seconds = time.monotonic() - started
-    if failures:
-        return step('root_imports', 'fail', failures[0]['message'], seconds=seconds, failures=failures,
-                    details=details)
-    if root_changed:
-        summary = f"{ROOT_MODULE} only adds public imports: {', '.join(added_imports)}"
-    else:
-        summary = f'{ROOT_MODULE} unchanged'
-    if reordered:
-        summary += ' (existing lines reordered)'
-    if modules['added_library']:
-        summary += f"; {len(modules['added_library'])} new module(s) reachable from the root"
-    return step('root_imports', 'pass', summary, seconds=seconds, details=details)
+    unchanged = base_entry is not None and (root / ROOT_MODULE).read_bytes() == _blob(root, base_entry.oid)
+    new = modules['added_library']
+    details = {'root_changed': not unchanged, 'new_modules': new}
+    if unchanged:
+        summary = f'{ROOT_MODULE} unchanged' + (
+            f'; {len(new)} new module(s) built by the SphereCeti.* glob' if new else '')
+        return step('root_imports', 'pass', summary, seconds=time.monotonic() - started, details=details)
+    message = (f'{ROOT_MODULE} changed: proof PRs do not edit the library root (the SphereCeti.* glob '
+               f'builds every topic module); restore it with `git checkout {modules["merge_base"][:12]} -- '
+               f'{ROOT_MODULE}`')
+    return step('root_imports', 'fail', message, seconds=time.monotonic() - started,
+                failures=[{'file': ROOT_MODULE, 'message': message}], details=details)
 
 
 AXIOM_ERROR = re.compile(r'axioms: (\S+): (\S+) depends on (\S+)\Z')
@@ -496,12 +425,34 @@ def next_action(verdict: str, steps: list[dict], guidance: str | None) -> str:
             '. Rerun `sphereceti verify` without skipping before opening the PR.')
 
 
+STACKED = 'proofs stacked on unmerged PRs wait for their parents; start from main when you can'
+
+
+def stacked_warning(root: Path, base: str, merge_base: str) -> str | None:
+    """A warning (never a failure) when the branch is not built on the tip of `base`, or when its
+    open PR targets a branch other than main. The PR lookup is a read-only `gh pr view` for the
+    current branch; any gh failure skips it silently."""
+    try:
+        result = subprocess.run(['gh', 'pr', 'view', '--json', 'baseRefName'], cwd=root, capture_output=True,
+                                text=True, timeout=20, check=False)
+        target = json.loads(result.stdout).get('baseRefName') if result.returncode == 0 else None
+    except (OSError, subprocess.SubprocessError, ValueError, AttributeError):
+        target = None
+    if isinstance(target, str) and target and target != 'main':
+        return f'stacked on {target}: {STACKED}'
+    tip = subprocess.run(['git', '-C', str(root), 'rev-parse', '--verify', '--quiet', base + '^{commit}'],
+                         capture_output=True, text=True, check=False).stdout.strip()
+    if tip and merge_base != tip:
+        return f'stacked on {merge_base[:7]}, not the tip of {base} ({tip[:7]}): {STACKED}'
+    return None
+
+
 def verify(repo: Path, base: str = 'origin/main', explicit: list[str] | None = None, *,
            skip_audit: bool = False) -> dict:
     started = time.monotonic()
     report = {'schema': SCHEMA, 'verdict': None, 'exit_code': None, 'next_action': None,
               'root': None, 'head': None, 'base': None, 'environment': None, 'modules': None,
-              'steps': [], 'failures': [], 'seconds': None}
+              'steps': [], 'failures': [], 'warnings': [], 'seconds': None}
     guidance = None
     try:
         root = checkout(repo.resolve())
@@ -511,6 +462,9 @@ def verify(repo: Path, base: str = 'origin/main', explicit: list[str] | None = N
         report['modules'] = modules
         report['head'] = modules['head']
         report['base'] = {'ref': base, 'merge_base': modules['merge_base']}
+        warning = stacked_warning(root, base, modules['merge_base'])
+        if warning:
+            report['warnings'].append(warning)
         counts = len(modules['library']) + len(modules['roadmap'])
         summary = (f"{len(explicit)} requested module(s)" if explicit else
                    f"{counts} changed library/roadmap module(s), {len(modules['deleted'])} deleted"
@@ -518,9 +472,9 @@ def verify(repo: Path, base: str = 'origin/main', explicit: list[str] | None = N
         steps = [step('changes', 'pass', summary)]
         steps.append(roadmap_step(root))
         steps.append(build_step(root, modules))
-        boundaries, graph = boundaries_step(root)
+        boundaries, _ = boundaries_step(root)
         steps.append(boundaries)
-        steps.append(root_step(root, modules, graph))
+        steps.append(root_step(root, modules))
         if skip_audit:
             steps.append(skipped('audit', 'skipped on request (--skip-audit)'))
         elif steps[2]['status'] == 'fail':
@@ -570,10 +524,8 @@ def render(report: dict) -> str:
     env = report['environment'] or {}
     if env.get('problem'):
         lines.append(f"environment: {_inert(env['problem'])}")
-    root_note = next((s['details'].get('auto_approval_note') for s in report['steps']
-                      if s['name'] == 'root_imports'), None)
-    if root_note:
-        lines.append(f'note: {root_note}')
+    for warning in report.get('warnings', []):
+        lines.append(f'WARNING: {_inert(warning)}')
     policy_note = next((s['details'].get('policy_note') for s in report['steps'] if s['name'] == 'audit'), None)
     if policy_note:
         lines.append(f'note: {policy_note}')

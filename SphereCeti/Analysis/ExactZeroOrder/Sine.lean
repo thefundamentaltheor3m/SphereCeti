@@ -16,11 +16,10 @@ public import Mathlib.Analysis.SpecialFunctions.Trigonometric.Deriv
 
 The profile factor `sin²(π r / 2)` has an exact double zero at every even integer `r = 2n`.
 Here `r` is a squared-norm profile variable, so these are the shell values used by the E8 and
-Leech auxiliary functions. The proof first establishes the simple zeros of `sin(π r / 2)` from
-its nonzero derivative, then uses the product and power rules for `HasExactZeroOrder`.
+Leech auxiliary functions.
 
-Multiplication by a continuous factor nonzero at `2n` preserves the double zero. The existing
-quantitative lower-bound theorem then gives the estimate needed for stability applications.
+Multiplication by a continuous factor nonzero at `2n` preserves the double zero and admits a
+quadratic lower bound near `2n`.
 The hypotheses on the remaining factor must still be established for each concrete kernel;
 this does not prove the exact zero sets or multiplicities of the magic functions themselves.
 
@@ -28,11 +27,6 @@ this does not prove the exact zero sets or multiplicities of the magic functions
 
 * M. Viazovska, *The sphere packing problem in dimension 8*, arXiv:1603.04246, equation (62),
   contains the squared sine factor `sin²(π r² / 2)`. The variable here is its squared radius.
-* README Layer 7, exact local zero orders through nonvanishing cofactors; Layer 9, shell zero
-  orders; and MIGRATION K4, preservation of multiplicities and quantitative bounds.
-
-This is an independent proof using Mathlib's trigonometric derivatives and divided differences.
-The general exact-order rules extend the real-variable API listed in UPSTREAM A14.
 -/
 
 public section
@@ -63,22 +57,7 @@ theorem hasExactZeroOrder_sin_pi_mul_div_two_sq (n : ℤ) :
       (2 * (n : ℝ)) 2 := by
   simpa using (hasExactZeroOrder_sin_pi_mul_div_two n).pow 2
 
-/-- A continuous cofactor nonzero at a shell preserves the sine factor's double zero. -/
-theorem hasExactZeroOrder_sin_pi_mul_div_two_sq_mul (n : ℤ) {g : ℝ → ℂ}
-    (hg : ContinuousAt g (2 * (n : ℝ))) (hgn : g (2 * (n : ℝ)) ≠ 0) :
-    HasExactZeroOrder (fun r : ℝ ↦ (Real.sin (Real.pi * r / 2) : ℂ) ^ 2 * g r)
-      (2 * (n : ℝ)) 2 :=
-  (hasExactZeroOrder_sin_pi_mul_div_two_sq n).mul_continuousAt hg hgn
-
-/-- The shell factor times a nonvanishing continuous cofactor has the quantitative quadratic
-lower bound required by the stability roadmap. -/
-theorem sin_pi_mul_div_two_sq_mul_quantitativeLowerBound (n : ℤ) {g : ℝ → ℂ}
-    (hg : ContinuousAt g (2 * (n : ℝ))) (hgn : g (2 * (n : ℝ)) ≠ 0) :
-    ∃ c : ℝ, 0 < c ∧ ∀ᶠ r in 𝓝 (2 * (n : ℝ)),
-      c * |r - 2 * (n : ℝ)| ^ 2 ≤ ‖(Real.sin (Real.pi * r / 2) : ℂ) ^ 2 * g r‖ :=
-  (hasExactZeroOrder_sin_pi_mul_div_two_sq_mul n hg hgn).quantitativeLowerBound
-
-/-! ## Shell normalization checks -/
+/-! ## Examples -/
 
 /-- The first positive shell is at squared norm two. -/
 example : HasExactZeroOrder (fun r : ℝ ↦ (Real.sin (Real.pi * r / 2) : ℂ) ^ 2) 2 2 := by
@@ -88,5 +67,13 @@ example : HasExactZeroOrder (fun r : ℝ ↦ (Real.sin (Real.pi * r / 2) : ℂ) 
 example : HasExactZeroOrder (fun r : ℝ ↦ (Real.sin (Real.pi * r / 2) : ℂ) ^ 2) 4 2 := by
   convert hasExactZeroOrder_sin_pi_mul_div_two_sq 2 using 1
   norm_num
+
+
+/-- Near each shell, a continuous nonvanishing cofactor gives a quadratic lower bound. -/
+example (n : ℤ) {g : ℝ → ℂ}
+    (hg : ContinuousAt g (2 * (n : ℝ))) (hgn : g (2 * (n : ℝ)) ≠ 0) :
+    ∃ c : ℝ, 0 < c ∧ ∀ᶠ r in 𝓝 (2 * (n : ℝ)),
+      c * |r - 2 * (n : ℝ)| ^ 2 ≤ ‖(Real.sin (Real.pi * r / 2) : ℂ) ^ 2 * g r‖ :=
+  ((hasExactZeroOrder_sin_pi_mul_div_two_sq n).mul_continuousAt hg hgn).quantitativeLowerBound
 
 end SphereCeti

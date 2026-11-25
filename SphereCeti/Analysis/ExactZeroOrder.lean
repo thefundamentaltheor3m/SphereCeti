@@ -32,7 +32,7 @@ quantitative stability estimates.
 * `SphereCeti.HasExactZeroOrder.quantitativeLowerBound`: near an exact zero of order `m`, `‖f x‖`
   is bounded below by a positive multiple of `|x - a| ^ m`.
 * `SphereCeti.hasExactZeroOrder_one_of_hasDerivAt`: a zero with nonzero derivative has exact
-  order one, using Mathlib's continuous divided difference as its cofactor.
+  order one.
 * `SphereCeti.HasExactZeroOrder.mul`, `SphereCeti.HasExactZeroOrder.pow`: orders add under
   products and multiply under powers.
 * `SphereCeti.HasExactZeroOrder.mul_continuousAt`: a continuous factor nonzero at the basepoint
@@ -66,11 +66,11 @@ theorem hasExactZeroOrder_zero (hf : ContinuousAt f a) (hfa : f a ≠ 0) :
   refine ⟨f, hf, hfa, .of_forall fun x ↦ ?_⟩
   simp
 
-/-- A zero with nonzero derivative has exact order one. The continuous divided difference
-`dslope f a` is the nonvanishing cofactor. -/
+/-- A zero with nonzero derivative has exact order one. -/
 theorem hasExactZeroOrder_one_of_hasDerivAt {f' : ℂ}
     (hf : HasDerivAt f f' a) (hfa : f a = 0) (hf' : f' ≠ 0) :
     HasExactZeroOrder f a 1 := by
+  -- The divided difference is continuous at the basepoint with value `f'`.
   refine ⟨dslope f a, continuousAt_dslope_same.mpr hf.differentiableAt, ?_, ?_⟩
   · simpa only [dslope_same, hf.deriv] using hf'
   · refine .of_forall fun x ↦ ?_
