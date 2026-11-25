@@ -73,7 +73,10 @@ theorem mem_smul_span_basisFun_iff {c : ℝ} {v : EuclideanSpace ℝ ι} :
       ext i
       simp
 
+-- A pre-lemma (`↓`): simp would otherwise first rewrite `⇑(basisFun ι ℝ).toBasis` to
+-- `⇑(basisFun ι ℝ)` and apply `ZLattice.covolume_smul`, so this lemma would never fire.
 /-- The lattice `c ℤ^ι` has covolume `|c|ⁿ`, where `n` is the cardinality of `ι`. -/
+@[simp ↓]
 theorem covolume_smul_span_basisFun (c : ℝ) :
     ZLattice.covolume (c • span ℤ (Set.range (EuclideanSpace.basisFun ι ℝ).toBasis)) =
       |c| ^ Fintype.card ι := by
@@ -82,6 +85,11 @@ theorem covolume_smul_span_basisFun (c : ℝ) :
   refine (ZLattice.covolume_smul (span ℤ (Set.range (EuclideanSpace.basisFun ι ℝ).toBasis))
     (c := c)).trans ?_
   rw [hU.covolume_eq_one, mul_one, finrank_euclideanSpace]
+
+/-- Check that `simp` evaluates the covolume of the lattice `2 ℤ^ι`. -/
+example : ZLattice.covolume ((2 : ℝ) • span ℤ (Set.range (EuclideanSpace.basisFun ι ℝ).toBasis)) =
+    2 ^ Fintype.card ι := by
+  simp
 
 /-- The periodic repetition of `S` along `c ℤ^ι` is the union of the cosets `s + c ℤ^ι` for
 `s ∈ S`. -/
@@ -106,12 +114,8 @@ theorem add_mem_periodicRepetition {S : Set (EuclideanSpace ℝ ι)} {c : ℝ}
     (hv : v ∈ c • span ℤ (Set.range (EuclideanSpace.basisFun ι ℝ).toBasis))
     (hx : x ∈ periodicRepetition S c) : v + x ∈ periodicRepetition S c := by
   obtain ⟨w, hw⟩ := mem_smul_span_basisFun_iff.mp hv
-  obtain ⟨z, s, hs, hx⟩ := mem_periodicRepetition.mp hx
-  refine mem_periodicRepetition.mpr ⟨w + z, s, hs, ?_⟩
-  rw [WithLp.ofLp_add, hw, hx]
-  ext i
-  simp only [Pi.add_apply, Int.cast_add]
-  ring
+  rw [← WithLp.toLp_ofLp (x := v), hw]
+  exact toLp_add_mem_periodicRepetition_iff.mpr hx
 
 /-- Two points of a translated box of radius `R` that are congruent modulo `c ℤ^ι` with
 `2R < |c|` are equal. -/
