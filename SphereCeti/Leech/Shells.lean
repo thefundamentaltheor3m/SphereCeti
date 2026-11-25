@@ -8,7 +8,6 @@ module
 
 public import SphereCeti.Leech.Lattice
 public import TauCeti.LinearAlgebra.IntegralLattice.Rank24.Leech.MinimalVectors
-public import TauCeti.LinearAlgebra.IntegralLattice.Rank24.Leech.Minimum
 
 /-!
 # The first shells of the Euclidean Leech lattice
