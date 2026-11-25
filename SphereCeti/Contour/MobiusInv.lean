@@ -9,7 +9,7 @@ module
 public import Mathlib.Analysis.Calculus.Deriv.Add
 public import Mathlib.Analysis.Calculus.Deriv.Inv
 public import Mathlib.Analysis.Complex.Basic
-import TauCeti.Analysis.Complex.UpperHalfPlane.MoebiusAction
+public import TauCeti.Analysis.Complex.UpperHalfPlane.MoebiusAction
 
 /-!
 # The inversion `z ↦ -1/z`
@@ -19,8 +19,9 @@ The modular matrix `S = !![0, -1; 1, 0]` acts on `ℂ` by the Möbius transforma
 requires the chain rule, so this file defines the map on all of `ℂ` (with the junk value `0` at
 `z = 0`) and computes its complex derivative: at every `z ≠ 0`, the derivative is `(z ^ 2)⁻¹`.
 
-That the map sends the upper half-plane to itself is already `TauCeti.im_neg_one_div_pos`; an
-example below records the restatement in terms of `mobiusInv`.
+That the map sends the upper half-plane to itself is already `TauCeti.im_neg_one_div_pos`, which
+this module imports publicly so that it reaches every consumer; together with `mobiusInv_apply`
+it gives `0 < (mobiusInv z).im` whenever `0 < z.im`, as the example below records.
 
 ## Main definitions
 
