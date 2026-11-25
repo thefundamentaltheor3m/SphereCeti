@@ -624,7 +624,12 @@ At the end it prints one summary line and a concrete next action:
 10/10 approve · posted https://github.com/thefundamentaltheor3m/SphereCeti/pull/54#issuecomment-1 · official
 4/10 reviewed · stopped: blocked on attribution · posted <URL> · advisory
 Next: author: address attribution (see record); rerun after the head changes
+10/10 reviewed · blocked: scope · changes requested: api-design, documentation · posted <URL> · official
+Next: author: address scope, api-design, documentation (see record); rerun after the head changes
 ```
+
+The result block above it opens with `Review #N: <completion>`. Whether the record counts as
+official or advisory is said once, on the summary line.
 
 - **Counts:** rubrics with a verdict on this head out of those requested; `approve` when all of
   them approve, else `reviewed`. A review that stops early names the first blocking rubric and
@@ -632,10 +637,12 @@ Next: author: address attribution (see record); rerun after the head changes
   unavailable (not authenticated|quota exhausted|rate limited)` from the archived attempts'
   error kinds, `provider failed to start` (every rubric ended without a verdict and without the
   model touching a file), `blocked on <rubric>`, an engine error, or `budget or round limit
-  reached`. A complete review with requested changes says `changes requested: <rubrics>`.
+  reached`. A complete review with findings says `blocked: <rubrics>` and `changes requested:
+  <rubrics>`.
 - **Posting:** `posted <URL> · official` (an authorized reviewer's record) or `· advisory`,
   `not posted: <reason>`, or `publication interrupted`.
-- **Next action:** `author: address <rubric> (see record); rerun after the head changes`;
+- **Next action:** `author: address <rubrics> (see record); rerun after the head changes`, naming
+  every blocked rubric and then every rubric that requested changes, as on the summary line;
   ``run `sphereceti review-check-sandbox --compare-path --compare-tmpdir` `` after a provider
   startup failure; sign in again, wait for the usage window, or rerun later for a provider that
   is down; ``publication was interrupted; run `sphereceti review-publish RUN` `` (RUN is the run id
@@ -644,7 +651,7 @@ Next: author: address attribution (see record); rerun after the head changes
   the record`; `run again without --dry-run to review`; or `none: every rubric approves`.
 
 `--json` carries the same as `plan` (`line`, `pr`, `head`, `base`, `providers`, `models`,
-`posting`) and `summary` (`line`, `reviewed`, `total`, `first_blocking`, `stop`, `posted`,
+`posting`) and `summary` (`line`, `reviewed`, `total`, `first_blocking`, `findings`, `stop`, `posted`,
 `official`, `next_action`); bare `review` adds both at the top level of its selection report.
 
 ### Progress lines

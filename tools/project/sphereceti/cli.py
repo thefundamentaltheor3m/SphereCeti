@@ -381,7 +381,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.json:
             print(json.dumps(report, indent=2))
         else:
-            print(f"Local advisory review #{args.pr}: {report['completion']}")
+            print(f"Review #{args.pr}: {report['completion']}")
             print(f"T={report['tooling']} H={report['head']} D={report['dependency_digest']}")
             print(f"Evidence and result: {report['output']}")
             print("This command does not authorize merging.")
