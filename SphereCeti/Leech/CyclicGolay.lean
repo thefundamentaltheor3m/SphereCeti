@@ -1,5 +1,5 @@
 /-
-Copyright (c) 2026 SphereCeti contributors. All rights reserved.
+Copyright (c) 2026 The Tau Ceti contributors, SphereCeti contributors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: SphereCeti contributors; adapted in part from TauCeti (The Tau Ceti contributors)
 -/
@@ -100,19 +100,23 @@ theorem golayPivotMinor_apply (i j : Fin 12) :
 
 example : golayPivotMinor 2 2 = 1 := by simp
 
-/-- Executable check that the pivot minor is upper triangular with diagonal one. -/
+/-- The pivot minor `golayPivotMinor` is upper unitriangular: its entries below the diagonal
+vanish and its diagonal entries equal one. -/
 theorem golayPivotMinor_unitriangular :
     (∀ i j : Fin 12, j < i → golayPivotMinor i j = 0) ∧
       ∀ i : Fin 12, golayPivotMinor i i = 1 := by
+  -- A finite check: each of the `12 × 12` entries is evaluated by `decide`.
   constructor
   · intro i j hji
     fin_cases i <;> fin_cases j <;> norm_num at hji <;> decide
   · intro i
     fin_cases i <;> decide
 
-/-- Executable check that every parity-extended generator row has weight eight. -/
+/-- Every row of `golayGeneratorMatrix`, a parity-extended shift of the generator polynomial, has
+Hamming weight eight. -/
 theorem golayGeneratorMatrix_rowWeight :
     ∀ i : Fin 12, hammingNorm (golayGeneratorMatrix i) = 8 := by
+  -- A finite check: the weight of each of the twelve rows is evaluated by `decide`.
   intro i
   fin_cases i <;> decide
 
@@ -130,29 +134,6 @@ theorem cyclicGolayCode_def :
 theorem cyclicGolayCode_eq_generatedBy : cyclicGolayCode = golayGeneratorMatrix.generatedBy := by
   rw [Matrix.generatedBy_eq_span_rows, cyclicGolayCode_def]
   rfl
-
-/-- A word lies in `cyclicGolayCode` exactly when it is a linear combination of the rows of
-`golayGeneratorMatrix`. -/
-theorem mem_cyclicGolayCode_iff {x : Fin 24 → ZMod 2} :
-    x ∈ cyclicGolayCode ↔ ∃ c : Fin 12 → ZMod 2, ∑ i, c i • golayGeneratorMatrix i = x := by
-  rw [cyclicGolayCode_def]
-  exact Submodule.mem_span_range_iff_exists_fun (ZMod 2)
-
-/-- Every row of `golayGeneratorMatrix` lies in `cyclicGolayCode`. -/
-@[simp]
-theorem golayGeneratorMatrix_mem_cyclicGolayCode (i : Fin 12) :
-    golayGeneratorMatrix i ∈ cyclicGolayCode :=
-  Submodule.subset_span (Set.mem_range_self i)
-
-example : golayGeneratorMatrix 0 + golayGeneratorMatrix 5 ∈ cyclicGolayCode :=
-  add_mem (by simp) (by simp)
-
-/-- `cyclicGolayCode` lies in a submodule exactly when every row of `golayGeneratorMatrix`
-does. -/
-theorem cyclicGolayCode_le_iff {C : Submodule (ZMod 2) (Fin 24 → ZMod 2)} :
-    cyclicGolayCode ≤ C ↔ ∀ i, golayGeneratorMatrix i ∈ C := by
-  rw [cyclicGolayCode_def, Submodule.span_le]
-  exact Set.range_subset_iff
 
 /-! ### The coordinate permutation -/
 
@@ -240,9 +221,9 @@ theorem map_cyclicGolayCode :
   -- row satisfies the parity checks of the self-dual systematic generator, and every systematic
   -- generator row is an explicit sum of relabelled cyclic rows.
   apply le_antisymm
-  · rw [Submodule.map_le_iff_le_comap, cyclicGolayCode_le_iff]
+  · rw [Submodule.map_le_iff_le_comap, cyclicGolayCode_eq_generatedBy, Matrix.generatedBy_le_iff]
     intro i
-    rw [Submodule.mem_comap, LinearEquiv.coe_coe, funCongrLeft_golayGeneratorMatrix,
+    rw [Matrix.row, Submodule.mem_comap, LinearEquiv.coe_coe, funCongrLeft_golayGeneratorMatrix,
       ← TauCeti.BinaryGolay.checkedBy_generator, Matrix.mem_checkedBy_iff]
     exact generator_mulVec_relabelledRow i
   · rw [TauCeti.BinaryGolay.code_def, Matrix.generatedBy_le_iff]
@@ -251,7 +232,9 @@ theorem map_cyclicGolayCode :
     refine list_sum_mem fun y hy ↦ ?_
     obtain ⟨i, -, rfl⟩ := List.mem_map.mp hy
     rw [← funCongrLeft_golayGeneratorMatrix]
-    exact Submodule.mem_map_of_mem (golayGeneratorMatrix_mem_cyclicGolayCode i)
+    refine Submodule.mem_map_of_mem ?_
+    rw [cyclicGolayCode_eq_generatedBy]
+    exact Matrix.row_mem_generatedBy golayGeneratorMatrix i
 
 /-- The cyclic code is TauCeti's code after a coordinate permutation, in TauCeti's sense of
 permutation equivalence. -/
