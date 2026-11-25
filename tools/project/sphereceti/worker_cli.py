@@ -14,7 +14,7 @@ from .worker import (MAX_PRS, WorkerError, plan, require, targets, text,
                      validate_snapshot)
 
 PR_FIELDS = ("number,title,author,headRefOid,baseRefOid,updatedAt,state,isDraft,mergeable,statusCheckRollup,"
-             "headRepository")
+             "headRepository,baseRefName,headRefName")
 
 
 def load_json(raw: str):
@@ -39,10 +39,14 @@ def read_json(path: Path):
 
 
 class GitHub:
-    """Only fixed-host read commands; one survey gets a 60-second total budget."""
+    """Only fixed-host read commands; one survey gets a bounded total budget: 60 seconds, plus
+    3 seconds per open PR once the queue is known (each PR may need its scope provenance read)."""
 
     def __init__(self):
         self.deadline = time.monotonic() + 60
+
+    def allow_for(self, count: int):
+        self.deadline = max(self.deadline, time.monotonic() + 60 + 3 * min(count, MAX_PRS))
 
     def read(self, args: list[str]):
         remaining = self.deadline - time.monotonic()
@@ -142,7 +146,9 @@ def normalize(pr, project, api) -> dict:
     return {"number": pr["number"], "title": pr["title"], "author": pr["author"].get("login"),
             "head": pr["headRefOid"], "base": pr["baseRefOid"], "updated_at": pr["updatedAt"],
             "state": pr["state"], "draft": pr["isDraft"], "mergeable": pr["mergeable"],
-            "ci": aggregate, "review_ci": review_ci, "review_note": note}
+            "ci": aggregate, "review_ci": review_ci, "review_note": note,
+            "base_ref": pr["baseRefName"], "head_ref": pr["headRefName"],
+            "head_repo": (pr.get("headRepository") or {}).get("nameWithOwner")}
 
 
 def survey(project, requested=None, *, api=None) -> dict:
@@ -155,9 +161,11 @@ def survey(project, requested=None, *, api=None) -> dict:
         raw = api.read(["pr", "list", *repo_args, "--state", "open", "--limit", str(MAX_PRS + 1)])
         require(isinstance(raw, list) and len(raw) <= MAX_PRS,
                 "open queue exceeds 100 PRs or is incomplete; use explicit --pr targeting")
+        if hasattr(api, "allow_for"):
+            api.allow_for(len(raw))
     else:
         raw = [api.read(["pr", "view", str(number), *repo_args]) for number in requested]
-    result = {"schema": "sphereceti.worker-survey/v3", "repository": project.repository,
+    result = {"schema": "sphereceti.worker-survey/v4", "repository": project.repository,
               "actor": actor, "observed_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
               "scope": list(requested) if requested is not None else None,
               "pull_requests": [normalize(pr, project, api) for pr in raw]}
@@ -232,7 +240,7 @@ def render(report) -> str:
     if report["schema"] == "sphereceti.worker-round/v1":
         return f"SphereCeti worker: {report['state']}. " + report.get('reason', 'See --json for the round receipt.')
     if report["schema"] in ("sphereceti.worker-survey/v1", "sphereceti.worker-survey/v2",
-                            "sphereceti.worker-survey/v3"):
+                            "sphereceti.worker-survey/v3", "sphereceti.worker-survey/v4"):
         return (f"Observed {len(report['pull_requests'])} PR(s) in {report['repository']} "
                 f"as {report['actor']}. Use --json to save the survey.")
     lines = [f"SphereCeti worker: advisory plan for {report['repository']}"]

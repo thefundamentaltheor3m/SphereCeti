@@ -281,15 +281,19 @@ Use translated coordinate boxes with a guard band of one center separation.  Def
 patch, its period lattice, and the repeated center set, then state explicit equations
 for the centers and separation of `ofFinitePatternInBoxAt`.
 
-The volume estimate for coordinate boxes does not involve packings and may land first:
+The volume estimate for coordinate boxes and the counting step of the averaging lemma do not
+involve packings and may land first:
 
-- a fixed-width coordinate-box boundary layer has volume ratio tending to zero.
+- a fixed-width coordinate-box boundary layer has volume ratio tending to zero;
+- for a finite set `S` and a measurable set `Q`, the number of points of `S` in `a +ᵥ Q` has
+  integral `#S * vol(Q)` over `a`, so some translate with `a` in a set of finite positive volume
+  containing `S - Q` meets `S` in at least the average number of points.
 
 Then prove in order:
 
 - a Fubini/Følner averaging lemma: from an arbitrarily large ball whose finite density approaches
   the ball-limsup density, extract an arbitrarily large translated coordinate box whose normalized
-  center count loses only a prescribed error;
+  center count loses only a prescribed error, using the counting step;
 - the repeated patch satisfies the packing inequality, including across adjacent boxes;
 - its exact density in terms of the patch cardinality and box covolume;
 - for every positive `ε`, every packing has a periodic packing `Q` with
@@ -738,7 +742,11 @@ superpacking.  Instead formalize the exact Section-8 argument:
 - the inequalities squeeze the relative index to `numOrbits` and the generated covolume to one.
 
 This PR must expose the quotient injection, determinant lower bound, and numerical squeeze as
-separate reusable lemmas.
+separate reusable lemmas.  Their packing-free forms may land before N1 and F4: the embedding of
+points pairwise incongruent modulo a sublattice `Λ` into the quotient of `Γ` by `Λ`, with its
+cardinal bound for full lattices `Λ ≤ Γ`; the bound `1 ≤ covolume` for integral full lattices;
+and the squeeze of a covolume and a relative index between these bounds.  Only their assembly
+into the Section-8 argument waits for N1.
 The cardinal inequality must carry the generated-lattice discreteness/full-rank hypotheses and use
 the inclusion `periodLattice_le_generatedIntegralLattice`: without them the relative quotient can be
 infinite and Mathlib's `relIndex` is zero.
@@ -819,7 +827,8 @@ After A1:
 - M2 can proceed once the transported Leech lattice and the required classification results exist;
   it does not wait for the magic function.
 - N1–N3 wait for F4 plus the dimension-specific exact zero results, and do not wait for M1/M2;
-  N4 additionally waits for M1, N5 for M2, and N6 follows from N4/N5.
+  N4 additionally waits for M1, N5 for M2, and N6 follows from N4/N5.  The packing-free lemmas of
+  N2 wait for none of these.
 
 ## 19. PR description template
 

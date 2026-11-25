@@ -25,22 +25,14 @@ inserting `-c t`. Specializing to `c = π` and `(0, 1]` gives the derivative for
 smoothness of the bounded-interval profiles used by the magic functions. Composing the profile
 with squared norm is smooth even at the origin.
 
-This is a shared prerequisite for README Layer 7 and MIGRATION J3, differentiation under
-parameterized integrals and smoothness of the derivative families. It does not establish the
-decay or the Schwartz bounds of the dimension-specific magic functions.
+Decay and Schwartz bounds for the dimension-specific magic functions require separate estimates.
 
 ## Provenance
 
-The first-derivative proof adapts the dominated-differentiation argument of
-`TauCeti.differentiable_intervalIntegral_mul_cexp_neg_mul`, from
+The first-derivative argument is adapted from
+`TauCeti.differentiable_intervalIntegral_mul_cexp_neg_mul` in
 `TauCetiProject/TauCeti@83769e442d55cda9d85b3927a93b286831c595ff`, file
-`TauCeti/Analysis/Complex/LaplaceTransform.lean` (Tau Ceti contributors, Apache-2.0), retaining
-the derivative supplied by Mathlib's theorem instead of discarding it. The iterated derivative
-formulas and real-parameter corollaries are new consequences. Smoothness reuses TauCeti's
-existing entire-function result.
-
-The intended upstream home is TauCeti's complex Laplace-transform API, beside the existing
-truncated-transform theorem.
+`TauCeti/Analysis/Complex/LaplaceTransform.lean` (Tau Ceti contributors, Apache-2.0).
 -/
 
 public section
@@ -152,8 +144,7 @@ theorem iteratedDeriv_intervalIntegral_mul_cexp_neg_mul_real
     intro t _
     ring
 
-/-- Truncated Laplace transforms with a real parameter are smooth for any complex coefficient.
-This reuses the existing entire-function theorem. -/
+/-- Truncated Laplace transforms with a real parameter are smooth for any complex coefficient. -/
 theorem contDiff_intervalIntegral_mul_cexp_neg_mul_real
     (hf : IntervalIntegrable f volume a b) (c : ℂ) :
     ContDiff ℝ ∞ (fun r : ℝ ↦ ∫ t in a..b, f t * cexp (-(c * (r : ℂ)) * t)) := by

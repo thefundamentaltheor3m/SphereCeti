@@ -242,7 +242,8 @@ class SelectionTest(unittest.TestCase):
 
 
 FAKE_GH = r'''
-import json, pathlib, sys
+import datetime, json, pathlib, sys
+now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 root = pathlib.Path(__file__).parent
 args = sys.argv[1:]
 with (root / "gh-calls.jsonl").open("a") as f:
@@ -256,14 +257,22 @@ else:
     assert args[0] == "api"
     key = next(a for a in args[1:] if a == "user" or a.startswith("repos/"))
 repo = "thefundamentaltheor3m/SphereCeti"
-if "--input" in args:
+if "--input" in args and args[-3:-2] == ["PATCH"] and table.get("accept_posts"):
+    value = next(c for cs in comments.values() for c in cs if c["id"] == int(key.split("/")[-1]))
+    value.update(body=json.load(sys.stdin)["body"], updated_at=now)
+    state_path.write_text(json.dumps(comments))
+elif "--input" in args:
     if not table.get("accept_posts") or args[-4:] != ["--method", "POST", "--input", "-"]:
         sys.exit(3)  # an unexpected write
     number = key.split("/")[-2]
+    for racer in table.get("race", {}).pop(number, []):  # another contributor posts at the same moment
+        comments.setdefault(number, []).append({**racer, "id": 100 + sum(map(len, comments.values())),
+                                                "created_at": now, "updated_at": now})
+    (root / "gh.json").write_text(json.dumps(table))
     value = {"id": 100 + sum(map(len, comments.values())), "body": json.load(sys.stdin)["body"],
              "user": {"id": table["poster_id"], "type": "User", "login": table["user"]["login"]},
              "issue_url": f"https://api.github.com/repos/{repo}/issues/{number}",
-             "created_at": "2026-09-11T00:00:00Z", "updated_at": "2026-09-11T00:00:00Z"}
+             "created_at": now, "updated_at": now}
     comments.setdefault(number, []).append(value)
     state_path.write_text(json.dumps(comments))
 elif key.startswith(f"repos/{repo}/issues/comments/"):
@@ -278,7 +287,7 @@ print(json.dumps([value] if "--paginate" in args else value))
 '''
 
 
-class BareReviewCliTest(unittest.TestCase):
+class BareReviewHarness(unittest.TestCase):
     """The CLI end to end: fake gh, fake provider, exact disposable Git evidence."""
 
     def setUp(self):
@@ -300,13 +309,14 @@ class BareReviewCliTest(unittest.TestCase):
                          state='OPEN', isDraft=False, mergeable='MERGEABLE',
                          statusCheckRollup=[{'__typename': 'CheckRun', 'status': 'COMPLETED',
                                              'conclusion': 'SUCCESS'}],
-                         headRepository={'nameWithOwner': REPO})
+                         headRepository={'nameWithOwner': REPO}, baseRefName='main',
+                         headRefName=f'change-{number}')
             value.update(updates)
             return value
         self.queue = [pr(50, 'xavier', updatedAt='2026-03-01T00:00:00Z'),
                       pr(49, 'bob', isDraft=True), pr(48, 'bob', mergeable='CONFLICTING'),
                       pr(47, 'bob', updatedAt='2026-02-01T00:00:00Z')]
-        self.table = {'user': {'login': 'yvonne'}, 'pr list': self.queue, 'poster_id': 7,
+        self.table = {'user': {'login': 'yvonne', 'id': 7, 'type': 'User'}, 'pr list': self.queue, 'poster_id': 7,
                       'accept_posts': accept_posts, f'repos/{REPO}/commits/main': {'sha': f.tooling}}
         for item in self.queue:
             n = item['number']
@@ -326,7 +336,17 @@ class BareReviewCliTest(unittest.TestCase):
         f.head = commit(f.repo)
         self.build_table(accept_posts=True)
 
-    def posts(self):
+    def comments(self, number):
+        path = self.fixture.bin / 'gh-comments.json'
+        return json.loads(path.read_text()).get(str(number), []) if path.exists() else []
+
+    def records(self, number=47):
+        return [c for c in self.comments(number) if c['body'].startswith('<!--sphereceti-review:v1 ')]
+
+    def claims(self, number=47):
+        return [c for c in self.comments(number) if c['body'].startswith('<!--sphereceti-review-claim:v1 ')]
+
+    def writes(self):
         return [call for call in self.gh_calls() if '--input' in call]
 
     def write_table(self):
@@ -345,13 +365,16 @@ class BareReviewCliTest(unittest.TestCase):
                    '--auth', 'api', '--output', str(self.root / output), *args]
         return subprocess.run(command, cwd=f.foreign, env=f.env, capture_output=True, text=True, timeout=120)
 
+
+
+class BareReviewCliTest(BareReviewHarness):
     def test_dry_run_selects_without_a_model_call_or_write_and_reports_json(self):
         process = self.run_cli('--dry-run', '--json')
         self.assertEqual(process.returncode, 0, process.stderr)
         result = json.loads(process.stdout)
         self.assertEqual(set(result), {'schema', 'state', 'repository', 'actor', 'observed_at', 'priority',
                                        'waiting_since', 'selected', 'candidates', 'skipped',
-                                       'rationale', 'posting', 'plan', 'summary', 'review', 'main'})
+                                       'rationale', 'posting', 'approval', 'plan', 'summary', 'review', 'main'})
         self.assertEqual(result['schema'], 'sphereceti.review-selection/v1')
         self.assertEqual((result['state'], result['actor']), ('selected', 'yvonne'))
         self.assertEqual(result['selected']['pr'], 47)  # older than #50
@@ -368,7 +391,7 @@ class BareReviewCliTest(unittest.TestCase):
         self.assertEqual((result['review']['pr'], result['review']['head']), (47, self.fixture.head))
         self.assertFalse(self.fixture.calls())
         self.assertFalse((self.root / 'result/record.json').exists())
-        self.assertEqual(self.posts(), [])
+        self.assertEqual(self.writes(), [])
 
     def test_full_review_prints_one_line_then_verdicts_and_record(self):
         # Approved policy disables posting: the default keeps the record local and says why.
@@ -379,17 +402,22 @@ class BareReviewCliTest(unittest.TestCase):
                                    r'no current review; waiting \d+d; will post if policy permits\.$')
         self.assertRegex(lines[1], r'^Review #47: head [0-9a-f]{7}, base [0-9a-f]{7} · claude claude-[a-z0-9.-]+ · '
                                    r'will not post \(approved policy disables posting\)$')
-        self.assertEqual(lines[2], 'Local advisory review #47: complete')
+        # The fixture's T is not this source tree, so the review says before inference that it is advisory.
+        self.assertRegex(lines[2], r'^Your sphereceti is not current main \(installed local build[^)]*, approved main '
+                                   r'[0-9a-f]{7}\): this review will be advisory, not official\. Update with: uv tool '
+                                   r'install --force --refresh git\+https://github\.com/thefundamentaltheor3m/SphereCeti@main$')
+        self.assertEqual(lines[3], 'Local advisory review #47: complete')
         for rubric in RUBRICS:
             self.assertIn(f'  {rubric.ljust(max(map(len, RUBRICS)))}  approve', lines)
         self.assertIn(f'Record: {self.root}/result/record.md (machine-readable: record.json)', lines)
-        self.assertEqual(lines[-4:], ['Not posted: posting is disabled by approved repository policy.',
+        self.assertEqual(lines[-5:], ['Not posted: posting is disabled by approved repository policy.',
+                                      'Approval: not submitted: the review record is not being posted',
                                       'This command does not authorize merging.',
                                       '10/10 approve · not posted: posting is disabled by approved repository policy',
                                       'Next: none: every rubric approves; the record stays local '
                                       '(posting is disabled by approved repository policy)'])
         self.assertEqual(len(self.fixture.calls()), 10)
-        self.assertEqual(self.posts(), [])
+        self.assertEqual(self.writes(), [])
         # The contributor's local record now counts as their review of this exact head.
         again = self.run_cli('--dry-run', '--json', output='again')
         result = json.loads(again.stdout)
@@ -402,9 +430,10 @@ class BareReviewCliTest(unittest.TestCase):
         self.assertEqual(process.returncode, 0, process.stderr)
         lines = process.stdout.splitlines()
         self.assertTrue(lines[0].endswith('; will post if policy permits.'))
-        self.assertIn(f'Posted: https://github.com/{REPO}/pull/47#issuecomment-100 (authorized reviewer).', lines)
-        self.assertEqual(len(self.posts()), 1)
-        self.assertIn(f'repos/{REPO}/issues/47/comments', self.posts()[0])
+        self.assertIn(f'Posted: https://github.com/{REPO}/pull/47#issuecomment-101 (authorized reviewer).', lines)
+        self.assertEqual(len(self.records()), 1)
+        [claim] = self.claims()
+        self.assertIn('finished: https://github.com/', claim['body'])
         # Remove the local copies: the published record alone marks #47 as reviewed by you.
         for path in (self.root / 'state').rglob('record.json'):
             path.unlink()
@@ -421,7 +450,7 @@ class BareReviewCliTest(unittest.TestCase):
         self.enable_posting(reviewers=('user:1',))
         process = self.run_cli()
         self.assertEqual(process.returncode, 0, process.stderr)
-        self.assertIn(f'Posted: https://github.com/{REPO}/pull/47#issuecomment-100 '
+        self.assertIn(f'Posted: https://github.com/{REPO}/pull/47#issuecomment-101 '
                       '(advisory: user:7 is not an authorized reviewer).', process.stdout.splitlines())
 
     def test_no_post_and_dry_run_never_write(self):
@@ -434,7 +463,7 @@ class BareReviewCliTest(unittest.TestCase):
         dry = self.run_cli('--dry-run', output='dry')
         self.assertEqual(dry.returncode, 0, dry.stderr)
         self.assertIn('Not posted: dry run.', dry.stdout.splitlines())
-        self.assertEqual(self.posts(), [])
+        self.assertEqual(self.writes(), [])
         both = self.run_cli('--post', '--no-post', output='both')
         self.assertEqual(both.returncode, 2)
         self.assertIn('not allowed with argument', both.stderr)
@@ -469,7 +498,7 @@ class BareReviewCliTest(unittest.TestCase):
         self.assertEqual(process.returncode, 2)
         self.assertIn('changed since it was selected', process.stderr)
         self.assertFalse(self.fixture.calls())
-        self.assertEqual(self.posts(), [])
+        self.assertEqual(self.writes(), [])
 
     def test_explicit_review_number_skips_selection(self):
         process = self.run_cli('--dry-run', '--json', pr=50)
@@ -481,7 +510,8 @@ class BareReviewCliTest(unittest.TestCase):
         self.assertEqual(endpoints, [f'repos/{REPO}/pulls/50', f'repos/{REPO}/commits/main'])
         process = self.run_cli('--dry-run', pr=50, output='text')
         self.assertRegex(process.stdout, r'^Review #50: head [0-9a-f]{7}, base [0-9a-f]{7} · claude [^·]+ · '
-                                         r'dry run: no model call, nothing posted\nLocal advisory review #50: dry_run\n')
+                                         r'dry run: no model call, nothing posted\nYour sphereceti is not current main '
+                                         r'[^\n]*advisory, not official[^\n]*\nLocal advisory review #50: dry_run\n')
         self.assertIn('Not posted: dry run.', process.stdout.splitlines())
 
     def test_pr_specific_flags_are_refused_before_github(self):

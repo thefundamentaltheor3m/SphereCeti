@@ -1,20 +1,35 @@
-# Serialized merge controller, installed READ-ONLY. tools/ci/merge-controller.yml is the packaged
-# copy; merge-doctor requires both to be byte-identical. TauCetiReview afb424e merge-only/merge-sweep design.
+# Serialized merge controller, installed INERT. tools/ci/merge-controller.yml is the packaged copy;
+# merge-doctor requires both to be byte-identical. TauCetiReview afb424e merge-only/merge-sweep design.
 #
 # Option A: the executor is this job's own GITHUB_TOKEN, never a bot or machine-user account.
-# While policy/automation.toml has `merging = false`, this job only runs `merge-doctor --executor`.
-# That verifies this run and its job token (workflow ref and SHA, main, the token's own
-# current_user_can_bypass on the ruleset) and the server rules, then prints the JSON result.
-# It cannot merge: the token is read-only and no merge command runs. A separate reviewed activation
-# change grants contents/pull-requests write, runs `merge-control --apply` and enables the schedule.
+# Everything needed to merge is present, but every switch is OFF. Activation is a separate tiny PR
+# that changes only the lines marked "ACTIVATION" (docs/infrastructure/activation.md):
+#   1. CONTROLLER: doctor -> apply      (run merge-control --apply instead of the read-only doctor)
+#   2. the four permissions read -> write (merge, dispatch trusted refreshes, record a halt)
+#   3. uncomment the schedule, last, after the live race probe has passed
+# Even then nothing merges while policy/automation.toml has `merging = false`.
 name: Merge controller
 on:
   workflow_dispatch:
+    inputs:
+      pr:
+        description: One PR number (empty for a sweep)
+        type: string
+        default: ''
+      probe:
+        description: "'race' runs the live race probe for that PR (manual runs only; needs merging = true)"
+        type: choice
+        options: ['', 'race']
+        default: ''
+  # ACTIVATION 3 (last, after the race probe passed): uncomment the two schedule lines.
   # schedule:
   #   - cron: '17 * * * *'
+# ACTIVATION 2: each `read` below becomes `write`.
 permissions:
   contents: read
+  pull-requests: read
   actions: read
+  issues: read
 concurrency:
   group: sphereceti-merge-main
   cancel-in-progress: false
@@ -22,7 +37,7 @@ jobs:
   controller:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 45  # covers the race probe's bounded 20-minute hold
     steps:
       # Only main's tooling is checked out; PR code is never checked out, built or executed.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -30,13 +45,38 @@ jobs:
           ref: ${{ github.sha }}
           persist-credentials: false
           fetch-depth: 0
-      - name: Verify the executor and server rules (read-only)
+      - name: Run the controller (the read-only doctor until activation)
         env:
+          # ACTIVATION 1: doctor -> apply.
+          CONTROLLER: doctor
           GH_TOKEN: ${{ github.token }}
           SPHERECETI_MERGE_TOKEN: ${{ github.token }}
           PYTHONPATH: tools/project
+          PR_NUMBER: ${{ inputs.pr }}
+          PROBE: ${{ inputs.probe }}
         shell: bash
         run: |
           set -euo pipefail
-          python3 -m sphereceti.cli merge-doctor --executor --json \
-            --source-repo . --cache-dir "$RUNNER_TEMP/merge-controller"
+          common=(--json --source-repo . --cache-dir "$RUNNER_TEMP/merge-controller")
+          case "$CONTROLLER" in
+            doctor)
+              python3 -m sphereceti.cli merge-doctor --executor "${common[@]}" ;;
+            apply)
+              args=(merge-control --apply)
+              if [ -n "$PR_NUMBER" ]; then
+                [[ "$PR_NUMBER" =~ ^[1-9][0-9]{0,8}$ ]] || { echo "::error::invalid pr input"; exit 1; }
+                args+=(--pr "$PR_NUMBER")
+              else
+                args+=(--sweep)
+              fi
+              if [ -n "$PROBE" ]; then
+                # The probe exists only for one PR in a manual run; the controller checks it again.
+                if [ "$PROBE" != race ] || [ -z "$PR_NUMBER" ] || [ "$GITHUB_EVENT_NAME" != workflow_dispatch ]; then
+                  echo "::error::the race probe needs pr=N in a workflow_dispatch run"; exit 1
+                fi
+                args+=(--probe race)
+              fi
+              python3 -m sphereceti.cli "${args[@]}" "${common[@]}" ;;
+            *)
+              echo "::error::unknown CONTROLLER mode"; exit 1 ;;
+          esac
