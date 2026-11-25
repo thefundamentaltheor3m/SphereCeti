@@ -354,7 +354,7 @@ def render(selection, args) -> list[str]:
         lines.append(f"Dry run: no model call. T={report['tooling']} H={report['head']}")
         lines.append(f"Evidence: {output / 'evidence.json'}")
     else:
-        lines.append(f"Local advisory review #{report['pr']}: {report['completion']}")
+        lines.append(f"Review #{report['pr']}: {report['completion']}")
         width = max(len(r) for r in report["verdicts"])
         lines += [f"  {rubric.ljust(width)}  {verdict}" for rubric, verdict in report["verdicts"].items()]
         lines.append(f"Record: {output / 'record.md'} (machine-readable: record.json)")
