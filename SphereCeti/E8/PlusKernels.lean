@@ -83,6 +83,7 @@ theorem phi0Ext_of_im_nonpos {z : ℂ} (hz : z.im ≤ 0) : phi0Ext z = 0 := by
   simp [phi0Ext, hz.not_gt]
 
 /-- `φ₀` is `1`-periodic. -/
+@[simp]
 theorem phi0Ext_add_one (z : ℂ) : phi0Ext (z + 1) = phi0Ext z := by
   by_cases hz : 0 < z.im
   · have hz' : 0 < (z + 1).im := by simpa using hz
