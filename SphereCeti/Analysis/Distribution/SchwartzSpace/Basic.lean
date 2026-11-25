@@ -12,11 +12,8 @@ public import Mathlib.Analysis.Distribution.SchwartzSpace.Basic
 # Constructing Schwartz functions from bounds at infinity
 
 `SchwartzMap.mkOfCocompact` constructs a Schwartz function from a smooth function whose
-polynomially weighted derivatives are bounded outside compact sets. Continuity bounds each
-weighted derivative on the remaining compact set, giving the global Schwartz bounds.
-
-This is the general constructor needed by the magic-function Schwartz proofs (MIGRATION J3,
-UPSTREAM A6). It has no finite-dimensionality assumption on the domain.
+polynomially weighted derivatives are bounded outside compact sets. It has no
+finite-dimensionality assumption on the domain.
 
 ## Main definitions and results
 
@@ -42,7 +39,7 @@ variable {E F : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
   [NormedAddCommGroup F] [NormedSpace ℝ F]
 
 /-- Construct a Schwartz function from a smooth function whose polynomial derivative bounds
-hold outside compact sets. Continuity supplies the bounds on each remaining compact set. -/
+hold outside compact sets. -/
 @[expose]
 def mkOfCocompact (f : E → F) (smooth : ContDiff ℝ ∞ f)
     (decay : ∀ k n : ℕ, ∃ C : ℝ,
