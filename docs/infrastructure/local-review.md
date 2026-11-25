@@ -530,6 +530,52 @@ Each entry gives the PR, author, title, short head, the reason and how long it h
 lookup (survey, comments, compare response, and for Ready to merge the branch rules, check runs,
 workflow runs, PR and its reviews) exits 2 and lists nothing.
 
+### How the queue is read
+
+`reviews`, bare `review` and batches read the open queue in **one GraphQL pass**
+(`sphereceti/bulk.py`). Two read-only queries run side by side, 50 PRs per page:
+- the survey's fields, in exactly `gh pr list --json`'s shape, so readiness is computed by the same
+  code;
+- each PR's comments with their author ids, in the shape the record readers check.
+
+They no longer read comments with one REST call per PR. On the live queue (53 PRs, 142 comments)
+both match `gh pr list` and the REST comments exactly.
+
+Per-PR REST reads remain only for what that pass cannot answer:
+- trusted-scope provenance for the human-review exception;
+- `compare` and commit reads for revised PRs and carry-over. Main's history is read 100 commits per
+  listing, not one commit per request;
+- held-run checks for fork PRs;
+- the merged state of a missing stack parent;
+- main's required checks, once;
+- the PR, its reviews and its runs for Ready to merge candidates.
+
+These reads run on a pool of 8 threads (`SPHERECETI_READ_WORKERS`), and results keep queue order.
+One survey reads current main once, and each exact-commit compare once.
+
+Results stay fail-closed:
+- A PR with more than 100 comments has the rest read through REST, for that PR only.
+- These all exit 2, as before: a queue that changes between pages, a GraphQL error, or any failed
+  read.
+- A read refused by GitHub's **secondary** rate limit is retried after 5, 15 and 30 seconds. Only
+  reads are retried, never a write.
+- An exhausted **primary** limit fails at once and says when it resets.
+
+**Queue cache.** Facts that cannot change under their key are kept in the operator store
+(`<storage>/<repo>/queue-cache.json`):
+- a scope verdict, keyed by PR, head, base, head repository, current main, every status and check
+  in the PR's rollup, and the packaged merge-checks settings;
+- a commit's parents and tree;
+- a compare of two exact commits;
+- a merged stack parent.
+
+Current main, the PR list, comments, reviews and runs are read fresh on every run. A failed read is
+never cached. `--no-cache` (on `reviews` and `review`) neither reads nor writes the cache.
+
+The worker survey shares the bulk pass and the pool, but never the cache. The merge controller,
+`auto-approve-check`, the maintainer approval and posting do not use the cache or the bulk pass.
+They keep their own fresh per-PR reads.
+
 `sphereceti review --new --limit N`, `--revised --limit N` (your follow-ups: revised, then author
 replied) or `--all --limit N` (follow-ups, then new) reviews up to N **distinct** PRs (default 1,
 at most 10) from that section, one at a time, each exactly as `review N` would. Follow-ups use the
@@ -607,6 +653,46 @@ official or advisory is said once, on the summary line.
 `--json` carries the same as `plan` (`line`, `pr`, `head`, `base`, `providers`, `models`,
 `posting`) and `summary` (`line`, `reviewed`, `total`, `first_blocking`, `findings`, `stop`, `posted`,
 `official`, `next_action`); bare `review` adds both at the top level of its selection report.
+
+### Progress lines
+
+During the long steps, `review` (explicit, bare and batches) and `reviews` write short progress
+lines to **stderr**, each stamped with the local time. Stdout keeps the plan, summary and `--json`
+document unchanged. `--quiet` turns them off. They print on a terminal and off one (logs, CI), but
+counters behave differently. On a terminal they overwrite one line, at most every two seconds.
+Elsewhere they print every tenth item and the last, so a log never gets carriage returns.
+
+```text
+[19:02:11] Surveying open PRs… (49 open)
+[19:02:41]   scope 10/49
+[19:03:43] Surveying open PRs… done in 1m32s
+[19:03:44] Preparing evidence for #63 at 9c587b5 (fetching pinned sources…)
+[19:04:26] Evidence for #63 ready in 42s
+[19:04:27] Posting "reviewing now" claim on #63…
+[19:04:28] claim posted: https://github.com/thefundamentaltheor3m/SphereCeti/pull/63#issuecomment-1
+[19:04:28] Rubric 1/10 correctness: running (codex gpt-6.1-sol)…
+[19:06:38] Rubric 1/10 correctness: approve (2m10s, est. $0.07)
+...
+[19:31:02] Posting record…
+[19:31:04] posted https://github.com/thefundamentaltheor3m/SphereCeti/pull/63#issuecomment-2
+```
+
+- **Survey:** the open-PR count, then `scope i/N` as each PR's CI and trusted-scope provenance is
+  read, then the total time.
+- **`reviews`:** the survey, then `reading comments i/N`.
+- **Evidence:** start and finish of the pinned source preparation.
+- **Claim:** posted, refreshed (your own live claim) or yielded.
+- **Rubrics:** a start line when the engine begins a rubric, with provider and model. A finish
+  line gives its verdict, duration and cost (`est.` when the engine estimated it). A rubric
+  already current at this head and not re-run says `reused`. The CLI polls the engine's own
+  ledger: its write-ahead `in_flight` marker and each finished case file. The engine needs no
+  callback, and the result is never affected.
+- **Stops and posting:** `stopped early: <reason>` (e.g. `usage unknown`, `daily budget`), then
+  `Posting record…` and `posted <URL>` or `record not posted: <reason>`. With maintainer
+  approvals enabled, one more line says `approval: submitted` or `not submitted (<reason>)`.
+
+Bare `review` still prints its selection line (`Reviewing #63 (head 9c587b5): …`) and batches their
+`[i/N] #PR …` lines on stdout, as before.
 
 ## Evidence and authority
 

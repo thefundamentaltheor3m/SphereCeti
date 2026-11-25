@@ -251,6 +251,12 @@ with (root / "gh-calls.jsonl").open("a") as f:
 table = json.loads((root / "gh.json").read_text())
 state_path = root / "gh-comments.json"
 comments = json.loads(state_path.read_text()) if state_path.exists() else {}
+if args[:2] == ["api", "graphql"]:  # the bulk survey (sphereceti.bulk): the same table, one query
+    sys.path.insert(0, @TESTS@)
+    from bulk_fixture import graphql_page
+    fields = dict(a.split("=", 1) for a in args if "=" in a and not a.startswith("query="))
+    print(json.dumps(graphql_page(table["pr list"], comments, table["user"]["login"], fields.get("cursor"))))
+    sys.exit(0)
 if args[:2] == ["pr", "list"]:
     key = "pr list"
 else:
@@ -284,7 +290,7 @@ elif key in table:
 else:
     sys.exit(1)
 print(json.dumps([value] if "--paginate" in args else value))
-'''
+'''.replace('@TESTS@', repr(str(Path(__file__).resolve().parent)))
 
 
 class BareReviewHarness(unittest.TestCase):

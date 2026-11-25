@@ -135,6 +135,10 @@ def main(argv: list[str] | None = None) -> int:
         sub.add_argument("--offline", action="store_true", help="do not query GitHub; queue remains unknown")
         sub.add_argument("--operator-config", type=Path, help="preferences only; cannot override repository policy")
     args = parser.parse_args(argv)
+    # Progress lines on stderr through each long phase of `review` and `reviews`, unless --quiet;
+    # stdout (and --json) stays the result alone.
+    from .feedback import Progress, install
+    install(Progress(enabled=args.command in ("review", "reviews") and not getattr(args, "quiet", False)))
     if args.command == "setup":
         try:
             print(run_setup(args))
@@ -302,7 +306,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "reviews":
         from .review_queue import queue, render as render_queue
         try:
-            report = queue(project, policy, preferences)
+            report = queue(project, policy, preferences, use_cache=not args.no_cache)
         except (WorkerError, RecordError, OSError, ValueError, KeyError, TypeError,
                 subprocess.SubprocessError) as error:
             reason = str(error) if isinstance(error, (WorkerError, RecordError)) else \
