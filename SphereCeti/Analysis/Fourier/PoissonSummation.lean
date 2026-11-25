@@ -6,7 +6,7 @@ Authors: SphereCeti contributors
 
 module
 
-public import Mathlib.Analysis.InnerProductSpace.PiL2
+import Mathlib.Analysis.InnerProductSpace.PiL2
 public import TauCeti.Analysis.Fourier.PoissonSummation
 import Mathlib.Analysis.SpecialFunctions.Gaussian.FourierTransform
 import TauCeti.Analysis.Distribution.SchwartzSpace.Gaussian
@@ -25,10 +25,8 @@ value at `τ = i` of the Jacobi theta transformation for the lattice theta serie
 
 ## Main results
 
-* `SphereCeti.Poisson.tsum_gaussian_eq`: unit-Gaussian Poisson summation for a full lattice in
-  an arbitrary finite-dimensional real inner product space.
-* `SphereCeti.Poisson.gaussian_one`: the same identity for a full lattice in
-  `EuclideanSpace ℝ (Fin d)`.
+* `ZLattice.gaussian_one`: unit-Gaussian Poisson summation for a full lattice in an arbitrary
+  finite-dimensional real inner product space, in particular in `EuclideanSpace ℝ (Fin d)`.
 
 ## Sources
 
@@ -44,7 +42,7 @@ public section
 open Complex
 open scoped Real FourierTransform SchwartzMap
 
-namespace SphereCeti.Poisson
+namespace ZLattice
 
 variable {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E] [FiniteDimensional ℝ E]
   [MeasurableSpace E] [BorelSpace E]
@@ -52,7 +50,7 @@ variable {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E] [FiniteDim
 /-- **Poisson summation for the unit Gaussian.**  For a full lattice `Λ` in a finite-dimensional
 real inner product space `E`,
 `∑_{x ∈ Λ} exp (-π ‖x‖²) = (covol Λ)⁻¹ ∑_{y ∈ Λ^∨} exp (-π ‖y‖²)`. -/
-theorem tsum_gaussian_eq (Λ : Submodule ℤ E) [DiscreteTopology Λ] [IsZLattice ℝ Λ] :
+theorem gaussian_one (Λ : Submodule ℤ E) [DiscreteTopology Λ] [IsZLattice ℝ Λ] :
     ∑' x : Λ, Real.exp (-Real.pi * ‖(x : E)‖ ^ 2) =
       (ZLattice.covolume Λ)⁻¹ * ∑' y : ZLattice.dual Λ, Real.exp (-Real.pi * ‖(y : E)‖ ^ 2) := by
   have hb : 0 < (π : ℂ).re := by simpa using Real.pi_pos
@@ -76,14 +74,12 @@ theorem tsum_gaussian_eq (Λ : Submodule ℤ E) [DiscreteTopology Λ] [IsZLattic
   rw [← ofReal_tsum, ← ofReal_tsum, ← ofReal_inv, ← ofReal_mul] at h
   exact_mod_cast h
 
-/-- **Poisson summation for the unit Gaussian in `ℝ^d`.**  For a full lattice `Λ` in
-`EuclideanSpace ℝ (Fin d)`,
-`∑_{x ∈ Λ} exp (-π ‖x‖²) = (covol Λ)⁻¹ ∑_{y ∈ Λ^∨} exp (-π ‖y‖²)`. -/
-theorem gaussian_one {d : ℕ} (Λ : Submodule ℤ (EuclideanSpace ℝ (Fin d)))
+/-- The theorem applied to a full lattice in `EuclideanSpace ℝ (Fin d)`. -/
+example {d : ℕ} (Λ : Submodule ℤ (EuclideanSpace ℝ (Fin d)))
     [DiscreteTopology Λ] [IsZLattice ℝ Λ] :
     ∑' x : Λ, Real.exp (-Real.pi * ‖(x : EuclideanSpace ℝ (Fin d))‖ ^ 2) =
       (ZLattice.covolume Λ)⁻¹ * ∑' y : ZLattice.dual Λ,
         Real.exp (-Real.pi * ‖(y : EuclideanSpace ℝ (Fin d))‖ ^ 2) :=
-  tsum_gaussian_eq Λ
+  gaussian_one Λ
 
-end SphereCeti.Poisson
+end ZLattice
