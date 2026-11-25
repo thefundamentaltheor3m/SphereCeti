@@ -8,6 +8,7 @@ module
 
 public import TauCeti.Algebra.Module.ZLattice.RationalModel
 public import TauCeti.Algebra.Module.ZLattice.ModelShell
+public import TauCeti.Analysis.InnerProductSpace.Gram.Rigidity
 public import SphereCeti.LinearAlgebra.IntegralLattice.Rootless
 public import SphereCeti.Algebra.Group.Pointwise.Set
 
@@ -27,6 +28,10 @@ identifies the two: the `i`-th standard basis vector goes to `1 ⊗ bᵢ`, and t
 this an isometry of integral lattices.  TauCeti's comparisons between `Λ` and its rational model
 therefore apply to the lattice in Gram coordinates: it is positive definite, and it is even
 (unimodular) exactly when `Λ` is even (unimodular) in TauCeti's real sense.
+
+An isometry between the lattices of two presentations in Gram coordinates extends to a linear
+isometry of `ℝ^d` carrying one lattice onto the other, by TauCeti's Gram rigidity theorem
+`TauCeti.exists_linearIsometryEquiv_of_inner_eq`.
 
 ## Main definitions
 
@@ -431,13 +436,24 @@ theorem discreteTopology (P : IntegralPresentation Λ) : DiscreteTopology Λ :=
   P.isIntegral_real.discreteTopology
 
 /-- A presented lattice spans `ℝ^d`: its `ℤ`-rank `d` is the dimension of its real span. -/
-theorem isZLattice (P : IntegralPresentation Λ) [DiscreteTopology Λ] : IsZLattice ℝ Λ := by
+-- The statement installs `P.discreteTopology`, which `IsZLattice ℝ Λ` needs in its type, so
+-- callers need no discreteness instance of their own.
+theorem isZLattice (P : IntegralPresentation Λ) :
+    haveI := P.discreteTopology
+    IsZLattice ℝ Λ := by
+  have := P.discreteTopology
   have : DiscreteTopology (Submodule.span ℤ (Λ : Set (EuclideanSpace ℝ (Fin d)))) := by
     rwa [Submodule.span_eq]
   have h := Real.finrank_eq_int_finrank_of_discrete this
   rw [Set.finrank, Set.finrank, Submodule.span_eq, Module.finrank_eq_card_basis P.basis,
     Fintype.card_fin] at h
   exact ⟨Submodule.eq_top_of_finrank_eq (h.trans finrank_euclideanSpace_fin.symm)⟩
+
+/-- Check that a presentation supplies the discreteness and full-rank witnesses with no instance
+in scope. -/
+example (P : IntegralPresentation Λ) :
+    ∃ (_ : DiscreteTopology Λ) (_ : IsZLattice ℝ Λ), Nonempty (IntegralPresentation Λ) :=
+  ⟨P.discreteTopology, P.isZLattice, ⟨P⟩⟩
 
 /-- The `ℚ`-linear map sending coordinates `q` in the presentation basis to `∑ i, qᵢ bᵢ`. -/
 private noncomputable def toReal (P : IntegralPresentation Λ) :
@@ -474,6 +490,16 @@ private theorem inner_toReal (P : IntegralPresentation Λ) (x y : Fin d → ℚ)
   refine Finset.sum_congr rfl fun i _ ↦ Finset.sum_congr rfl fun j _ ↦ ?_
   ring
 
+/-- The vectors with coordinates `e eᵢ` in the basis of `Q` have the inner products of the basis
+of `P`. -/
+private theorem inner_basis_eq_inner_toReal (P : IntegralPresentation Λ)
+    (Q : IntegralPresentation Μ)
+    (e : TauCeti.IntegralLattice.Isometry P.toIntegralLattice Q.toIntegralLattice) (i j : Fin d) :
+    ⟪(P.basis i : EuclideanSpace ℝ (Fin d)), P.basis j⟫_ℝ =
+      ⟪Q.toReal (e (Pi.single i 1)), Q.toReal (e (Pi.single j 1))⟫_ℝ := by
+  rw [← P.toReal_single, ← P.toReal_single, inner_toReal, inner_toReal,
+    TauCeti.IntegralLattice.Isometry.map_app]
+
 /-- The extension to `ℝ^d` of an isometry `e` between the lattices of two presentations in Gram
 coordinates: the real linear isometry sending the `i`-th basis vector of `P` to the vector with
 coordinates `e eᵢ` in the basis of `Q` (`realIsometryOfIsometry_basis`). -/
@@ -481,19 +507,15 @@ noncomputable def realIsometryOfIsometry (P : IntegralPresentation Λ)
     (Q : IntegralPresentation Μ)
     (e : TauCeti.IntegralLattice.Isometry P.toIntegralLattice Q.toIntegralLattice) :
     EuclideanSpace ℝ (Fin d) ≃ₗᵢ[ℝ] EuclideanSpace ℝ (Fin d) :=
-  haveI := P.discreteTopology
-  haveI := P.isZLattice
-  let B := P.basis.ofZLatticeBasis ℝ Λ
-  let f := B.constr ℝ fun i ↦ Q.toReal (e (Pi.single i 1))
-  have hf : ∀ x y, ⟪f x, f y⟫_ℝ = ⟪x, y⟫_ℝ := by
-    have h : (innerₗ (EuclideanSpace ℝ (Fin d))).compl₁₂ f f =
-        innerₗ (EuclideanSpace ℝ (Fin d)) := by
-      refine B.ext fun i ↦ B.ext fun j ↦ ?_
-      simp only [LinearMap.compl₁₂_apply, innerₗ_apply_apply, f, Basis.constr_basis]
-      simp only [B, Basis.ofZLatticeBasis_apply, ← P.toReal_single, inner_toReal,
-        TauCeti.IntegralLattice.Isometry.map_app]
-    exact fun x y ↦ LinearMap.congr_fun₂ h x y
-  (f.isometryOfInner hf).toLinearIsometryEquiv rfl
+  (TauCeti.exists_linearIsometryEquiv_of_inner_eq (P.inner_basis_eq_inner_toReal Q e)).choose
+
+/-- The real extension sends the `i`-th basis vector of `P` to `Q.toReal (e eᵢ)`. -/
+private theorem realIsometryOfIsometry_basis_eq_toReal (P : IntegralPresentation Λ)
+    (Q : IntegralPresentation Μ)
+    (e : TauCeti.IntegralLattice.Isometry P.toIntegralLattice Q.toIntegralLattice) (i : Fin d) :
+    realIsometryOfIsometry P Q e (P.basis i) = Q.toReal (e (Pi.single i 1)) :=
+  (TauCeti.exists_linearIsometryEquiv_of_inner_eq
+    (P.inner_basis_eq_inner_toReal Q e)).choose_spec i
 
 /-- The real extension sends the `i`-th basis vector of `P` to the vector with coordinates
 `e eᵢ` in the basis of `Q`. -/
@@ -502,11 +524,7 @@ theorem realIsometryOfIsometry_basis (P : IntegralPresentation Λ) (Q : Integral
     (e : TauCeti.IntegralLattice.Isometry P.toIntegralLattice Q.toIntegralLattice) (i : Fin d) :
     realIsometryOfIsometry P Q e (P.basis i : EuclideanSpace ℝ (Fin d)) =
       ∑ j, ((e (Pi.single i 1) j : ℚ) : ℝ) • (Q.basis j : EuclideanSpace ℝ (Fin d)) := by
-  have := P.discreteTopology
-  have := P.isZLattice
-  rw [← Basis.ofZLatticeBasis_apply ℝ Λ P.basis i]
-  simp only [realIsometryOfIsometry, LinearIsometry.coe_toLinearIsometryEquiv,
-    LinearMap.coe_isometryOfInner, Basis.constr_basis, toReal_apply]
+  rw [realIsometryOfIsometry_basis_eq_toReal, toReal_apply]
 
 /-- The real extension carries the vector with coordinates `q` in the basis of `P` to the vector
 with coordinates `e q` in the basis of `Q`. -/
@@ -517,8 +535,7 @@ private theorem realIsometryOfIsometry_toReal (P : IntegralPresentation Λ)
   conv_lhs => rw [← (Pi.basisFun ℚ (Fin d)).sum_repr q]
   conv_rhs => rw [← (Pi.basisFun ℚ (Fin d)).sum_repr q]
   simp only [Pi.basisFun_repr, Pi.basisFun_apply, map_sum, map_smul, map_rat_smul, toReal_single,
-    realIsometryOfIsometry_basis]
-  simp only [toReal_apply]
+    realIsometryOfIsometry_basis_eq_toReal]
 
 /-- The real extension of an isometry carries the lattice `Λ` onto the lattice `Μ`. -/
 @[simp]
