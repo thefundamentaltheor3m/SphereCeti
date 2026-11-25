@@ -640,6 +640,78 @@ budget. `--json` prints `sphereceti.review-batch/v1` (`items` with each outcome,
 summary, `skipped`, `untouched`, `reviewed`, `posted`, `stopped`, `line`, `lines`). Exit codes: 2 for a failed lookup,
 1 if a review ended in error, else 0. Without these flags, bare `review` still reviews one PR.
 
+## Merge-ready sweep (maintainers)
+
+`sphereceti merge-ready` does, as the invoking maintainer's own `gh` identity, what a maintainer
+does by hand for each PR in Ready to merge. It updates the branch if it is behind, approves, and
+merges, one PR at a time. **Without `--apply` it is a dry run**: it reads everything and prints the
+plan, and writes nothing.
+
+```text
+sphereceti merge-ready                    # the plan
+sphereceti merge-ready --apply --limit 3  # act: at most three merges
+```
+
+**Candidates** are the Ready-to-merge PRs (found through the fast queue path). It also takes PRs
+whose accepted 10/10 record is on an older head that carries over to the current one through
+update-branch merges, for example a PR this sweep updated earlier. They are taken one at a time,
+stack roots first. A PR whose runs are held for approval is reported, not touched.
+
+For each candidate, everything is first read again **fresh**, never from the queue cache:
+- the PR: open, not a draft, base `main`, the same head as listed, not conflicting;
+- its record, on this head or carried over to it;
+- current main;
+- how far behind main it is;
+- its CI;
+- its reviews.
+
+Then:
+1. **Behind main:** it updates the branch.
+   - The call is `PUT pulls/N/update-branch` with `expected_head_sha` set to the listed head.
+   - It waits up to 3 minutes for the new head, and then requires that the record carries over to it
+     (#156's rule: update merges only, the same change, no review inputs changed on main).
+   - It then waits for the required checks and review CI on the new head. The wait is bounded by
+     `--wait-ci MIN` (default 20) and reads once a minute. A failure, a held run, or a timeout skips
+     the PR with the reason.
+2. **Approval:** if you have no approval of this head, it submits one APPROVE.
+   - The approval is pinned to the head (`commit_id`), and its body links the record.
+   - It never approves your own PR: that PR is skipped unless another maintainer has approved this
+     head. It never approves over your own CHANGES_REQUESTED: that PR is skipped too.
+   - Anyone else's outstanding change request also skips the PR.
+3. **Merge:** `PUT pulls/N/merge`, `merge_method=squash`, `sha` = the head.
+   - The head is read again just before the call; if it moved, the PR is skipped.
+   - On HTTP 405 or 409 it reads the PR again, reports it and moves on. It never retries.
+4. **Next PR:** the queue is read again before the next PR, since main has moved. The rest may now
+   be behind, and step 1 handles them.
+
+**Safety.**
+- Before every merge, it looks for a live "reviewing now" claim on any open PR. A review in progress
+  pauses the sweep, reading once a minute up to `--wait-review MIN` (default 30). After that the sweep
+  stops with `a review is in progress on #N; rerun later`. An update is not made under a review of
+  that same head.
+- Any unexpected error, and any write it cannot confirm, stops the whole sweep. Every write is
+  confirmed by reading the PR or the response:
+  - the new head after an update;
+  - an APPROVED review of that commit;
+  - `merged: true` on the PR.
+- Stacked, draft and conflicting PRs are never touched.
+
+**After each merge**, it lists the open PRs based on the merged branch: `#X is stacked on #N (now
+merged): retarget to main`, or `GitHub already retargeted it to main` when GitHub did.
+`--retarget-children` changes only their base to `main`, through the API. It never pushes to anyone's
+branch.
+
+**Output.** One line per PR, then the accepted-10/10 PRs that are not mergeable (with the reason),
+and a summary. Per-PR outcomes are `updated`, `approved`, `merged`, or `skipped: <reason>`. Progress
+goes to stderr; `--quiet` hides it.
+
+`--json` prints `sphereceti.merge-ready/v1`:
+- `items`, each with `actions`, `outcome`, `reason`, `record`, and `updated_head` / `approval` /
+  `merge_commit` where they apply;
+- `children`, `not_ready`, `counts` and `stopped`.
+
+Exit status is 1 when the sweep stopped, 2 when the queue could not be read, and 0 otherwise.
+
 ## What the terminal says
 
 Before any provider call (after the exact evidence is prepared), `review N` and bare `review`
