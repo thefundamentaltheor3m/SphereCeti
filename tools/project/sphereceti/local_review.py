@@ -77,6 +77,8 @@ def add_parser(commands):
     p.add_argument("--output", type=Path, help="new directory for evidence.json, result.json, and advisory.md")
     p.add_argument("--keep-workspace", action="store_true", help="retain the verified source snapshots")
     p.add_argument("--quiet", action="store_true", help="no progress lines on stderr")
+    p.add_argument("--no-cache", action="store_true",
+                   help="bare review and batches: ignore the operator store's queue cache")
     p.add_argument("--provider", help="comma-separated explicit providers; otherwise use operator preferences")
     p.add_argument("--auth", choices=("subscription", "api"), default="subscription")
     p.add_argument("--budget-usd", type=float, help="daily estimate threshold (defaults to the operator preference)")

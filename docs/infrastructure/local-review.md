@@ -530,6 +530,52 @@ Each entry gives the PR, author, title, short head, the reason and how long it h
 lookup (survey, comments, compare response, and for Ready to merge the branch rules, check runs,
 workflow runs, PR and its reviews) exits 2 and lists nothing.
 
+### How the queue is read
+
+`reviews`, bare `review` and batches read the open queue in **one GraphQL pass**
+(`sphereceti/bulk.py`). Two read-only queries run side by side, 50 PRs per page:
+- the survey's fields, in exactly `gh pr list --json`'s shape, so readiness is computed by the same
+  code;
+- each PR's comments with their author ids, in the shape the record readers check.
+
+They no longer read comments with one REST call per PR. On the live queue (53 PRs, 142 comments)
+both match `gh pr list` and the REST comments exactly.
+
+Per-PR REST reads remain only for what that pass cannot answer:
+- trusted-scope provenance for the human-review exception;
+- `compare` and commit reads for revised PRs and carry-over. Main's history is read 100 commits per
+  listing, not one commit per request;
+- held-run checks for fork PRs;
+- the merged state of a missing stack parent;
+- main's required checks, once;
+- the PR, its reviews and its runs for Ready to merge candidates.
+
+These reads run on a pool of 8 threads (`SPHERECETI_READ_WORKERS`), and results keep queue order.
+One survey reads current main once, and each exact-commit compare once.
+
+Results stay fail-closed:
+- A PR with more than 100 comments has the rest read through REST, for that PR only.
+- These all exit 2, as before: a queue that changes between pages, a GraphQL error, or any failed
+  read.
+- A read refused by GitHub's **secondary** rate limit is retried after 5, 15 and 30 seconds. Only
+  reads are retried, never a write.
+- An exhausted **primary** limit fails at once and says when it resets.
+
+**Queue cache.** Facts that cannot change under their key are kept in the operator store
+(`<storage>/<repo>/queue-cache.json`):
+- a scope verdict, keyed by PR, head, base, head repository, current main, every status and check
+  in the PR's rollup, and the packaged merge-checks settings;
+- a commit's parents and tree;
+- a compare of two exact commits;
+- a merged stack parent.
+
+Current main, the PR list, comments, reviews and runs are read fresh on every run. A failed read is
+never cached. `--no-cache` (on `reviews` and `review`) neither reads nor writes the cache.
+
+The worker survey shares the bulk pass and the pool, but never the cache. The merge controller,
+`auto-approve-check`, the maintainer approval and posting do not use the cache or the bulk pass.
+They keep their own fresh per-PR reads.
+
 `sphereceti review --new --limit N`, `--revised --limit N` (your follow-ups: revised, then author
 replied) or `--all --limit N` (follow-ups, then new) reviews up to N **distinct** PRs (default 1,
 at most 10) from that section, one at a time, each exactly as `review N` would. Follow-ups use the

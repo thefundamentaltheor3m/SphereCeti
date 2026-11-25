@@ -306,7 +306,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "reviews":
         from .review_queue import queue, render as render_queue
         try:
-            report = queue(project, policy, preferences)
+            report = queue(project, policy, preferences, use_cache=not args.no_cache)
         except (WorkerError, RecordError, OSError, ValueError, KeyError, TypeError,
                 subprocess.SubprocessError) as error:
             reason = str(error) if isinstance(error, (WorkerError, RecordError)) else \

@@ -85,14 +85,20 @@ def entry(section, pr, observed, reason, **extra):
             "reason": reason, "note": pr.get("review_note"), **extra}
 
 
-def queue(project, policy, prefs, *, api=None, client=None, now=None) -> dict:
+def queue(project, policy, prefs, *, api=None, client=None, now=None, use_cache=None) -> dict:
     """Read-only classification of the open queue for the authenticated contributor."""
     if client is None:
         from .review_post import GitHub
         client = GitHub()
     from .ready_to_merge import HELD, Cached, held_reason, held_runs, ready_to_merge
-    client = Cached(client)  # one comments read per PR for every section
+    if api is None:
+        from .worker_cli import GitHub as Survey
+        api = Survey()
+    from .queue_cache import attach
+    cache = attach(api, prefs, project, enabled=use_cache) if use_cache is not None else getattr(api, "scope_cache", None)
+    client = Cached(client, cache=cache)  # one comments read per PR for every section
     snapshot = survey(project, None, api=api)
+    client.bulk = getattr(api, "queue_comments", None) or {}
     client.total = sum(1 for pr in snapshot["pull_requests"] if pr["state"] == "OPEN" and not pr["draft"])
     planned = plan(snapshot, project, now=now or datetime.now(timezone.utc))
     actor, repository = snapshot["actor"], project.repository
@@ -110,21 +116,34 @@ def queue(project, policy, prefs, *, api=None, client=None, now=None) -> dict:
     blocked = blocked_by_parent(gate, by_number, actor)
     blocked_numbers = {item["pr"] for group in blocked for item in group["items"]}
 
-    def skip(pr, code, reason):
-        note = pr.get("review_note") if code != "awaiting_refresh" else None
-        held = held_reason(client, repository, pr) if code == "awaiting_ci" else None
-        sections["not_ready"].append({"pr": pr["number"], "head": pr["head"], "code": code,
-                                      "reason": (held or reason) + (f" ({note})" if note else ""), "note": note,
-                                      **({"held": True} if held else {})})
+    def classify(number):
+        """One PR's place in the queue; its reads run concurrently with other PRs' (pool.py)."""
+        sections = {name: [] for name in SECTIONS}
+        done, follow_ups = [], []
 
-    for number in order:
+        def skip(pr, code, reason):
+            note = pr.get("review_note") if code != "awaiting_refresh" else None
+            held = held_reason(client, repository, pr) if code == "awaiting_ci" else None
+            sections["not_ready"].append({"pr": pr["number"], "head": pr["head"], "code": code,
+                                          "reason": (held or reason) + (f" ({note})" if note else ""), "note": note,
+                                          **({"held": True} if held else {})})
+
+        def outcome():
+            for e in (e for name in SECTIONS if name != 'not_ready' for e in sections[name]):
+                # Ready to review, but a fork's workflow runs may still be held (CI never ran): say so.
+                e["held_workflows"] = ([] if pr.get("head_repo") == repository else
+                                       held_runs(client, repository, pr["head"]))
+                if e["held_workflows"]:
+                    e["reason"] += f"; CI held, {HELD} ({', '.join(e['held_workflows'])})"
+            return sections, done, follow_ups
+
         pr = by_number[number]
         if pr["author"].casefold() == actor.casefold():
             skip(pr, "yours", "is yours")
-            continue
+            return outcome()
         if pr["draft"]:
             skip(pr, "draft", "is a draft")
-            continue
+            return outcome()
         comments = client.comments(repository, number)
         if not isinstance(comments, list):
             raise RecordError("unknown review records")
@@ -164,7 +183,7 @@ def queue(project, policy, prefs, *, api=None, client=None, now=None) -> dict:
                         "waiting_on_author", pr, observed, f"you {verb} ({', '.join(rubrics)}); " +
                         (f"no new change; {carried}" if carried else "no new head"),
                         rubrics=rubrics, record_comment=latest[0]["id"], carried=carried))
-                continue
+                return outcome()
         if number not in ready:
             skip(pr, *readiness(pr))
             if latest:
@@ -177,9 +196,9 @@ def queue(project, policy, prefs, *, api=None, client=None, now=None) -> dict:
                 if parts:
                     follow_ups.append({"pr": number, "head": pr["head"],
                                        "reason": f"{sections['not_ready'][-1]['reason']}; " + "; ".join(parts)})
-            continue
+            return outcome()
         if number in blocked_numbers:
-            continue  # listed under "Blocked by a parent": review its stack root first
+            return outcome()  # listed under "Blocked by a parent": review its stack root first
         if latest and latest[1]["head"] != pr["head"] and not carried:
             old = latest[1]["head"]
             count, history = commits_since(client, repository, old, pr["head"])
@@ -196,24 +215,29 @@ def queue(project, policy, prefs, *, api=None, client=None, now=None) -> dict:
             sections["revised"].append(entry(
                 "revised", pr, observed, "; ".join(parts), previous_head=old, commits_since=count,
                 history=history, author_replies=replies, contests=contested, record_comment=latest[0]["id"]))
-            continue
+            return outcome()
         state = review_state(client, repository, pr, actor, policy, storage)
         if state:
             done.append({"pr": number, "head": pr["head"], "code": state[0], "reason": state[1]})
-            continue
+            return outcome()
         scope = "ready" if pr["ci"] == pr.get("review_ci", pr["ci"]) else "ready (human-review scope)"
         sections["new"].append(entry("new", pr, observed, scope + "; no review by you"))
+        return outcome()
+
+    from .pool import concurrent, ordered
+    for part, finished, follows in ordered(classify, order, parallel=concurrent(client.client)):
+        for name in SECTIONS:
+            sections[name] += part[name]
+        done += finished
+        follow_ups += follows
+
     # You get first chance at PRs you reviewed before; within a section, stack roots that block the
     # most descendants first, then the oldest update.
     for name in ("revised", "author_replied", "new", "waiting_on_author"):
         for e in sections[name]:
+            held = e.pop("held_workflows")  # computed with the PR's other reads; listed after `unblocks`
             e["unblocks"] = gate.descendants(e["pr"])
-            # Ready to review, but a fork's workflow runs may still be held (CI never ran): say so.
-            pr = by_number[e["pr"]]
-            e["held_workflows"] = ([] if pr.get("head_repo") == repository else
-                                   held_runs(client, repository, pr["head"]))
-            if e["held_workflows"]:
-                e["reason"] += f"; CI held, {HELD} ({', '.join(e['held_workflows'])})"
+            e["held_workflows"] = held
         if name != "new":
             sections[name].sort(key=lambda e: (e["updated_at"], e["pr"]))
         sections[name].sort(key=lambda e: -e["unblocks"])
@@ -224,8 +248,11 @@ def queue(project, policy, prefs, *, api=None, client=None, now=None) -> dict:
             main = client.call(f"repos/{repository}/commits/{project.default_branch}").get("sha")
         except (RecordError, KeyError, AttributeError):
             main = None
+    result = ready_to_merge(client, project, policy, snapshot)
+    if cache is not None:
+        cache.save()
     return {"schema": SCHEMA, "repository": repository, "actor": actor, "observed_at": snapshot["observed_at"],
-            "ready_to_merge": ready_to_merge(client, project, policy, snapshot),
+            "ready_to_merge": result,
             "order": "ready to merge first; then revised, then author replied, then new; oldest update first",
             "sections": sections, "done": done,
             "follow_ups_not_ready": follow_ups, "blocked_by_parent": blocked,
@@ -292,6 +319,8 @@ def add_parser(commands):
                                             "author replied, new, waiting on the author)")
     p.add_argument("--json", action="store_true")
     p.add_argument("--quiet", action="store_true", help="no progress lines on stderr")
+    p.add_argument("--no-cache", action="store_true",
+                   help="read everything from GitHub; ignore the operator store's queue cache")
     p.add_argument("--operator-config", type=Path, help="preferences (default ~/.config/sphereceti/operator.toml)")
     return p
 
@@ -373,7 +402,9 @@ def run_batch(args, project, policy, prefs, *, api=None, client=None, announce=N
     items, skipped, stopped = [], [], None
     while len(items) < limit and stopped is None:
         try:
-            report = queue(project, policy, prefs, api=api, client=client)  # heads move: survey each time
+            from .review_select import cache_choice
+            report = queue(project, policy, prefs, api=api, client=client,  # heads move: survey each time
+                           use_cache=cache_choice(args))
         except (WorkerError, RecordError) as error:
             stopped = f"GitHub lookup failed: {error}"
             break
