@@ -9,6 +9,7 @@ module
 public import SphereCeti.Contour.KernelContinuity
 public import SphereCeti.Contour.KernelIntegrability
 public import SphereCeti.Leech.MinusKernels
+public import SphereCeti.NumberTheory.ModularForms.JacobiTheta.Estimates
 import Mathlib.NumberTheory.ModularForms.Identities
 import Mathlib.NumberTheory.ModularForms.Petersson
 import TauCeti.NumberTheory.ModularForms.Cusps.Basic
@@ -141,7 +142,7 @@ theorem isBigO_psiS : psiS =O[atImInfty] fun τ ↦ Real.exp (-π * τ.im) := by
   have hB : (fun τ ↦ 7 * H₄ τ ^ 2 + 7 * (H₂ τ * H₄ τ) + 2 * H₂ τ ^ 2) =O[atImInfty]
       fun _ ↦ (1 : ℝ) :=
     ((h₄₄.const_mul_left 7).add (h₂₄.const_mul_left 7)).add (h₂₂.const_mul_left 2)
-  refine ((((isBigO_H₂.pow 5).mul hB).mul (hden.pow 2)).neg_left.congr_left fun τ ↦ ?_)
+  refine ((((isBigO_H₂_atImInfty.pow 5).mul hB).mul (hden.pow 2)).neg_left.congr_left fun τ ↦ ?_)
     |>.congr_right fun τ ↦ ?_
   · rw [psiS_eq]
     simp only [Pi.neg_apply, Pi.div_apply, Pi.add_apply, Pi.smul_apply, Pi.mul_apply,

@@ -9,9 +9,7 @@ module
 public import Mathlib.Analysis.Complex.UpperHalfPlane.FunctionsBoundedAtInfty
 public import Mathlib.NumberTheory.ModularForms.JacobiTheta.Manifold
 public import TauCeti.NumberTheory.ModularForms.ThetaSeries.Basic
-import Mathlib.NumberTheory.ModularForms.QExpansion
 import SphereCeti.NumberTheory.ModularForms.JacobiTheta.TwoVariable
-import TauCeti.Analysis.Complex.UpperHalfPlane.Topology
 import TauCeti.NumberTheory.ModularForms.JacobiTheta.OneVariable
 import TauCeti.NumberTheory.ModularForms.ThetaSeries.Cusp
 
@@ -33,8 +31,7 @@ lattice theta series, `Θ₃` is the theta series of `ℤ ⊆ ℝ` (`ZLattice.th
 
 For every `τ ∈ ℍ`, `Θ₂ (τ + 1) = exp (π i / 4) Θ₂ τ`, `Θ₃ (τ + 1) = Θ₄ τ` and
 `Θ₄ (τ + 1) = Θ₃ τ`. All six functions are holomorphic on `ℍ`. As `im τ → ∞`, `Θ₂ τ → 0`,
-`Θ₃ τ → 1` and `Θ₄ τ → 1`, so `H₂`, `H₃` and `H₄` are bounded at `i∞`; moreover
-`H₂ = O(exp(-π Im τ))`. The transformation laws
+`Θ₃ τ → 1` and `Θ₄ τ → 1`, so `H₂`, `H₃` and `H₄` are bounded at `i∞`. The transformation laws
 of `H₂`, `H₃` and `H₄` under `SL(2, ℤ)` are in
 `SphereCeti.NumberTheory.ModularForms.JacobiTheta.SlashActions`.
 
@@ -58,7 +55,6 @@ of `H₂`, `H₃` and `H₄` under `SL(2, ℤ)` are in
   fourth powers.
 * `TauCeti.ModularForm.isBoundedAtImInfty_H₂`, `TauCeti.ModularForm.isBoundedAtImInfty_H₃`,
   `TauCeti.ModularForm.isBoundedAtImInfty_H₄`: boundedness at `i∞`.
-* `TauCeti.ModularForm.isBigO_H₂`: `H₂ = O(exp(-π Im τ))` at `i∞`.
 
 ## References
 
@@ -253,20 +249,5 @@ theorem isBoundedAtImInfty_H₃ : IsBoundedAtImInfty H₃ :=
 /-- `H₄` is bounded at `i∞`. -/
 theorem isBoundedAtImInfty_H₄ : IsBoundedAtImInfty H₄ :=
   tendsto_H₄_atImInfty.isBigO_one ℝ
-
-/-- `H₂ = O(exp(-π Im τ))` at `i∞`. -/
-theorem isBigO_H₂ : H₂ =O[atImInfty] fun τ ↦ Real.exp (-π * τ.im) := by
-  -- `H₂` has period `2`, since `Θ₂ (τ + 2) = i Θ₂ τ`
-  have h4 : cexp (π * I / 4) ^ 4 = -1 := by
-    rw [← Complex.exp_nat_mul, (by push_cast; ring : ((4 : ℕ) : ℂ) * (π * I / 4) = π * I),
-      exp_pi_mul_I]
-  have hper : Function.Periodic (H₂ ∘ UpperHalfPlane.ofComplex) ((2 : ℝ) : ℂ) := by
-    refine TauCeti.UpperHalfPlane.periodic_comp_ofComplex_iff.mpr fun τ ↦ ?_
-    rw [(by rw [vadd_vadd]; norm_num : (2 : ℝ) +ᵥ τ = (1 : ℝ) +ᵥ ((1 : ℝ) +ᵥ τ)), H₂_def, H₂_def,
-      Θ₂_one_vadd, Θ₂_one_vadd, mul_pow, mul_pow, h4]
-    ring
-  refine (isZeroAtImInfty_H₂.exp_decay_atImInfty two_pos hper mdifferentiable_H₂
-    isBoundedAtImInfty_H₂).congr_right fun τ ↦ ?_
-  ring_nf
 
 end TauCeti.ModularForm
