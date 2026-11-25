@@ -7,25 +7,28 @@ Authors: SphereCeti contributors
 module
 
 public import Mathlib.MeasureTheory.Measure.Haar.InnerProductSpace
+public import TauCeti.Analysis.Normed.Lp.PiLp
 
 /-!
 # Coordinate boxes in Euclidean space and their boundary layers
 
 The centered coordinate box of radius `R` in `EuclideanSpace ℝ ι`, for a finite index type `ι` of
 cardinality `n`, is the set of points all of whose coordinates have absolute value at most `R`;
-for `R ≥ 0` its volume is `(2R)^n`.  For `R < 0` it is empty when `ι` is nonempty; when `ι` is
-empty every box is the whole one-point space, of volume `1`.  The boundary layer of thickness `t`
-is the box of radius `R + t` with the box of radius `R - t` removed; for `R ≥ t ≥ 0` its volume is
-`(2(R + t))^n - (2(R - t))^n`.  For fixed `t ≥ 0`, the boundary layer is negligible compared with
-the box as `R → ∞`: for `R > t` the ratio of volumes is `(1 + t / R)^n - (1 - t / R)^n`, which
-tends to `0`.
+for `R ≥ 0` its volume is `(2R)^n`, and its points have norm at most `√n R`.  For `R < 0` it is
+empty when `ι` is nonempty; when `ι` is empty every box is the whole one-point space, of volume
+`1`.  The boundary layer of thickness `t` is the box of radius `R + t` with the box of radius
+`R - t` removed; for `R ≥ t ≥ 0` its volume is `(2(R + t))^n - (2(R - t))^n`.  For fixed `t ≥ 0`,
+the boundary layer is negligible compared with the box as `R → ∞`: for `R > t` the ratio of
+volumes is `(1 + t / R)^n - (1 - t / R)^n`, which tends to `0`.
 
 Boxes are the patches from which a sphere packing is approximated by periodic packings: the
 centers in a box are repeated periodically, and only the centers near the boundary of the box
 are lost.  The periodic repetition of a set `S` along the lattice `c ℤ^ι` is the set of points
-`s + c z` with `s ∈ S` and `z : ι → ℤ`.  Repeating a `ρ`-separated subset of a translated box of
-radius `R` with period `2(R + ρ)` leaves a guard band of width `2ρ` between neighboring copies of
-the box, so the repetition is again `ρ`-separated.
+`s + c z` with `s ∈ S` and `z : ι → ℤ`; it contains `S` and is invariant under translation by
+`c ℤ^ι`.  The repetition of a `ρ`-separated subset of a translated box of radius `R` with period
+`2(R + ρ)` is again `ρ`-separated, for all real `R` and `ρ`.  For `R ≥ 0` and `ρ ≥ 0`, this period
+leaves a guard band of width `2ρ` between neighboring copies of the box; for `ρ < 0`, every set
+is `ρ`-separated, since distances are nonnegative.
 
 ## Main definitions
 
@@ -37,10 +40,15 @@ the box, so the repetition is again `ρ`-separated.
 
 * `EuclideanSpace.mem_centeredBox`, `EuclideanSpace.mem_boxBoundaryLayer`: membership in a box and
   in its boundary layer.
+* `EuclideanSpace.norm_le_of_mem_centeredBox`: points of the box of radius `R ≥ 0` have norm at
+  most `√n R`.
 * `EuclideanSpace.volume_centeredBox`: the box of radius `R` has volume `ENNReal.ofReal (2R) ^ n`,
   that is `(2R)^n` for `R ≥ 0`, and `0` for `R < 0` when `ι` is nonempty.
 * `EuclideanSpace.boundaryLayer_volume_div_volume_tendsto_zero`: the volume of the boundary layer
   of fixed thickness is negligible compared with that of the box.
+* `EuclideanSpace.subset_periodicRepetition`: the periodic repetition of `S` contains `S`.
+* `EuclideanSpace.toLp_add_mem_periodicRepetition_iff`: the periodic repetition along `c ℤ^ι` is
+  invariant under translation by `c ℤ^ι`.
 * `EuclideanSpace.abs_sub_two_mul_le_dist`: points of a translated box of radius `R` shifted by
   distinct vectors of `c ℤ^ι` are at distance at least `|c| - 2R`.
 * `EuclideanSpace.pairwise_le_dist_periodicRepetition`: the repetition of a `ρ`-separated subset
@@ -118,15 +126,61 @@ theorem periodicRepetition_def (S : Set (EuclideanSpace ℝ ι)) (c : ℝ) :
 
 /-- A point lies in the periodic repetition of `S` along `c ℤ^ι` when it is `s + c z` for some
 `s ∈ S` and `z : ι → ℤ`. -/
+@[simp]
 theorem mem_periodicRepetition {S : Set (EuclideanSpace ℝ ι)} {c : ℝ} {x : EuclideanSpace ℝ ι} :
     x ∈ periodicRepetition S c ↔ ∃ z : ι → ℤ, ∃ s ∈ S, x.ofLp = s.ofLp + fun i ↦ c * z i :=
   Iff.rfl
+
+/-- Check that `simp` reduces membership in a periodic repetition to its defining formula. -/
+example {S : Set (EuclideanSpace ℝ ι)} {c : ℝ} {x : EuclideanSpace ℝ ι} :
+    x ∈ periodicRepetition S c ↔ ∃ z : ι → ℤ, ∃ s ∈ S, x.ofLp = s.ofLp + fun i ↦ c * z i := by
+  simp
+
+/-- A set is contained in its periodic repetition. -/
+theorem subset_periodicRepetition (S : Set (EuclideanSpace ℝ ι)) (c : ℝ) :
+    S ⊆ periodicRepetition S c :=
+  fun s hs ↦ ⟨0, s, hs, by ext i; simp⟩
+
+-- A pre-lemma (`↓`): otherwise `mem_periodicRepetition` unfolds the membership first.
+/-- The periodic repetition of `S` along `c ℤ^ι` is invariant under translation by the vector
+`c z` of `c ℤ^ι`, for every `z : ι → ℤ`. -/
+@[simp ↓]
+theorem toLp_add_mem_periodicRepetition_iff {S : Set (EuclideanSpace ℝ ι)} {c : ℝ} {z : ι → ℤ}
+    {x : EuclideanSpace ℝ ι} :
+    WithLp.toLp 2 (fun i ↦ c * z i) + x ∈ periodicRepetition S c ↔
+      x ∈ periodicRepetition S c := by
+  constructor
+  · rintro ⟨w, s, hs, h⟩
+    refine ⟨w - z, s, hs, funext fun i ↦ ?_⟩
+    have hi := congrFun h i
+    simp only [WithLp.ofLp_add, Pi.add_apply] at hi
+    simp only [Pi.add_apply, Pi.sub_apply, Int.cast_sub]
+    linarith
+  · rintro ⟨w, s, hs, h⟩
+    refine ⟨z + w, s, hs, funext fun i ↦ ?_⟩
+    simp only [WithLp.ofLp_add, h, Pi.add_apply, Int.cast_add]
+    ring
+
+/-- Check that `simp` removes a translation by a vector of `c ℤ^ι` from a membership. -/
+example {S : Set (EuclideanSpace ℝ ι)} {c : ℝ} {z : ι → ℤ} {x : EuclideanSpace ℝ ι}
+    (hx : x ∈ periodicRepetition S c) :
+    WithLp.toLp 2 (fun i ↦ c * z i) + x ∈ periodicRepetition S c := by
+  simpa using hx
 
 variable [Fintype ι]
 
 theorem measurableSet_centeredBox (R : ℝ) : MeasurableSet (centeredBox ι R) := by
   rw [centeredBox_eq_preimage]
   exact (MeasurableSet.univ_pi fun _ ↦ measurableSet_Icc).preimage (by fun_prop)
+
+/-- A point of the centered box of radius `R ≥ 0` has norm at most `√(card ι) * R`. -/
+theorem norm_le_of_mem_centeredBox {R : ℝ} (hR : 0 ≤ R) {x : EuclideanSpace ℝ ι}
+    (hx : x ∈ centeredBox ι R) : ‖x‖ ≤ √(Fintype.card ι) * R := by
+  -- The coordinate vector of `x` lies in the sup-norm ball of radius `R`.
+  have h : x.ofLp ∈ Metric.closedBall (WithLp.ofLp (0 : EuclideanSpace ℝ ι)) R := by
+    rw [WithLp.ofLp_zero, mem_closedBall_zero_iff, pi_norm_le_iff_of_nonneg hR]
+    exact fun i ↦ (Real.norm_eq_abs _).trans_le (mem_centeredBox.mp hx i)
+  exact mem_closedBall_zero_iff.mp (PiLp.preimage_ofLp_closedBall_subset_closedBall 0 R h)
 
 /-- The centered box of radius `R` in `EuclideanSpace ℝ ι` has volume
 `ENNReal.ofReal (2R) ^ Fintype.card ι`: this is `(2R)^n` for `R ≥ 0`, and `0` for `R < 0` when `ι`
@@ -182,13 +236,14 @@ theorem boundaryLayer_volume_div_volume_tendsto_zero (t : ℝ) (ht : 0 ≤ t) :
   simpa using (ENNReal.tendsto_ofReal hreal).congr' heq
 
 /-- Points of a translated box of radius `R`, shifted by the vectors `c z` and `c z'` of the
-lattice `c ℤ^ι` with `z ≠ z'`, are at distance at least `|c| - 2R`: at a coordinate where `z` and
-`z'` differ, the shifts differ by at least `|c|`, and the points of the box by at most `2R`. -/
+lattice `c ℤ^ι` with `z ≠ z'`, are at distance at least `|c| - 2R`. -/
 theorem abs_sub_two_mul_le_dist {a s s' x x' : EuclideanSpace ℝ ι} {R c : ℝ}
     (hs : s ∈ a +ᵥ centeredBox ι R) (hs' : s' ∈ a +ᵥ centeredBox ι R) {z z' : ι → ℤ}
     (hz : z ≠ z') (hx : x.ofLp = s.ofLp + fun i ↦ c * z i)
     (hx' : x'.ofLp = s'.ofLp + fun i ↦ c * z' i) :
     |c| - 2 * R ≤ dist x x' := by
+  -- At a coordinate `i` where `z` and `z'` differ, the shifts differ by at least `|c|`, and the
+  -- points of the box by at most `2R`.
   obtain ⟨i, hi⟩ := Function.ne_iff.mp hz
   rw [Set.mem_vadd_set_iff_neg_vadd_mem, vadd_eq_add, mem_centeredBox] at hs hs'
   have hsi := hs i
@@ -201,7 +256,6 @@ theorem abs_sub_two_mul_le_dist {a s s' x x' : EuclideanSpace ℝ ι} {R c : ℝ
     have h := congrFun hx i
     have h' := congrFun hx' i
     simp only [Pi.add_apply] at h h'
-    change x.ofLp i - x'.ofLp i = s.ofLp i - s'.ofLp i + c * ((z i : ℝ) - z' i)
     rw [h, h']
     ring
   have hss : |s i - s' i| ≤ 2 * R := by
@@ -219,8 +273,9 @@ theorem abs_sub_two_mul_le_dist {a s s' x x' : EuclideanSpace ℝ ι} {R c : ℝ
     _ ≤ dist x x' := PiLp.dist_apply_le x x' i
 
 /-- Repeating a `ρ`-separated subset of a translated box of radius `R` along the lattice
-`2 (R + ρ) ℤ^ι`, which leaves a guard band of width `2ρ` between neighboring copies of the box,
-gives a `ρ`-separated set. -/
+`2 (R + ρ) ℤ^ι` gives a `ρ`-separated set, for all real `R` and `ρ`.  For `R ≥ 0` and `ρ ≥ 0`, this
+lattice leaves a guard band of width `2ρ` between neighboring copies of the box; for `ρ < 0`,
+every set is `ρ`-separated, since distances are nonnegative. -/
 theorem pairwise_le_dist_periodicRepetition {S : Set (EuclideanSpace ℝ ι)}
     {a : EuclideanSpace ℝ ι} {R ρ : ℝ} (hS : S ⊆ a +ᵥ centeredBox ι R)
     (hsep : Pairwise (ρ ≤ dist · · : S → S → Prop)) :
