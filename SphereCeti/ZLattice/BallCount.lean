@@ -7,7 +7,9 @@ Authors: The Tau Ceti contributors, SphereCeti contributors
 module
 
 public import Mathlib.Algebra.Group.Pointwise.Set.Card
-public import TauCeti.Algebra.Module.ZLattice.Covolume
+public import Mathlib.Algebra.Module.ZLattice.Covolume
+public import Mathlib.Analysis.Convex.Measure
+public import Mathlib.MeasureTheory.Measure.Haar.InnerProductSpace
 public import TauCeti.Topology.MetricSpace.DiscreteAddSubgroup
 
 /-!
