@@ -60,6 +60,8 @@ def add_parser(commands):
     posting.add_argument("--post", action="store_true",
                          help="publish the review record (the default for a live GitHub review); fail if policy forbids it")
     posting.add_argument("--no-post", action="store_true", help="keep the review record local")
+    p.add_argument("--no-approve", action="store_true",
+                   help="post the review but never submit your GitHub approval (opted-in maintainers)")
     p.add_argument("--force-claim", action="store_true",
                    help="review even while another contributor's advisory review claim is live")
     p.add_argument("--read-records", action="store_true", help="inspect API-authenticated records without invoking providers")
@@ -692,8 +694,19 @@ def run_review(args, project, prefs, *, guard=None) -> dict:
                     final_refs = revisions(args, project)
                     if any(final_refs[k] != report[k] for k in ("tooling", "head", "base")):
                         raise ReviewError("PR or approved context advanced during record inspection")
-                    result = {**report, **assess_records(comments, report, selected_policy, approved_revision, author_id),
-                              "completion": "records_read", "advisory": True}
+                    assessed = assess_records(comments, report, selected_policy, approved_revision, author_id)
+                    result = {**report, **assessed, "completion": "records_read", "advisory": True}
+                    if not assessed["review_safe"]:
+                        # Report, read-only, whether a review of an older head carries over through
+                        # update-branch merges (carry_over); the merge decision applies the same rule.
+                        from .carry_over import ApiSource, carry, describe as carry_status, older_records
+                        source = ApiSource(client, project.repository)
+                        result["carry_over"] = []
+                        for older, items in older_records(comments, project.repository, args.pr, report["head"]).items():
+                            found = carry(source, older, report["head"], report["tooling"],
+                                          [r["tooling_revision"] for _, r in items])
+                            result["carry_over"].append({**found, "records": [c["id"] for c, _ in items],
+                                                         "status": carry_status(found)})
                     if args.keep_workspace:
                         workspace.rename(output / "workspace")
                     write_json(output / "result.json", result)
