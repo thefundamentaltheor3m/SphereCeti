@@ -9,6 +9,7 @@ module
 public import SphereCeti.Analysis.Distribution.SchwartzSpace.FourierPositivity
 public import SphereCeti.CohnElkies.PeriodicBound
 public import SphereCeti.MeasureTheory.Measure.Haar.BoxAveraging
+public import SphereCeti.MeasureTheory.Measure.Haar.NormedSpace
 public import SphereCeti.ZLattice.PeriodicRepetition
 
 /-!
@@ -77,7 +78,7 @@ theorem ncard_le_of_subset_vadd_centeredBox {S : Set (EuclideanSpace ℝ ι)} (h
   -- The repetition of `S` along `L` keeps the separation `r`.
   have hrep := EuclideanSpace.pairwise_le_dist_periodicRepetition hSbox hsep
   have hmem (s : S) : (s : EuclideanSpace ℝ ι) ∈ EuclideanSpace.periodicRepetition S c :=
-    EuclideanSpace.mem_periodicRepetition.mpr ⟨0, s, s.2, by ext i; simp⟩
+    EuclideanSpace.subset_periodicRepetition S c s.2
   have hsep' : ∀ (z : L) (q q' : S), (z : EuclideanSpace ℝ ι) + q - q' ≠ 0 →
       r ≤ ‖(z : EuclideanSpace ℝ ι) + q - q'‖ := by
     intro z q q' hzqq'
@@ -182,8 +183,8 @@ theorem limsup_encard_inter_closedBall_div_volume_le {X : Set (EuclideanSpace �
             ac_rfl
     have hlim : Tendsto (fun T : ℝ ↦ K * (volume (closedBall (0 : EuclideanSpace ℝ ι) (T + c)) /
         volume (closedBall (0 : EuclideanSpace ℝ ι) T))) atTop (𝓝 (K * 1)) :=
-      ENNReal.Tendsto.const_mul (EuclideanSpace.tendsto_volume_closedBall_add_div_volume c)
-        (Or.inr hK)
+      ENNReal.Tendsto.const_mul
+        (Measure.tendsto_addHaar_closedBall_add_div volume (0 : EuclideanSpace ℝ ι) c) (Or.inr hK)
     calc limsup (fun T : ℝ ↦ (X ∩ closedBall 0 T).encard /
           volume (closedBall (0 : EuclideanSpace ℝ ι) T)) atTop
         ≤ limsup (fun T : ℝ ↦ K * (volume (closedBall (0 : EuclideanSpace ℝ ι) (T + c)) /
