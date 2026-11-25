@@ -25,8 +25,9 @@ value at `τ = i` of the Jacobi theta transformation for the lattice theta serie
 
 ## Main results
 
-* `ZLattice.gaussian_one`: unit-Gaussian Poisson summation for a full lattice in an arbitrary
-  finite-dimensional real inner product space, in particular in `EuclideanSpace ℝ (Fin d)`.
+* `SphereCeti.Poisson.gaussian_one`: unit-Gaussian Poisson summation for a full lattice in an
+  arbitrary finite-dimensional real inner product space, in particular in
+  `EuclideanSpace ℝ (Fin d)`.
 
 ## Sources
 
@@ -42,7 +43,7 @@ public section
 open Complex
 open scoped Real FourierTransform SchwartzMap
 
-namespace ZLattice
+namespace SphereCeti.Poisson
 
 variable {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E] [FiniteDimensional ℝ E]
   [MeasurableSpace E] [BorelSpace E]
@@ -82,4 +83,4 @@ example {d : ℕ} (Λ : Submodule ℤ (EuclideanSpace ℝ (Fin d)))
         Real.exp (-Real.pi * ‖(y : EuclideanSpace ℝ (Fin d))‖ ^ 2) :=
   gaussian_one Λ
 
-end ZLattice
+end SphereCeti.Poisson
