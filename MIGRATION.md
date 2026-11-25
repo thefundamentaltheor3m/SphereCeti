@@ -762,8 +762,8 @@ normalization.  The latter is the rootlessness input needed by M2.
 
 As in N2, the packing-free forms may land before N1 and F4: a finite family of points pairwise
 incongruent modulo `Λ`, as many as the index of `Λ` in `Γ`, meets every coset of `Λ` in `Γ`; and
-a submodule contained in the translates `x - x₀` of an `r`-separated set `X ∋ x₀` has all its
-nonzero vectors of norm at least `r`.  Only their application to packings waits for N1 and N2.
+a set contained in the translates `x - x₀` of an `r`-separated set `X ∋ x₀` has all its nonzero
+vectors of norm at least `r`.  Only their application to packings waits for N1 and N2.
 
 The Fourier structure-factor conditions from F4 remain available as an independent equality
 description, but Cohn–Elkies' exact periodic uniqueness argument does not need restrictions on the
