@@ -42,9 +42,11 @@ def setup_data():
 
 class FakeBackend:
     def __init__(self):
-        self.activation={'ready':True,'executor_verified':True,'tooling':T,'policy_digest':'a','merging_requested':True}
+        self.activation={'ready':True,'executor_verified':True,'tooling':T,'policy_digest':'a','merging_requested':True,
+                         'protection':{'tested_tree_enforced':True}}
         self.pr={'number':1,'state':'open','merged':False,'draft':False,'head':{'sha':H},'merge_commit_sha':None}
-        self.decision={'eligibility':'eligible','head':H,'base':T,'tooling':T,'reasons':[]}
+        self.decision={'eligibility':'eligible','action':'merge','head':H,'base':T,'tooling':T,'reasons':[],
+                       'tested_tree':'5'*40,'head_tree':'5'*40}
         self.setups=0;self.observations=0;self.puts=[];self.refreshed=0
         self.change_setup=None;self.change_observation=None;self.on_refresh=None;self.ambiguous=False;self.reject=False
     def setup(self,applying):
@@ -80,7 +82,7 @@ class ControllerTests(unittest.TestCase):
             self.assertEqual(r['state'],'disabled');self.assertFalse(b.puts)
 
     def test_revoked_review_and_changed_head_base_or_policy_require_new_run(self):
-        for change in ({'eligibility':'blocked','reasons':['revoked review']},{'head':'4'*40},
+        for change in ({'eligibility':'blocked','action':'needs_review','reasons':['revoked review']},{'head':'4'*40},
                        {'base':'4'*40},{'tooling':'4'*40}):
             with self.subTest(change=change):
                 b=FakeBackend();b.change_observation={**b.decision,**change}
@@ -132,7 +134,7 @@ class ControllerTests(unittest.TestCase):
 
     def test_ineligible_observation_does_not_gain_authority_from_activation(self):
         for state in ('human_review','blocked'):
-            b=FakeBackend();b.decision['eligibility']=state
+            b=FakeBackend();b.decision.update(eligibility=state,action=state)
             r=reconcile(b,lambda:[1],applying=True)
             self.assertFalse(b.puts);self.assertEqual(r['results'][0]['state'],state)
 
@@ -389,7 +391,10 @@ class RulesetTests(unittest.TestCase):
         self.assertEqual(found['missing'],['build is required from integration 15368, not checks_app_id 9'])
         def none(rules):rule(rules,'required_status_checks')['parameters']['required_status_checks']=[]
         found=server(client(*ruleset(lambda r:(strict(r),none(r)),ADMIN_BYPASS)),REPO,CONFIGURED)
-        self.assertEqual(found['missing'],['no status check is required for every PR'])
+        self.assertEqual(found['missing'],['no status check is required for every PR',
+                                           'up-to-date branches are not enforced: GitHub ignores '
+                                           'strict_required_status_checks_policy without a required status check'])
+        self.assertFalse(found['tested_tree_enforced'])
 
     def test_truncated_or_malformed_inventories_fail_closed(self):
         for value in ([],[{}],[[1]],[[{}]*99,[{}]],[[{}]*101],None):
@@ -613,7 +618,7 @@ class TokenIdentificationTests(unittest.TestCase):
             def setup(self,applying,*,verify_executor=False):return {'verify_executor':verify_executor}
         with tempfile.TemporaryDirectory() as t,patch.dict(os.environ,{'SPHERECETI_MERGE_TOKEN':self.MODERN,'GH_TOKEN':'reader'}), \
                 patch.object(controller,'Backend',Probe):
-            args=SimpleNamespace(command='merge-doctor',executor=True,cache_dir=Path(t))
+            args=SimpleNamespace(command='merge-doctor',executor=True,pr=None,cache_dir=Path(t))
             self.assertEqual(controller.run(args,SimpleNamespace(repository=REPO)),{'verify_executor':True})
             self.assertNotIn('SPHERECETI_MERGE_TOKEN',os.environ)
         self.assertEqual(seen,{'writer_token':self.MODERN,'env':False,'reader_token':'reader'})
@@ -672,7 +677,8 @@ class ControllerDecisionTests(unittest.TestCase):
         writer=FakeWriter(on_put=merged)
         args=SimpleNamespace(cache_dir=Path(self.tmp.name)/'cache',source_repo=h.repo,dependencies_dir=None)
         backend=Backend(args,h.project,writer)
-        ready={'ready':True,'merging_requested':True,'executor_verified':True,'tooling':h.tooling}
+        ready={'ready':True,'merging_requested':True,'executor_verified':True,'tooling':h.tooling,
+               'protection':{'tested_tree_enforced':True}}
         # The approved automation policy on the fixture's main, as Activation.inspect parses it.
         policy=parse_policy(git(h.repo,'show',f'{h.tooling}:policy/automation.toml')+'\n')
         self.assertEqual(policy.approving_reviewers,(f'user:{self.reviewer}',))
@@ -693,7 +699,8 @@ class ControllerDecisionTests(unittest.TestCase):
     def test_formal_approval_and_passing_decision_merge_once_pinned_to_the_head(self):
         self.reviews=reviews_for(self.h.head,(self.reviewer,'APPROVED',None,'User','COLLABORATOR'))
         preview,writer=self.reconcile(applying=False)
-        self.assertEqual(preview['results'],[{'pr':1,'state':'would_merge','head':self.h.head}]);self.assertEqual(writer.requests,[])
+        self.assertEqual(preview['results'],[{'pr':1,'state':'would_merge','action':'merge','head':self.h.head}])
+        self.assertEqual(writer.requests,[])
         result,writer=self.reconcile()
         self.assertEqual(writer.requests,[(f'repos/{REPO}/pulls/1/merge',{'sha':self.h.head,'merge_method':'squash'})])
         self.assertEqual(result['results'][0],{'pr':1,'head':self.h.head,'state':'merged','merge_commit':M})
@@ -702,8 +709,9 @@ class ControllerDecisionTests(unittest.TestCase):
         self.reviews=reviews_for(self.h.head,(self.reviewer,'APPROVED',None,'User','COLLABORATOR'))
         self.h.comments=[]  # No official review record: the formal approval alone cannot merge.
         result,writer=self.reconcile()
-        self.assertEqual(result['results'][0]['state'],'blocked');self.assertEqual(writer.requests,[])
-        self.assertTrue(any(r.startswith('official_review') for r in result['results'][0]['reasons']))
+        # No accepted review for the head: route back for review, never merge on the approval alone.
+        self.assertEqual(result['results'][0]['state'],'needs_review');self.assertEqual(writer.requests,[])
+        self.assertIn('no accepted official review for the current head',result['results'][0]['reasons'])
 
     def test_merging_false_is_read_only(self):
         h=self.h
@@ -712,9 +720,9 @@ class ControllerDecisionTests(unittest.TestCase):
         backend.activation=SimpleNamespace(policy=None,refresh=lambda:None,
             inspect=lambda **kw:{'ready':False,'merging_requested':False,'executor_verified':True})
         with patch.object(GitHub,'call',side_effect=AssertionError('no GitHub read after a disabled setup')):
-            for applying in (False,True):
-                result=reconcile(backend,lambda:(_ for _ in ()).throw(AssertionError('enumerated')),applying=applying)
-                self.assertEqual(result['state'],'disabled')
+            # Applying with switches off lists no work at all; previews are covered by RefreshTests.
+            result=reconcile(backend,lambda:(_ for _ in ()).throw(AssertionError('enumerated')),applying=True)
+            self.assertEqual(result['state'],'disabled')
         self.assertEqual(writer.requests,[])
 
 
@@ -723,13 +731,15 @@ class WorkflowTests(unittest.TestCase):
         installed=(ROOT/WORKFLOW).read_bytes()
         self.assertEqual(installed,(ROOT/'tools/ci/merge-controller.yml').read_bytes())
         text=installed.decode()
-        self.assertIn('permissions:\n  contents: read\n  actions: read\nconcurrency:',text)
-        self.assertNotIn('write',text.split('\njobs:')[1])
+        # Inert: every permission read, the doctor selected, and the schedule commented out.
+        self.assertIn('permissions:\n  contents: read\n  pull-requests: read\n  actions: read\n  issues: read\nconcurrency:',text)
+        self.assertNotIn(': write',text)
         self.assertNotRegex(text,r'(?m)^\s+schedule:')  # Scheduled runs stay commented out.
         self.assertIn('  workflow_dispatch:\n',text)
         self.assertIn("if: github.ref == 'refs/heads/main'",text)
         self.assertIn('ref: ${{ github.sha }}\n          persist-credentials: false',text)
-        self.assertIn('merge-doctor --executor --json',text);self.assertIsNone(re.search(r'merge-control(?![a-z])',text.split('\njobs:')[1]))
+        self.assertEqual(re.findall(r'(?m)^ *CONTROLLER: (\S+)$',text),['doctor'])
+        self.assertIn('merge-doctor --executor',text)
         self.assertNotIn('secrets.',text);self.assertNotIn('pull_request',text)
         self.assertIn('SPHERECETI_MERGE_TOKEN: ${{ github.token }}',text)
         for use in re.findall(r'uses: (\S+)',text):self.assertRegex(use,r'@[0-9a-f]{40}$')

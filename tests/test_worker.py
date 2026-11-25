@@ -61,7 +61,8 @@ def gh_pr(number=1, **updates):
                   baseRefOid='b'*40, updatedAt='2020-01-01T00:00:00Z', state='OPEN', isDraft=False,
                   mergeable='MERGEABLE', statusCheckRollup=[{'__typename': 'CheckRun',
                   'status': 'COMPLETED', 'conclusion': 'SUCCESS'}],
-                  headRepository={'nameWithOwner': PROJECT.repository})
+                  headRepository={'nameWithOwner': PROJECT.repository}, baseRefName='main',
+                  headRefName=f'branch-{number}')
     result.update(updates)
     return result
 

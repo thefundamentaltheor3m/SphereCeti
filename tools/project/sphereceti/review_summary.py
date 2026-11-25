@@ -1,6 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 """What will a review do, and what happened? One line before inference, one summary after.
 
+Before inference it also says when the installed sphereceti is not approved main (the prepared
+evidence's `installed_tooling_matches_T`), because such a review is advisory, not official.
+
 Everything here reads the prepared evidence, the run's result and its local engine receipt
 (`engine-archive/records/runs`). It never calls GitHub or a provider.
 """
@@ -39,14 +42,14 @@ def effective_models(args, providers) -> list[str]:
     out = []
     for provider in providers:
         if provider == "codex":
-            out.append(args.codex_model or f"{defaults.get('CODEX_MODEL')} "
+            out.append(getattr(args, "codex_model", None) or f"{defaults.get('CODEX_MODEL')} "
                        f"(falls back to {defaults.get('CODEX_FALLBACK_MODEL')})")
         elif provider == "claude":
-            out.append(args.claude_model or defaults.get("CLAUDE_MODEL"))
+            out.append(getattr(args, "claude_model", None) or defaults.get("CLAUDE_MODEL"))
         elif provider == "sonnet":
             out.append(defaults.get("SONNET_MODEL"))
         elif provider == "kiro":
-            out.append(args.kiro_model or defaults.get("KIRO_MODEL"))
+            out.append(getattr(args, "kiro_model", None) or defaults.get("KIRO_MODEL"))
         else:
             env = os.environ.get(f"TAUCETI_{provider.upper()}_MODEL") or os.environ.get(f"{provider.upper()}_MODEL")
             out.append(env or defaults.get(provider) or "unknown")
@@ -54,7 +57,7 @@ def effective_models(args, providers) -> list[str]:
 
 
 def plan(args, prefs, report) -> dict:
-    providers = [p for p in (args.provider or prefs.provider).split(",") if p]
+    providers = [p for p in (getattr(args, "provider", None) or prefs.provider).split(",") if p]
     if args.dry_run:
         outcome = "dry run: no model call, nothing posted"
     else:
@@ -68,8 +71,13 @@ def plan(args, prefs, report) -> dict:
     pairs = ", ".join(f"{p} {m}" for p, m in zip(providers, models)) or "no provider selected"
     line = (f"Review #{report['pr']}: head {report['head'][:7]}, base {report['base'][:7]} · "
             f"{pairs} · {outcome}")
+    try:
+        from .provenance import review_notice
+        notice = review_notice(report, report.get("repository") or "thefundamentaltheor3m/SphereCeti")
+    except Exception:  # The notice is informational; it never blocks or changes a review.
+        notice = None
     return {"line": line, "pr": report["pr"], "head": report["head"], "base": report["base"],
-            "providers": providers, "models": models, "posting": outcome}
+            "providers": providers, "models": models, "posting": outcome, "tooling_notice": notice}
 
 
 def announcing(prefs, announce, sink=None, inner=None):
@@ -82,6 +90,8 @@ def announcing(prefs, announce, sink=None, inner=None):
                 sink.update(planned)
             if announce:
                 announce(planned["line"])
+                if planned.get("tooling_notice"):
+                    announce(planned["tooling_notice"])
             yield None
     return guard
 
@@ -166,7 +176,7 @@ def summarize(args, report, *, posting=None) -> dict:
         head = f"{len(reviewed)}/{len(requested)} reviewed"
     parts = [head] + ([f"stopped: {stop}"] if stop else []) + ([f"changes requested: {', '.join(changes)}"]
                                                                if changes and not stop else []) + [posted]
-    provider = (args.provider or "").split(",")[0] or "the provider"
+    provider = (getattr(args, "provider", None) or "").split(",")[0] or "the provider"
     output = Path(report.get("output") or "RUN")
     # A run under the operator store's runs/ is named by its id; an --output run by its directory.
     run = output.name if output.parent.name == "runs" else str(output)

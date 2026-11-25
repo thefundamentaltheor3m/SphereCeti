@@ -20,8 +20,14 @@ class ControllerFixture(MergeFixture):
         (self.bin/'server-rules.json').write_text(json.dumps({
             prefix+'/branches/main':branch,prefix+'/rules/branches/main?per_page=100':effective,
             prefix+'/rulesets?includes_parents=true&per_page=100':listing,prefix+'/rulesets/21449770':detail,
-            prefix:{'full_name':REPO,'allow_squash_merge':True,'allow_merge_commit':False,'allow_rebase_merge':False}}))
+            prefix:{'full_name':REPO,'allow_squash_merge':True,'allow_merge_commit':False,'allow_rebase_merge':False},
+            # A preview classifies PR 1 read-only even while switches are off.
+            prefix+'/pulls/1/files?per_page=100':[[{'filename':'README.md','status':'modified'}]],
+            prefix+'/pulls/1/reviews?per_page=100':[[]],
+            # Applying runs read the controller halt issues (decision 3); there are none.
+            prefix+'/issues?creator=github-actions%5Bbot%5D&state=all&per_page=100':[[]]}))
         fake=self.bin/'gh';source=fake.read_text().replace('import json,pathlib,sys','import json,pathlib,sys,os\nassert "SPHERECETI_MERGE_TOKEN" not in os.environ')
+        source=source.replace("'mergeable_state':'clean'}","'mergeable_state':'clean','changed_files':1,'auto_merge':None}")
         source=source.replace('else:raise AssertionError(endpoint)',
             "elif endpoint in (rules:=json.loads((path.parent/'server-rules.json').read_text())):out=rules[endpoint]\n"
             'else:raise AssertionError(endpoint)')
@@ -63,9 +69,18 @@ def installed_controller_smoke(executable,root):
             assert executor['context']=='local' and executor['stand_in']['reader_current_user_can_bypass']=='never'
             assert ('executor not verified: run `merge-doctor --executor` in the approved workflow, '
                     'where the job token is available') in setup['reasons']
-        if command[0]=='merge-control':assert value['state']=='disabled' and value['merge_attempted'] is False
+        if command[0]=='merge-control':
+            assert value['state']=='disabled' and value['merge_attempted'] is False and value['refreshes_dispatched']==[]
+        if command[1:]==('--pr','1'):
+            # Switches off: the preview still classifies PR 1, read-only. A README change is human-route.
+            [item]=value['results']
+            assert item['state']=='blocked' and 'paths: README.md: roadmap specification requires human approval' in item['reasons']
+        if command[-1]=='--apply':assert value['results']==[]
     assert not f.calls()
-    # Main, branch summary, rules, ruleset list/detail and repository, each refreshed; no work listing.
-    assert len(f.api()['calls'])==36
+    # Main, branch summary, rules, ruleset list/detail and repository, each refreshed, per setup (3x12);
+    # the preview's GET-only PR evidence (12); the disabled apply lists no work.
+    calls=[c[0] for c in f.api()['calls']]
+    # The disabled apply also reads (and refreshes) the halt inventory.
+    assert len(calls)==50 and not any('pulls?state=open' in c for c in calls),calls
     assert not any('protection' in c[0] or 'collaborators' in c[0] for c in f.api()['calls'])
     return f

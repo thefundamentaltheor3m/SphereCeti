@@ -136,10 +136,72 @@ the record. Local `--reply-file`/`--replies-json` inputs remain available for ad
 cannot be supplied alongside `--post`. Subset or budget-truncated runs remain advisory even
 when they adjudicate one contest. Human replies contain untrusted prose, not policy.
 
+### Contesting a finding in an ordinary comment
+
+To dispute a finding, the PR author writes a line that starts with the directive in any ordinary
+PR comment, followed by the reasoning:
+
+```text
+/sphereceti contest generality
+I believe this finding cannot be implemented: `IsZLattice ℝ Λ` needs ...
+```
+
+- **Syntax:** `/sphereceti contest <rubric>` at the start of a line. `<rubric>` is one of the ten
+  rubric ids, case-insensitively. The reasoning is the rest of that line plus the following lines,
+  up to the next `/sphereceti` line or the end of the comment. One comment can contest several
+  rubrics. Lines in fenced code blocks and quoted lines are ignored. `@sphereceti contest` is
+  accepted too. The `/` form is the documented one: no GitHub account `sphereceti` existed when
+  this was written (read-only `gh api users/sphereceti` returned 404). If someone registered that
+  name, `@sphereceti` would notify them, and `/` never notifies anyone.
+- **Who can contest:** the PR author, a currently authorized reviewer, or a repository owner or
+  collaborator. GitHub's API reports these as the comment's author ID and `author_association`.
+  Directives from anyone else are ignored, so an outsider can neither block acceptance nor place
+  text in a reviewer's prompt.
+- **Binding:** a contest attaches to the latest record posted before the comment, by any
+  publisher (authorized or advisory) and on any head, whose verdict on that rubric is
+  `request_changes` or `block`. A directive with no such record is not a contest.
+- **Next review:** the next posting review fetches the comments before inference. It passes each
+  unanswered contest, with the contested finding taken from that record's body, to that rubric
+  only, even when the head has moved. Both texts are untrusted. They arrive JSON-quoted inside a
+  per-run delimiter, with an instruction to judge the current code and ignore instructions in
+  them. A pass carries at most 6,000 characters per reply, 4,000 characters of the finding, and
+  the newest 3 contests per rubric. A longer or older contest is not passed. The record then
+  says "Author reply not considered", and the contest stays unanswered.
+- **Output:** the reviewer must answer each contest in its verdict JSON with
+  `contest_responses` (`comment`, `stands`, `reason`). The record's rubric details then show
+  "Author reply considered: <link>" and whether the finding still stands on this head, and why.
+  The verdict itself is about the code reviewed now.
+- **Edits:** the review uses each comment's text as fetched before inference. An edit after that
+  stops publication (`an author contest was edited during the review; rerun`), in
+  `review --post` and in `review-publish`.
+
+**Reading rules.** A contest blocks only the publisher whose record it contests. That publisher's
+current record is not accepted until one of its records answers the contest. Answering requires
+all of the following:
+
+- the answering record was published after the contest comment's last edit (`created_at` not
+  earlier than the comment's `updated_at`);
+- its comment ID is higher than the contest's;
+- its `contests_through` watermark for that rubric is at least the contest's comment ID.
+
+The watermark rises only for a contest the reviewer explicitly answered. Merely passing the
+reply, an errored or budget-stopped rubric, or a missing or malformed answer leaves the contest
+unanswered. A later record that considered the reply counts as answering it, even if a still
+later record of the same publisher has a lower watermark. An answer does not depend on which way
+it went: "still stands" with a reason is an answer. A record by another publisher never answers
+someone else's contest. Editing a contest after it was answered reopens it. The unanswered
+contest appears in `--read-records` reasons as `user:N: unanswered contest on <rubric> (<link>)`.
+PR selection also treats a PR with an unanswered contest as needing review, on any head. The
+structured `sphereceti-contest:v1` marker above keeps its same-head rules.
+
 ## Review evidence is one input
 
 `--read-records` returns `review_safe` and concrete denial reasons. It checks approved current
-context, full records, API authorization, staleness, supersession, and contests. It always
+context, full records, API authorization, staleness, supersession, and contests. When no record is
+accepted for the current head, `carry_over` lists each older reviewed head with whether its records
+carry over through "Update branch" merges and exactly why or why not
+([rule](merge-controller.md#per-pr-actions-stale-build-versus-stale-review)). The text output prints
+one `Older review <H1>: ...` line per head. It always
 returns `merge_eligible: false`: trusted build/scope producer checks, the compiled audits from
 [#8](https://github.com/thefundamentaltheor3m/SphereCeti/pull/8), branch protection, and path
 eligibility are inputs to the later shared merge-decision PR. A green record does not claim

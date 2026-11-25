@@ -14,7 +14,8 @@ import tempfile
 from types import SimpleNamespace
 
 from .config import parse_policy
-from .local_review import BUDGET_STOP_NOTE, ReviewError, poster_identity, prepare, revisions, store_lock, write_json
+from .local_review import (BUDGET_STOP_NOTE, ReviewError, poster_identity, prepare, revisions, store_lock,
+                           unchanged_contests, write_json)
 from .review_records import BINDINGS, RecordError, identity, intact, parse_json, parse_record
 from .review_post import GitHub, publish
 
@@ -193,6 +194,11 @@ def publish_saved(args, project, prefs, *, client=None) -> dict:
         raise PublishRefused([f"the run belongs to {recorded}; gh is authenticated as {actor}"])
     comments = client.comments(record["repository"], record["pr"])
     found = existing(comments, record, rendered, actor)
+    if not found and result.get("carried_contests"):
+        try:
+            unchanged_contests(comments, result["carried_contests"])
+        except ReviewError as error:
+            raise PublishRefused([str(error)]) from error
     if found:  # Never post twice: report the record already on the PR and write nothing.
         report.update(state="already_published", comment_id=found["id"],
                       intact=intact(found, record["repository"], record["pr"]))

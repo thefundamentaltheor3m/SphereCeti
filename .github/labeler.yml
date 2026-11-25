@@ -1,18 +1,25 @@
 # Area labels for pull requests, applied by .github/workflows/area-labels.yml (actions/labeler).
-# Labels describe a PR's purpose; these path rules give a first guess. Maintainers may adjust labels
-# by hand, and the labeller never removes a label (sync-labels is off).
+# The area labels are computed from each PR's current diff: on every push, reopen, retarget or edit,
+# the labeller adds the area labels whose rules match and removes the ones that no longer match
+# (sync-labels is on). Labels not defined here are never touched. A hand-added area label is
+# replaced on the PR's next event; change the rules here instead.
 
 # Changes what we intend to prove: target statements, hypotheses, conventions, dependencies.
 # UPSTREAM.md is not listed: proof PRs append upstream-candidate entries to it, which records where a
 # proof should eventually go, not a change to what we intend to prove.
+# A PR that also changes a Lean file under SphereCeti/ is a proof PR and gets area:proof-library only:
+# proof PRs often update MIGRATION.md alongside the proof, which is not a roadmap change by itself.
 area:roadmap:
-- changed-files:
-  - any-glob-to-any-file:
-    - 'SphereCetiRoadmap/**'
-    - 'SphereCetiRoadmap.lean'
-    - 'CONVENTIONS.md'
-    - 'MIGRATION.md'
-    - 'PROVENANCE.md'
+- all:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'SphereCetiRoadmap/**'
+      - 'SphereCetiRoadmap.lean'
+      - 'CONVENTIONS.md'
+      - 'MIGRATION.md'
+      - 'PROVENANCE.md'
+    - all-globs-to-all-files:
+      - '!SphereCeti/**/*.lean'
 
 # Implements mathematics in the SphereCeti/ library: definitions, lemmas, proofs.
 # A changed Lean file in the library other than the bootstrap module SphereCeti/Basic.lean.
@@ -38,3 +45,8 @@ area:infrastructure:
     - 'pyproject.toml'
     - 'uv.lock'
     - 'sphereceti.toml'
+
+# A pull request whose base is not main is stacked on another, unmerged PR: it can only merge after
+# its parent does. With sync-labels on, the label goes away when the PR is retargeted to main.
+stacked:
+- base-branch: '^(?!main$)'
