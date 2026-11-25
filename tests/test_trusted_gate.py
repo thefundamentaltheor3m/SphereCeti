@@ -12,8 +12,11 @@ from sphereceti.gate import GateError, evaluate, git, prepare
 
 
 def with_paths(value):
-    """The shipped policy with an explicit allowlist, for fixtures that test other allowlists."""
+    """The shipped policy with an explicit allowlist, for fixtures that test other allowlists.
+
+    These fixtures test scope, not merging, so merging is off (an empty allowlist forbids it)."""
     text = (ROOT / 'policy/automation.toml').read_text()
+    text = re.sub(r'(?m)^merging = .*$', 'merging = false', text)
     return re.sub(r'(?m)^mathematical_paths = .*$', f'mathematical_paths = {value}', text)
 
 
@@ -196,8 +199,9 @@ class ShippedAllowlistGateTest(unittest.TestCase):
         from sphereceti.config import parse_policy
         policy = parse_policy((ROOT / 'policy/automation.toml').read_text())
         self.assertEqual(policy.mathematical_paths, ('SphereCeti/Contour/', 'SphereCeti/E8/'))
-        self.assertFalse(policy.merging)
-        self.assertEqual(policy.approving_reviewers, ())
+        # Activated: merging and approving on, every authorized reviewer opted in (2026-11-25).
+        self.assertTrue(policy.merging);self.assertTrue(policy.approving)
+        self.assertEqual(policy.approving_reviewers, policy.authorized_reviewers)
 
     def test_module_only_contour_and_e8_proofs_get_mathematical_scope(self):
         cases = {'new Contour module': ['SphereCeti/Contour/TopEdgeDecay.lean'],

@@ -62,8 +62,9 @@ roadmap target. The following receive `human_review`:
 - a protected library module;
 - a change mixed with specification, roadmap, CI, policy, dependency, tooling or script paths.
 
-Neither classification nor any policy switch triggers a merge or an approval: `merging` is false,
-and `approving_reviewers` is empty. Candidate policy cannot authorize itself.
+Neither classification nor any policy switch triggers a merge or an approval by itself: a merge
+also needs the controller's full decision, including an opted-in maintainer's formal approval of
+the exact head ([merge controller](merge-controller.md)). Candidate policy cannot authorize itself.
 
 Infrastructure PRs test proposed tooling in the existing unprivileged `pull_request` workflow.
 That result lets humans review the change; it does not make the proposed tooling authoritative.
