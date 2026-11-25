@@ -92,9 +92,11 @@ def targets(values: list[str] | None) -> tuple[int, ...] | None:
 def validate_snapshot(data, project: ProjectConfig, now: datetime) -> None:
     fields(data, {"schema", "repository", "actor", "observed_at", "scope", "pull_requests"}, "snapshot")
     require(data["schema"] in ("sphereceti.worker-survey/v1", "sphereceti.worker-survey/v2",
-                               "sphereceti.worker-survey/v3"), "unknown survey schema")
+                               "sphereceti.worker-survey/v3", "sphereceti.worker-survey/v4"),
+            "unknown survey schema")
     separate_review_ci = data["schema"] != "sphereceti.worker-survey/v1"
-    review_note = data["schema"] == "sphereceti.worker-survey/v3"
+    review_note = data["schema"] in ("sphereceti.worker-survey/v3", "sphereceti.worker-survey/v4")
+    stack_refs = data["schema"] == "sphereceti.worker-survey/v4"  # base/head branch names, for stacks
     require(data["repository"] == project.repository, "queue destination does not match the project")
     text(data["actor"], "actor")
     fresh(data["observed_at"], now)
@@ -108,7 +110,8 @@ def validate_snapshot(data, project: ProjectConfig, now: datetime) -> None:
     for pr in prs:
         keys = {"number", "title", "author", "head", "base", "updated_at", "state", "draft", "mergeable", "ci"}
         fields(pr, keys | ({"review_ci"} if separate_review_ci else set()) |
-               ({"review_note"} if review_note else set()), "pull request")
+               ({"review_note"} if review_note else set()) |
+               ({"base_ref", "head_ref", "head_repo"} if stack_refs else set()), "pull request")
         n = pr["number"]
         require(type(n) is int and n > 0 and n not in seen, "invalid or duplicate pull request")
         seen.add(n)
@@ -126,6 +129,11 @@ def validate_snapshot(data, project: ProjectConfig, now: datetime) -> None:
             require(pr["review_ci"] == pr["ci"] or
                     (pr["ci"] == "failed" and pr["review_ci"] == "passed"),
                     "review CI may only separate an observed scope failure")
+        if stack_refs:
+            for key in ("base_ref", "head_ref"):
+                text(pr[key], key)
+            require(pr["head_repo"] is None or text(pr["head_repo"], "head repository") == pr["head_repo"],
+                    "invalid head repository")
         if review_note:
             require(pr["review_note"] is None or
                     (pr["ci"] == "failed" and pr["review_ci"] in ("passed", "failed") and
