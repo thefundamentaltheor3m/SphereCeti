@@ -639,8 +639,14 @@ official or advisory is said once, on the summary line.
   model touching a file), `blocked on <rubric>`, an engine error, or `budget or round limit
   reached`. A complete review with findings says `blocked: <rubrics>` and `changes requested:
   <rubrics>`.
-- **Posting:** `posted <URL> · official` (an authorized reviewer's record) or `· advisory`,
-  `not posted: <reason>`, or `publication interrupted`.
+- **Posting:** `posted <URL> · official`, or `· advisory (<why>)`, `not posted: <reason>`, or
+  `publication interrupted`.
+  - Official requires both: the posted record itself is not advisory (its `advisory` field), and
+    the publisher is an authorized reviewer. Authorization alone never makes it official.
+  - The reasons come from the record's evidence. Examples: `installed tooling is not approved main;
+    reinstall`, `partial`, `reviewed tooling is not approved main`, `missing approved context`,
+    `not an authorized reviewer`.
+  - `--json` carries `official` and `advisory_reasons`.
 - **Next action:** `author: address <rubrics> (see record); rerun after the head changes`, naming
   every blocked rubric and then every rubric that requested changes, as on the summary line;
   ``run `sphereceti review-check-sandbox --compare-path --compare-tmpdir` `` after a provider
