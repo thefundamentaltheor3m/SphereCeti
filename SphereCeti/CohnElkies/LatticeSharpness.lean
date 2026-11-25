@@ -72,8 +72,9 @@ theorem fourier_apply_zero_eq_covolume_mul (h : C.IsSharpForLattice Λ) :
     𝓕 C.f 0 = ZLattice.covolume Λ * C.f 0 :=
   C.f.fourier_apply_zero_eq_covolume_mul Λ h.1 h.2
 
-/-- The density bound of a certificate sharp for a full lattice `Λ` is `vol B(0, r / 2) / covol(Λ)`,
-the density of the packing of balls of radius `r / 2` centered at the points of `Λ`. -/
+/-- The density bound of a certificate sharp for a full lattice `Λ` is `vol B(0, r / 2) / covol(Λ)`.
+When the nonzero vectors of `Λ` have norm at least `r`, this is the density of the packing of balls
+of radius `r / 2` centered at the points of `Λ`. -/
 theorem bound_eq (h : C.IsSharpForLattice Λ) :
     C.bound = volume (ball (0 : EuclideanSpace ℝ (Fin d)) (r / 2)) /
       ENNReal.ofReal (ZLattice.covolume Λ) := by
