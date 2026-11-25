@@ -31,12 +31,14 @@ DECISIVE = ("APPROVED", "CHANGES_REQUESTED", "DISMISSED")
 class Cached:
     """One comments read per PR for the whole listing; other reads pass through unchanged."""
 
-    def __init__(self, client):
-        self.client, self.cache = client, {}
+    def __init__(self, client, total=0):
+        self.client, self.cache, self.total = client, {}, total
 
     def comments(self, repository, pr):
         if (repository, pr) not in self.cache:
             self.cache[(repository, pr)] = self.client.comments(repository, pr)
+            from .feedback import current as progress
+            progress().counter("reading comments", len(self.cache), max(self.total, len(self.cache)))
         return self.cache[(repository, pr)]
 
     def __getattr__(self, name):
