@@ -7,6 +7,7 @@ Authors: SphereCeti contributors
 module
 
 public import Mathlib.Algebra.Module.ZLattice.Basic
+public import SphereCeti.Topology.MetricSpace.MetricSeparated
 
 /-!
 # Lattice-invariant separated sets meet finitely many cosets
@@ -25,38 +26,13 @@ so the packing has finitely many center orbits.
 
 ## Main statements
 
-* `Metric.finite_of_isBounded_of_pairwise_le_dist`: a bounded set in a proper metric space whose
-  distinct points are at distance at least `r > 0` is finite.
-* `ZLattice.finite_image_mk_of_pairwise_le_dist`: a lattice-invariant set with this separation
-  meets finitely many cosets of the lattice.
+* `ZLattice.finite_image_mk_of_pairwise_le_dist`: a lattice-invariant set whose distinct points are
+  at distance at least `r > 0` meets finitely many cosets of the lattice.
 -/
 
 public section
 
-open Bornology Metric Module
-
-/-- A bounded set in a proper metric space whose distinct points are at distance at least `r > 0`
-is finite. -/
-theorem Metric.finite_of_isBounded_of_pairwise_le_dist {α : Type*} [MetricSpace α] [ProperSpace α]
-    {S : Set α} (hS : IsBounded S) {r : ℝ} (hr : 0 < r) (hsep : S.Pairwise fun x y ↦ r ≤ dist x y) :
-    S.Finite := by
-  -- Finitely many balls of radius `r / 2` cover `S`, and each contains at most one point of `S`.
-  obtain ⟨t, htfin, hcover⟩ := Metric.totallyBounded_iff.mp
-    (hS.isCompact_closure.totallyBounded.subset subset_closure) (r / 2) (half_pos hr)
-  have hc (x : S) : ∃ y ∈ t, (x : α) ∈ ball y (r / 2) := by
-    simpa using hcover x.2
-  choose c hct hcx using hc
-  have : Finite t := htfin.to_subtype
-  refine Set.finite_coe_iff.mp (Finite.of_injective (fun x ↦ (⟨c x, hct x⟩ : t)) ?_)
-  intro x x' h
-  have hcc : c x = c x' := congrArg Subtype.val h
-  by_contra hne
-  have hxx' : (x : α) ≠ x' := fun h' ↦ hne (Subtype.ext h')
-  have hd := hsep x.2 x'.2 hxx'
-  have h1 := mem_ball.mp (hcx x)
-  have h2 := mem_ball.mp (hcx x')
-  rw [hcc] at h1
-  linarith [dist_triangle_right (x : α) x' (c x')]
+open Module
 
 namespace ZLattice
 
