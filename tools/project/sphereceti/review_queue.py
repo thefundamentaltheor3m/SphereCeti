@@ -7,6 +7,7 @@ reviewer gets first chance at a revised PR. Independently written; no TauCetiWor
 
 The queue reuses the worker's survey and planner and bare selection's readiness and "already
 reviewed" rules. One survey per listing; any failed GitHub lookup raises (exit 2), never a guess.
+PRs ready to merge (ready_to_merge.py) are listed first.
 """
 from __future__ import annotations
 
@@ -14,6 +15,7 @@ from datetime import datetime, timezone
 import json
 from pathlib import Path
 
+from .carry_over import ApiSource, carry, describe as carry_status
 from .local_review import ReviewError
 from .review_records import CONTEST, MARKER, RecordError, intact, parse_record
 from .review_claims import ClaimRefused, ClaimYielded, run_claimed
@@ -88,6 +90,8 @@ def queue(project, policy, prefs, *, api=None, client=None, now=None) -> dict:
     if client is None:
         from .review_post import GitHub
         client = GitHub()
+    from .ready_to_merge import HELD, Cached, held_reason, held_runs, ready_to_merge
+    client = Cached(client)  # one comments read per PR for every section
     snapshot = survey(project, None, api=api)
     planned = plan(snapshot, project, now=now or datetime.now(timezone.utc))
     actor, repository = snapshot["actor"], project.repository
@@ -98,12 +102,19 @@ def queue(project, policy, prefs, *, api=None, client=None, now=None) -> dict:
     by_number = {pr["number"]: pr for pr in snapshot["pull_requests"]}
     order += sorted(n for n in by_number if n not in order)
     sections = {name: [] for name in SECTIONS}
+    main_sha = [None]  # read once, only when a record on an older head needs a carry-over check
     done, follow_ups = [], []
+    from .stacks import StackGate
+    gate = StackGate(snapshot, project, policy, client, ready)
+    blocked = blocked_by_parent(gate, by_number, actor)
+    blocked_numbers = {item["pr"] for group in blocked for item in group["items"]}
 
     def skip(pr, code, reason):
         note = pr.get("review_note") if code != "awaiting_refresh" else None
+        held = held_reason(client, repository, pr) if code == "awaiting_ci" else None
         sections["not_ready"].append({"pr": pr["number"], "head": pr["head"], "code": code,
-                                      "reason": reason + (f" ({note})" if note else ""), "note": note})
+                                      "reason": (held or reason) + (f" ({note})" if note else ""), "note": note,
+                                      **({"held": True} if held else {})})
 
     for number in order:
         pr = by_number[number]
@@ -118,7 +129,19 @@ def queue(project, policy, prefs, *, api=None, client=None, now=None) -> dict:
             raise RecordError("unknown review records")
         mine = my_records(comments, repository, number, actor)
         latest = mine[-1] if mine else None
-        if latest and latest[1]["head"] == pr["head"]:
+        carried = None
+        if latest and latest[1]["head"] != pr["head"]:
+            # Only update-branch merges since your review, with the same change and no review input
+            # changed on main: your review is current (carry_over), not a revision to re-review.
+            try:
+                if main_sha[0] is None:
+                    main_sha[0] = client.call(f"repos/{repository}/commits/{project.default_branch}").get("sha")
+                result = carry(ApiSource(client, repository), latest[1]["head"], pr["head"], main_sha[0],
+                               [latest[1]["tooling_revision"]])
+            except (RecordError, AttributeError):
+                result = {"carried": False}  # Unknown main: treat the PR as revised (fail closed).
+            carried = carry_status(result) if result["carried"] else None
+        if latest and (latest[1]["head"] == pr["head"] or carried):
             rubrics = [r for r, v in latest[1]["verdicts"].items() if v in CHANGES]
             if rubrics:
                 verb = "blocked" if any(latest[1]["verdicts"][r] == "block" for r in rubrics) else "requested changes"
@@ -137,8 +160,9 @@ def queue(project, policy, prefs, *, api=None, client=None, now=None) -> dict:
                         contests=len(contested), reply_url=link(repository, number, newest)))
                 else:
                     sections["waiting_on_author"].append(entry(
-                        "waiting_on_author", pr, observed, f"you {verb} ({', '.join(rubrics)}); no new head",
-                        rubrics=rubrics, record_comment=latest[0]["id"]))
+                        "waiting_on_author", pr, observed, f"you {verb} ({', '.join(rubrics)}); " +
+                        (f"no new change; {carried}" if carried else "no new head"),
+                        rubrics=rubrics, record_comment=latest[0]["id"], carried=carried))
                 continue
         if number not in ready:
             skip(pr, *readiness(pr))
@@ -153,7 +177,9 @@ def queue(project, policy, prefs, *, api=None, client=None, now=None) -> dict:
                     follow_ups.append({"pr": number, "head": pr["head"],
                                        "reason": f"{sections['not_ready'][-1]['reason']}; " + "; ".join(parts)})
             continue
-        if latest and latest[1]["head"] != pr["head"]:
+        if number in blocked_numbers:
+            continue  # listed under "Blocked by a parent": review its stack root first
+        if latest and latest[1]["head"] != pr["head"] and not carried:
             old = latest[1]["head"]
             count, history = commits_since(client, repository, old, pr["head"])
             answered, contests_since = since(comments, latest[0]["id"], pr["author"])
@@ -176,9 +202,20 @@ def queue(project, policy, prefs, *, api=None, client=None, now=None) -> dict:
             continue
         scope = "ready" if pr["ci"] == pr.get("review_ci", pr["ci"]) else "ready (human-review scope)"
         sections["new"].append(entry("new", pr, observed, scope + "; no review by you"))
-    # You get first chance at PRs you reviewed before; oldest update first within each section.
-    for name in ("revised", "author_replied", "waiting_on_author"):
-        sections[name].sort(key=lambda e: (e["updated_at"], e["pr"]))
+    # You get first chance at PRs you reviewed before; within a section, stack roots that block the
+    # most descendants first, then the oldest update.
+    for name in ("revised", "author_replied", "new", "waiting_on_author"):
+        for e in sections[name]:
+            e["unblocks"] = gate.descendants(e["pr"])
+            # Ready to review, but a fork's workflow runs may still be held (CI never ran): say so.
+            pr = by_number[e["pr"]]
+            e["held_workflows"] = ([] if pr.get("head_repo") == repository else
+                                   held_runs(client, repository, pr["head"]))
+            if e["held_workflows"]:
+                e["reason"] += f"; CI held, {HELD} ({', '.join(e['held_workflows'])})"
+        if name != "new":
+            sections[name].sort(key=lambda e: (e["updated_at"], e["pr"]))
+        sections[name].sort(key=lambda e: -e["unblocks"])
     sections["not_ready"].sort(key=lambda item: -item["pr"])
     main = None
     if any(i["code"] == "awaiting_refresh" for i in sections["not_ready"]):
@@ -187,21 +224,58 @@ def queue(project, policy, prefs, *, api=None, client=None, now=None) -> dict:
         except (RecordError, KeyError, AttributeError):
             main = None
     return {"schema": SCHEMA, "repository": repository, "actor": actor, "observed_at": snapshot["observed_at"],
-            "order": "revised, then author replied, then new; oldest update first", "sections": sections, "done": done,
-            "follow_ups_not_ready": follow_ups,
+            "ready_to_merge": ready_to_merge(client, project, policy, snapshot),
+            "order": "ready to merge first; then revised, then author replied, then new; oldest update first",
+            "sections": sections, "done": done,
+            "follow_ups_not_ready": follow_ups, "blocked_by_parent": blocked,
             "main": main, "not_ready_summary": not_ready_summary(sections["not_ready"], main)
             if sections["not_ready"] else None}
 
 
+def blocked_by_parent(gate, by_number, actor):
+    """Stacked PRs whose ancestors are not review-satisfied, grouped by stack root."""
+    groups = {}
+    for number in sorted(by_number):
+        pr = by_number[number]
+        if pr["draft"]:
+            continue
+        waiting = gate.waiting(number)
+        if not waiting:
+            continue
+        blocker, reason = waiting
+        info = gate.info[number]
+        # A base branch no PR heads has no root PR: group those by the branch instead.
+        root = info["root"] if info["chain"] else f"branch {info['base_ref']}"
+        groups.setdefault(root, []).append({
+            "pr": number, "author": pr["author"], "title": pr["title"], "head": pr["head"],
+            "parent": gate.info[number]["parent"], "blocker": blocker, "reason": reason,
+            "yours": pr["author"].casefold() == actor.casefold()})
+    out = [{"root": root if isinstance(root, int) else None,
+            "branch": root[len("branch "):] if isinstance(root, str) else None,
+            "root_title": by_number[root]["title"] if root in by_number else None,
+            "unblocks": len(items), "items": items} for root, items in groups.items()]
+    return sorted(out, key=lambda g: (g["root"] is None, -g["unblocks"], g["root"] or 0, g["branch"] or ""))
+
+
 def render(report) -> str:
+    from .ready_to_merge import render as render_ready
     lines = [f"Review queue for {report['actor']} ({report['repository']}, observed {report['observed_at']})"]
+    lines += render_ready(report["ready_to_merge"])
     for name in ("revised", "author_replied", "new", "waiting_on_author"):
         items = report["sections"][name]
         lines.append(f"{TITLES[name]} ({len(items)}):" + ("" if items else " none"))
         for e in items:
             title = e["title"] if len(e["title"]) <= 60 else e["title"][:57] + "..."
-            lines.append(f"  #{e['pr']} {e['author']} \"{title}\" {e['head'][:7]}: {e['reason']}; "
+            unblocks = f"; unblocks {e['unblocks']} stacked" if e.get("unblocks") else ""
+            lines.append(f"  #{e['pr']} {e['author']} \"{title}\" {e['head'][:7]}: {e['reason']}{unblocks}; "
                          f"waiting {waiting(e['waiting_seconds'])}")
+    groups = report.get("blocked_by_parent") or []
+    count = sum(len(g["items"]) for g in groups)
+    lines.append(f"Blocked by a parent ({count}):" + ("" if groups else " none"))
+    for g in groups:
+        head = f"stack #{g['root']} (unblocks {g['unblocks']})" if g["root"] else f"base branch {g['branch']}"
+        lines.append(f"  {head}: " + "; ".join(
+            f"#{i['pr']}{' (yours)' if i['yours'] else ''} {i['reason']}" for i in g["items"]))
     if report["follow_ups_not_ready"]:
         lines.append("Your follow-ups, not ready yet: " + "; ".join(
             f"#{f['pr']} {f['reason']}" for f in report["follow_ups_not_ready"]))
@@ -213,8 +287,8 @@ def render(report) -> str:
 
 
 def add_parser(commands):
-    p = commands.add_parser("reviews", help="read-only: your review queue (revised, author replied, new, "
-                                            "waiting on the author)")
+    p = commands.add_parser("reviews", help="read-only: PRs ready to merge, then your review queue (revised, "
+                                            "author replied, new, waiting on the author)")
     p.add_argument("--json", action="store_true")
     p.add_argument("--operator-config", type=Path, help="preferences (default ~/.config/sphereceti/operator.toml)")
     return p
@@ -275,13 +349,15 @@ def outcome(result) -> str:
     return f"incomplete ({result.get('completion')})"
 
 
-def run_batch(args, project, policy, prefs, *, api=None, client=None, announce=None, run=None):
+def run_batch(args, project, policy, prefs, *, api=None, client=None, announce=None, run=None, prepare=None,
+              approval=None):
     """Review up to --limit distinct PRs from one queue section, one at a time.
 
     Before each item the queue is surveyed again and the review is bound to the head it selects.
     A finding ends only that PR's review; an execution failure stops the batch.
     """
     from .local_review import posting_note
+    from .review_approval import note as approval_note
     from .review_select import check_arguments
     from .review_summary import announcing, summarize
     check_arguments(args)
@@ -320,6 +396,9 @@ def run_batch(args, project, policy, prefs, *, api=None, client=None, announce=N
         item = pending[0]
         attempted.append(item["pr"])
         say(f"[{len(items) + 1}/{limit}] #{item['pr']} {item['author']} {item['head'][:7]}: {item['reason']}")
+        if prepare:  # first-run preferences, asked once, only when a review will really start
+            prefs, prepare = prepare(), None
+            budget = args.budget_usd if args.budget_usd is not None else prefs.budget_usd
         args.pr = item["pr"]
         if output and len(attempted) > 1:
             args.output = output.with_name(f"{output.name}-pr{item['pr']}")  # --output must be new
@@ -327,7 +406,8 @@ def run_batch(args, project, policy, prefs, *, api=None, client=None, announce=N
         try:
             # As bare review: the claim guard rechecks the head right before inference and binds it.
             result = run_claimed(args, project, prefs, expect=item, run=run,
-                                 wrap=lambda inner: announcing(prefs, announce, planned, inner=inner))
+                                 wrap=lambda inner: announcing(prefs, announce, planned, inner=inner),
+                                 approval=approval() if approval else None)
         except (ClaimRefused, ClaimYielded) as error:
             skipped.append({"pr": item["pr"], "head": item["head"], "reason": str(error).split(": ", 1)[-1]})
             say(f"  skipped #{item['pr']}: {skipped[-1]['reason']}")
@@ -342,23 +422,30 @@ def run_batch(args, project, policy, prefs, *, api=None, client=None, announce=N
                 items.append({"pr": item["pr"], "head": item["head"], "section": item["section"],
                               "outcome": "head moved during the review; new revision left for a later run",
                               "output": None, "completion": "moved", "posting": "Not posted: the PR moved.",
-                              "posted": None, "plan": planned or None, "summary": None})
+                              "posted": None, "plan": planned or None, "summary": None,
+                              "approval": None})
                 say(f"  #{item['pr']}: head moved during the review; left for a later run")
                 continue
             stopped = f"#{item['pr']}: publication unconfirmed ({error})"
             items.append({"pr": item["pr"], "head": item["head"], "section": item["section"],
                           "outcome": "publication unconfirmed", "output": None, "completion": "error",
                           "posting": f"Not posted: {error}", "posted": None, "plan": planned or None,
-                          "summary": None})
+                          "summary": None, "approval": None})
             untouched = [e["pr"] for e in pending[1:]]
             break
         posting = posting_note(args, result)
         summary = summarize(args, result, posting=posting)
         say(summary["line"])
         say("Next: " + summary["next_action"])
+        approved = result.get("approval") or {}
+        if approved:
+            say(approval_note(approved))
         items.append({"pr": item["pr"], "head": result["head"], "section": item["section"],
-                      "outcome": outcome(result), "output": result["output"], "completion": result["completion"],
-                      "posting": posting, "posted": summary["posted"], "plan": planned or None, "summary": summary})
+                      "outcome": outcome(result) + ("; approval submitted" if approved.get("state") == "submitted"
+                                                    else ""),
+                      "output": result.get("output"), "completion": result["completion"], "posting": posting,
+                      "posted": summary["posted"], "plan": planned or None, "summary": summary,
+                      "approval": approved or None})
         stopped = stop_reason(result, summary)
         if stopped:
             untouched = [e["pr"] for e in pending[1:]]
