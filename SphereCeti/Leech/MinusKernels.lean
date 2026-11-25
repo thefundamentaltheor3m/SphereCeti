@@ -22,7 +22,8 @@ discriminant `Δ`, Cohn, Kumar, Miller, Radchenko and Viazovska build the functi
 * `ψ_S = -(7 H₂⁵ H₄² + 7 H₂⁶ H₄ + 2 H₂⁷) / Δ²`,
 * `ψ_T = (7 H₃⁵ H₂² - 7 H₃⁶ H₂ + 2 H₃⁷) / Δ²`,
 
-and in weight `-10` they satisfy `ψ_T ∣ T = ψ_I`, `ψ_S ∣ S = ψ_I` and `ψ_S ∣ (S T) = ψ_T`.
+and in weight `-10` they satisfy `ψ_T ∣ T = ψ_I`, `ψ_S ∣ S = ψ_I` and `ψ_S ∣ (S T) = ψ_T`. All three
+are holomorphic on the upper half-plane.
 
 The `-1` eigencomponent of the Leech magic function is a six-piece contour integral of four kernels
 built from these functions, extended by `0` to `ℂ`: `ψ_T(z)` on the left legs and on the right
@@ -47,6 +48,9 @@ kernels satisfy the signed transformation law under `z ↦ -1/z` in dimension `2
 * `SphereCeti.Leech.psiS_eq`, `SphereCeti.Leech.psiT_eq`: the explicit formulas.
 * `SphereCeti.Leech.psiT_slash_T`, `SphereCeti.Leech.psiS_slash_S`,
   `SphereCeti.Leech.psiS_slash_ST`: the slash relations.
+* `SphereCeti.Leech.mdifferentiable_psiI`, `SphereCeti.Leech.differentiableOn_psiIExt`,
+  `SphereCeti.Leech.continuousOn_psiIExt` and their siblings for `ψ_S` and `ψ_T`: holomorphy and
+  continuity on the upper half-plane.
 * `SphereCeti.Leech.minusKernel_law_centralRay`: the signed transformation law of the central and
   ray kernels.
 
@@ -62,7 +66,7 @@ public section
 
 open Complex ModularForm ModularGroup TauCeti.ModularForm
 open UpperHalfPlane hiding I
-open scoped MatrixGroups
+open scoped MatrixGroups Manifold
 
 namespace SphereCeti.Leech
 
@@ -210,6 +214,54 @@ theorem psiTExt_of_im_pos {z : ℂ} (hz : 0 < z.im) : psiTExt z = psiT ⟨z, hz�
 @[simp]
 theorem psiTExt_of_im_nonpos {z : ℂ} (hz : z.im ≤ 0) : psiTExt z = 0 := by
   simp [psiTExt, hz.not_gt]
+
+/-! ### Holomorphy -/
+
+/-- `ψ_I` is holomorphic on the upper half-plane. -/
+theorem mdifferentiable_psiI : MDiff psiI := by
+  rw [psiI_def]
+  refine MDifferentiable.div ?_ ((ModularFormClass.holo CuspForm.discriminant).pow 2)
+    fun z ↦ pow_ne_zero 2 (discriminant_ne_zero z)
+  exact ((((mdifferentiable_H₄.pow 5).mul (mdifferentiable_H₂.pow 2)).const_smul 7).add
+    (((mdifferentiable_H₄.pow 6).mul mdifferentiable_H₂).const_smul 7)).add
+      ((mdifferentiable_H₄.pow 7).const_smul 2)
+
+/-- `ψ_S` is holomorphic on the upper half-plane. -/
+theorem mdifferentiable_psiS : MDiff psiS := by
+  rw [psiS_def, ModularForm.SL_slash]
+  exact mdifferentiable_psiI.slash _ _
+
+/-- `ψ_T` is holomorphic on the upper half-plane. -/
+theorem mdifferentiable_psiT : MDiff psiT := by
+  rw [psiT_def, ModularForm.SL_slash]
+  exact mdifferentiable_psiI.slash _ _
+
+/-- `ψ_I` is holomorphic on the upper half-plane, as a function on `ℂ`. -/
+theorem differentiableOn_psiIExt : DifferentiableOn ℂ psiIExt {z : ℂ | 0 < z.im} :=
+  (UpperHalfPlane.mdifferentiable_iff.mp mdifferentiable_psiI).congr fun z (hz : 0 < z.im) ↦ by
+    rw [psiIExt_of_im_pos hz, Function.comp_apply, ofComplex_apply_of_im_pos hz]
+
+/-- `ψ_S` is holomorphic on the upper half-plane, as a function on `ℂ`. -/
+theorem differentiableOn_psiSExt : DifferentiableOn ℂ psiSExt {z : ℂ | 0 < z.im} :=
+  (UpperHalfPlane.mdifferentiable_iff.mp mdifferentiable_psiS).congr fun z (hz : 0 < z.im) ↦ by
+    rw [psiSExt_of_im_pos hz, Function.comp_apply, ofComplex_apply_of_im_pos hz]
+
+/-- `ψ_T` is holomorphic on the upper half-plane, as a function on `ℂ`. -/
+theorem differentiableOn_psiTExt : DifferentiableOn ℂ psiTExt {z : ℂ | 0 < z.im} :=
+  (UpperHalfPlane.mdifferentiable_iff.mp mdifferentiable_psiT).congr fun z (hz : 0 < z.im) ↦ by
+    rw [psiTExt_of_im_pos hz, Function.comp_apply, ofComplex_apply_of_im_pos hz]
+
+/-- `ψ_I` is continuous on the upper half-plane, as a function on `ℂ`. -/
+theorem continuousOn_psiIExt : ContinuousOn psiIExt {z : ℂ | 0 < z.im} :=
+  differentiableOn_psiIExt.continuousOn
+
+/-- `ψ_S` is continuous on the upper half-plane, as a function on `ℂ`. -/
+theorem continuousOn_psiSExt : ContinuousOn psiSExt {z : ℂ | 0 < z.im} :=
+  differentiableOn_psiSExt.continuousOn
+
+/-- `ψ_T` is continuous on the upper half-plane, as a function on `ℂ`. -/
+theorem continuousOn_psiTExt : ContinuousOn psiTExt {z : ℂ | 0 < z.im} :=
+  differentiableOn_psiTExt.continuousOn
 
 /-! ### The kernels -/
 
