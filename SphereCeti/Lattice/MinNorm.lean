@@ -14,12 +14,14 @@ public import TauCeti.LinearAlgebra.IntegralLattice.PosDef.Minimum
 
 A lattice `Λ` has minimum squared norm at least `a` when every nonzero vector of `Λ` has squared
 norm at least `a`, and minimum squared norm `a` when moreover some nonzero vector attains `a`.  For
-a sphere packing with centers at the points of `Λ`, the minimum squared norm is the square of the
-least distance between two centers.
+a sphere packing with centers at the points of a nonzero lattice `Λ`, the minimum squared norm is
+the square of the least distance between two distinct centers.
 
-For a presented lattice in `ℝ^d`, the minimum squared norm is TauCeti's minimum
-`TauCeti.IntegralLattice.minimum` of the lattice in Gram coordinates: the coordinate
-identification `IntegralPresentation.carrierEquiv` carries squared norms to the rational norm.
+For a presented lattice in `ℝ^d`, TauCeti's minimum `TauCeti.IntegralLattice.minimum` of the
+lattice in Gram coordinates bounds the squared norms of the nonzero vectors from below.  When the
+lattice has a nonzero vector, that is when `d ≥ 1`, it is the minimum squared norm.  The
+coordinate identification `IntegralPresentation.carrierEquiv` carries squared norms to the rational
+norm.
 
 ## Main definitions
 
