@@ -118,6 +118,12 @@ if mode == "error":
     print(json.dumps({"type": "result", "is_error": True, "result": "not logged in", "total_cost_usd": 0}))
     sys.exit(1)
 verdict = {"verdict": mode, "summary": "Fake provider result", "findings": []}
+carried = re.search(r"<<<(SPHERECETI-CONTEST-[0-9a-f]+)\n(.*?)\n\1>>>", prompt, re.S)
+if carried and not (root / "contest-silent").exists():  # answer each carried author contest
+    verdict["contest_responses"] = [
+        {"comment": json.loads(line)["comment"], "stands": (root / "contest-stands").exists(),
+         "reason": "Fixture: the reply was weighed against the current code."}
+        for line in carried.group(2).splitlines()]
 print(json.dumps({"type": "result", "is_error": False, "result": marker + "\n" + json.dumps(verdict),
                   "total_cost_usd": 0.01, "usage": {"input_tokens": 100, "output_tokens": 10}}))
 ''')

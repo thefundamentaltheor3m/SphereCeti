@@ -18,10 +18,6 @@ Schwartz functions, where the Fourier transform is an involution, they are compl
 projections onto the Fourier eigenspaces with eigenvalues `+1` and `-1`. In particular they
 preserve radiality and give the unique such decomposition of a radial Schwartz function.
 
-This implements the Fourier eigenspace operations of README Layer 7 and MIGRATION J1, using
-the Fourier invariance and involution results of PR #121. The operators are defined on the
-existing Schwartz space, so no second radial-function type or Fourier transform is introduced.
-
 ## Main statements
 
 * `SchwartzMap.fourierPlusCLM_add_fourierMinusCLM`: the two parts sum to the original function.
@@ -40,11 +36,7 @@ The formulas are the Fourier eigenspace operations described by `selfAdjointPart
 `skewAdjointPart_eq` in `thefundamentaltheor3m/Sphere-Packing-Lean`, commit
 `f8733f4c4ecb6bd6cd4d093746b30a22f675fa00`, file
 `SpherePacking/ForMathlib/RadialSchwartz/Basic.lean` (Sidharth Hariharan and Seewoo Lee,
-Apache-2.0). The proofs here apply the existing Schwartz Fourier linear map directly, without
-introducing the production file's Fourier-as-star instances. The underlying Fourier transform
-is Mathlib's, with the normalization fixed by SphereCeti's CONVENTIONS §10.
-
-The intended upstream home is Mathlib's Schwartz Fourier API (UPSTREAM A7).
+Apache-2.0). The operators use Mathlib's Fourier transform and its normalization.
 -/
 
 public section
