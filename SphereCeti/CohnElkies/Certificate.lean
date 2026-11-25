@@ -7,8 +7,8 @@ Authors: SphereCeti contributors
 module
 
 public import Mathlib.Analysis.InnerProductSpace.PiL2
+public import SphereCeti.Analysis.Distribution.SchwartzSpace.Dilation
 public import SphereCeti.Analysis.Distribution.SchwartzSpace.FourierPositivity
-public import TauCeti.Analysis.Fourier.ChangeOfVariables
 
 /-!
 # Cohn–Elkies certificates
@@ -149,76 +149,70 @@ theorem bound_compLinearIsometryEquiv (C : Certificate d r)
   rw [bound_def, bound_def, compLinearIsometryEquiv_f_apply,
     fourier_compLinearIsometryEquiv_f_apply, map_zero]
 
-/-- The dilation `x ↦ f (c⁻¹ • x)` of a Schwartz function by `c > 0`. -/
-private noncomputable def dilateFun (f : 𝓢(EuclideanSpace ℝ (Fin d), ℂ)) {c : ℝ} (hc : 0 < c) :
-    𝓢(EuclideanSpace ℝ (Fin d), ℂ) :=
-  SchwartzMap.compCLMOfContinuousLinearEquiv ℂ
-    (LinearEquiv.smulOfNeZero ℝ (EuclideanSpace ℝ (Fin d)) c⁻¹
-      (inv_ne_zero hc.ne')).toContinuousLinearEquiv f
-
-private theorem dilateFun_apply (f : 𝓢(EuclideanSpace ℝ (Fin d), ℂ)) {c : ℝ} (hc : 0 < c)
-    (x : EuclideanSpace ℝ (Fin d)) : dilateFun f hc x = f (c⁻¹ • x) :=
-  (rfl)
-
-/-- The Fourier transform of the dilation `x ↦ f (c⁻¹ • x)` is `y ↦ c ^ d • 𝓕 f (c • y)`. -/
-private theorem fourier_dilateFun (f : 𝓢(EuclideanSpace ℝ (Fin d), ℂ)) {c : ℝ} (hc : 0 < c)
-    (y : EuclideanSpace ℝ (Fin d)) : 𝓕 (dilateFun f hc) y = (c ^ d : ℝ) • 𝓕 f (c • y) := by
-  have h : ((dilateFun f hc : 𝓢(EuclideanSpace ℝ (Fin d), ℂ)) : EuclideanSpace ℝ (Fin d) → ℂ) =
-      fun x ↦ f (c⁻¹ • x) :=
-    funext (dilateFun_apply f hc)
-  rw [SchwartzMap.fourier_coe, h, TauCeti.fourier_comp_smul, finrank_euclideanSpace_fin, inv_inv,
-    inv_pow, abs_inv, inv_inv, abs_of_pos (pow_pos hc d), SchwartzMap.fourier_coe]
-
 /-- The dilation of a certificate by `c > 0`: the function `x ↦ f (c⁻¹ • x)`, a certificate of
 radius `c * r`. -/
 noncomputable def dilate (C : Certificate d r) {c : ℝ} (hc : 0 < c) : Certificate d (c * r) where
   radius_pos := mul_pos hc C.radius_pos
-  f := dilateFun C.f hc
-  real_f x := C.real_f (c⁻¹ • x)
+  f := SchwartzMap.dilate hc.ne' C.f
+  real_f x := by
+    rw [SchwartzMap.dilate_apply]
+    exact C.real_f (c⁻¹ • x)
   real_fourier x := by
-    rw [fourier_dilateFun, Complex.smul_im, C.real_fourier, smul_zero]
+    rw [SchwartzMap.fourier_dilate_apply, Complex.smul_im, C.real_fourier, smul_zero]
   nonpos_of_radius_le_norm x hx := by
+    rw [SchwartzMap.dilate_apply]
     refine C.nonpos_of_radius_le_norm (c⁻¹ • x) ?_
     rw [norm_smul, Real.norm_of_nonneg (inv_nonneg.mpr hc.le), le_inv_mul_iff₀ hc]
     exact hx
   fourier_nonneg x := by
-    rw [fourier_dilateFun, Complex.smul_re]
-    exact mul_nonneg (pow_nonneg hc.le d) (C.fourier_nonneg (c • x))
+    rw [SchwartzMap.fourier_dilate_apply, Complex.smul_re, smul_eq_mul]
+    exact mul_nonneg (by positivity) (C.fourier_nonneg (c • x))
   fourier_zero_pos := by
-    rw [fourier_dilateFun, Complex.smul_re, smul_zero]
-    exact mul_pos (pow_pos hc d) C.fourier_zero_pos
+    rw [SchwartzMap.fourier_dilate_apply, Complex.smul_re, smul_zero, smul_eq_mul]
+    exact mul_pos (by positivity) C.fourier_zero_pos
+
+/-- The function of the dilated certificate is the dilation of `f`. -/
+theorem dilate_f (C : Certificate d r) {c : ℝ} (hc : 0 < c) :
+    (C.dilate hc).f = SchwartzMap.dilate hc.ne' C.f :=
+  (rfl)
 
 /-- The dilated certificate is `x ↦ f (c⁻¹ • x)`. -/
 @[simp]
 theorem dilate_f_apply (C : Certificate d r) {c : ℝ} (hc : 0 < c) (x : EuclideanSpace ℝ (Fin d)) :
-    (C.dilate hc).f x = C.f (c⁻¹ • x) :=
-  (rfl)
-
-/-- The function of the dilated certificate is the dilation of `f`. -/
-private theorem dilate_f (C : Certificate d r) {c : ℝ} (hc : 0 < c) :
-    (C.dilate hc).f = dilateFun C.f hc :=
-  (rfl)
+    (C.dilate hc).f x = C.f (c⁻¹ • x) := by
+  rw [dilate_f, SchwartzMap.dilate_apply]
 
 /-- The Fourier transform of the dilated certificate is `y ↦ c ^ d • f̂ (c • y)`. -/
 @[simp]
 theorem fourier_dilate_f_apply (C : Certificate d r) {c : ℝ} (hc : 0 < c)
     (y : EuclideanSpace ℝ (Fin d)) : 𝓕 (C.dilate hc).f y = (c : ℂ) ^ d * 𝓕 C.f (c • y) := by
-  rw [dilate_f, fourier_dilateFun, Complex.real_smul, Complex.ofReal_pow]
+  rw [dilate_f, SchwartzMap.fourier_dilate_apply]
+  simp [abs_of_pos hc]
 
 /-- Dilation does not change the density bound. -/
 @[simp]
 theorem bound_dilate (C : Certificate d r) {c : ℝ} (hc : 0 < c) :
     (C.dilate hc).bound = C.bound := by
+  have ha := C.f_zero_pos
+  have hb := C.fourier_zero_pos
+  -- `f(0)` is unchanged, while `f̂(0)` and the volume of the ball both gain the factor `c ^ d`.
+  have hF : (𝓕 (C.dilate hc).f 0).re = c ^ d * (𝓕 C.f 0).re := by
+    rw [fourier_dilate_f_apply, smul_zero, ← Complex.ofReal_pow, Complex.re_ofReal_mul]
   have hball : volume (ball (0 : EuclideanSpace ℝ (Fin d)) (c * r / 2)) =
       ENNReal.ofReal (c ^ d) * volume (ball (0 : EuclideanSpace ℝ (Fin d)) (r / 2)) := by
     simpa only [mul_div_assoc, finrank_euclideanSpace_fin] using
       Measure.addHaar_ball_mul_of_pos volume (0 : EuclideanSpace ℝ (Fin d)) hc (r / 2)
-  rw [bound_def, bound_def, dilate_f_apply, fourier_dilate_f_apply, smul_zero, smul_zero,
-    ← Complex.ofReal_pow, Complex.re_ofReal_mul, hball, ← mul_assoc,
-    ← ENNReal.ofReal_mul (div_nonneg C.f_zero_pos.le (mul_pos (pow_pos hc d)
-      C.fourier_zero_pos).le)]
-  congr 2
-  field_simp
+  -- The factors `c ^ d` cancel in `ℝ`, and the cancellation lifts through `ENNReal.ofReal`.
+  have hcancel : (C.f 0).re / (c ^ d * (𝓕 C.f 0).re) * c ^ d = (C.f 0).re / (𝓕 C.f 0).re := by
+    field_simp
+  have hscalar : ENNReal.ofReal ((C.f 0).re / (c ^ d * (𝓕 C.f 0).re)) * ENNReal.ofReal (c ^ d) =
+      ENNReal.ofReal ((C.f 0).re / (𝓕 C.f 0).re) := by
+    rw [← ENNReal.ofReal_mul (by positivity), hcancel]
+  calc (C.dilate hc).bound
+      = ENNReal.ofReal ((C.f 0).re / (c ^ d * (𝓕 C.f 0).re)) *
+          (ENNReal.ofReal (c ^ d) * volume (ball (0 : EuclideanSpace ℝ (Fin d)) (r / 2))) := by
+        rw [bound_def, dilate_f_apply, smul_zero, hF, hball]
+    _ = C.bound := by rw [← mul_assoc, hscalar, bound_def]
 
 /-! ### Normalization -/
 
