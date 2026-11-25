@@ -171,7 +171,7 @@ class FastQueueTest(unittest.TestCase):
                 self.assertEqual(rendered.split('\n', 1)[1], text.split('\n', 1)[1])
                 if bulk:
                     self.assertFalse([c for c in calls if c.startswith('comments')])
-                    self.assertEqual(calls.count('graphql'), 1)
+                    self.assertEqual(calls.count('graphql'), 2)  # fields and comments, side by side
         _, _, warm = self.listing(world(), bulk=True, concurrent=True, cache=True)
         self.assertEqual([c for c in warm if c.startswith('scope')], ['scope commits/main'])  # main: fresh;
         self.assertNotIn('compare', warm)  # the scope verdict and the exact-commit compare: cached
@@ -225,7 +225,7 @@ class FastQueueTest(unittest.TestCase):
         report, _, calls = self.listing(hub, bulk=True, concurrent=True, cache=False, limit=4, page=3)
         self.assertEqual(report, baseline)
         self.assertEqual([c for c in calls if c.startswith('comments')], ['comments 3'])
-        self.assertEqual(calls.count('graphql'), 4)  # ten PRs, three per page
+        self.assertEqual(calls.count('graphql'), 8)  # ten PRs, three per page, two queries
 
     def test_failed_reads_fail_closed_in_parallel(self):
         hub = world()
@@ -332,6 +332,33 @@ class CarryHistoryTest(unittest.TestCase):
         self.assertGreater(len(one_by_one), 30)
         self.assertLessEqual(len(listed), 3)
         self.assertEqual(none, [])  # warm: every commit fact comes from the queue cache
+
+
+class SharedReadTest(unittest.TestCase):
+    def test_main_and_exact_compares_are_read_once_per_survey_even_in_parallel(self):
+        from concurrent.futures import ThreadPoolExecutor
+        import time as clock
+        count = {'n': 0}
+        lock = threading.Lock()
+
+        def fake(command, **kwargs):
+            with lock:
+                count['n'] += 1
+            clock.sleep(0.05)
+            return subprocess.CompletedProcess(command, 0, '{"sha": "%s"}' % ('b' * 40), '')
+        api = GitHub()
+        args = ['api', '--hostname', 'github.com', '--method', 'GET', f'repos/{REPO}/commits/main']
+        with patch('subprocess.run', side_effect=fake):
+            with ThreadPoolExecutor(8) as pool:
+                values = list(pool.map(lambda _: api.read(args), range(16)))
+            compare = args[:-1] + [f'repos/{REPO}/compare/{"a" * 40}...{"b" * 40}']
+            api.read(compare)
+            api.read(compare)
+            api.read(args[:-1] + [f'repos/{REPO}/commits/{"a" * 40}/statuses?per_page=100'])
+            api.read(args[:-1] + [f'repos/{REPO}/commits/{"a" * 40}/statuses?per_page=100'])
+        self.assertEqual(values, [{'sha': 'b' * 40}] * 16)
+        self.assertEqual(count['n'], 1 + 1 + 2)  # statuses are never shared
+        self.assertEqual(GitHub().memo, {})  # a new survey reads afresh
 
 
 class RateLimitTest(unittest.TestCase):

@@ -60,6 +60,13 @@ class Cached:
 
     def call(self, endpoint, **kwargs):
         kind = immutable(endpoint) if not kwargs.get("payload") and not kwargs.get("method") else None
+        if kind == "main":  # current main: read once per listing, however many PRs ask at once
+            with self.lock:
+                gate = self.memo.setdefault(("main-lock", endpoint), threading.Lock())
+            with gate:
+                if ("main", endpoint) not in self.memo:
+                    self.memo[("main", endpoint)] = self.client.call(endpoint, **kwargs)
+                return self.memo[("main", endpoint)]
         if kind is None:
             return self.client.call(endpoint, **kwargs)
         key = (kind, endpoint)
@@ -123,6 +130,8 @@ def immutable(endpoint):
         return "compare"
     if path.startswith("pulls?state=closed&head="):
         return "merged"
+    if re.fullmatch(r"commits/[^/?]+", path) and not re.fullmatch(rf"commits/{SHA}", path):
+        return "main"  # a branch's current commit: this listing only, never stored
     return None
 
 

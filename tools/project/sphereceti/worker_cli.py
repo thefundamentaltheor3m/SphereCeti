@@ -2,11 +2,14 @@
 """Read-only GitHub observations and the single-roadmap worker planning front door."""
 from __future__ import annotations
 
+import copy
 from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
+import threading
 import time
 
 from .local_review import ATTEMPT_TIMEOUT
@@ -39,6 +42,8 @@ def read_json(path: Path):
 
 
 SECONDARY_LIMIT = ("secondary rate limit", "abuse detection", "HTTP 429")
+# Reads shared by every PR of one survey: current main, and compares of two exact commits.
+SHARED = re.compile(r"^repos/[^/]+/[^/]+/(commits/[^/?]+|compare/[0-9a-f]{40}\.\.\.[0-9a-f]{40})$")
 BACKOFF = (5, 15, 30)   # seconds between retries of a read refused by a secondary rate limit
 
 
@@ -78,11 +83,39 @@ class GitHub:
         self.deadline = time.monotonic() + 60
         self.queue_comments = {}
         self.scope_cache = None
+        self.memo, self.flights, self.memo_lock = {}, {}, threading.Lock()
+
+    def read(self, args: list[str], limit: int = 2_000_000):
+        """One survey reads current main once, and each exact-commit compare once, however many
+        PRs (and threads) ask: the first caller reads, concurrent callers wait for its answer."""
+        endpoint = args[-1] if args[:1] == ["api"] else ""
+        if not SHARED.search(endpoint):
+            return self.fetch(args, limit)
+        with self.memo_lock:
+            if endpoint in self.memo:
+                return copy.deepcopy(self.memo[endpoint])
+            flight = self.flights.get(endpoint)
+            leader = flight is None
+            if leader:
+                flight = self.flights[endpoint] = threading.Event()
+        if not leader:
+            flight.wait()
+            with self.memo_lock:
+                if endpoint in self.memo:
+                    return copy.deepcopy(self.memo[endpoint])
+            return self.fetch(args, limit)  # the leader's read failed: fail (or succeed) on our own
+        try:
+            value = self.fetch(args, limit)
+            with self.memo_lock:
+                self.memo[endpoint] = value
+            return copy.deepcopy(value)
+        finally:
+            flight.set()
 
     def allow_for(self, count: int):
         self.deadline = max(self.deadline, time.monotonic() + 60 + 3 * min(count, MAX_PRS))
 
-    def read(self, args: list[str], limit: int = 2_000_000):
+    def fetch(self, args: list[str], limit: int = 2_000_000):
         env = os.environ.copy()
         env["GH_HOST"] = "github.com"
         env["GH_PROMPT_DISABLED"] = "1"

@@ -15,17 +15,10 @@ from __future__ import annotations
 
 from .worker import MAX_PRS, WorkerError, require
 
-PAGE = 20          # PRs per GraphQL page; comment bodies are large
+PAGE = 50          # PRs per GraphQL page (two pages for today's queue); comment bodies are large
 COMMENTS = 100     # comments per PR in the bulk read; more are read through REST
 
-QUERY = """
-query($owner: String!, $name: String!, $cursor: String) {
-  viewer { login }
-  repository(owner: $owner, name: $name) {
-    pullRequests(states: OPEN, first: %(page)d, after: $cursor, orderBy: {field: CREATED_AT, direction: DESC}) {
-      totalCount
-      pageInfo { hasNextPage endCursor }
-      nodes {
+FIELDS = """
         number title updatedAt state isDraft mergeable
         headRefOid baseRefOid baseRefName headRefName
         author { __typename login ... on User { id databaseId name } ... on Bot { id databaseId } }
@@ -35,19 +28,37 @@ query($owner: String!, $name: String!, $cursor: String) {
           ... on StatusContext { context state targetUrl createdAt }
           ... on CheckRun { name status conclusion startedAt completedAt detailsUrl
                             checkSuite { workflowRun { workflow { name } } } }
-        } } } } } }
-        comments(first: %(comments)d) {
+        } } } } } }"""
+COMMENT_FIELDS = """
+        number
+        comments(first: %d) {
           totalCount
           nodes {
             databaseId body createdAt updatedAt url authorAssociation
             author { __typename login ... on User { databaseId } ... on Bot { databaseId } }
           }
-        }
+        }""" % COMMENTS
+
+
+def query(fields):
+    return """
+query($owner: String!, $name: String!, $cursor: String) {
+  viewer { login }
+  repository(owner: $owner, name: $name) {
+    pullRequests(states: OPEN, first: %d, after: $cursor, orderBy: {field: CREATED_AT, direction: DESC}) {
+      totalCount
+      pageInfo { hasNextPage endCursor }
+      nodes { %s
       }
     }
   }
 }
-""" % {"page": PAGE, "comments": COMMENTS}
+""" % (PAGE, fields)
+
+
+# GitHub computes mergeability and check rollups slowly; comments come fast. Two queries, read
+# side by side, take about as long as the slower one alone.
+QUERIES = (query(FIELDS), query(COMMENT_FIELDS))
 
 
 ZERO_TIME = "0001-01-01T00:00:00Z"  # gh prints an unset time this way (Go's zero time)
@@ -107,12 +118,12 @@ def survey_fields(pr):
             "baseRefName": pr["baseRefName"], "headRefName": pr["headRefName"]}
 
 
-def fetch(api, repository):
-    """(actor login, raw PRs in survey shape, {number: comments or None when incomplete})."""
+def listing(api, repository, text):
+    """(actor, PR nodes, total) from every page of one query; a queue that moves between pages raises."""
     owner, name = repository.split("/")
-    cursor, raw, comments, actor, total = None, [], {}, None, None
+    cursor, nodes, seen, actor, total = None, [], set(), None, None
     while True:
-        args = ["api", "graphql", "--hostname", "github.com", "-f", "query=" + QUERY,
+        args = ["api", "graphql", "--hostname", "github.com", "-f", "query=" + text,
                 "-F", f"owner={owner}", "-F", f"name={name}"]
         if cursor:
             args += ["-F", f"cursor={cursor}"]
@@ -129,20 +140,34 @@ def fetch(api, repository):
         total = prs["totalCount"]
         for pr in prs["nodes"]:
             require(isinstance(pr, dict) and type(pr.get("number")) is int, "incomplete PR observation")
-            require(pr["number"] not in comments, "the open queue changed during the survey; rerun")
-            raw.append(survey_fields(pr))
-            listed = pr.get("comments") or {}
-            nodes = listed.get("nodes")
-            complete = (isinstance(nodes, list) and type(listed.get("totalCount")) is int
-                        and listed["totalCount"] == len(nodes)
-                        and all(isinstance(n, dict) and type(n.get("databaseId")) is int for n in nodes))
-            comments[pr["number"]] = (sorted((comment(n, repository, pr["number"]) for n in nodes),
-                                             key=lambda c: c["id"]) if complete else None)
+            require(pr["number"] not in seen, "the open queue changed during the survey; rerun")
+            seen.add(pr["number"])
+            nodes.append(pr)
         info = prs.get("pageInfo") or {}
         if not info.get("hasNextPage"):
             break
         cursor = info.get("endCursor")
         require(isinstance(cursor, str) and cursor, "incomplete open-PR listing; queue is unknown")
-    require(len(raw) == total, "the open queue changed during the survey; rerun")
+    require(len(nodes) == total, "the open queue changed during the survey; rerun")
     require(isinstance(actor, str) and actor, "missing authenticated actor")
+    return actor, nodes, total
+
+
+def fetch(api, repository):
+    """(actor login, raw PRs in survey shape, {number: comments or None when incomplete})."""
+    from .pool import concurrent, ordered
+    (actor, prs, _), (_, listed, _) = ordered(lambda text: listing(api, repository, text), QUERIES,
+                                              parallel=concurrent(api))
+    require([p["number"] for p in prs] == [p["number"] for p in listed],
+            "the open queue changed during the survey; rerun")
+    raw = [survey_fields(pr) for pr in prs]
+    comments = {}
+    for pr in listed:
+        found = pr.get("comments") or {}
+        nodes = found.get("nodes")
+        complete = (isinstance(nodes, list) and type(found.get("totalCount")) is int
+                    and found["totalCount"] == len(nodes)
+                    and all(isinstance(n, dict) and type(n.get("databaseId")) is int for n in nodes))
+        comments[pr["number"]] = (sorted((comment(n, repository, pr["number"]) for n in nodes),
+                                         key=lambda c: c["id"]) if complete else None)
     return actor, raw, comments
