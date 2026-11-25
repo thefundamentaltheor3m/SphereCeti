@@ -6,9 +6,9 @@ Authors: SphereCeti contributors
 
 module
 
-public import Mathlib.Analysis.Complex.UpperHalfPlane.FunctionsBoundedAtInfty
 public import Mathlib.MeasureTheory.Integral.Asymptotics
 public import Mathlib.MeasureTheory.Integral.ExpDecay
+public import TauCeti.Analysis.Complex.UpperHalfPlane.ResToImagAxis
 
 /-!
 # Integrability along the imaginary axis
@@ -43,9 +43,8 @@ theorem integrableOn_mul_I_mul_rpow_Ioi_of_isBigO {F : ℂ → ℂ} {a c : ℝ} 
   have him (t : ℝ) : ((t : ℂ) * Complex.I).im = t := by simp
   have hcoe {t : ℝ} (ht : 0 < t) : (ofComplex ((t : ℂ) * Complex.I) : ℂ) = t * Complex.I := by
     rw [ofComplex_apply_of_im_pos (by rwa [him])]
-  -- Along the imaginary axis, `ofComplex (t I)` tends to `i∞` and has imaginary part `t`.
   have htend : Tendsto (fun t : ℝ ↦ ofComplex ((t : ℂ) * Complex.I)) atTop atImInfty :=
-    tendsto_comap_im_ofComplex.comp (tendsto_comap_iff.mpr (tendsto_id.congr fun t ↦ (him t).symm))
+    tendsto_ofComplex_I_mul_atTop_atImInfty.congr fun t ↦ by rw [mul_comm]
   have hO' : (fun t : ℝ ↦ F (t * Complex.I)) =O[atTop] fun t ↦ Real.exp (-c * t) := by
     refine (hO.comp_tendsto htend).congr' ?_ ?_ <;>
       filter_upwards [eventually_gt_atTop 0] with t ht
