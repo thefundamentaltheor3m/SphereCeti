@@ -20,7 +20,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools/project'))
 from sphereceti.auto_approval import auto_approval, glob, proof_paths, pull_files
-from sphereceti.config import ConfigError, parse_project, resource_text
+from sphereceti.config import ConfigError, parse_policy, parse_project, resource_text
 from sphereceti.merge_checks import WORKFLOW
 from sphereceti.merge_observation import Reader
 from sphereceti.review_post import GitHub
@@ -462,6 +462,31 @@ class AutoApprovalTests(unittest.TestCase):
         # Without the hypothesis, a human_review trusted scope for a topic-only PR is not overridden.
         h.statuses[0].update(state='failure', description=HUMAN_SCOPE)
         self.assertIn('trusted_checks: trusted-scope is not successful', h.decide(assume=None)['reasons'])
+
+    def test_shipped_policy_admits_module_only_contour_and_e8_prs(self):
+        shipped = parse_policy((ROOT / 'policy/automation.toml').read_text()).mathematical_paths
+        self.assertEqual(shipped, ('SphereCeti/Contour/', 'SphereCeti/E8/'))
+
+        def contour(repo):
+            (repo / 'SphereCeti/Contour').mkdir(exist_ok=True)
+            (repo / 'SphereCeti/Contour/TopEdgeDecay.lean').write_text('module\n\n-- proof\n')
+
+        for name, change in (('Contour', contour), ('E8', proof)):
+            with self.subTest(topic=name):
+                report = self.harness(change, policy_paths=shipped).decide(assume=None)
+                self.assertTrue(report['would_approve'], report['reasons'])
+                self.assertFalse(report['hypothetical'])
+                self.assertEqual(status(report)['paths'], 'pass')
+        # Exporting the Contour module from the frozen root routes the PR to a human.
+        def with_root(repo):
+            contour(repo)
+            root = repo / 'SphereCeti.lean'
+            root.write_text(root.read_text() + 'public import SphereCeti.Contour.TopEdgeDecay\n')
+        report = self.harness(with_root, policy_paths=shipped).decide(assume=None)
+        self.assertFalse(report['would_approve'])
+        ineligible = report['requirements'][0]['evidence']['ineligible']
+        self.assertEqual([(p['path'], p['reason']) for p in ineligible],
+                         [('SphereCeti.lean', 'library root requires human approval')])
 
     def test_hypothetical_allowlist_globs_are_narrow(self):
         topic = glob('SphereCeti/E8/**')

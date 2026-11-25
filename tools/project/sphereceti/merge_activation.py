@@ -11,6 +11,7 @@ import re
 import tomllib
 from urllib.parse import quote
 
+from . import controller_halt
 from .config import fields, parse_policy, parse_project, resource_text, version
 from .gate import blob, tree
 from .local_review import object_source
@@ -410,6 +411,10 @@ class Activation:
                                                    'this view is informational and counts for nothing'}}
             path['missing'].append('executor not verified: run `merge-doctor --executor` in the approved '
                                    'workflow, where the job token is available')
+        if applying:
+            # Decision 3: an unacknowledged halt (controller_halt) stops every applying run.
+            halt=result['halt']=controller_halt.read(client,project.repository,policy.authorized_reviewers)
+            if halt['halted']: path['missing'].append(controller_halt.reason(halt['halted']))
         result['protection'],result['automatic_path']=protection,path
         result['reasons']=reasons=path['missing']+protection['missing']
         result['ready']=not reasons
