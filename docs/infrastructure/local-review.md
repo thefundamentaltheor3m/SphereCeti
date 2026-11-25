@@ -170,11 +170,13 @@ CLI has no merge path.
 parsing (absent means off and empty):
 
 ```toml
-approving = false            # the switch
-approving_reviewers = []     # "user:ID" maintainers, a subset of authorized_reviewers
+approving = true             # the switch
+approving_reviewers = [...]  # "user:ID" maintainers, a subset of authorized_reviewers
 ```
 
-Both ship off and empty. A maintainer is added by a separately reviewed policy PR once they agree.
+Since 2026-11-25 approving is on, and every authorized reviewer is opted in (each confirmed by the
+maintainer). A later reviewer is added by a one-line policy PR once they agree. `--no-approve` opts
+out for one run.
 
 **Guards before inference, in order** (inside the review claim, after evidence preparation):
 `--no-approve` not given; the record is being posted (not `--no-post`, a dry run, or posting
