@@ -65,6 +65,9 @@ therefore apply to the lattice in Gram coordinates: it is positive definite, and
 * `SphereCeti.EuclideanLattice.IntegralPresentation.mem_dual_iff_exists_dualCarrier_coordinates`:
   the real dual lattice consists of the combinations of the basis with coordinates in the dual
   carrier.
+* `SphereCeti.EuclideanLattice.IntegralPresentation.mem_shell_iff_carrierEquiv_mem`: a vector of
+  `Λ` lies in the shell of squared length `n` exactly when its coordinate vector has norm `n` in
+  Gram coordinates.
 * `SphereCeti.EuclideanLattice.IntegralPresentation.isRootless_iff_shell_two_eq_empty`: the lattice
   in Gram coordinates is rootless (`TauCeti.IntegralLattice.IsRootless`) exactly when `Λ` has no
   vector of squared length two.
@@ -339,12 +342,13 @@ theorem mem_dual_iff_exists_dualCarrier_coordinates (P : IntegralPresentation Λ
     P.ratModelIsometry.apply_mem_dualCarrier_iff]
   exact q.2
 
-/-- A vector of `Λ` lies in the shell of squared length `n` exactly when its coordinate vector has
-norm `n`: TauCeti's shell comparison `ZLattice.shell_eq_image_vectorsOfNorm_ratModel`, transported
-along `ratModelIsometry`. -/
-private theorem mem_shell_iff_carrierEquiv_mem (P : IntegralPresentation Λ) (n : ℕ) (x : Λ) :
+/-- A vector of `Λ` lies in the shell of squared length `n` exactly when its coordinate vector
+lies in the vectors of norm `n` of the lattice in Gram coordinates. -/
+theorem mem_shell_iff_carrierEquiv_mem (P : IntegralPresentation Λ) (n : ℕ) (x : Λ) :
     (x : EuclideanSpace ℝ (Fin d)) ∈ ZLattice.shell Λ n ↔
       P.carrierEquiv x ∈ P.toIntegralLattice.vectorsOfNorm n := by
+  -- TauCeti's shell comparison `ZLattice.shell_eq_image_vectorsOfNorm_ratModel`, transported
+  -- along `ratModelIsometry`.
   rw [← Rat.cast_natCast (α := ℝ) n,
     ZLattice.shell_eq_image_vectorsOfNorm_ratModel P.isIntegral_real,
     ← P.ratModelIsometry.carrierEquiv_mem_vectorsOfNorm_iff]
