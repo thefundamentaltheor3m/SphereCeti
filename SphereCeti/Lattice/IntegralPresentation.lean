@@ -45,6 +45,8 @@ therefore apply to the lattice in Gram coordinates: it is positive definite, and
 
 ## Main statements
 
+* `SphereCeti.EuclideanLattice.IntegralPresentation.nonempty_of_isIntegral`: every integral full
+  lattice in `ℝ^d` has an integral presentation.
 * `SphereCeti.EuclideanLattice.IntegralPresentation.isIntegral_real`: a presented lattice is
   integral.
 * `SphereCeti.EuclideanLattice.IntegralPresentation.ratModelIsometry_single`: the isometry sends
