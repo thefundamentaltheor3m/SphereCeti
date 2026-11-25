@@ -6,7 +6,6 @@ Authors: SphereCeti contributors
 
 module
 
-public import Mathlib.Analysis.InnerProductSpace.EuclideanDist
 public import Mathlib.MeasureTheory.Integral.DominatedConvergence
 public import Mathlib.MeasureTheory.Integral.Prod
 public import Mathlib.MeasureTheory.Measure.Haar.InnerProductSpace
