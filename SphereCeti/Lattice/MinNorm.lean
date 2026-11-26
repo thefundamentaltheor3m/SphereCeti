@@ -23,6 +23,9 @@ lattice has a nonzero vector, that is when `d ≥ 1`, it is the minimum squared 
 coordinate identification `IntegralPresentation.carrierEquiv` carries squared norms to the rational
 norm.
 
+In an even lattice every squared norm is an even integer, so every nonzero vector has squared norm
+at least `2`, and at least `4` if no vector has squared norm `2`.
+
 ## Main definitions
 
 * `SphereCeti.EuclideanLattice.MinNormSqAtLeast Λ a`: every nonzero vector of `Λ` has squared norm
@@ -37,6 +40,8 @@ norm.
   predicates.
 * `SphereCeti.EuclideanLattice.IntegralPresentation.hasMinNormSq_minimum`: a nontrivial presented
   lattice has minimum squared norm the minimum of its lattice in Gram coordinates.
+* `ZLattice.IsEven.minNormSqAtLeast_two`, `ZLattice.IsEven.minNormSqAtLeast_four`: an even lattice
+  has minimum squared norm at least `2`, and at least `4` without vectors of squared norm `2`.
 -/
 
 public section
@@ -107,3 +112,42 @@ theorem hasMinNormSq_minimum (P : IntegralPresentation Λ) [Nontrivial Λ] :
 end IntegralPresentation
 
 end SphereCeti.EuclideanLattice
+
+namespace ZLattice.IsEven
+
+open SphereCeti.EuclideanLattice
+
+variable {E : Type*} [NormedAddCommGroup E] {L : Submodule ℤ E}
+
+/-- Every nonzero vector of an even lattice has squared norm at least `2`. -/
+theorem minNormSqAtLeast_two (h : ZLattice.IsEven L) : MinNormSqAtLeast L 2 := by
+  intro x hx
+  obtain ⟨m, hm⟩ := ZLattice.isEven_iff.mp h x x.2
+  -- The squared norm `2m` is positive, so `m ≥ 1`.
+  have hpos : 0 < ‖(x : E)‖ ^ 2 := by
+    have : (x : E) ≠ 0 := fun h0 ↦ hx (Subtype.ext h0)
+    positivity
+  rw [hm] at hpos ⊢
+  have : (1 : ℤ) ≤ m := by exact_mod_cast (show (0 : ℝ) < m by linarith)
+  have : (1 : ℝ) ≤ m := by exact_mod_cast this
+  linarith
+
+/-- Every nonzero vector of an even lattice without vectors of squared norm `2` has squared norm at
+least `4`. -/
+theorem minNormSqAtLeast_four (h : ZLattice.IsEven L) (hroot : ∀ x ∈ L, ‖x‖ ^ 2 ≠ 2) :
+    MinNormSqAtLeast L 4 := by
+  intro x hx
+  obtain ⟨m, hm⟩ := ZLattice.isEven_iff.mp h x x.2
+  -- The squared norm `2m` is at least `2` and not `2`, so `m ≥ 2`.
+  have h2 := h.minNormSqAtLeast_two x hx
+  have hne := hroot x x.2
+  rw [hm] at h2 hne ⊢
+  have h1 : (1 : ℝ) ≤ m := by linarith
+  have hm1 : m ≠ 1 := fun h1' ↦ hne (by rw [h1']; norm_num)
+  have : (2 : ℤ) ≤ m := by
+    have : (1 : ℤ) ≤ m := by exact_mod_cast h1
+    omega
+  have : (2 : ℝ) ≤ m := by exact_mod_cast this
+  linarith
+
+end ZLattice.IsEven
