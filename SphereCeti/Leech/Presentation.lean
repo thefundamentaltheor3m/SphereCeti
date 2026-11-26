@@ -89,10 +89,9 @@ of `carrierBasis`. -/
 noncomputable def integralPresentation : EuclideanLattice.IntegralPresentation lattice :=
   EuclideanLattice.IntegralPresentation.ofBasis (carrierBasis.map carrierEquivLattice)
     (TauCeti.leechLattice.gramMatrix carrierBasis) fun i j ↦ by
-      rw [Module.Basis.map_apply, Module.Basis.map_apply, coe_carrierEquivLattice_apply,
-        coe_carrierEquivLattice_apply, inner_embedding,
-        TauCeti.IntegralLattice.gramMatrix_apply, ← TauCeti.IntegralLattice.integralForm_cast,
-        Rat.cast_intCast]
+      simp only [Module.Basis.map_apply, coe_carrierEquivLattice_apply, inner_embedding,
+        ← TauCeti.IntegralLattice.intCast_gramMatrix_apply]
+      exact_mod_cast rfl
 
 /-- The `i`-th basis vector of `integralPresentation` is the embedded `i`-th vector of
 `carrierBasis`. -/
@@ -107,9 +106,15 @@ example (i : Fin 24) :
   exact ⟨_, (carrierBasis i).2, rfl⟩
 
 /-- The Gram matrix of `integralPresentation` is TauCeti's Gram matrix of `carrierBasis`. -/
+@[simp]
 theorem integralPresentation_gram :
     integralPresentation.gram = TauCeti.leechLattice.gramMatrix carrierBasis := by
   simp [integralPresentation]
+
+example (i j : Fin 24) :
+    (integralPresentation.gram i j : ℚ) =
+      TauCeti.leechLattice.form (carrierBasis i : Fin 24 → ℚ) (carrierBasis j) := by
+  simp
 
 /-- The isometry from the lattice of `integralPresentation` in Gram coordinates to TauCeti's Leech
 lattice sending the `i`-th standard basis vector to the `i`-th vector of `carrierBasis`
