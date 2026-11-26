@@ -80,7 +80,9 @@ noncomputable def mkOfSqrtExponentialDecay (f : E → F) (smooth : ContDiff ℝ 
 theorem mkOfSqrtExponentialDecay_apply (f : E → F) (smooth : ContDiff ℝ ∞ f)
     (decay : ∀ n : ℕ, ∃ b : ℝ, 0 < b ∧
       (iteratedFDeriv ℝ n f) =O[cocompact E] (fun x ↦ Real.exp (-b * Real.sqrt ‖x‖))) (x : E) :
-    mkOfSqrtExponentialDecay f smooth decay x = f x := rfl
+    mkOfSqrtExponentialDecay f smooth decay x = f x := by
+  unfold mkOfSqrtExponentialDecay
+  exact mkOfCocompact_apply _ _ _ x
 
 example {G : Type*} (h : F → G) (f : E → F) (smooth : ContDiff ℝ ∞ f)
     (decay : ∀ n : ℕ, ∃ b : ℝ, 0 < b ∧
