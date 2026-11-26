@@ -23,6 +23,8 @@ and `t ↦ ‖F (i / t)‖ t ^ s` is integrable on `(0, 1]` for every real `s`.
   `t ↦ F (t I) t ^ s` is integrable on `(a, ∞)`.
 * `UpperHalfPlane.integrableOn_mul_I_Ioi_of_isBigO`: for `0 < a` and `0 < c`,
   `t ↦ F (t I)` is integrable on `(a, ∞)`.
+* `UpperHalfPlane.exists_norm_le_exp_mul_Ici`: a uniform exponential bound on the closed
+  imaginary ray, from cusp Big-O and continuity.
 * `UpperHalfPlane.integrableOn_norm_inv_mul_I_mul_rpow_Ioc_of_isBigO`: for `0 < c`,
   `t ↦ ‖F (i / t)‖ t ^ s` is integrable on `(0, 1]`.
 -/
@@ -94,5 +96,46 @@ theorem integrableOn_norm_inv_mul_I_mul_rpow_Ioc_of_isBigO {F : ℂ → ℂ} {c 
   simp [abs_of_pos (Real.rpow_pos_of_pos hu0 _), Real.inv_rpow hu0.le, Real.rpow_sub hu0,
     Real.rpow_neg hu0.le]
   ring
+
+/-- An exponential Big-O estimate at the infinite cusp gives a uniform bound on the
+closed imaginary ray starting at `i`. The exponent rate may have either sign. -/
+theorem exists_norm_le_exp_mul_Ici {F : ℂ → ℂ} {a : ℝ}
+    (hF : ContinuousOn F {z : ℂ | 0 < z.im})
+    (hO : (fun τ : ℍ ↦ F τ) =O[atImInfty] fun τ ↦ Real.exp (a * τ.im)) :
+    ∃ M : ℝ, 0 ≤ M ∧ ∀ t ∈ Set.Ici (1 : ℝ), ‖F (t * Complex.I)‖ ≤ M * Real.exp (a * t) := by
+  have htend : Tendsto (fun t : ℝ ↦ UpperHalfPlane.ofComplex (t * Complex.I)) atTop
+      UpperHalfPlane.atImInfty :=
+    UpperHalfPlane.tendsto_ofComplex_I_mul_atTop_atImInfty.congr fun t ↦ by rw [mul_comm]
+  have hcoe {t : ℝ} (ht : 0 < t) :
+      (UpperHalfPlane.ofComplex ((t : ℂ) * Complex.I) : ℂ) = (t : ℂ) * Complex.I := by
+    rw [UpperHalfPlane.ofComplex_apply_of_im_pos (z := (t : ℂ) * Complex.I) (by simpa using ht)]
+  have hO : (fun t : ℝ ↦ F (t * Complex.I)) =O[atTop] fun t ↦ Real.exp (a * t) := by
+    refine (hO.comp_tendsto htend).congr' ?_ ?_ <;>
+      filter_upwards [eventually_gt_atTop (0 : ℝ)] with t ht
+    · simp only [Function.comp_apply, hcoe ht]
+    · simp only [Function.comp_apply, UpperHalfPlane.im,
+        hcoe ht]
+      simp
+  obtain ⟨C, hC, hbound⟩ := hO.exists_nonneg
+  obtain ⟨N, hN⟩ := eventually_atTop.mp hbound.bound
+  have hcont : ContinuousOn (fun t : ℝ ↦ ‖F (t * Complex.I)‖ * Real.exp (-a * t))
+      (Set.Icc 1 (max 1 N)) := by
+    refine (hF.comp (by fun_prop) fun t ht ↦ ?_).norm.mul (by fun_prop)
+    simpa using (zero_lt_one.trans_le ht.1)
+  obtain ⟨D, hD⟩ := isCompact_Icc.exists_bound_of_continuousOn hcont
+  refine ⟨max C D, hC.trans (le_max_left _ _), fun t ht ↦ ?_⟩
+  by_cases hNt : N ≤ t
+  · have h := hN t hNt
+    rw [Real.norm_of_nonneg (Real.exp_nonneg _)] at h
+    exact h.trans (mul_le_mul_of_nonneg_right (le_max_left C D) (Real.exp_nonneg _))
+  · have h := hD t ⟨ht, (lt_of_not_ge hNt).le.trans (le_max_right 1 N)⟩
+    rw [Real.norm_of_nonneg (by positivity)] at h
+    have h' := mul_le_mul_of_nonneg_right h (Real.exp_nonneg (a * t))
+    have he : Real.exp (-a * t) * Real.exp (a * t) = 1 := by
+      rw [← Real.exp_add]
+      have hsum : -a * t + a * t = 0 := by ring
+      rw [hsum, Real.exp_zero]
+    rw [mul_assoc, he, mul_one] at h'
+    exact h'.trans (mul_le_mul_of_nonneg_right (le_max_right C D) (Real.exp_nonneg _))
 
 end UpperHalfPlane
