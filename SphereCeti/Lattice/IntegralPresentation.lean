@@ -65,9 +65,10 @@ therefore apply to the lattice in Gram coordinates: it is positive definite, and
 * `SphereCeti.EuclideanLattice.IntegralPresentation.mem_dual_iff_exists_dualCarrier_coordinates`:
   the real dual lattice consists of the combinations of the basis with coordinates in the dual
   carrier.
-* `SphereCeti.EuclideanLattice.IntegralPresentation.mem_shell_iff_carrierEquiv_mem`: a vector of
-  `Λ` lies in the shell of squared length `n` exactly when its coordinate vector has norm `n` in
-  Gram coordinates.
+* `SphereCeti.EuclideanLattice.IntegralPresentation.mem_shell_iff_carrierEquiv_mem`,
+  `SphereCeti.EuclideanLattice.IntegralPresentation.carrierEquiv_mem_vectorsOfNorm_iff`: a vector
+  of `Λ` lies in the shell of squared length `n` exactly when its coordinate vector has norm `n` in
+  Gram coordinates; the second form is a simp lemma.
 * `SphereCeti.EuclideanLattice.IntegralPresentation.isRootless_iff_shell_two_eq_empty`: the lattice
   in Gram coordinates is rootless (`TauCeti.IntegralLattice.IsRootless`) exactly when `Λ` has no
   vector of squared length two.
@@ -355,6 +356,15 @@ theorem mem_shell_iff_carrierEquiv_mem (P : IntegralPresentation Λ) (n : ℕ) (
   refine ⟨fun ⟨y, hy, hyx⟩ ↦ ?_, fun h ↦ ⟨_, h, hx⟩⟩
   rwa [Subtype.ext (ZLattice.ratModelMap_injective (hyx.trans hx.symm))] at hy
 
+/-- The coordinate vector of `x ∈ Λ` has norm `n` in Gram coordinates exactly when `x` lies in the
+shell of squared length `n`.  It is a pre-simp lemma (`↓`): otherwise `mem_vectorsOfNorm` unfolds
+the left side first. -/
+@[simp ↓]
+theorem carrierEquiv_mem_vectorsOfNorm_iff (P : IntegralPresentation Λ) (n : ℕ) (x : Λ) :
+    P.carrierEquiv x ∈ P.toIntegralLattice.vectorsOfNorm n ↔
+      (x : EuclideanSpace ℝ (Fin d)) ∈ ZLattice.shell Λ n :=
+  (P.mem_shell_iff_carrierEquiv_mem n x).symm
+
 /-- The coordinate identification restricted to shells: the vectors of `Λ` of squared length `n`
 correspond to the vectors of norm `n` of the lattice in Gram coordinates. -/
 noncomputable def shellEquiv (P : IntegralPresentation Λ) (n : ℕ) :
@@ -362,7 +372,7 @@ noncomputable def shellEquiv (P : IntegralPresentation Λ) (n : ℕ) :
   toFun v := ⟨P.carrierEquiv ⟨v, (ZLattice.mem_shell.mp v.2).1⟩,
     (P.mem_shell_iff_carrierEquiv_mem n _).mp v.2⟩
   invFun w := ⟨P.carrierEquiv.symm w,
-    (P.mem_shell_iff_carrierEquiv_mem n _).mpr (by simp)⟩
+    (P.mem_shell_iff_carrierEquiv_mem n _).mpr (by rw [P.carrierEquiv.apply_symm_apply]; exact w.2)⟩
   left_inv v := by simp
   right_inv w := by simp
 

@@ -77,6 +77,8 @@ def add_parser(commands):
     p.add_argument("--description-file", type=Path, help="untrusted proposed PR description, for local-source mode")
     p.add_argument("--output", type=Path, help="new directory for evidence.json, result.json, and advisory.md")
     p.add_argument("--keep-workspace", action="store_true", help="retain the verified source snapshots")
+    p.add_argument("--allow-advisory", action="store_true",
+                   help="do not ask before an advisory review when the installed sphereceti is not approved main")
     p.add_argument("--quiet", action="store_true", help="no progress lines on stderr")
     p.add_argument("--no-cache", action="store_true",
                    help="bare review and batches: ignore the operator store's queue cache")
