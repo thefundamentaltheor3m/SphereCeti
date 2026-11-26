@@ -19,6 +19,7 @@ PROJECT = parse_project(resource_text('sphereceti.toml'))
 REPO = PROJECT.repository
 HEAD, BASE, TOOLING = 'a' * 40, 'b' * 40, 'c' * 40
 ME, AUTHOR = 7, 11
+SEVEN = (2009342, 56166236, 64404030, 29959226, 49933279, 117926300, 6530144)  # shipped approvers
 POLICY = parse_policy(automation_policy(posting=True, authorized_reviewers=[f'user:{ME}', 'user:9']))
 APPROVING = replace(POLICY, approving=True, approving_reviewers=(f'user:{ME}',))
 DIGESTS = ('dependency_digest', 'engine_digest', 'effective_rubrics_digest', 'installed_tooling_digest',
@@ -160,10 +161,12 @@ class ApprovalTest(unittest.TestCase):
 
     def test_not_opted_in_approving_off_or_shipped_policy_never_approve(self):
         shipped = parse_policy(resource_text('automation.toml'))
-        self.assertEqual((shipped.approving, shipped.approving_reviewers), (False, ()))
+        # Activated: every authorized reviewer opted in on 2026-11-25; anyone else is never approved.
+        self.assertEqual((shipped.approving, shipped.approving_reviewers),
+                         (True, tuple(f'user:{i}' for i in SEVEN)))
         for policy, reason in ((replace(APPROVING, approving_reviewers=('user:9',)), 'not opted in'),
                                (replace(APPROVING, approving=False), 'approving is off'),
-                               (replace(shipped, authorized_reviewers=(f'user:{ME}',)), 'approving is off')):
+                               (replace(shipped, authorized_reviewers=(f'user:{ME}',)), 'not opted in')):
             with self.subTest(reason=reason):
                 result = self.review(policy=policy)
                 self.assertIn(reason, result['approval']['reason'])
@@ -262,8 +265,9 @@ class PolicyTest(unittest.TestCase):
             with self.subTest(extra=extra), self.assertRaises(ConfigError):
                 parse_policy(base + extra)
         shipped = (Path(__file__).resolve().parents[1] / 'policy/automation.toml').read_text()
-        self.assertIn('approving = false\n', shipped)
-        self.assertIn('approving_reviewers = []\n', shipped)
+        self.assertIn('approving = true\n', shipped)
+        expected = 'approving_reviewers = [' + ', '.join(f'"user:{i}"' for i in SEVEN) + ']\n'
+        self.assertIn(expected, shipped)
 
 
 
