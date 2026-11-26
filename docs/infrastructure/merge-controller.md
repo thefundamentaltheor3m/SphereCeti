@@ -35,12 +35,12 @@ unconfigured, and `executor` reports the run and job-token checks
 ([below](#reading-the-executor-output)). Successful diagnostics, including a disabled result,
 exit 0; unavailable/invalid data and unconfirmed write outcomes exit 2.
 
-`--apply` is explicit and requires both ready setup and the verified executor. The shipped `merging`
-switch is false. The mathematical allowlist names `SphereCeti/Contour/` and `SphereCeti/E8/`,
-`approving_reviewers` is empty, and controller IDs are zero.
-The CLI cannot configure those settings. Library proof PRs currently require human merging. The
-workflow is installed read-only ([first run](#the-read-only-first-run)); no live merge, secret,
-bot account or branch-rule change is part of it.
+`--apply` is explicit and requires both ready setup and the verified executor. The shipped policy
+is activated (2026-11-25): `merging = true`, the allowlist names `SphereCeti/Contour/` and
+`SphereCeti/E8/`, every authorized reviewer is in `approving_reviewers`, and the controller IDs are
+set. The CLI cannot configure those settings. Only fully qualifying, formally approved proof PRs in
+those topics can merge automatically. Everything else still needs a human merge. The schedule stays
+off until the live race probe ([workflow](#the-workflow), [activation](activation.md)).
 
 ## Activation profile
 
@@ -379,18 +379,11 @@ every PR, so it does not fit SphereCeti's human route for protected changes.
 
 ### Remaining activation prerequisites for SphereCeti
 
-Besides the policy switches (`merging`, `mathematical_paths`), `merge-doctor` reports these items
-as missing:
-
-- `policy/merge-controller.toml` has `workflow_id` and `checks_app_id` at zero, and
-  `policy/automation.toml` has no `approving_reviewers`.
-- The executor has not been verified by a run of the installed workflow. The first
-  `workflow_dispatch` run reports its `workflow_id` and whether the job token can bypass the ruleset.
-- The ruleset must require up-to-date branches.
-- `checks_app_id` must name the integration that `build` is bound to.
-
-Approval-dismissal and last-push settings are recommendations. `merging` stays `false` until a
-separate policy change.
+As of 2026-11-25, strict up-to-date checks are on, and the policy and workflow flips are merged
+([activation status](activation.md#status-2026-11-25)). What only a live run can show is the
+executor (its run, job token and `current_user_can_bypass`), which `merge-doctor --executor` in the
+workflow reports. The live race probe must then prove GitHub's refusal before the schedule is
+enabled. Approval-dismissal and last-push settings remain recommendations.
 
 The implementation uses GitHub's [branch-protection API](https://docs.github.com/en/rest/branches/branch-protection),
 [workflow-run API](https://docs.github.com/en/rest/actions/workflow-runs#get-a-workflow-run),
@@ -445,20 +438,19 @@ own ruleset view and installation probe, a squash-merge PUT with an exact head S
 head SHA. Reads use the same job token through the GET-only reader. Diagnostics report the
 token's shape (below) and omit its value.
 
-### The read-only first run
+### The workflow
 
 [`.github/workflows/merge-controller.yml`](../../.github/workflows/merge-controller.yml) is installed
-on `main`. It has `workflow_dispatch` only, and its `schedule` is commented out. Its permissions are
-`contents: read` and `actions: read`. The job runs only on `refs/heads/main` and checks out `main`'s
-exact SHA with credentials disabled. It never checks out, builds or executes PR code, and it calls
-no provider. While `merging = false`, the job only runs `merge-doctor --executor --json` and prints
-the result. No merge command runs, and the token could not merge anyway. Its concurrency group is
-`sphereceti-merge-main` without cancellation, and it runs at most 30 minutes.
+on `main`. The job runs only on `refs/heads/main` and checks out `main`'s exact SHA with credentials
+disabled. It never checks out, builds or executes PR code, and it calls no provider. Its concurrency
+group is `sphereceti-merge-main` without cancellation, and it runs at most 45 minutes.
 
-The workflow already contains the controller step, the `pr` and `probe` inputs, and every
-permission it will need, all switched off: `CONTROLLER: doctor`, permissions at `read`, and the
-schedule commented out. Activation is a separate tiny PR that flips the marked lines and the policy
-values; the [activation checklist](activation.md) gives the exact diff and the order of operations.
+It was first installed read-only, running only `merge-doctor --executor --json`. Since the activation
+flips (2026-11-25; [activation](activation.md#status-2026-11-25)) it runs `merge-control --apply` with
+write permissions, for one PR (`pr`), the race probe (`probe=race`), or a sweep. Its schedule stays
+commented out until the live race probe has proven GitHub's refusal, so only a maintainer's manual
+`workflow_dispatch` can merge. The [activation checklist](activation.md) gives the exact diff and
+the order of operations.
 
 ### Reading the executor output
 
