@@ -36,9 +36,7 @@ has covolume `1`.
   (1999), Chapter 4, §11, Figure 4.12: the standard generator matrix of the Leech lattice, scaled
   by `√8`.  The entries of `basisCoordinateMatrix` are transcribed from this figure.
 
-The triangularity and determinant computations are independent formal proofs (a finite check
-followed by Mathlib's `Matrix.det_of_isLowerTriangular`); no proof text is adapted from another
-source.
+No proof text is adapted from another source.
 -/
 
 public section
