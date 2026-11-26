@@ -34,6 +34,9 @@ the other along this fixed permutation.
 * `SphereCeti.Leech.golayGeneratorMatrix`: the parity-extended cyclic generator matrix.
 * `SphereCeti.Leech.golayPivotMinor`: its first twelve columns.
 * `SphereCeti.Leech.cyclicGolayCode`: the row span of `golayGeneratorMatrix`.
+* `SphereCeti.Leech.mem_cyclicGolayCode_iff`, `SphereCeti.Leech.row_mem_cyclicGolayCode`,
+  `SphereCeti.Leech.cyclicGolayCode_le_iff`: membership, the generator rows, and the universal
+  property of the row span, from TauCeti's generated-code API.
 * `SphereCeti.Leech.golayPivotMinor_unitriangular`: the pivot minor is upper unitriangular.
 * `SphereCeti.Leech.golayGeneratorMatrix_rowWeight`: every generator row has weight eight.
 * `SphereCeti.Leech.cyclicToSystematicPerm`: the coordinate relabelling from the cyclic order to
@@ -135,6 +138,30 @@ theorem cyclicGolayCode_eq_generatedBy : cyclicGolayCode = golayGeneratorMatrix.
   rw [Matrix.generatedBy_eq_span_rows, cyclicGolayCode_def]
   rfl
 
+/-- A word lies in `cyclicGolayCode` exactly when it is a combination
+`Matrix.vecMul a golayGeneratorMatrix` of the twelve generator rows. -/
+@[simp]
+theorem mem_cyclicGolayCode_iff {x : Fin 24 → ZMod 2} :
+    x ∈ cyclicGolayCode ↔
+      ∃ a : Fin 12 → ZMod 2, Matrix.vecMul a golayGeneratorMatrix = x := by
+  rw [cyclicGolayCode_eq_generatedBy, Matrix.mem_generatedBy_iff]
+
+example : (0 : Fin 24 → ZMod 2) ∈ cyclicGolayCode := by
+  simp only [mem_cyclicGolayCode_iff]
+  exact ⟨0, Matrix.zero_vecMul _⟩
+
+/-- Every row of `golayGeneratorMatrix` lies in `cyclicGolayCode`. -/
+theorem row_mem_cyclicGolayCode (i : Fin 12) : golayGeneratorMatrix i ∈ cyclicGolayCode := by
+  rw [cyclicGolayCode_eq_generatedBy]
+  exact Matrix.row_mem_generatedBy golayGeneratorMatrix i
+
+/-- `cyclicGolayCode` lies in a subspace `C` exactly when every row of `golayGeneratorMatrix` lies
+in `C`. -/
+theorem cyclicGolayCode_le_iff {C : Submodule (ZMod 2) (Fin 24 → ZMod 2)} :
+    cyclicGolayCode ≤ C ↔ ∀ i, golayGeneratorMatrix i ∈ C := by
+  rw [cyclicGolayCode_eq_generatedBy, Matrix.generatedBy_le_iff]
+  rfl
+
 /-! ### The coordinate permutation -/
 
 /-- The coordinate relabelling from the cyclic order to the systematic order of
@@ -221,9 +248,9 @@ theorem map_cyclicGolayCode :
   -- row satisfies the parity checks of the self-dual systematic generator, and every systematic
   -- generator row is an explicit sum of relabelled cyclic rows.
   apply le_antisymm
-  · rw [Submodule.map_le_iff_le_comap, cyclicGolayCode_eq_generatedBy, Matrix.generatedBy_le_iff]
+  · rw [Submodule.map_le_iff_le_comap, cyclicGolayCode_le_iff]
     intro i
-    rw [Matrix.row, Submodule.mem_comap, LinearEquiv.coe_coe, funCongrLeft_golayGeneratorMatrix,
+    rw [Submodule.mem_comap, LinearEquiv.coe_coe, funCongrLeft_golayGeneratorMatrix,
       ← TauCeti.BinaryGolay.checkedBy_generator, Matrix.mem_checkedBy_iff]
     exact generator_mulVec_relabelledRow i
   · rw [TauCeti.BinaryGolay.code_def, Matrix.generatedBy_le_iff]
@@ -232,9 +259,7 @@ theorem map_cyclicGolayCode :
     refine list_sum_mem fun y hy ↦ ?_
     obtain ⟨i, -, rfl⟩ := List.mem_map.mp hy
     rw [← funCongrLeft_golayGeneratorMatrix]
-    refine Submodule.mem_map_of_mem ?_
-    rw [cyclicGolayCode_eq_generatedBy]
-    exact Matrix.row_mem_generatedBy golayGeneratorMatrix i
+    exact Submodule.mem_map_of_mem (row_mem_cyclicGolayCode i)
 
 /-- The cyclic code is TauCeti's code after a coordinate permutation, in TauCeti's sense of
 permutation equivalence. -/
