@@ -37,6 +37,13 @@ quantitative stability estimates.
   products and multiply under powers.
 * `SphereCeti.HasExactZeroOrder.mul_continuousAt`: a continuous factor nonzero at the basepoint
   preserves the exact order.
+## Provenance
+
+The product-factorization proof `HasExactZeroOrder.mul` is adapted from
+`TauCeti.IsZeroMultiplicity.mul` in `TauCetiProject/TauCeti` at commit
+`83769e442d55cda9d85b3927a93b286831c595ff`, file
+`TauCeti/Analysis/Complex/ZeroMultiplicity.lean` (Apache-2.0, Tau Ceti contributors).
+The source has complex domain; here the base variable is real and the cofactors are complex.
 -/
 
 public section

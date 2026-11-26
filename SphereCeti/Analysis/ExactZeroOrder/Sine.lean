@@ -7,7 +7,6 @@ Authors: Bakhyt Momunov
 module
 
 public import SphereCeti.Analysis.ExactZeroOrder
-public import Mathlib.Analysis.Complex.RealDeriv
 public import Mathlib.Analysis.SpecialFunctions.Trigonometric.Basic
 public import Mathlib.Analysis.SpecialFunctions.Trigonometric.Deriv
 
