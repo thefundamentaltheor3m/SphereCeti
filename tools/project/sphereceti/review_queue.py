@@ -7,6 +7,7 @@ reviewer gets first chance at a revised PR. Independently written; no TauCetiWor
 
 The queue reuses the worker's survey and planner and bare selection's readiness and "already
 reviewed" rules. One survey per listing; any failed GitHub lookup raises (exit 2), never a guess.
+PRs ready to merge (ready_to_merge.py) are listed first.
 """
 from __future__ import annotations
 
@@ -14,6 +15,7 @@ from datetime import datetime, timezone
 import json
 from pathlib import Path
 
+from .carry_over import ApiSource, carry, describe as carry_status
 from .local_review import ReviewError
 from .review_records import CONTEST, MARKER, RecordError, intact, parse_record
 from .review_claims import ClaimRefused, ClaimYielded, run_claimed
@@ -83,12 +85,21 @@ def entry(section, pr, observed, reason, **extra):
             "reason": reason, "note": pr.get("review_note"), **extra}
 
 
-def queue(project, policy, prefs, *, api=None, client=None, now=None) -> dict:
+def queue(project, policy, prefs, *, api=None, client=None, now=None, use_cache=None) -> dict:
     """Read-only classification of the open queue for the authenticated contributor."""
     if client is None:
         from .review_post import GitHub
         client = GitHub()
+    from .ready_to_merge import HELD, Cached, held_reason, held_runs, ready_to_merge
+    if api is None:
+        from .worker_cli import GitHub as Survey
+        api = Survey()
+    from .queue_cache import attach
+    cache = attach(api, prefs, project, enabled=use_cache) if use_cache is not None else getattr(api, "scope_cache", None)
+    client = Cached(client, cache=cache)  # one comments read per PR for every section
     snapshot = survey(project, None, api=api)
+    client.bulk = getattr(api, "queue_comments", None) or {}
+    client.total = sum(1 for pr in snapshot["pull_requests"] if pr["state"] == "OPEN" and not pr["draft"])
     planned = plan(snapshot, project, now=now or datetime.now(timezone.utc))
     actor, repository = snapshot["actor"], project.repository
     storage = Path(prefs.storage).expanduser().resolve()
@@ -98,31 +109,59 @@ def queue(project, policy, prefs, *, api=None, client=None, now=None) -> dict:
     by_number = {pr["number"]: pr for pr in snapshot["pull_requests"]}
     order += sorted(n for n in by_number if n not in order)
     sections = {name: [] for name in SECTIONS}
+    main_sha = [None]  # read once, only when a record on an older head needs a carry-over check
     done, follow_ups = [], []
     from .stacks import StackGate
     gate = StackGate(snapshot, project, policy, client, ready)
     blocked = blocked_by_parent(gate, by_number, actor)
     blocked_numbers = {item["pr"] for group in blocked for item in group["items"]}
 
-    def skip(pr, code, reason):
-        note = pr.get("review_note") if code != "awaiting_refresh" else None
-        sections["not_ready"].append({"pr": pr["number"], "head": pr["head"], "code": code,
-                                      "reason": reason + (f" ({note})" if note else ""), "note": note})
+    def classify(number):
+        """One PR's place in the queue; its reads run concurrently with other PRs' (pool.py)."""
+        sections = {name: [] for name in SECTIONS}
+        done, follow_ups = [], []
 
-    for number in order:
+        def skip(pr, code, reason):
+            note = pr.get("review_note") if code != "awaiting_refresh" else None
+            held = held_reason(client, repository, pr) if code == "awaiting_ci" else None
+            sections["not_ready"].append({"pr": pr["number"], "head": pr["head"], "code": code,
+                                          "reason": (held or reason) + (f" ({note})" if note else ""), "note": note,
+                                          **({"held": True} if held else {})})
+
+        def outcome():
+            for e in (e for name in SECTIONS if name != 'not_ready' for e in sections[name]):
+                # Ready to review, but a fork's workflow runs may still be held (CI never ran): say so.
+                e["held_workflows"] = ([] if pr.get("head_repo") == repository else
+                                       held_runs(client, repository, pr["head"]))
+                if e["held_workflows"]:
+                    e["reason"] += f"; CI held, {HELD} ({', '.join(e['held_workflows'])})"
+            return sections, done, follow_ups
+
         pr = by_number[number]
         if pr["author"].casefold() == actor.casefold():
             skip(pr, "yours", "is yours")
-            continue
+            return outcome()
         if pr["draft"]:
             skip(pr, "draft", "is a draft")
-            continue
+            return outcome()
         comments = client.comments(repository, number)
         if not isinstance(comments, list):
             raise RecordError("unknown review records")
         mine = my_records(comments, repository, number, actor)
         latest = mine[-1] if mine else None
-        if latest and latest[1]["head"] == pr["head"]:
+        carried = None
+        if latest and latest[1]["head"] != pr["head"]:
+            # Only update-branch merges since your review, with the same change and no review input
+            # changed on main: your review is current (carry_over), not a revision to re-review.
+            try:
+                if main_sha[0] is None:
+                    main_sha[0] = client.call(f"repos/{repository}/commits/{project.default_branch}").get("sha")
+                result = carry(ApiSource(client, repository), latest[1]["head"], pr["head"], main_sha[0],
+                               [latest[1]["tooling_revision"]])
+            except (RecordError, AttributeError):
+                result = {"carried": False}  # Unknown main: treat the PR as revised (fail closed).
+            carried = carry_status(result) if result["carried"] else None
+        if latest and (latest[1]["head"] == pr["head"] or carried):
             rubrics = [r for r, v in latest[1]["verdicts"].items() if v in CHANGES]
             if rubrics:
                 verb = "blocked" if any(latest[1]["verdicts"][r] == "block" for r in rubrics) else "requested changes"
@@ -141,9 +180,10 @@ def queue(project, policy, prefs, *, api=None, client=None, now=None) -> dict:
                         contests=len(contested), reply_url=link(repository, number, newest)))
                 else:
                     sections["waiting_on_author"].append(entry(
-                        "waiting_on_author", pr, observed, f"you {verb} ({', '.join(rubrics)}); no new head",
-                        rubrics=rubrics, record_comment=latest[0]["id"]))
-                continue
+                        "waiting_on_author", pr, observed, f"you {verb} ({', '.join(rubrics)}); " +
+                        (f"no new change; {carried}" if carried else "no new head"),
+                        rubrics=rubrics, record_comment=latest[0]["id"], carried=carried))
+                return outcome()
         if number not in ready:
             skip(pr, *readiness(pr))
             if latest:
@@ -156,10 +196,10 @@ def queue(project, policy, prefs, *, api=None, client=None, now=None) -> dict:
                 if parts:
                     follow_ups.append({"pr": number, "head": pr["head"],
                                        "reason": f"{sections['not_ready'][-1]['reason']}; " + "; ".join(parts)})
-            continue
+            return outcome()
         if number in blocked_numbers:
-            continue  # listed under "Blocked by a parent": review its stack root first
-        if latest and latest[1]["head"] != pr["head"]:
+            return outcome()  # listed under "Blocked by a parent": review its stack root first
+        if latest and latest[1]["head"] != pr["head"] and not carried:
             old = latest[1]["head"]
             count, history = commits_since(client, repository, old, pr["head"])
             answered, contests_since = since(comments, latest[0]["id"], pr["author"])
@@ -175,18 +215,29 @@ def queue(project, policy, prefs, *, api=None, client=None, now=None) -> dict:
             sections["revised"].append(entry(
                 "revised", pr, observed, "; ".join(parts), previous_head=old, commits_since=count,
                 history=history, author_replies=replies, contests=contested, record_comment=latest[0]["id"]))
-            continue
+            return outcome()
         state = review_state(client, repository, pr, actor, policy, storage)
         if state:
             done.append({"pr": number, "head": pr["head"], "code": state[0], "reason": state[1]})
-            continue
+            return outcome()
         scope = "ready" if pr["ci"] == pr.get("review_ci", pr["ci"]) else "ready (human-review scope)"
         sections["new"].append(entry("new", pr, observed, scope + "; no review by you"))
+        return outcome()
+
+    from .pool import concurrent, ordered
+    for part, finished, follows in ordered(classify, order, parallel=concurrent(client.client)):
+        for name in SECTIONS:
+            sections[name] += part[name]
+        done += finished
+        follow_ups += follows
+
     # You get first chance at PRs you reviewed before; within a section, stack roots that block the
     # most descendants first, then the oldest update.
     for name in ("revised", "author_replied", "new", "waiting_on_author"):
         for e in sections[name]:
+            held = e.pop("held_workflows")  # computed with the PR's other reads; listed after `unblocks`
             e["unblocks"] = gate.descendants(e["pr"])
+            e["held_workflows"] = held
         if name != "new":
             sections[name].sort(key=lambda e: (e["updated_at"], e["pr"]))
         sections[name].sort(key=lambda e: -e["unblocks"])
@@ -197,8 +248,13 @@ def queue(project, policy, prefs, *, api=None, client=None, now=None) -> dict:
             main = client.call(f"repos/{repository}/commits/{project.default_branch}").get("sha")
         except (RecordError, KeyError, AttributeError):
             main = None
+    result = ready_to_merge(client, project, policy, snapshot)
+    if cache is not None:
+        cache.save()
     return {"schema": SCHEMA, "repository": repository, "actor": actor, "observed_at": snapshot["observed_at"],
-            "order": "revised, then author replied, then new; oldest update first", "sections": sections, "done": done,
+            "ready_to_merge": result,
+            "order": "ready to merge first; then revised, then author replied, then new; oldest update first",
+            "sections": sections, "done": done,
             "follow_ups_not_ready": follow_ups, "blocked_by_parent": blocked,
             "main": main, "not_ready_summary": not_ready_summary(sections["not_ready"], main)
             if sections["not_ready"] else None}
@@ -230,7 +286,9 @@ def blocked_by_parent(gate, by_number, actor):
 
 
 def render(report) -> str:
+    from .ready_to_merge import render as render_ready
     lines = [f"Review queue for {report['actor']} ({report['repository']}, observed {report['observed_at']})"]
+    lines += render_ready(report["ready_to_merge"])
     for name in ("revised", "author_replied", "new", "waiting_on_author"):
         items = report["sections"][name]
         lines.append(f"{TITLES[name]} ({len(items)}):" + ("" if items else " none"))
@@ -256,10 +314,124 @@ def render(report) -> str:
     return "\n".join(lines)
 
 
+TOP = 8          # PRs shown per actionable section by default
+TITLE = 50       # characters of a title in the concise listing
+
+
+def short_title(title: str) -> str:
+    return title if len(title) <= TITLE else title[:TITLE - 1].rstrip() + "…"
+
+
+def plural(n, one, many=None):
+    return f"{n} {one if n == 1 else (many or one + 's')}"
+
+
+def next_command(report) -> str:
+    """The one command that does the most useful thing next."""
+    ready = [i for i in report["ready_to_merge"]["items"] if i["next_step"] in ("merge", "approve + merge")]
+    follow = len(report["sections"]["revised"]) + len(report["sections"]["author_replied"])
+    new = len(report["sections"]["new"])
+    if ready:
+        return "sphereceti merge-ready --apply"
+    if follow:
+        return f"sphereceti review --revised --limit {min(follow, MAX_LIMIT)}"
+    if new:
+        return f"sphereceti review --new --limit {min(new, MAX_LIMIT)}"
+    return "nothing needs your review now"
+
+
+def tags(name, e):
+    """Only what changes what to do: what unblocks, what is held, what was said back."""
+    out = []
+    if name == "revised":
+        if e.get("history"):
+            out.append("history rewritten")
+        if e.get("author_replies"):
+            out.append("author replied")
+        if e.get("contests"):
+            out.append("contested")
+    if name == "author_replied":
+        out.append(plural(e["contests"], "contest") if e.get("contests") and not e.get("author_replies")
+                   else "replied" + (f", {plural(e['contests'], 'contest')}" if e.get("contests") else ""))
+    if e.get("held_workflows"):
+        out.append("CI held")
+    if e.get("unblocks"):
+        out.append(f"unblocks {e['unblocks']}")
+    return out
+
+
+def render_concise(report, top=TOP) -> str:
+    """About one screen: counts, the top PRs of each actionable section, and the next command."""
+    s, ready = report["sections"], report["ready_to_merge"]
+    groups = report.get("blocked_by_parent") or []
+    parents = sum(len(g["items"]) for g in groups)
+    waiting_ci = [i for i in s["not_ready"] if i["code"] in ("awaiting_ci", "awaiting_refresh", "awaiting_github")]
+    counts = [(len(ready["items"]), "ready to merge", True), (len(s["revised"]), "revised", True),
+              (len(s["author_replied"]), "author replied", False), (len(s["new"]), "new", True),
+              (len(s["waiting_on_author"]), "waiting on authors", False),
+              (parents, "waiting on parents", False), (len(waiting_ci), "awaiting CI", False)]
+    lines = ["Queue: " + " · ".join(f"{n} {label}" for n, label, always in counts if n or always)]
+
+    def section(title, entries, line, more):
+        if not entries:
+            return
+        lines.append(f"{title}:")
+        lines.extend(line(e) for e in entries[:top])
+        if len(entries) > top:
+            lines.append(f"  … and {len(entries) - top} more ({more})")
+
+    def pr_line(e, extra):
+        label = f"  #{e['pr']} {e['author']}  {short_title(e['title'])}"
+        return label + (f"  ({', '.join(extra)})" if extra else "")
+    section("Ready to merge", ready["items"],
+            lambda e: pr_line(e, ["CI held" if e.get("held_workflows") else e["next_step"]]), "sphereceti reviews --all")
+    for name in ("revised", "author_replied", "new"):
+        section(TITLES[name], s[name], lambda e, name=name: pr_line(e, tags(name, e)), "sphereceti reviews --all")
+    if s["waiting_on_author"]:
+        lines.append(f"{plural(len(s['waiting_on_author']), 'PR')} wait on their authors to address your findings")
+    if parents:
+        biggest = sorted(groups, key=lambda g: (-len(g["items"]), g["root"] is None, g["root"] or 0))[:3]
+        lines.append(f"{plural(parents, 'PR')} wait on a parent (biggest stacks: " + ", ".join(
+            (f"#{g['root']}" if g["root"] else f"branch {g['branch']}") + f" ×{len(g['items'])}" for g in biggest) + ")")
+    if waiting_ci:
+        held = sum(1 for i in waiting_ci if i.get("held"))
+        refresh = sum(1 for i in waiting_ci if i["code"] == "awaiting_refresh")
+        github = sum(1 for i in waiting_ci if i["code"] == "awaiting_github")
+        detail = [f"{held} held for a maintainer's approval"] * bool(held) + \
+                 [f"{refresh} need a refreshed trusted build"] * bool(refresh) + \
+                 [f"{github} await GitHub's mergeability check"] * bool(github)
+        lines.append(f"{plural(len(waiting_ci), 'PR')} await CI" + (f" ({'; '.join(detail)})" if detail else ""))
+    other = [i for i in s["not_ready"] if i not in waiting_ci]
+    if other:
+        kinds = {}
+        for i in other:
+            kind = ("yours" if i["code"] == "yours" else "drafts" if i["code"] == "draft" else
+                    "conflicting" if "conflicting" in i["reason"] else "failing CI")
+            kinds[kind] = kinds.get(kind, 0) + 1
+        lines.append("Not ready: " + ", ".join(f"{n} {k}" for k, n in sorted(kinds.items(), key=lambda kv: -kv[1])))
+    extras = []
+    if ready["not_ready"]:
+        extras.append(f"{len(ready['not_ready'])} accepted but not mergeable")
+    if report["follow_ups_not_ready"]:
+        extras.append(f"{len(report['follow_ups_not_ready'])} of your follow-ups not ready yet")
+    if report["done"]:
+        extras.append(f"{len(report['done'])} already reviewed")
+    if extras:
+        lines.append("Also: " + "; ".join(extras) + " (sphereceti reviews --all)")
+    lines.append("Next: " + next_command(report))
+    return "\n".join(lines)
+
+
 def add_parser(commands):
-    p = commands.add_parser("reviews", help="read-only: your review queue (revised, author replied, new, "
-                                            "waiting on the author)")
+    p = commands.add_parser("reviews", help="read-only: PRs ready to merge, then your review queue (revised, "
+                                            "author replied, new, waiting on the author)")
     p.add_argument("--json", action="store_true")
+    p.add_argument("--all", action="store_true", help="the full listing: every PR with its reason")
+    p.add_argument("-v", "--verbose", action="store_true",
+                   help="the full listing, and a progress line for each phase")
+    p.add_argument("--quiet", action="store_true", help="no progress lines on stderr")
+    p.add_argument("--no-cache", action="store_true",
+                   help="read everything from GitHub; ignore the operator store's queue cache")
     p.add_argument("--operator-config", type=Path, help="preferences (default ~/.config/sphereceti/operator.toml)")
     return p
 
@@ -319,13 +491,15 @@ def outcome(result) -> str:
     return f"incomplete ({result.get('completion')})"
 
 
-def run_batch(args, project, policy, prefs, *, api=None, client=None, announce=None, run=None):
+def run_batch(args, project, policy, prefs, *, api=None, client=None, announce=None, run=None, prepare=None,
+              approval=None):
     """Review up to --limit distinct PRs from one queue section, one at a time.
 
     Before each item the queue is surveyed again and the review is bound to the head it selects.
     A finding ends only that PR's review; an execution failure stops the batch.
     """
     from .local_review import posting_note
+    from .review_approval import note as approval_note
     from .review_select import check_arguments
     from .review_summary import announcing, summarize
     check_arguments(args)
@@ -339,7 +513,9 @@ def run_batch(args, project, policy, prefs, *, api=None, client=None, announce=N
     items, skipped, stopped = [], [], None
     while len(items) < limit and stopped is None:
         try:
-            report = queue(project, policy, prefs, api=api, client=client)  # heads move: survey each time
+            from .review_select import cache_choice
+            report = queue(project, policy, prefs, api=api, client=client,  # heads move: survey each time
+                           use_cache=cache_choice(args))
         except (WorkerError, RecordError) as error:
             stopped = f"GitHub lookup failed: {error}"
             break
@@ -364,6 +540,9 @@ def run_batch(args, project, policy, prefs, *, api=None, client=None, announce=N
         item = pending[0]
         attempted.append(item["pr"])
         say(f"[{len(items) + 1}/{limit}] #{item['pr']} {item['author']} {item['head'][:7]}: {item['reason']}")
+        if prepare:  # first-run preferences, asked once, only when a review will really start
+            prefs, prepare = prepare(), None
+            budget = args.budget_usd if args.budget_usd is not None else prefs.budget_usd
         args.pr = item["pr"]
         if output and len(attempted) > 1:
             args.output = output.with_name(f"{output.name}-pr{item['pr']}")  # --output must be new
@@ -371,7 +550,8 @@ def run_batch(args, project, policy, prefs, *, api=None, client=None, announce=N
         try:
             # As bare review: the claim guard rechecks the head right before inference and binds it.
             result = run_claimed(args, project, prefs, expect=item, run=run,
-                                 wrap=lambda inner: announcing(prefs, announce, planned, inner=inner))
+                                 wrap=lambda inner: announcing(prefs, announce, planned, inner=inner),
+                                 approval=approval() if approval else None)
         except (ClaimRefused, ClaimYielded) as error:
             skipped.append({"pr": item["pr"], "head": item["head"], "reason": str(error).split(": ", 1)[-1]})
             say(f"  skipped #{item['pr']}: {skipped[-1]['reason']}")
@@ -386,23 +566,30 @@ def run_batch(args, project, policy, prefs, *, api=None, client=None, announce=N
                 items.append({"pr": item["pr"], "head": item["head"], "section": item["section"],
                               "outcome": "head moved during the review; new revision left for a later run",
                               "output": None, "completion": "moved", "posting": "Not posted: the PR moved.",
-                              "posted": None, "plan": planned or None, "summary": None})
+                              "posted": None, "plan": planned or None, "summary": None,
+                              "approval": None})
                 say(f"  #{item['pr']}: head moved during the review; left for a later run")
                 continue
             stopped = f"#{item['pr']}: publication unconfirmed ({error})"
             items.append({"pr": item["pr"], "head": item["head"], "section": item["section"],
                           "outcome": "publication unconfirmed", "output": None, "completion": "error",
                           "posting": f"Not posted: {error}", "posted": None, "plan": planned or None,
-                          "summary": None})
+                          "summary": None, "approval": None})
             untouched = [e["pr"] for e in pending[1:]]
             break
         posting = posting_note(args, result)
         summary = summarize(args, result, posting=posting)
         say(summary["line"])
         say("Next: " + summary["next_action"])
+        approved = result.get("approval") or {}
+        if approved:
+            say(approval_note(approved))
         items.append({"pr": item["pr"], "head": result["head"], "section": item["section"],
-                      "outcome": outcome(result), "output": result["output"], "completion": result["completion"],
-                      "posting": posting, "posted": summary["posted"], "plan": planned or None, "summary": summary})
+                      "outcome": outcome(result) + ("; approval submitted" if approved.get("state") == "submitted"
+                                                    else ""),
+                      "output": result.get("output"), "completion": result["completion"], "posting": posting,
+                      "posted": summary["posted"], "plan": planned or None, "summary": summary,
+                      "approval": approved or None})
         stopped = stop_reason(result, summary)
         if stopped:
             untouched = [e["pr"] for e in pending[1:]]

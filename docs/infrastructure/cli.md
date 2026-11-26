@@ -8,12 +8,18 @@ The `sphereceti` command supplies project diagnostics and the adapters credited 
 | `--version` | [Which build am I running?](#which-build-am-i-running) |
 | `doctor`, `status` | Project identity, policy and queue diagnostics (below) |
 | `review` | [Choose the PR that most needs your review](local-review.md#choosing-what-to-review) |
-| `reviews` | [Your review queue: revised, author replied, new, waiting on the author, blocked by a parent](local-review.md#your-review-queue-and-bounded-batches) |
+| `reviews` | [Your review queue on one screen: counts, the top PRs to review or merge, and the next command](local-review.md#your-review-queue-and-bounded-batches) |
+| `reviews --all`, `reviews -v` | [The full listing (and, with `-v`, each phase's progress)](local-review.md#your-review-queue-and-bounded-batches) |
 | `review --new / --revised / --all --limit N` | [Bounded review batches](local-review.md#your-review-queue-and-bounded-batches) |
 | `review N` | [Local review, posted by default](local-review.md#posting-by-default) |
+| `review N --no-approve` | [Opted-in maintainers: review without submitting the GitHub approval](local-review.md#approvals-by-opted-in-maintainers) |
 | `review --force-claim` | [Advisory review-in-progress claims](local-review.md#review-in-progress-claims) |
+| `review --quiet`, `reviews --quiet` | [No progress lines on stderr](local-review.md#progress-lines) |
+| `reviews --no-cache`, `review --no-cache` | [Read the whole queue fresh](local-review.md#how-the-queue-is-read) |
+| `merge-ready [--apply] [--limit N] [--wait-ci MIN] [--retarget-children]` | [Maintainers: update, approve and merge ready PRs one at a time (a dry run without `--apply`)](local-review.md#merge-ready-sweep-maintainers) |
 | `review --read-records / --no-post` | [Authenticated records and publication](review-records.md) |
 | `review-publish RUN` | [Publish a saved run without reviewing again](local-review.md#publishing-a-saved-run) |
+| `setup` | [First-run and changed review preferences](local-review.md#first-run-and-sphereceti-setup) |
 | `review-check-sandbox` | [Credential-free Codex sandbox diagnostic](local-review.md#codex-sandbox-diagnostic) |
 | `archive` | [Durable review records](review-archive.md) |
 | `worker plan` | [Worker planning](worker.md) |
@@ -121,7 +127,8 @@ Preferences cannot change repository identity, source selection, authorization, 
 switches. Diagnostics only validate/report them. Explicit `review` uses private storage;
 local subscription reviews (bare `review` and `review N`, posting or not) read
 `~/.config/sphereceti/operator.toml` when no `--operator-config` is supplied. Inference requires
-a selected provider and positive budget. `review N --dry-run` verifies the exact evidence without
+a selected provider and positive budget; on a terminal the first review asks for them and saves
+the file, and `sphereceti setup` changes them later. `review N --dry-run` verifies the exact evidence without
 invoking a provider; bare `review --dry-run` also previews which PR it would choose. See [local review usage and limits](local-review.md).
 Unknown fields, floating source commits, traversal paths, and unsupported schema versions fail.
 A source-lock component cannot move from planned to adapted/imported while its reuse terms

@@ -75,6 +75,8 @@ class Client:
     def call(self, endpoint, **kwargs):
         self.calls.append(endpoint)
         assert not kwargs.get('payload'), 'the queue never writes'
+        if '/actions/runs?head_sha=' in endpoint:
+            return [{'total_count': 0, 'workflow_runs': []}]  # a fork head's runs: none held
         if '/compare/' in endpoint:
             value = self.compare.get(endpoint.rsplit('/', 1)[1])
             if value is None:
@@ -185,7 +187,8 @@ class QueueTest(unittest.TestCase):
 
     def test_render_and_json_shape(self):
         report = self.classify([pr(2, title='A' * 80)])
-        self.assertEqual(set(report), {'schema', 'repository', 'actor', 'observed_at', 'order', 'sections',
+        self.assertEqual(set(report), {'schema', 'repository', 'actor', 'observed_at', 'order', 'ready_to_merge',
+                                       'sections',
                                        'done', 'follow_ups_not_ready', 'blocked_by_parent', 'main',
                                        'not_ready_summary'})
         self.assertEqual(report['schema'], SCHEMA)
@@ -193,9 +196,11 @@ class QueueTest(unittest.TestCase):
                                                    'not_ready'})
         self.assertEqual(set(report['sections']['new'][0]), {'section', 'pr', 'author', 'title', 'head', 'base',
                                                              'updated_at', 'waiting_seconds', 'reason', 'note',
-                                                             'unblocks'})
+                                                             'unblocks', 'held_workflows'})
         text = render(report)
         self.assertIn('Revised since your review (0): none', text)
+        self.assertEqual(report['ready_to_merge'], {'items': [], 'not_ready': [], 'required_checks': []})
+        self.assertTrue(text.split('\n')[1].startswith('Ready to merge (0): none'))
         self.assertIn(f'  #2 bob "{"A" * 57}..." aaaaaaa: ready; no review by you; waiting 1h', text)
 
     def test_lookup_failures_raise_instead_of_guessing(self):
@@ -407,7 +412,7 @@ class BatchTest(unittest.TestCase):
                                        'reviewed', 'posted', 'stopped', 'line', 'lines', 'lookup_failed', 'failed'})
         self.assertEqual(result['schema'], BATCH_SCHEMA)
         self.assertEqual(set(result['items'][0]), {'pr', 'head', 'section', 'outcome', 'output', 'completion',
-                                                   'posting', 'posted', 'plan', 'summary'})
+                                                   'posting', 'posted', 'plan', 'summary', 'approval'})
         self.assertEqual(result['lines'], ['  #2: approved'])
 
 
@@ -444,7 +449,14 @@ class QueueCliTest(unittest.TestCase):
         self.assertEqual((report['schema'], report['actor']), (SCHEMA, ME))
         self.assertEqual([e['pr'] for e in report['sections']['new']], [47])
         text = self.run_cli('reviews')
-        self.assertIn('New to you (1):', text.stdout)
+        self.assertEqual(text.stdout, 'Queue: 0 ready to merge · 0 revised · 1 new\nNew to you:\n  #47 bob  Change 47\n'
+                                      'Next: sphereceti review --new --limit 1\n')
+        self.assertRegex(text.stderr, r'^Reading 1 open PRs… done in \d+s\n$')  # one line, off a terminal
+        full = self.run_cli('reviews', '--all')
+        self.assertIn('New to you (1):', full.stdout)
+        verbose = self.run_cli('reviews', '-v')
+        self.assertEqual(verbose.stdout, full.stdout.replace(full.stdout.split('\n')[0], verbose.stdout.split('\n')[0]))
+        self.assertIn('Surveying open PRs… (1 open)', verbose.stderr)
         del self.table['pr list']
         (self.fixture.bin / 'gh.json').write_text(json.dumps(self.table))
         failed = self.run_cli('reviews')

@@ -24,7 +24,7 @@ from test_project_cli import DISABLED_POLICY
 
 PROJECT = parse_project(resource_text('sphereceti.toml'))
 POLICY = replace(parse_policy(resource_text('automation.toml')), review_generation=True,
-                 posting=True, authorized_reviewers=('user:7', 'user:8'))
+                 posting=True, authorized_reviewers=('user:7', 'user:8'), approving_reviewers=())
 PREFS = parse_operator('provider="claude"\nbudget_usd=5')
 
 
