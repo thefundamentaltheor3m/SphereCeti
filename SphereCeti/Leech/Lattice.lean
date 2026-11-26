@@ -6,10 +6,10 @@ Authors: SphereCeti contributors
 
 module
 
-public import Mathlib.Algebra.Module.ZLattice.Basic
+public import Mathlib.Algebra.Module.LinearMap.Rat
 public import SphereCeti.Leech.Embedding
 public import TauCeti.Algebra.Module.ZLattice.Shell
-public import TauCeti.LinearAlgebra.IntegralLattice.PosDef.RepresentationNumber
+public import TauCeti.LinearAlgebra.IntegralLattice.PosDef.Minimum
 
 /-!
 # The Euclidean Leech lattice
@@ -37,9 +37,11 @@ packing.
 
 ## Source
 
-The Leech lattice, its evenness, and its representation numbers are TauCeti's
-(repository `TauCetiProject/TauCeti`, commit `83769e442d55cda9d85b3927a93b286831c595ff`, files
-`TauCeti/LinearAlgebra/IntegralLattice/Rank24/Leech/Basic.lean` and
+The Leech lattice, its evenness and positive definiteness, the norm bound for nonzero vectors of
+even positive definite lattices, and representation numbers are TauCeti's (repository
+`TauCetiProject/TauCeti`, commit `83769e442d55cda9d85b3927a93b286831c595ff`, files
+`TauCeti/LinearAlgebra/IntegralLattice/Rank24/Leech/Basic.lean`,
+`TauCeti/LinearAlgebra/IntegralLattice/PosDef/Minimum.lean` and
 `TauCeti/LinearAlgebra/IntegralLattice/PosDef/RepresentationNumber.lean`); the real shells are
 TauCeti's `TauCeti/Algebra/Module/ZLattice/Shell.lean` at the same commit.
 -/
@@ -73,29 +75,25 @@ example {y : Fin 24 → ℚ} (hy : y ∈ TauCeti.leechLattice.carrier) : embeddi
 /-- A nonzero vector of the Euclidean Leech lattice has squared norm at least `2`. -/
 theorem two_le_norm_sq_of_mem_lattice {v : EuclideanSpace ℝ (Fin 24)} (hv : v ∈ lattice)
     (hv0 : v ≠ 0) : 2 ≤ ‖v‖ ^ 2 := by
-  -- The squared norm is the Leech norm `2 * z` of the preimage, positive and hence `≥ 2`.
+  -- An even positive definite lattice has no nonzero vectors of norm below `2`.
   obtain ⟨y, hy, rfl⟩ := (mem_lattice_iff v).mp hv
-  obtain ⟨z, hz⟩ := TauCeti.isEven_leechLattice.exists_norm_eq_two_mul ⟨y, hy⟩
-  rw [TauCeti.IntegralLattice.norm_apply] at hz
-  have hpos : 0 < ‖embedding y‖ ^ 2 := by positivity
-  rw [norm_embedding_sq, hz] at hpos ⊢
-  push_cast at hpos ⊢
-  have hz0 : (0 : ℝ) < z := by linarith
-  have hz0' : (0 : ℤ) < z := by exact_mod_cast hz0
-  have hz1' : (1 : ℤ) ≤ z := by omega
-  have hz1 : (1 : ℝ) ≤ z := by exact_mod_cast hz1'
-  linarith
+  have hy0 : (⟨y, hy⟩ : TauCeti.leechLattice.carrier) ≠ 0 := by
+    rintro ⟨⟩
+    exact hv0 (map_zero embedding)
+  have h2 := TauCeti.isPosDef_leechLattice.two_le_integralNorm TauCeti.isEven_leechLattice hy0
+  have h2q : (2 : ℚ) ≤ TauCeti.leechLattice.norm y := by
+    rw [← TauCeti.IntegralLattice.integralNorm_cast TauCeti.leechLattice ⟨y, hy⟩]
+    exact_mod_cast h2
+  rw [TauCeti.IntegralLattice.norm_apply] at h2q
+  rw [norm_embedding_sq]
+  exact_mod_cast h2q
 
 /-- The Euclidean Leech lattice is discrete. -/
 instance lattice_discrete : DiscreteTopology lattice := by
-  -- No nonzero lattice vector lies in the unit ball, since its squared norm is at least `2`.
-  rw [discreteTopology_iff_isOpen_singleton_zero, Metric.isOpen_singleton_iff]
-  refine ⟨1, one_pos, fun v hv => ?_⟩
-  by_contra hne
-  have hv0 : (v : EuclideanSpace ℝ (Fin 24)) ≠ 0 := fun h => hne (Subtype.ext h)
-  have h2 := two_le_norm_sq_of_mem_lattice v.2 hv0
-  rw [dist_zero_right] at hv
-  have hv' : ‖(v : EuclideanSpace ℝ (Fin 24))‖ < 1 := hv
+  -- Nonzero lattice vectors have squared norm at least `2`, hence norm at least `1`.
+  refine DiscreteTopology.of_forall_le_norm one_pos fun v hv => ?_
+  have h2 := two_le_norm_sq_of_mem_lattice v.2 (by simpa using hv)
+  rw [← Submodule.norm_coe]
   nlinarith [norm_nonneg (v : EuclideanSpace ℝ (Fin 24))]
 
 /-- The Euclidean Leech lattice is a full `ℤ`-lattice in `ℝ^24`. -/
@@ -105,15 +103,9 @@ instance lattice_isZLattice : IsZLattice ℝ lattice where
     -- lattice contains every `embedding (Pi.single i 1) = e_i / √2`.
     set S := Submodule.span ℝ (lattice : Set (EuclideanSpace ℝ (Fin 24)))
     have hmem : ∀ x ∈ Submodule.span ℚ (TauCeti.leechLattice.carrier : Set (Fin 24 → ℚ)),
-        embedding x ∈ S := by
-      intro x hx
-      induction hx using Submodule.span_induction with
-      | mem y hy => exact Submodule.subset_span ⟨y, hy, rfl⟩
-      | zero => rw [map_zero]; exact S.zero_mem
-      | add u w _ _ hu hw => rw [map_add]; exact S.add_mem hu hw
-      | smul q u _ hu =>
-        rw [map_rat_smul, ← Rat.cast_smul_eq_qsmul ℝ]
-        exact S.smul_mem _ hu
+        embedding x ∈ S := fun x hx =>
+      ((Submodule.image_span_subset embedding.toRatLinearMap _ (S.restrictScalars ℚ)).mpr
+        fun y hy => Submodule.subset_span ⟨y, hy, rfl⟩) ⟨x, hx, rfl⟩
     rw [eq_top_iff, ← (EuclideanSpace.basisFun (Fin 24) ℝ).toBasis.span_eq, Submodule.span_le]
     rintro _ ⟨i, rfl⟩
     have hi := hmem (Pi.single i 1) (by
