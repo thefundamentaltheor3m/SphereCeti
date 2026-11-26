@@ -36,7 +36,8 @@ PROVIDERS = {"claude": "claude", "sonnet": "claude", "codex": "codex", "kiro": "
 DOCUMENTS = ("README.md", "CONVENTIONS.md", "MIGRATION.md", "PROVENANCE.md", "UPSTREAM.md",
              "VALIDATION.md", "INFRASTRUCTURE-PLAN.md")
 UPSTREAM = "afb424eda89e8ac96d9eb69f6a88972055a4cd1b"
-RUN_TIMEOUT = 1800       # seconds for the whole engine run, every rubric and attempt
+RUN_TIMEOUT = 1800       # default seconds for the whole engine run, every rubric and attempt
+MIN_RUN_TIMEOUT, MAX_RUN_TIMEOUT = 60, 7200  # --run-timeout / SPHERECETI_RUN_TIMEOUT bounds
 ATTEMPT_TIMEOUT = 600    # default seconds for one provider attempt and its process group
 MAX_ATTEMPT_TIMEOUT = 1800
 BUDGET_STOP_NOTE = "daily review budget reached (run saved locally)"
@@ -83,6 +84,9 @@ def add_parser(commands):
     p.add_argument("--auth", choices=("subscription", "api"), default="subscription")
     p.add_argument("--budget-usd", type=float, help="daily estimate threshold (defaults to the operator preference)")
     p.add_argument("--max-call-cost", type=float, default=1.0, help="estimated allowance to reserve before each rubric (default: $1)")
+    p.add_argument("--run-timeout", type=int, metavar="SECONDS",
+                   help=f"seconds for the whole review run, {MIN_RUN_TIMEOUT}-{MAX_RUN_TIMEOUT} (default: "
+                        f"SPHERECETI_RUN_TIMEOUT, else {RUN_TIMEOUT}); the review-in-progress claim lasts as long")
     p.add_argument("--attempt-timeout", type=int, default=ATTEMPT_TIMEOUT,
                    help=f"seconds before one provider attempt is stopped (1-{MAX_ATTEMPT_TIMEOUT})")
     p.add_argument("--rubrics", default=",".join(RUBRICS))
@@ -425,18 +429,36 @@ def engine_environment(providers, auth):
     return env
 
 
-def invoke_bridge(request: Path, env: dict, lock_fd: int, heartbeat=None) -> int:
+def run_timeout(args) -> int:
+    """Seconds for the whole engine run: --run-timeout, else SPHERECETI_RUN_TIMEOUT, else 1800.
+    The review-in-progress claim lasts exactly this long."""
+    value, source = getattr(args, "run_timeout", None), "--run-timeout"
+    if value is None:
+        text = os.environ.get("SPHERECETI_RUN_TIMEOUT", "").strip()
+        if not text:
+            return RUN_TIMEOUT
+        source = "SPHERECETI_RUN_TIMEOUT"
+        try:
+            value = int(text)
+        except ValueError:
+            value = None
+    if type(value) is not int or not MIN_RUN_TIMEOUT <= value <= MAX_RUN_TIMEOUT:
+        raise ReviewError(f"{source} must be whole seconds from {MIN_RUN_TIMEOUT} to {MAX_RUN_TIMEOUT}")
+    return value
+
+
+def invoke_bridge(request: Path, env: dict, lock_fd: int, heartbeat=None, timeout=RUN_TIMEOUT) -> int:
     if heartbeat:
         heartbeat()
     process = subprocess.Popen([sys.executable, "-I", str(Path(__file__).with_name("review_bridge.py")),
                                 str(request)], env=env, start_new_session=True, pass_fds=(lock_fd,),
                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     try:
-        deadline = time.monotonic() + RUN_TIMEOUT
+        deadline = time.monotonic() + timeout
         while True:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
-                raise subprocess.TimeoutExpired(process.args, RUN_TIMEOUT)
+                raise subprocess.TimeoutExpired(process.args, timeout)
             try:
                 return process.wait(timeout=min(30, remaining) if heartbeat else remaining)
             except subprocess.TimeoutExpired:
@@ -535,7 +557,7 @@ def execute(args, prefs, report, workspace: Path, engine: Path, store: Path, out
     try:
         bridge_args = (request, engine_environment(providers, args.auth), lock_fd)
         with watch:
-            code = invoke_bridge(*bridge_args, heartbeat=heartbeat) if heartbeat else invoke_bridge(*bridge_args)
+            code = invoke_bridge(*bridge_args, heartbeat=heartbeat, timeout=run_timeout(args))
     except subprocess.TimeoutExpired:
         code = 124
     except (Exception, KeyboardInterrupt) as error:
@@ -573,6 +595,9 @@ def execute(args, prefs, report, workspace: Path, engine: Path, store: Path, out
     complete = (not stop_reason and len(finished) == len(RUBRICS) and args.rubrics == ",".join(RUBRICS)
                 and args.mode != "reply" and not report["diff_prompt_truncated"] and not args.shadow)
     result = {**report, "completion": "error" if code else "complete" if complete else "partial",
+              # The durable archive's request facts are a fixed schema; the run's own receipt
+              # (result.json) records the whole-run timeout beside them.
+              "run_timeout_s": run_timeout(args),
               "evaluation_request": {"auth": args.auth, "shadow": args.shadow or None,
                                      "rubrics": args.rubrics.split(","),
                                      "daily_budget_usd": budget,
@@ -624,6 +649,7 @@ def persist_review(result, output, archive):
 
 
 def run_review(args, project, prefs, *, guard=None) -> dict:
+    run_timeout(args)  # a bad --run-timeout or SPHERECETI_RUN_TIMEOUT stops before any work
     if args.shadow and (args.post or args.read_records or args.replies_json):
         raise ReviewError("fresh shadow execution cannot post, inspect live records, or use prior contest inputs")
     if args.post and (args.dry_run or args.read_records or args.local_sources):

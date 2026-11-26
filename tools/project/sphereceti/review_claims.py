@@ -19,7 +19,7 @@ import signal
 import sys
 import uuid
 
-from .local_review import RUN_TIMEOUT, ReviewError
+from .local_review import MAX_RUN_TIMEOUT, RUN_TIMEOUT, ReviewError, run_timeout
 from .review_records import RecordError, identity
 from .review_summary import plan, receipt_runs
 from .worker import WorkerError, commit, timestamp
@@ -27,7 +27,8 @@ from .worker_cli import load_json
 from .worker_leases import stamp, utcnow
 
 MARKER = "<!--sphereceti-review-claim:v1 "
-TTL = RUN_TIMEOUT          # one claim covers the review's whole-run deadline (30 minutes)
+TTL = RUN_TIMEOUT          # a claim covers the review's whole-run deadline (default 30 minutes)
+MAX_TTL = MAX_RUN_TIMEOUT  # the longest claim any client may post (--run-timeout's upper bound)
 SLACK = 60                 # tolerated clock difference between a client and GitHub, in seconds
 STATES = ("in_progress", "finished", "abandoned", "yielded", "paused")  # only in_progress is live
 FIELDS = {"repository", "pr", "head", "base", "actor", "login", "claim", "started_at", "expires_at",
@@ -147,7 +148,7 @@ def live(comments, context, now):
         claim = parse(comment, context["repository"], context["pr"])
         # GitHub's updated_at bounds the claimed expiry: no claim can outlive one run.
         if (claim and claim["state"] == "in_progress" and claim["head"] == context["head"]
-                and now < claim["expiry"] <= claim["updated"] + timedelta(seconds=TTL + SLACK)):
+                and now < claim["expiry"] <= claim["updated"] + timedelta(seconds=MAX_TTL + SLACK)):
             claims.append(claim)
     return sorted(claims, key=lambda c: (c["comment_id"], c["created"]))
 
@@ -165,6 +166,7 @@ class ReviewClaim:
 
     def __init__(self, project, prefs, *, force=False, expect=None, now=utcnow):
         self.project, self.force, self.expect, self.now = project, force, expect, now
+        self.ttl = TTL
         self.client = self.data = self.comment_id = None
         self.closed = False
         self.prefs = prefs
@@ -174,6 +176,7 @@ class ReviewClaim:
     def guard(self, args, report, policy, client):
         if self.expect and (report["head"] != self.expect["head"] or report["base"] != self.expect["base"]):
             raise ReviewError(f"PR #{report['pr']} changed since it was selected; run `sphereceti review` again")
+        self.ttl = run_timeout(args)  # the claim lasts exactly as long as the run may
         if args.post and not first_rubric_fits(args, self.prefs, report["repository"]):
             pass  # The engine will stop before its first rubric: the PR stays silent, no claim.
         elif args.post:
@@ -201,7 +204,7 @@ class ReviewClaim:
             raise ClaimRefused(f"PR #{report['pr']}: {describe(foreign[0], now)}; "
                                "rerun with --force-claim to review anyway")
         self.data = {**self.context, "actor": actor, "login": user["login"], "claim": uuid.uuid4().hex,
-                     "started_at": stamp(now), "expires_at": stamp(now + timedelta(seconds=TTL)),
+                     "started_at": stamp(now), "expires_at": stamp(now + timedelta(seconds=self.ttl)),
                      "state": "in_progress", "detail": None}
         own = [c for c in claims if c["actor"] == actor]
         from .feedback import current as progress

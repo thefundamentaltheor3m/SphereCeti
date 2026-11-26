@@ -14,6 +14,7 @@ The `sphereceti` command supplies project diagnostics and the adapters credited 
 | `review N` | [Local review, posted by default](local-review.md#posting-by-default) |
 | `review N --no-approve` | [Opted-in maintainers: review without submitting the GitHub approval](local-review.md#approvals-by-opted-in-maintainers) |
 | `review --force-claim` | [Advisory review-in-progress claims](local-review.md#review-in-progress-claims) |
+| `review --run-timeout SECONDS` | Whole-run limit, 60–7200 s (else `SPHERECETI_RUN_TIMEOUT`, else 1800); the review-in-progress claim lasts as long |
 | `review --quiet`, `reviews --quiet` | [No progress lines on stderr](local-review.md#progress-lines) |
 | `reviews --no-cache`, `review --no-cache` | [Read the whole queue fresh](local-review.md#how-the-queue-is-read) |
 | `merge-ready [--apply] [--limit N] [--wait-ci MIN] [--retarget-children]` | [Maintainers: update, approve and merge ready PRs one at a time (a dry run without `--apply`)](local-review.md#merge-ready-sweep-maintainers) |
