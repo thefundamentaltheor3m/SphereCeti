@@ -314,10 +314,121 @@ def render(report) -> str:
     return "\n".join(lines)
 
 
+TOP = 8          # PRs shown per actionable section by default
+TITLE = 50       # characters of a title in the concise listing
+
+
+def short_title(title: str) -> str:
+    return title if len(title) <= TITLE else title[:TITLE - 1].rstrip() + "…"
+
+
+def plural(n, one, many=None):
+    return f"{n} {one if n == 1 else (many or one + 's')}"
+
+
+def next_command(report) -> str:
+    """The one command that does the most useful thing next."""
+    ready = [i for i in report["ready_to_merge"]["items"] if i["next_step"] in ("merge", "approve + merge")]
+    follow = len(report["sections"]["revised"]) + len(report["sections"]["author_replied"])
+    new = len(report["sections"]["new"])
+    if ready:
+        return "sphereceti merge-ready --apply"
+    if follow:
+        return f"sphereceti review --revised --limit {min(follow, MAX_LIMIT)}"
+    if new:
+        return f"sphereceti review --new --limit {min(new, MAX_LIMIT)}"
+    return "nothing needs your review now"
+
+
+def tags(name, e):
+    """Only what changes what to do: what unblocks, what is held, what was said back."""
+    out = []
+    if name == "revised":
+        if e.get("history"):
+            out.append("history rewritten")
+        if e.get("author_replies"):
+            out.append("author replied")
+        if e.get("contests"):
+            out.append("contested")
+    if name == "author_replied":
+        out.append(plural(e["contests"], "contest") if e.get("contests") and not e.get("author_replies")
+                   else "replied" + (f", {plural(e['contests'], 'contest')}" if e.get("contests") else ""))
+    if e.get("held_workflows"):
+        out.append("CI held")
+    if e.get("unblocks"):
+        out.append(f"unblocks {e['unblocks']}")
+    return out
+
+
+def render_concise(report, top=TOP) -> str:
+    """About one screen: counts, the top PRs of each actionable section, and the next command."""
+    s, ready = report["sections"], report["ready_to_merge"]
+    groups = report.get("blocked_by_parent") or []
+    parents = sum(len(g["items"]) for g in groups)
+    waiting_ci = [i for i in s["not_ready"] if i["code"] in ("awaiting_ci", "awaiting_refresh", "awaiting_github")]
+    counts = [(len(ready["items"]), "ready to merge", True), (len(s["revised"]), "revised", True),
+              (len(s["author_replied"]), "author replied", False), (len(s["new"]), "new", True),
+              (len(s["waiting_on_author"]), "waiting on authors", False),
+              (parents, "waiting on parents", False), (len(waiting_ci), "awaiting CI", False)]
+    lines = ["Queue: " + " · ".join(f"{n} {label}" for n, label, always in counts if n or always)]
+
+    def section(title, entries, line, more):
+        if not entries:
+            return
+        lines.append(f"{title}:")
+        lines.extend(line(e) for e in entries[:top])
+        if len(entries) > top:
+            lines.append(f"  … and {len(entries) - top} more ({more})")
+
+    def pr_line(e, extra):
+        label = f"  #{e['pr']} {e['author']}  {short_title(e['title'])}"
+        return label + (f"  ({', '.join(extra)})" if extra else "")
+    section("Ready to merge", ready["items"],
+            lambda e: pr_line(e, ["CI held" if e.get("held_workflows") else e["next_step"]]), "sphereceti reviews --all")
+    for name in ("revised", "author_replied", "new"):
+        section(TITLES[name], s[name], lambda e, name=name: pr_line(e, tags(name, e)), "sphereceti reviews --all")
+    if s["waiting_on_author"]:
+        lines.append(f"{plural(len(s['waiting_on_author']), 'PR')} wait on their authors to address your findings")
+    if parents:
+        biggest = sorted(groups, key=lambda g: (-len(g["items"]), g["root"] is None, g["root"] or 0))[:3]
+        lines.append(f"{plural(parents, 'PR')} wait on a parent (biggest stacks: " + ", ".join(
+            (f"#{g['root']}" if g["root"] else f"branch {g['branch']}") + f" ×{len(g['items'])}" for g in biggest) + ")")
+    if waiting_ci:
+        held = sum(1 for i in waiting_ci if i.get("held"))
+        refresh = sum(1 for i in waiting_ci if i["code"] == "awaiting_refresh")
+        github = sum(1 for i in waiting_ci if i["code"] == "awaiting_github")
+        detail = [f"{held} held for a maintainer's approval"] * bool(held) + \
+                 [f"{refresh} need a refreshed trusted build"] * bool(refresh) + \
+                 [f"{github} await GitHub's mergeability check"] * bool(github)
+        lines.append(f"{plural(len(waiting_ci), 'PR')} await CI" + (f" ({'; '.join(detail)})" if detail else ""))
+    other = [i for i in s["not_ready"] if i not in waiting_ci]
+    if other:
+        kinds = {}
+        for i in other:
+            kind = ("yours" if i["code"] == "yours" else "drafts" if i["code"] == "draft" else
+                    "conflicting" if "conflicting" in i["reason"] else "failing CI")
+            kinds[kind] = kinds.get(kind, 0) + 1
+        lines.append("Not ready: " + ", ".join(f"{n} {k}" for k, n in sorted(kinds.items(), key=lambda kv: -kv[1])))
+    extras = []
+    if ready["not_ready"]:
+        extras.append(f"{len(ready['not_ready'])} accepted but not mergeable")
+    if report["follow_ups_not_ready"]:
+        extras.append(f"{len(report['follow_ups_not_ready'])} of your follow-ups not ready yet")
+    if report["done"]:
+        extras.append(f"{len(report['done'])} already reviewed")
+    if extras:
+        lines.append("Also: " + "; ".join(extras) + " (sphereceti reviews --all)")
+    lines.append("Next: " + next_command(report))
+    return "\n".join(lines)
+
+
 def add_parser(commands):
     p = commands.add_parser("reviews", help="read-only: PRs ready to merge, then your review queue (revised, "
                                             "author replied, new, waiting on the author)")
     p.add_argument("--json", action="store_true")
+    p.add_argument("--all", action="store_true", help="the full listing: every PR with its reason")
+    p.add_argument("-v", "--verbose", action="store_true",
+                   help="the full listing, and a progress line for each phase")
     p.add_argument("--quiet", action="store_true", help="no progress lines on stderr")
     p.add_argument("--no-cache", action="store_true",
                    help="read everything from GitHub; ignore the operator store's queue cache")

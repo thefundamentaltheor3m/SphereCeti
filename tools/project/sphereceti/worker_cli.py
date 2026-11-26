@@ -263,6 +263,9 @@ def survey(project, requested=None, *, api=None) -> dict:
             raw = [api.read(["pr", "view", str(number), *repo_args]) for number in requested]
     if requested is None and hasattr(api, "allow_for"):
         api.allow_for(len(raw))
+    if requested is None:
+        progress().total = len(raw)
+        progress().summary(f"Reading {len(raw)} open PRs…")
     from .pool import concurrent, ordered
     with progress().phase(f"Surveying open PRs… ({len(raw)} open)", "Surveying open PRs… done",
                           "Surveying open PRs… failed"):
