@@ -14,8 +14,8 @@ import Mathlib.Geometry.Manifold.MFDeriv.SpecificFunctions
 /-!
 # Jacobi's quartic theta identity
 
-The classical theta constants satisfy `H₂ + H₄ = H₃`. The square of their difference
-is a weight-four cusp form for the full modular group, and that space is zero.
+The classical theta constants satisfy `H₂ + H₄ = H₃`. This identity simplifies
+rational expressions in the theta constants that define the sphere-packing modular kernels.
 
 Adapted from `thefundamentaltheor3m/Sphere-Packing-Lean` at commit
 `bad3de916074748eb88b7d1ee6dbf9494361ad17`,
@@ -31,7 +31,11 @@ open scoped UpperHalfPlane ModularForm MatrixGroups
 
 namespace TauCeti.ModularForm
 
+-- The square of the defect is a weight-four cusp form for the full modular group.
+-- That cusp-form space is zero, so the defect vanishes.
 private noncomputable def defect : ℍ → ℂ := H₂ + H₄ - H₃
+
+private theorem defect_apply (τ : ℍ) : defect τ = H₂ τ + H₄ τ - H₃ τ := rfl
 
 private theorem defect_S : defect ∣[(2 : ℤ)] S = -defect := by
   simp only [defect, sub_eq_add_neg, add_slash, neg_slash,
@@ -49,25 +53,28 @@ private theorem defect_T : defect ∣[(2 : ℤ)] T = -defect := by
 
 private noncomputable def defectSq : ℍ → ℂ := defect * defect
 
+private theorem defectSq_apply (τ : ℍ) : defectSq τ = defect τ * defect τ := rfl
+
 private theorem defectSq_S : defectSq ∣[(4 : ℤ)] S = defectSq := by
-  rw [defectSq, show (4 : ℤ) = 2 + 2 by norm_num,
-    _root_.ModularForm.mul_slash_SL2, defect_S, neg_mul_neg]
+  simpa only [defectSq, Int.reduceAdd, defect_S, neg_mul_neg] using
+    _root_.ModularForm.mul_slash_SL2 2 2 S defect defect
 
 private theorem defectSq_T : defectSq ∣[(4 : ℤ)] T = defectSq := by
-  rw [defectSq, show (4 : ℤ) = 2 + 2 by norm_num,
-    _root_.ModularForm.mul_slash_SL2, defect_T, neg_mul_neg]
+  simpa only [defectSq, Int.reduceAdd, defect_T, neg_mul_neg] using
+    _root_.ModularForm.mul_slash_SL2 2 2 T defect defect
 
 private theorem defectSq_invariant (γ : SL(2, ℤ)) : defectSq ∣[(4 : ℤ)] γ = defectSq :=
   _root_.SlashInvariantForm.slash_action_generators_SL2Z defectSq_S defectSq_T γ
 
 private theorem defect_tendsto : Tendsto defect atImInfty (𝓝 0) := by
   have h2 : Tendsto H₂ atImInfty (𝓝 0) := isZeroAtImInfty_H₂
-  change Tendsto (fun τ => H₂ τ + H₄ τ - H₃ τ) _ _
-  simpa only [zero_add, sub_self] using (h2.add tendsto_H₄_atImInfty).sub tendsto_H₃_atImInfty
+  simpa only [defect_apply, zero_add, sub_self] using
+    ((h2.add tendsto_H₄_atImInfty).sub tendsto_H₃_atImInfty).congr
+      (fun τ => (defect_apply τ).symm)
 
 private theorem defectSq_tendsto : Tendsto defectSq atImInfty (𝓝 0) := by
-  change Tendsto (fun τ => defect τ * defect τ) _ _
-  simpa only [mul_zero] using defect_tendsto.mul defect_tendsto
+  simpa only [mul_zero] using (defect_tendsto.mul defect_tendsto).congr
+    (fun τ => (defectSq_apply τ).symm)
 
 private noncomputable def defectCusp : CuspForm 𝒮ℒ 4 where
   toFun := defectSq
@@ -84,6 +91,8 @@ private noncomputable def defectCusp : CuspForm 𝒮ℒ 4 where
     rw [defectSq_invariant]
     exact defectSq_tendsto
 
+private theorem defectCusp_apply (τ : ℍ) : defectCusp τ = defectSq τ := rfl
+
 /-- **Jacobi's quartic identity:** `Θ₂⁴ + Θ₄⁴ = Θ₃⁴`. -/
 theorem jacobi_identity : H₂ + H₄ = H₃ := by
   have hzero : defectCusp = 0 :=
@@ -91,7 +100,7 @@ theorem jacobi_identity : H₂ + H₄ = H₃ := by
       (CuspForm.rank_eq_zero_of_weight_lt_twelve (by norm_num : (4 : ℤ) < 12))) defectCusp
   ext τ
   have h := DFunLike.congr_fun hzero τ
-  change (H₂ τ + H₄ τ - H₃ τ) * (H₂ τ + H₄ τ - H₃ τ) = 0 at h
+  simp only [defectCusp_apply, defectSq_apply, defect_apply, zero_apply] at h
   exact sub_eq_zero.mp ((mul_eq_zero.mp h).elim id id)
 
 -- The identity exposes the positive difference used in the minus-kernel formulas.
