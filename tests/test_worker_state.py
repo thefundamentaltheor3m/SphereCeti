@@ -165,7 +165,7 @@ class SyncTests(unittest.TestCase):
         # review generation is activated in the repository's own policy.
         effective = resource_text('automation.toml')
         for line in ('review_generation = true', 'posting = true',
-                     'authorized_reviewers = ["user:7", "user:8"]'):
+                     'authorized_reviewers = ["user:7", "user:8"]', 'approving_reviewers = []'):
             name = line.split(' =')[0]
             effective, count = re.subn(rf'^{name} = .*$', line, effective, flags=re.M)
             self.assertEqual(count, 1)
