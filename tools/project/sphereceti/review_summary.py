@@ -135,9 +135,12 @@ def summarize(args, report, *, posting=None) -> dict:
     verdicts = report.get("verdicts") or {}
     requested = report.get("requested_rubrics") or list(RUBRICS)
     reviewed = [r for r in requested if verdicts.get(r) in ("approve", "request_changes", "block")]
-    blocking = next((r for r in RUBRICS if verdicts.get(r) == "block"), None)
+    blocks = [r for r in RUBRICS if verdicts.get(r) == "block"]
+    blocking = blocks[0] if blocks else None
     changes = [r for r in RUBRICS if verdicts.get(r) == "request_changes"]
-    first = blocking or (changes[0] if changes else None)
+    # Every rubric the author must address, blocks first, as the summary line lists them.
+    findings = blocks + changes
+    first = findings[0] if findings else None
     runs = receipt_runs(report)
     down = provider_down(runs)
     startup = report.get("completion") != "dry_run" and not reviewed and startup_failure(runs)
@@ -174,8 +177,9 @@ def summarize(args, report, *, posting=None) -> dict:
         head = f"{len(reviewed)}/{len(requested)} approve"
     else:
         head = f"{len(reviewed)}/{len(requested)} reviewed"
-    parts = [head] + ([f"stopped: {stop}"] if stop else []) + ([f"changes requested: {', '.join(changes)}"]
-                                                               if changes and not stop else []) + [posted]
+    parts = ([head] + ([f"stopped: {stop}"] if stop else []) +
+             ([f"blocked: {', '.join(blocks)}"] if blocks and not stop else []) +
+             ([f"changes requested: {', '.join(changes)}"] if changes and not stop else []) + [posted])
     provider = (getattr(args, "provider", None) or "").split(",")[0] or "the provider"
     output = Path(report.get("output") or "RUN")
     # A run under the operator store's runs/ is named by its id; an --output run by its directory.
@@ -191,7 +195,7 @@ def summarize(args, report, *, posting=None) -> dict:
     elif report.get("stop_reason") == "usage_unknown":
         action = "check the provider's usage for the unreported attempt, then rerun"
     elif first:
-        action = f"author: address {first} (see record); rerun after the head changes"
+        action = f"author: address {', '.join(findings)} (see record); rerun after the head changes"
     elif not complete:
         action = "rerun to finish the remaining rubrics (raise budget_usd with `--budget-usd` if needed)"
     elif not url and getattr(args, "no_post", False):
@@ -201,5 +205,5 @@ def summarize(args, report, *, posting=None) -> dict:
     else:
         action = "none: every rubric approves"
     return {"line": " · ".join(parts), "reviewed": len(reviewed), "total": len(requested),
-            "first_blocking": first, "stop": stop, "posted": url, "official": bool(publication.get("authorized")),
+            "first_blocking": first, "findings": findings, "stop": stop, "posted": url, "official": bool(publication.get("authorized")),
             "next_action": action}
