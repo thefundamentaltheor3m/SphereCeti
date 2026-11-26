@@ -45,6 +45,7 @@ SECONDARY_LIMIT = ("secondary rate limit", "abuse detection", "HTTP 429")
 # Reads shared by every PR of one survey: current main, and compares of two exact commits.
 SHARED = re.compile(r"^repos/[^/]+/[^/]+/(commits/[^/?]+|compare/[0-9a-f]{40}\.\.\.[0-9a-f]{40})$")
 BACKOFF = (5, 15, 30)   # seconds between retries of a read refused by a secondary rate limit
+RESURVEY = (5, 15, 30)  # seconds before reading the queue again after it changed mid-survey
 
 
 def rate_limit_reason(stderr: str):
@@ -245,9 +246,25 @@ def survey(project, requested=None, *, api=None) -> dict:
     repo_args = ["--repo", "github.com/" + project.repository, "--json", PR_FIELDS]
     from .feedback import current as progress
     if requested is None and getattr(api, "bulk", False):
-        from .bulk import fetch
+        from .bulk import QueueChanged, fetch
         began = time.monotonic()
-        actor, raw, api.queue_comments = fetch(api, project.repository)
+        # A PR merging (main moving) while the queue is read is routine: read it again, a few
+        # times, before giving up. Any other failure stops at once.
+        for pause in (*RESURVEY, None):
+            try:
+                actor, raw, api.queue_comments = fetch(api, project.repository)
+                break
+            except QueueChanged:
+                if pause is None:
+                    raise
+                note = "queue changed during the survey (a PR merged or moved); re-reading…"
+                if progress().verbose:
+                    progress().line(note)
+                else:
+                    progress().summary(note.capitalize())
+                if hasattr(api, "deadline"):
+                    api.deadline += pause
+                time.sleep(pause)
         actor = text(actor, "authenticated actor")
         progress().line(f"Read {len(raw)} open PRs with their comments in one pass "
                         f"({time.monotonic() - began:.1f}s)")

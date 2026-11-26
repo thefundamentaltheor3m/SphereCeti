@@ -594,8 +594,13 @@ One survey reads current main once, and each exact-commit compare once.
 
 Results stay fail-closed:
 - A PR with more than 100 comments has the rest read through REST, for that PR only.
-- These all exit 2, as before: a queue that changes between pages, a GraphQL error, or any failed
-  read.
+- A queue that changes while it is read (a PR merging, opening or closing between pages) is read
+  again after 5, 15 and 30 seconds, with one progress line: `queue changed during the survey (a PR
+  merged or moved); re-reading…`. This applies to `reviews`, bare `review`, batches and
+  `merge-ready`. Only if it is still changing after the third retry does the command stop, with
+  `the open queue changed during the survey; rerun`.
+- These exit 2 at once, as before: a GraphQL error, an authentication failure, an exhausted rate
+  limit, or any other failed read.
 - A read refused by GitHub's **secondary** rate limit is retried after 5, 15 and 30 seconds. Only
   reads are retried, never a write.
 - An exhausted **primary** limit fails at once and says when it resets.

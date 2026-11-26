@@ -117,6 +117,8 @@ def world():
         7: [record(30, 7)],
     }
     prs[2]['headRefName'] = 'branch-3'
+    for p in prs:  # fixed times: every call builds the same world, whatever the clock's second
+        p['updatedAt'] = f"2026-11-20T{p['number'] % 24:02d}:00:00Z"
     return Hub(prs, comments, {f'{OLD}...{HEAD}': {'status': 'ahead', 'ahead_by': 2, 'merge_base_commit': {}}},
                scope)
 
@@ -253,11 +255,11 @@ class FastQueueTest(unittest.TestCase):
         def shifting(args, limit=None):
             value = original(args, limit)
             state['n'] += 1
-            if state['n'] == 2:  # a new PR appears while paging: the count no longer matches
+            if state['n'] % 2 == 0:  # a new PR appears while paging, every time: the count never matches
                 value['data']['repository']['pullRequests']['totalCount'] += 1
             return value
         reader.read = shifting
-        with self.assertRaises(WorkerError):
+        with self.assertRaises(WorkerError), patch('time.sleep'):  # after re-reading (test_queue_retry)
             survey(PROJECT, None, api=reader)
         reader = SurveyReader(world(), bulk=True)
         reader.read = lambda args, limit=None: {'errors': [{'message': 'something broke'}]}
