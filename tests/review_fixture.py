@@ -112,6 +112,9 @@ for name in ("TauCeti", "mathlib"):
 assert "--tools" in sys.argv and "Bash" not in sys.argv
 with (root / "calls.jsonl").open("a") as f:
     f.write(json.dumps({"prompt": prompt, "argv": sys.argv}) + "\n")
+if (root / "claude-sleep").exists():  # a provider slow enough for progress polling to see each rubric
+    import time
+    time.sleep(float((root / "claude-sleep").read_text()))
 mode = (root / "mode").read_text()
 marker = re.findall(r"TAUCETI-VERDICT-[a-z0-9]+", prompt)[-1]
 if mode == "error":
