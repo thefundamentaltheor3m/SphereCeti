@@ -194,7 +194,8 @@ model call. Otherwise it prints nothing then, and the result names the first fai
    author contest on your earlier record that this record leaves unanswered therefore blocks the
    approval. The PR's head and base are re-read and must be unchanged.
 4. The read-only decision (`sphereceti auto-approve-check`, `auto_approval.py`), never
-   hypothetical, must say `would_approve: true` for the same head and base. It covers scope, the
+   hypothetical, must say `would_approve: true` for the same head and base. It covers scope (only
+   library modules under `SphereCeti/`, never the root or the protected files), the
    trusted build and its tooling attestation, the compiled audit, the independent reviewer and
    the PR state.
 5. If your current review state already approves this head, nothing is written. As in the merge
