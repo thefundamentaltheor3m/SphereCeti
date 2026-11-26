@@ -10,12 +10,15 @@ approving = true
 # The single global merging stop switch (docs/infrastructure/activation.md). Setting it to false
 # stops new merge attempts at the next controller run.
 merging = true
-# First proof topics eligible for the automatic route. Prefix semantics as in gate.py: library
-# modules under SphereCeti/Contour/ and SphereCeti/E8/ only. Contributors may work on any roadmap
-# target; PRs outside these topics, any edit to the frozen library root SphereCeti.lean, and any
-# change mixed with specification, CI, policy, dependency or tooling paths take the human route.
-# Only fully qualifying PRs in these topics, formally approved by an opted-in maintainer, can merge.
-mathematical_paths = ["SphereCeti/Contour/", "SphereCeti/E8/"]
+# Paths eligible for the automatic route. Prefix semantics as in gate.py: any library module
+# (`.lean` file) under SphereCeti/. Topics are not enumerated because new topic directories appear
+# constantly; open PRs touch NumberTheory, Analysis, E8, Contour, Leech, Lattice, ZLattice,
+# CohnElkies, MeasureTheory, Topology and Algebra. Still routed to a human:
+# - the gate's protected files SphereCeti/Basic.lean, SphereCeti/Pinned.lean and SphereCeti/Suggested.lean;
+# - the frozen library root SphereCeti.lean, and the roadmap specification (README.md, SphereCetiRoadmap/);
+# - any change mixed with CI, policy, dependency, tooling or script paths.
+# Only fully qualifying PRs, formally approved by an opted-in maintainer, can merge.
+mathematical_paths = ["SphereCeti/"]
 # Reviewers whose posted review records count as official (immutable GitHub user ids, verified
 # read-only on 2026-11-24 with `gh api users/<login>` and the repository collaborator list).
 # Authorization covers review records only: it grants no merge authority, and a reviewer's record
