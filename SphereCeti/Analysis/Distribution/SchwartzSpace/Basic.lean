@@ -8,6 +8,8 @@ module
 
 public import Mathlib.Analysis.Distribution.SchwartzSpace.Basic
 
+import Mathlib.Analysis.Asymptotics.SpecificAsymptotics
+
 /-!
 # Constructing Schwartz functions from bounds at infinity
 
@@ -40,7 +42,6 @@ variable {E F : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
 
 /-- Construct a Schwartz function from a smooth function whose polynomial derivative bounds
 hold outside compact sets. -/
-@[expose]
 def mkOfCocompact (f : E → F) (smooth : ContDiff ℝ ∞ f)
     (decay : ∀ k n : ℕ, ∃ C : ℝ,
       ∀ᶠ x in cocompact E, ‖x‖ ^ k * ‖iteratedFDeriv ℝ n f x‖ ≤ C) : 𝓢(E, F) where
@@ -48,23 +49,25 @@ def mkOfCocompact (f : E → F) (smooth : ContDiff ℝ ∞ f)
   smooth' := smooth
   decay' k n := by
     obtain ⟨C, hC⟩ := decay k n
-    obtain ⟨K, hK, hbound⟩ := mem_cocompact.mp hC
     let g : E → ℝ := fun x => ‖x‖ ^ k * ‖iteratedFDeriv ℝ n f x‖
     have hg : Continuous g :=
       (continuous_norm.pow k).mul
         (smooth.continuous_iteratedFDeriv (m := n) (by simp)).norm
-    obtain ⟨C', hC'⟩ := hK.exists_bound_of_continuousOn hg.continuousOn
-    refine ⟨max C C', fun x => ?_⟩
-    by_cases hx : x ∈ K
-    · exact (Real.le_norm_self (g x)).trans ((hC' x hx).trans (le_max_right C C'))
-    · exact (hbound hx).trans (le_max_left C C')
+    have hg0 (x : E) : 0 ≤ g x :=
+      mul_nonneg (pow_nonneg (norm_nonneg x) k) (norm_nonneg _)
+    have hO : g =O[cocompact E] (1 : E → ℝ) := by
+      refine Asymptotics.IsBigO.of_bound C ?_
+      filter_upwards [hC] with x hx
+      simpa only [Pi.one_apply, norm_one, mul_one, Real.norm_of_nonneg (hg0 x)] using hx
+    obtain ⟨B, hB⟩ := isBounded_iff_forall_norm_le.mp (hg.isBounded_range_iff_isBigO.mpr hO)
+    exact ⟨B, fun x => (Real.le_norm_self (g x)).trans (hB (g x) ⟨x, rfl⟩)⟩
 
 /-- Evaluation of a Schwartz function constructed from cocompact bounds. -/
 @[simp]
 theorem mkOfCocompact_apply (f : E → F) (smooth : ContDiff ℝ ∞ f)
     (decay : ∀ k n : ℕ, ∃ C : ℝ,
       ∀ᶠ x in cocompact E, ‖x‖ ^ k * ‖iteratedFDeriv ℝ n f x‖ ≤ C) (x : E) :
-    mkOfCocompact f smooth decay x = f x := rfl
+    mkOfCocompact f smooth decay x = f x := (rfl)
 
 -- The evaluation rule simplifies under an arbitrary function without expanding decay bounds.
 example {G : Type*} (h : F → G) (f : E → F) (smooth : ContDiff ℝ ∞ f)
