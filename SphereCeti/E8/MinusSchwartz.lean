@@ -98,7 +98,8 @@ private lemma psiI_cusp_bound (t : ℝ) (ht : t ∈ Ioc (0 : ℝ) 1) :
         (pow_nonneg ht.1.le 2) (mul_nonneg psiSBound_nonneg (Real.exp_nonneg _))
     _ = _ := by rw [mul_one, div_eq_mul_inv]
 
-private lemma integrable_psiI_Ioc : IntegrableOn (fun t : ℝ ↦ psiIExt (t * I)) (Ioc 0 1) := by
+/-- The E8 kernel `ψ_I` is integrable on the finite positive imaginary segment. -/
+theorem integrableOn_psiIExt_mul_I_Ioc : IntegrableOn (fun t : ℝ ↦ psiIExt (t * I)) (Ioc 0 1) := by
   have hcont : ContinuousOn (fun t : ℝ ↦ psiIExt (t * I)) (Ioc (0 : ℝ) 1) :=
     continuousOn_psiIExt.comp (by fun_prop) fun t ht ↦ by simpa using ht.1
   refine (integrableOn_const measure_Ioc_lt_top.ne (C := psiSBound)).mono'
@@ -110,7 +111,7 @@ private lemma integrable_psiI_Ioc : IntegrableOn (fun t : ℝ ↦ psiIExt (t * I
   exact (mul_le_mul_of_nonneg_left he psiSBound_nonneg).trans_eq (mul_one _)
 
 private noncomputable def centralSchwartz : 𝓢(ℝ, ℂ) :=
-  SchwartzMap.ofFiniteLaplace Real.pi_pos one_pos psiSBound_nonneg integrable_psiI_Ioc
+  SchwartzMap.ofFiniteLaplace Real.pi_pos one_pos psiSBound_nonneg integrableOn_psiIExt_mul_I_Ioc
     psiI_cusp_bound (π : ℂ) (by simpa using Real.pi_pos)
 
 private lemma centralSchwartz_apply {r : ℝ} (hr : 0 ≤ r) :
@@ -315,6 +316,30 @@ theorem magicMinusProfile_eq_contour {r : ℝ} (hr : 0 ≤ r) :
     SchwartzMap.smulLeftCLM_apply_apply (phase_temperate (-π)),
     SchwartzMap.smulLeftCLM_apply_apply (phase_temperate π),
     centralSchwartz_apply hr, raySchwartz_apply hr, horizontalSchwartz_apply _ _ hr]
+  ring
+
+/-- Split the minus contour into its finite vertical Laplace piece, two horizontal
+intervals and the decaying ray. This evaluation interface keeps consumers independent of
+the construction of the Schwartz extension at negative arguments. -/
+theorem magicMinusProfile_eq_integralPieces {r : ℝ} (hr : 0 ≤ r) :
+    magicMinusProfile r =
+      I * (cexp ((-π * r : ℝ) * I) + cexp ((π * r : ℝ) * I) - 2) *
+        (∫ (t : ℝ) in Ioc 0 1, psiIExt (t * I) * cexp (-((π : ℂ) * r) * t)) +
+      (∫ x in (-1 : ℝ)..0, psiTExt (x + I) * cexp (π * I * r * (x + I))) +
+      (∫ x in (1 : ℝ)..0, psiTExt (x + I) * cexp (π * I * r * (x + I))) -
+      (2 * I) * ∫ (t : ℝ) in Ioi 1, psiSExt (t * I) * cexp (-((π : ℂ) * r) * t) := by
+  rw [magicMinusProfile_eq_contour hr, Contour.leftLegs_def, Contour.rightLegs_def,
+    left_vertical, right_vertical, central_contour, ray_contour]
+  have hL : minusKernelLeft = psiTExt := funext minusKernelLeft_def
+  have hR : minusKernelRight = psiTExt := funext minusKernelRight_def
+  rw [hL, hR]
+  have hl := Contour.curveIntegral_horizontal_eq_interval (Contour.expKernel psiTExt r) (-1) 0 I
+  have hr' := Contour.curveIntegral_horizontal_eq_interval (Contour.expKernel psiTExt r) 1 0 I
+  -- Parametrize before normalizing real-to-complex casts in dependent path endpoints.
+  simp only [Contour.curveIntegral_segment_scalarOneForm] at hl hr' ⊢
+  norm_num only [Complex.ofReal_neg, Complex.ofReal_one, Complex.ofReal_zero, zero_add] at hl hr'
+  rw [hl, hr']
+  simp only [Contour.expKernel_apply]
   ring
 
 section Radial

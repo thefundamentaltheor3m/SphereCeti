@@ -59,6 +59,27 @@ theorem curveIntegral_segment_scalarOneForm (F : ℂ → ℂ) (a b : ℂ) :
   refine intervalIntegral.integral_congr fun t _ ↦ ?_
   rw [scalarOneForm_apply, lineMap_apply_module', Complex.real_smul, add_comm]
 
+/-- A translated horizontal segment equals the oriented real interval integral. -/
+theorem curveIntegral_horizontal_eq_interval (g : ℂ → ℂ) (a b : ℝ) (z0 : ℂ) :
+    (∫ᶜ z in Path.segment ((a : ℂ) + z0) ((b : ℂ) + z0), scalarOneForm g z) =
+      ∫ x in a..b, g (x + z0) := by
+  rw [curveIntegral_segment_scalarOneForm]
+  have h := intervalIntegral.smul_integral_comp_add_mul
+    (fun x : ℝ ↦ g (x + z0)) (a := 0) (b := 1) (b - a) a
+  simp only [mul_zero, add_zero, mul_one] at h
+  have he : a + (b - a) = b := by ring
+  rw [he] at h
+  rw [← h, Complex.real_smul, ← intervalIntegral.integral_const_mul]
+  apply intervalIntegral.integral_congr
+  intro t _
+  dsimp only
+  have hp : (a : ℂ) + z0 + t * ((b + z0) - (a + z0)) = ((a + (b - a) * t : ℝ) : ℂ) + z0 := by
+    push_cast
+    ring
+  have hd : ((b : ℂ) + z0) - (a + z0) = ((b - a : ℝ) : ℂ) := by push_cast; ring
+  rw [hp, hd]
+  ring
+
 /-- Change of variables along a segment: if `f` is continuous on the segment from `a` to `b`, has
 derivative `f' z` at each interior point `z`, and `F z = f' z * G (f z)` there, then the contour
 integral of `F` along the segment equals the contour integral of `G` along its image under `f`. -/

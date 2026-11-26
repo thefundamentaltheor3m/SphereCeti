@@ -76,4 +76,18 @@ example : (fun τ : ℍ => H₃ τ - H₄ τ) =O[atImInfty]
   simpa only [sub_sub_sub_cancel_right] using
     isBigO_H₃_sub_one_atImInfty.sub isBigO_H₄_sub_one_atImInfty
 
+/-- The reciprocal of `H₂` grows at most like `exp(Real.pi Im τ)` at the infinite cusp. -/
+theorem isBigO_inv_H₂_atImInfty : (fun τ : ℍ ↦ (H₂ τ)⁻¹) =O[atImInfty]
+    (fun τ : ℍ ↦ Real.exp (Real.pi * τ.im)) := by
+  have hExp : (fun τ : ℍ ↦ cexp (Real.pi * I * τ)) =O[atImInfty] H₂ :=
+    isBigO_of_div_tendsto_nhds_of_ne_zero tendsto_H₂_div_exp_atImInfty (by norm_num)
+  have h := hExp.inv_rev (Eventually.of_forall fun τ h ↦
+    absurd h (Complex.exp_ne_zero _))
+  refine h.norm_right.congr_right ?_
+  intro τ
+  simp only [norm_inv, norm_exp]
+  rw [← Real.exp_neg]
+  congr 1
+  simp [mul_re, mul_im]
+
 end TauCeti.ModularForm
