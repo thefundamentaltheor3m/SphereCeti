@@ -51,9 +51,20 @@ config, tooling, rubrics, workflows, and unknown paths are protected. `STATUS.md
 both sides of a rename and mode changes, participates; mixed changes take the restrictive route.
 
 A `mathematical` scope result additionally requires every path to match an allowlist from T's
-policy. The shipped allowlist is empty, so **every current PR receives `human_review`** and a
-non-success `trusted-scope` status, even when its Lean build succeeds. Neither classification
-nor any policy switch in #6 triggers a merge. Candidate policy cannot authorize itself.
+policy. The shipped allowlist names the first proof topics, `SphereCeti/Contour/` and
+`SphereCeti/E8/`. Its prefix semantics admit only library modules under those directories, not a
+sibling such as `SphereCeti/Contour.lean`. A PR that only adds or modifies such modules therefore
+receives `mathematical` scope and a successful `trusted-scope`. Contributors may work on any
+roadmap target. The following receive `human_review`:
+
+- another topic;
+- any edit to the frozen library root `SphereCeti.lean`, including an import of the PR's own module;
+- a protected library module;
+- a change mixed with specification, roadmap, CI, policy, dependency, tooling or script paths.
+
+Neither classification nor any policy switch triggers a merge or an approval by itself: a merge
+also needs the controller's full decision, including an opted-in maintainer's formal approval of
+the exact head ([merge controller](merge-controller.md)). Candidate policy cannot authorize itself.
 
 Infrastructure PRs test proposed tooling in the existing unprivileged `pull_request` workflow.
 That result lets humans review the change; it does not make the proposed tooling authoritative.
