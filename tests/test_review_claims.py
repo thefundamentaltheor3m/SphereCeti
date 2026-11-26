@@ -385,8 +385,10 @@ class ClaimCliTest(BareReviewHarness):
         self.seed_claim()
         refused = self.run_cli(pr=47)
         self.assertEqual(refused.returncode, 2)
-        self.assertEqual(refused.stderr.strip(), 'sphereceti: PR #47: review in progress by @alice, 12 min left; '
-                                                 'rerun with --force-claim to review anyway')
+        # Progress lines (evidence preparation) precede the refusal on stderr.
+        self.assertEqual(refused.stderr.strip().splitlines()[-1],
+                         'sphereceti: PR #47: review in progress by @alice, 12 min left; '
+                         'rerun with --force-claim to review anyway')
         self.assertFalse(self.fixture.calls())
         self.assertEqual(self.writes(), [])
         forced = self.run_cli('--force-claim', pr=47, output='forced')

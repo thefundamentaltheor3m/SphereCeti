@@ -159,6 +159,68 @@ The command never starts the engine or a provider. In order, it:
 
 The command exits 0 when the record is published or already on the PR, and 2 otherwise.
 
+## Approvals by opted-in maintainers
+
+A maintainer runs `sphereceti review N` (or bare `review`) once. If the PR qualifies and every
+rubric approves, the CLI also submits a formal GitHub **APPROVE** under that maintainer's own
+account. A separate CI merge step, not this CLI, lands the PR. There is no bot account, and the
+CLI has no merge path.
+
+**Policy.** Approved main's `policy/automation.toml` gates it with two fields, both optional when
+parsing (absent means off and empty):
+
+```toml
+approving = true             # the switch
+approving_reviewers = [...]  # "user:ID" maintainers, a subset of authorized_reviewers
+```
+
+Since 2026-11-25 approving is on, and every authorized reviewer is opted in (each confirmed by the
+maintainer). A later reviewer is added by a one-line policy PR once they agree. `--no-approve` opts
+out for one run.
+
+**Guards before inference, in order** (inside the review claim, after evidence preparation):
+`--no-approve` not given; the record is being posted (not `--no-post`, a dry run, or posting
+degraded by policy); approved policy available at T; `approving = true`; your `gh` identity
+(`user:ID`) is in `approving_reviewers`; you are not the PR author. When all hold, the CLI prints
+`If all rubrics approve and this PR qualifies, I'll submit your GitHub approval.` before any
+model call. Otherwise it prints nothing then, and the result names the first failing guard.
+
+**After the review, in order**, stopping at the first failure:
+
+1. The record was posted and confirmed under your identity.
+2. The review is complete, with no stop, and all ten rubrics approve.
+3. Confirmed readback through the official reader (`assess_records`, the `--read-records`
+   semantics): `review_safe`, for this exact head and base, with your posted comment selected. An
+   author contest on your earlier record that this record leaves unanswered therefore blocks the
+   approval. The PR's head and base are re-read and must be unchanged.
+4. The read-only decision (`sphereceti auto-approve-check`, `auto_approval.py`), never
+   hypothetical, must say `would_approve: true` for the same head and base. It covers scope, the
+   trusted build and its tooling attestation, the compiled audit, the independent reviewer and
+   the PR state.
+5. If your current review state already approves this head, nothing is written. As in the merge
+   controller, your current state is your latest `APPROVED`, `CHANGES_REQUESTED` or `DISMISSED`
+   review, so a later change request supersedes an earlier approval.
+6. One `POST repos/<repo>/pulls/N/reviews` with `event = APPROVE`, `commit_id` = the exact head,
+   and a short body linking the review record. A failed or ambiguous POST is reported and never
+   retried; check the PR before rerunning.
+
+**Reporting.** The text result reports both outcomes separately:
+`Posted: <url>` / `Not posted: <reason>` and `Approval: submitted <url>` /
+`Approval: not submitted: <reason>`. Reasons include `--no-approve`, `approving is off in the
+approved policy`, `you (user:N) are not opted in`, `you are the PR author`, `not all rubrics
+approve (naming)`, `readback did not accept your record ...`, and `the auto-approval decision
+refused (<its reasons>)`. `--json` carries `approval` (`state`: `submitted`, `existing` or
+`not_submitted`, with `reason`, `decision_reasons`, `review_id`, `url`); bare `review` also
+repeats it at the top level. `--no-approve` posts the findings and leaves the merge decision to
+the maintainer. Batch items (`review --new/--revised/--all`) and bare `review`, including its
+stack-aware selection, go through the same approval inside the same claim, and each batch item's
+line says when an approval was submitted.
+
+The merge controller counts this approval only as it counts any other: a current `APPROVE` on the
+exact head, by a maintainer in `approving_reviewers` who is not the author. The CLI approves only
+the head it just reviewed; whether an approval still counts after the head moves is the merge
+controller's rule, not the CLI's.
+
 ## Review-in-progress claims
 
 A review that will post announces itself so contributors do not race each other. The claim is
@@ -382,8 +444,44 @@ and review-only [rounds](https://github.com/TauCetiProject/TauCetiWorker#what-a-
 previous reviewer gets first chance at a revised PR. No TauCetiWorker code is used.
 
 `sphereceti reviews` is read-only (no model call, no GitHub write). It surveys the open queue
-once, with the same survey, planner and readiness rules as bare `review`, reads each candidate
-PR's comments, and lists your queue in sections:
+once, with the same survey, planner and readiness rules as bare `review`, and reads each candidate
+PR's comments. By default it fits on about one screen:
+
+```text
+Queue: 1 ready to merge · 19 revised · 26 new · 28 waiting on parents · 32 awaiting CI
+Ready to merge:
+  #57 erin  Prove the theta identity  (approve + merge)
+Revised since your review:
+  #64 CBirkbeck  Prove that the even presented lattice has no roo…  (author replied, unblocks 3)
+  #66 bob  Prove the contour deformation
+  … and 17 more (sphereceti reviews --all)
+New to you:
+  #121 CBirkbeck  Prove that the Fourier transform preserves radia…  (unblocks 2)
+  #55 carol  Prove the lower bound  (CI held)
+  … and 24 more (sphereceti reviews --all)
+28 PRs wait on a parent (biggest stacks: #64 ×3, #121 ×2, #132 ×2)
+32 PRs await CI (2 held for a maintainer's approval)
+Not ready: 6 yours, 5 failing CI, 1 conflicting
+Also: 14 of your follow-ups not ready yet; 3 already reviewed (sphereceti reviews --all)
+Next: sphereceti merge-ready --apply
+```
+
+- **Counts:** the first line counts each part of the queue.
+- **Top PRs:** the actionable sections (Ready to merge, Revised, Author replied, New) list their
+  top 8 in priority order, one short line each.
+- **Tags:** a tag appears only when it changes what to do: `unblocks N`, `CI held`,
+  `author replied`, `contested`, `history rewritten`, or the merge step.
+- **Collapsed counts:** waiting on authors, waiting on parents, awaiting CI and not ready are one
+  count line each.
+- **Next:** the line suggests one command:
+  - `sphereceti merge-ready --apply` when something is ready to merge;
+  - otherwise `sphereceti review --revised --limit N` for your follow-ups;
+  - otherwise `sphereceti review --new --limit N`.
+- **Progress:** stderr gets one line, `Reading 84 open PRs… done in 26s`, which updates in place on
+  a terminal.
+
+`--all` prints the full listing below, every PR with its reason. `-v`/`--verbose` prints the same
+and also each phase's progress lines. `--json` is unchanged.
 
 ```text
 Review queue for yvonne (thefundamentaltheor3m/SphereCeti, observed 2026-11-23T21:29:38Z)
@@ -470,6 +568,52 @@ Each entry gives the PR, author, title, short head, the reason and how long it h
 lookup (survey, comments, compare response, and for Ready to merge the branch rules, check runs,
 workflow runs, PR and its reviews) exits 2 and lists nothing.
 
+### How the queue is read
+
+`reviews`, bare `review` and batches read the open queue in **one GraphQL pass**
+(`sphereceti/bulk.py`). Two read-only queries run side by side, 50 PRs per page:
+- the survey's fields, in exactly `gh pr list --json`'s shape, so readiness is computed by the same
+  code;
+- each PR's comments with their author ids, in the shape the record readers check.
+
+They no longer read comments with one REST call per PR. On the live queue (53 PRs, 142 comments)
+both match `gh pr list` and the REST comments exactly.
+
+Per-PR REST reads remain only for what that pass cannot answer:
+- trusted-scope provenance for the human-review exception;
+- `compare` and commit reads for revised PRs and carry-over. Main's history is read 100 commits per
+  listing, not one commit per request;
+- held-run checks for fork PRs;
+- the merged state of a missing stack parent;
+- main's required checks, once;
+- the PR, its reviews and its runs for Ready to merge candidates.
+
+These reads run on a pool of 8 threads (`SPHERECETI_READ_WORKERS`), and results keep queue order.
+One survey reads current main once, and each exact-commit compare once.
+
+Results stay fail-closed:
+- A PR with more than 100 comments has the rest read through REST, for that PR only.
+- These all exit 2, as before: a queue that changes between pages, a GraphQL error, or any failed
+  read.
+- A read refused by GitHub's **secondary** rate limit is retried after 5, 15 and 30 seconds. Only
+  reads are retried, never a write.
+- An exhausted **primary** limit fails at once and says when it resets.
+
+**Queue cache.** Facts that cannot change under their key are kept in the operator store
+(`<storage>/<repo>/queue-cache.json`):
+- a scope verdict, keyed by PR, head, base, head repository, current main, every status and check
+  in the PR's rollup, and the packaged merge-checks settings;
+- a commit's parents and tree;
+- a compare of two exact commits;
+- a merged stack parent.
+
+Current main, the PR list, comments, reviews and runs are read fresh on every run. A failed read is
+never cached. `--no-cache` (on `reviews` and `review`) neither reads nor writes the cache.
+
+The worker survey shares the bulk pass and the pool, but never the cache. The merge controller,
+`auto-approve-check`, the maintainer approval and posting do not use the cache or the bulk pass.
+They keep their own fresh per-PR reads.
+
 `sphereceti review --new --limit N`, `--revised --limit N` (your follow-ups: revised, then author
 replied) or `--all --limit N` (follow-ups, then new) reviews up to N **distinct** PRs (default 1,
 at most 10) from that section, one at a time, each exactly as `review N` would. Follow-ups use the
@@ -498,6 +642,78 @@ budget. `--json` prints `sphereceti.review-batch/v1` (`items` with each outcome,
 summary, `skipped`, `untouched`, `reviewed`, `posted`, `stopped`, `line`, `lines`). Exit codes: 2 for a failed lookup,
 1 if a review ended in error, else 0. Without these flags, bare `review` still reviews one PR.
 
+## Merge-ready sweep (maintainers)
+
+`sphereceti merge-ready` does, as the invoking maintainer's own `gh` identity, what a maintainer
+does by hand for each PR in Ready to merge. It updates the branch if it is behind, approves, and
+merges, one PR at a time. **Without `--apply` it is a dry run**: it reads everything and prints the
+plan, and writes nothing.
+
+```text
+sphereceti merge-ready                    # the plan
+sphereceti merge-ready --apply --limit 3  # act: at most three merges
+```
+
+**Candidates** are the Ready-to-merge PRs (found through the fast queue path). It also takes PRs
+whose accepted 10/10 record is on an older head that carries over to the current one through
+update-branch merges, for example a PR this sweep updated earlier. They are taken one at a time,
+stack roots first. A PR whose runs are held for approval is reported, not touched.
+
+For each candidate, everything is first read again **fresh**, never from the queue cache:
+- the PR: open, not a draft, base `main`, the same head as listed, not conflicting;
+- its record, on this head or carried over to it;
+- current main;
+- how far behind main it is;
+- its CI;
+- its reviews.
+
+Then:
+1. **Behind main:** it updates the branch.
+   - The call is `PUT pulls/N/update-branch` with `expected_head_sha` set to the listed head.
+   - It waits up to 3 minutes for the new head, and then requires that the record carries over to it
+     (#156's rule: update merges only, the same change, no review inputs changed on main).
+   - It then waits for the required checks and review CI on the new head. The wait is bounded by
+     `--wait-ci MIN` (default 20) and reads once a minute. A failure, a held run, or a timeout skips
+     the PR with the reason.
+2. **Approval:** if you have no approval of this head, it submits one APPROVE.
+   - The approval is pinned to the head (`commit_id`), and its body links the record.
+   - It never approves your own PR: that PR is skipped unless another maintainer has approved this
+     head. It never approves over your own CHANGES_REQUESTED: that PR is skipped too.
+   - Anyone else's outstanding change request also skips the PR.
+3. **Merge:** `PUT pulls/N/merge`, `merge_method=squash`, `sha` = the head.
+   - The head is read again just before the call; if it moved, the PR is skipped.
+   - On HTTP 405 or 409 it reads the PR again, reports it and moves on. It never retries.
+4. **Next PR:** the queue is read again before the next PR, since main has moved. The rest may now
+   be behind, and step 1 handles them.
+
+**Safety.**
+- Before every merge, it looks for a live "reviewing now" claim on any open PR. A review in progress
+  pauses the sweep, reading once a minute up to `--wait-review MIN` (default 30). After that the sweep
+  stops with `a review is in progress on #N; rerun later`. An update is not made under a review of
+  that same head.
+- Any unexpected error, and any write it cannot confirm, stops the whole sweep. Every write is
+  confirmed by reading the PR or the response:
+  - the new head after an update;
+  - an APPROVED review of that commit;
+  - `merged: true` on the PR.
+- Stacked, draft and conflicting PRs are never touched.
+
+**After each merge**, it lists the open PRs based on the merged branch: `#X is stacked on #N (now
+merged): retarget to main`, or `GitHub already retargeted it to main` when GitHub did.
+`--retarget-children` changes only their base to `main`, through the API. It never pushes to anyone's
+branch.
+
+**Output.** One line per PR, then the accepted-10/10 PRs that are not mergeable (with the reason),
+and a summary. Per-PR outcomes are `updated`, `approved`, `merged`, or `skipped: <reason>`. Progress
+goes to stderr; `--quiet` hides it.
+
+`--json` prints `sphereceti.merge-ready/v1`:
+- `items`, each with `actions`, `outcome`, `reason`, `record`, and `updated_head` / `approval` /
+  `merge_commit` where they apply;
+- `children`, `not_ready`, `counts` and `stopped`.
+
+Exit status is 1 when the sweep stopped, 2 when the queue could not be read, and 0 otherwise.
+
 ## What the terminal says
 
 Before any provider call (after the exact evidence is prepared), `review N` and bare `review`
@@ -518,7 +734,12 @@ At the end it prints one summary line and a concrete next action:
 10/10 approve · posted https://github.com/thefundamentaltheor3m/SphereCeti/pull/54#issuecomment-1 · official
 4/10 reviewed · stopped: blocked on attribution · posted <URL> · advisory
 Next: author: address attribution (see record); rerun after the head changes
+10/10 reviewed · blocked: scope · changes requested: api-design, documentation · posted <URL> · official
+Next: author: address scope, api-design, documentation (see record); rerun after the head changes
 ```
+
+The result block above it opens with `Review #N: <completion>`. Whether the record counts as
+official or advisory is said once, on the summary line.
 
 - **Counts:** rubrics with a verdict on this head out of those requested; `approve` when all of
   them approve, else `reviewed`. A review that stops early names the first blocking rubric and
@@ -526,10 +747,12 @@ Next: author: address attribution (see record); rerun after the head changes
   unavailable (not authenticated|quota exhausted|rate limited)` from the archived attempts'
   error kinds, `provider failed to start` (every rubric ended without a verdict and without the
   model touching a file), `blocked on <rubric>`, an engine error, or `budget or round limit
-  reached`. A complete review with requested changes says `changes requested: <rubrics>`.
+  reached`. A complete review with findings says `blocked: <rubrics>` and `changes requested:
+  <rubrics>`.
 - **Posting:** `posted <URL> · official` (an authorized reviewer's record) or `· advisory`,
   `not posted: <reason>`, or `publication interrupted`.
-- **Next action:** `author: address <rubric> (see record); rerun after the head changes`;
+- **Next action:** `author: address <rubrics> (see record); rerun after the head changes`, naming
+  every blocked rubric and then every rubric that requested changes, as on the summary line;
   ``run `sphereceti review-check-sandbox --compare-path --compare-tmpdir` `` after a provider
   startup failure; sign in again, wait for the usage window, or rerun later for a provider that
   is down; ``publication was interrupted; run `sphereceti review-publish RUN` `` (RUN is the run id
@@ -538,8 +761,49 @@ Next: author: address attribution (see record); rerun after the head changes
   the record`; `run again without --dry-run to review`; or `none: every rubric approves`.
 
 `--json` carries the same as `plan` (`line`, `pr`, `head`, `base`, `providers`, `models`,
-`posting`) and `summary` (`line`, `reviewed`, `total`, `first_blocking`, `stop`, `posted`,
+`posting`) and `summary` (`line`, `reviewed`, `total`, `first_blocking`, `findings`, `stop`, `posted`,
 `official`, `next_action`); bare `review` adds both at the top level of its selection report.
+
+### Progress lines
+
+During the long steps, `review` (explicit, bare and batches) and `reviews --verbose` write short
+progress lines to **stderr**, each stamped with the local time. Plain `reviews` writes one line
+instead: `Reading N open PRs… done in 26s`. Stdout keeps the plan, summary and `--json`
+document unchanged. `--quiet` turns them off. They print on a terminal and off one (logs, CI), but
+counters behave differently. On a terminal they overwrite one line, at most every two seconds.
+Elsewhere they print every tenth item and the last, so a log never gets carriage returns.
+
+```text
+[19:02:11] Surveying open PRs… (49 open)
+[19:02:41]   scope 10/49
+[19:03:43] Surveying open PRs… done in 1m32s
+[19:03:44] Preparing evidence for #63 at 9c587b5 (fetching pinned sources…)
+[19:04:26] Evidence for #63 ready in 42s
+[19:04:27] Posting "reviewing now" claim on #63…
+[19:04:28] claim posted: https://github.com/thefundamentaltheor3m/SphereCeti/pull/63#issuecomment-1
+[19:04:28] Rubric 1/10 correctness: running (codex gpt-6.1-sol)…
+[19:06:38] Rubric 1/10 correctness: approve (2m10s, est. $0.07)
+...
+[19:31:02] Posting record…
+[19:31:04] posted https://github.com/thefundamentaltheor3m/SphereCeti/pull/63#issuecomment-2
+```
+
+- **Survey:** the open-PR count, then `scope i/N` as each PR's CI and trusted-scope provenance is
+  read, then the total time.
+- **`reviews`:** the survey, then `reading comments i/N`.
+- **Evidence:** start and finish of the pinned source preparation.
+- **Claim:** posted, refreshed (your own live claim) or yielded.
+- **Rubrics:** a start line when the engine begins a rubric, with provider and model. A finish
+  line gives its verdict, duration and cost (`est.` when the engine estimated it). A rubric
+  already current at this head and not re-run says `reused`. The CLI polls the engine's own
+  ledger: its write-ahead `in_flight` marker and each finished case file. The engine needs no
+  callback, and the result is never affected.
+- **Stops and posting:** `stopped early: <reason>` (e.g. `usage unknown`, `daily budget`), then
+  `Posting record…` and `posted <URL>` or `record not posted: <reason>`. With maintainer
+  approvals enabled, one more line says `approval: submitted` or `not submitted (<reason>)`.
+
+Bare `review` still prints its selection line (`Reviewing #63 (head 9c587b5): …`) and batches their
+`[i/N] #PR …` lines on stdout, as before.
 
 ## Evidence and authority
 

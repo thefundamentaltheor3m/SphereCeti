@@ -21,6 +21,7 @@ sphereceti merge-doctor --json
 sphereceti merge-doctor --executor --json     # only meaningful in the approved workflow run
 sphereceti merge-control --pr 15 --json       # preview
 sphereceti merge-control --sweep --json       # preview; same policy gate
+sphereceti merge-control --pr 15 --apply --probe race --json  # live race probe; manual runs only
 ```
 
 Optional `--source-repo`, `--dependencies-dir` and `--cache-dir` reuse source objects as in
@@ -34,12 +35,12 @@ unconfigured, and `executor` reports the run and job-token checks
 ([below](#reading-the-executor-output)). Successful diagnostics, including a disabled result,
 exit 0; unavailable/invalid data and unconfirmed write outcomes exit 2.
 
-`--apply` is explicit and requires both ready setup and the verified executor. The shipped `merging`
-switch is false. The mathematical allowlist names `SphereCeti/Contour/` and `SphereCeti/E8/`,
-`approving_reviewers` is empty, and controller IDs are zero.
-The CLI cannot configure those settings. Library proof PRs currently require human merging. The
-workflow is installed read-only ([first run](#the-read-only-first-run)); no live merge, secret,
-bot account or branch-rule change is part of it.
+`--apply` is explicit and requires both ready setup and the verified executor. The shipped policy
+is activated (2026-11-25): `merging = true`, the allowlist names `SphereCeti/Contour/` and
+`SphereCeti/E8/`, every authorized reviewer is in `approving_reviewers`, and the controller IDs are
+set. The CLI cannot configure those settings. Only fully qualifying, formally approved proof PRs in
+those topics can merge automatically. Everything else still needs a human merge. The schedule stays
+off until the live race probe ([workflow](#the-workflow), [activation](activation.md)).
 
 ## Activation profile
 
@@ -270,28 +271,30 @@ one PUT, and nothing is retried. Without strict, the same PUT would have landed
   stale-combination refusal. It is reported, and the next run re-evaluates against the new main.
 - **`rejected_unexpected` (run state `stopped`, CLI exit 2):** anything else, such as a 403 for
   permissions or a 405 for a missing approval. The controller stops and reports, and retries
-  nothing. The activation change must also make a stopped run halt later scheduled runs until a
-  maintainer acknowledges it; that cross-run halt is not built.
+  nothing. It also opens a halt issue, and every later applying run halts until a maintainer
+  acknowledges it ([halt](#halt-after-an-unexpected-refusal)).
 
 Any other failure stays `unconfirmed`. The exact live messages are confirmed by the live procedure.
 
 **The live procedure** must perform exactly that sequence with the real executor path and identity:
-the controller's decision, then the workflow's job token. It belongs to the activation change and
-is not built here, because its write permission and hold step need their own review.
+the controller's decision, then the workflow's job token. The probe mode is built (`merge-control
+--pr N --apply --probe race`, the workflow's `probe: race` input); running it needs the activation
+flips ([activation](activation.md)).
 
 - **Preconditions.**
   - An administrator has enabled strict on ruleset 21449770; `build` stays required.
   - Policy has a nonempty `mathematical_paths` and an opted-in maintainer in `approving_reviewers`.
   - `merging = true`, with the workflow's schedule still commented out, so only a manual dispatch
     can merge. Unattended merging therefore stays off.
-  - The controller workflow has `contents: write` and `pull-requests: write`, and a reviewed
-    probe-only input that holds between the final check and the PUT.
+  - The controller workflow has its activation flips: `CONTROLLER: apply` and write permissions.
+    Its `probe` input holds between the final check and the PUT.
 - **PR B, the candidate.** It must fully qualify: a disposable proof PR inside the approved paths,
   with an accepted official review for its head, the opted-in maintainer's formal APPROVE on that
   head, and a passing trusted run whose `trusted-merge` attests main `M0`. B's head contains `M0`.
 - **PR A, the main mover.** Any human-route PR, for example a `docs/` change, ready to be
   squash-merged by a maintainer.
-- **Run.** Dispatch the controller on main with `pr=B` and the probe hold. In one run it:
+- **Run.** Dispatch the controller on main with `pr=B` and `probe=race`. The probe refuses unless
+  the API confirms a `workflow_dispatch` run, `merging = true` and one PR. In one run it:
   1. performs the full executor path up to its final check. It prints the decision (`merge`), main
      `M0`, and the verified tested tree;
   2. holds, bounded (for example 20 minutes), until `commits/main` differs from `M0`. During the
@@ -306,6 +309,23 @@ is not built here, because its write permission and hold step need their own rev
   A 403, an approval message, or any other refusal (`rejected_unexpected`) leaves the race untested;
   fix the setup and repeat. If B lands, enforcement is absent: revert it and keep unattended
   merging off. Unattended merging is enabled only after this proof.
+
+### Halt after an unexpected refusal
+
+Decision 3 on #100 (`tools/project/sphereceti/controller_halt.py`). After `rejected_unexpected`,
+the controller uses its job token to open a halt issue titled `Merge controller halted after an
+unexpected refusal`. The body starts with a `<!--sphereceti-merge-halt:v1 {...}-->` marker naming
+the run, PR, head and HTTP status, and the writer can create no other issue.
+
+Every applying run, scheduled or dispatched, reads the issues authored by `github-actions[bot]`
+(GET only). While any halt is unacknowledged, setup is not ready, with the reason `merge controller
+halted by an unexpected refusal ...`.
+
+**Acknowledging a halt** is a maintainer action: an unedited comment whose first line is
+`/sphereceti acknowledge-halt`, posted after the halt, by a human in policy `authorized_reviewers`
+with association OWNER, MEMBER or COLLABORATOR. Closing the issue alone does not acknowledge it, and
+the bot cannot acknowledge its own halt. If the issue cannot be created, the run still ends `stopped`
+(exit 2) and reports `halt_error`.
 
 **Enforced by the executor.** Before any merge PUT it requires `protection.tested_tree_enforced`:
 the single ruleset, or the classic profile, verified with strict up-to-date checks in effect. It
@@ -359,18 +379,11 @@ every PR, so it does not fit SphereCeti's human route for protected changes.
 
 ### Remaining activation prerequisites for SphereCeti
 
-Besides the policy switches (`merging`, `mathematical_paths`), `merge-doctor` reports these items
-as missing:
-
-- `policy/merge-controller.toml` has `workflow_id` and `checks_app_id` at zero, and
-  `policy/automation.toml` has no `approving_reviewers`.
-- The executor has not been verified by a run of the installed workflow. The first
-  `workflow_dispatch` run reports its `workflow_id` and whether the job token can bypass the ruleset.
-- The ruleset must require up-to-date branches.
-- `checks_app_id` must name the integration that `build` is bound to.
-
-Approval-dismissal and last-push settings are recommendations. `merging` stays `false` until a
-separate policy change.
+As of 2026-11-25, strict up-to-date checks are on, and the policy and workflow flips are merged
+([activation status](activation.md#status-2026-11-25)). What only a live run can show is the
+executor (its run, job token and `current_user_can_bypass`), which `merge-doctor --executor` in the
+workflow reports. The live race probe must then prove GitHub's refusal before the schedule is
+enabled. Approval-dismissal and last-push settings remain recommendations.
 
 The implementation uses GitHub's [branch-protection API](https://docs.github.com/en/rest/branches/branch-protection),
 [workflow-run API](https://docs.github.com/en/rest/actions/workflow-runs#get-a-workflow-run),
@@ -425,19 +438,19 @@ own ruleset view and installation probe, a squash-merge PUT with an exact head S
 head SHA. Reads use the same job token through the GET-only reader. Diagnostics report the
 token's shape (below) and omit its value.
 
-### The read-only first run
+### The workflow
 
 [`.github/workflows/merge-controller.yml`](../../.github/workflows/merge-controller.yml) is installed
-on `main`. It has `workflow_dispatch` only, and its `schedule` is commented out. Its permissions are
-`contents: read` and `actions: read`. The job runs only on `refs/heads/main` and checks out `main`'s
-exact SHA with credentials disabled. It never checks out, builds or executes PR code, and it calls
-no provider. While `merging = false`, the job only runs `merge-doctor --executor --json` and prints
-the result. No merge command runs, and the token could not merge anyway. Its concurrency group is
-`sphereceti-merge-main` without cancellation, and it runs at most 30 minutes.
+on `main`. The job runs only on `refs/heads/main` and checks out `main`'s exact SHA with credentials
+disabled. It never checks out, builds or executes PR code, and it calls no provider. Its concurrency
+group is `sphereceti-merge-main` without cancellation, and it runs at most 45 minutes.
 
-Activation is a separate reviewed change. It records `workflow_id`, `checks_app_id` and `approving_reviewers`,
-grants `contents: write` and `pull-requests: write`, and replaces the step with
-`merge-control --apply` (a PR or a sweep). It also enables the schedule and sets `merging = true`.
+It was first installed read-only, running only `merge-doctor --executor --json`. Since the activation
+flips (2026-11-25; [activation](activation.md#status-2026-11-25)) it runs `merge-control --apply` with
+write permissions, for one PR (`pr`), the race probe (`probe=race`), or a sweep. Its schedule stays
+commented out until the live race probe has proven GitHub's refusal, so only a maintainer's manual
+`workflow_dispatch` can merge. The [activation checklist](activation.md) gives the exact diff and
+the order of operations.
 
 ### Reading the executor output
 
