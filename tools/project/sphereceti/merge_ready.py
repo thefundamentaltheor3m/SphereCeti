@@ -38,6 +38,26 @@ UNEXPECTED = (RecordError, WorkerError, ReviewError, OSError, ValueError, KeyErr
               subprocess.SubprocessError)
 
 
+TRUSTED = {"trusted-build", "trusted-scope", "trusted-merge"}  # the trusted run posts all three
+
+
+def name(check):
+    return check.get("name") or check.get("context") or check.get("__typename") or "a check"
+
+
+def finished(check):
+    if check.get("__typename") == "CheckRun":
+        return check.get("status") == "COMPLETED"
+    return check.get("state") not in ("PENDING", "EXPECTED", None)
+
+
+def failed(check):
+    if check.get("__typename") == "CheckRun":
+        return check.get("conclusion") in ("FAILURE", "TIMED_OUT", "CANCELLED", "ACTION_REQUIRED", "STARTUP_FAILURE",
+                                           "STALE")
+    return check.get("state") in ("FAILURE", "ERROR")
+
+
 class Skip(Exception):
     """This PR is left alone, with the reason; the sweep goes on."""
 
@@ -196,29 +216,50 @@ class Sweep:
         return None
 
     def ci(self, number, head):
-        """('green' | 'pending' | 'held' | 'failed', detail) for the required checks and review CI of this head."""
+        """('green' | 'pending' | 'held' | 'failed', detail) for this head.
+
+        Every check on the head must have finished first, not only the required ones: the trusted
+        run posts `trusted-scope` (the expected human-review failure) before `trusted-build` and
+        `trusted-merge`, and while any check is unfinished the aggregate reads as failed. Once all
+        are done the head is judged exactly as Ready to merge judges it: the authenticated scope
+        exception is fine, held runs are held, and anything else that failed is named."""
         from .ready_to_merge import held_runs, required_checks, required_state
-        from .worker_cli import survey
-        observed = survey(self.project, (number,), api=self.reader())["pull_requests"][0]
-        if observed["head"] != head:
-            raise Skip(f"the head moved to {short(observed['head'])} while its checks were read")
-        if self.required is None:
-            self.required = required_checks(self.client, self.repo, self.main_branch)
-        states = required_state(self.client, self.repo, head, self.required)
-        review_ci = observed.get("review_ci", observed["ci"])
-        cancelled = sorted(k for k, v in states.items() if v == "cancelled")
-        failed = sorted(k for k, v in states.items() if v == "failed")
-        if cancelled:
-            return "failed", f"{', '.join(cancelled)} was cancelled"
-        if failed or review_ci == "failed":
-            return "failed", (f"{', '.join(failed)} failed" if failed else "CI failed")
+        from .worker_cli import PR_FIELDS, normalize
+        api = self.reader()
+        raw = api.read(["pr", "view", str(number), "--repo", "github.com/" + self.repo, "--json", PR_FIELDS])
+        if not isinstance(raw, dict) or raw.get("headRefOid") != head:
+            moved = raw.get("headRefOid") if isinstance(raw, dict) else None
+            raise Skip(f"the head moved to {short(moved)} while its checks were read")
         held = held_runs(self.client, self.repo, head)
         if held:
             return "held", f"workflow runs await a maintainer's approval ({', '.join(held)})"
-        unfinished = {k: v for k, v in states.items() if v != "passed"}
-        if review_ci != "passed" or unfinished:
-            return "pending", ", ".join(f"{k} {v}" for k, v in sorted(unfinished.items())) or f"CI {review_ci}"
-        return "green", None
+        if self.required is None:
+            self.required = required_checks(self.client, self.repo, self.main_branch)
+        states = required_state(self.client, self.repo, head, self.required)
+        checks = raw.get("statusCheckRollup") or []
+        unfinished = sorted({name(c) for c in checks if not finished(c)}
+                            | {k for k, v in states.items() if v in ("pending", "missing")})
+        contexts = {c.get("context") for c in checks if c.get("__typename") == "StatusContext"}
+        if contexts & TRUSTED:
+            unfinished += sorted(f"{context} (not posted yet)" for context in TRUSTED - contexts)
+        if unfinished:
+            return "pending", ", ".join(unfinished) + " not finished"
+        observed = normalize(raw, self.project, api)
+        review_ci = observed.get("review_ci", observed["ci"])
+        cancelled = sorted(k for k, v in states.items() if v == "cancelled")
+        if cancelled:
+            return "failed", f"{', '.join(cancelled)} was cancelled"
+        failing = sorted({name(c) for c in checks if failed(c)} | {k for k, v in states.items() if v == "failed"})
+        if review_ci == "passed":
+            return "green", None
+        real = [n for n in failing if n != "trusted-scope"]
+        if real:
+            return "failed", f"{', '.join(real)} failed"
+        if review_ci == "failed":
+            note = observed.get("review_note")
+            return "failed", ("trusted-scope failed and its human-review exception could not be authenticated"
+                              + (f" ({note})" if note else ""))
+        return "failed", f"CI is {review_ci} with every check finished ({', '.join(failing) or 'no failures'})"
 
     def reviews(self, number):
         value = self.call(f"repos/{self.repo}/pulls/{number}/reviews?per_page=100", paginate=True)
