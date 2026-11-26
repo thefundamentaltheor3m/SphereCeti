@@ -10,6 +10,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import time
 import tomllib
 
 from . import __version__
@@ -96,6 +97,8 @@ def main(argv: list[str] | None = None) -> int:
     add_publish_parser(commands)
     from .review_queue import add_parser as add_queue_parser
     add_queue_parser(commands)
+    from .merge_ready import add_parser as add_merge_ready_parser
+    add_merge_ready_parser(commands)
     from .operator_setup import (SetupError, add_parser as add_setup_parser, first_run,
                                  needs_first_run, run_setup)
     add_setup_parser(commands)
@@ -135,6 +138,12 @@ def main(argv: list[str] | None = None) -> int:
         sub.add_argument("--offline", action="store_true", help="do not query GitHub; queue remains unknown")
         sub.add_argument("--operator-config", type=Path, help="preferences only; cannot override repository policy")
     args = parser.parse_args(argv)
+    # Progress lines on stderr through each long phase of `review` and `reviews`, unless --quiet;
+    # stdout (and --json) stays the result alone.
+    from .feedback import Progress, install
+    install(Progress(enabled=args.command in ("review", "reviews", "merge-ready") and not getattr(args, "quiet", False),
+                     # `reviews` says one updating line unless --verbose; reviews themselves say each phase.
+                     verbose=args.command != "reviews" or getattr(args, "verbose", False)))
     if args.command == "setup":
         try:
             print(run_setup(args))
@@ -167,7 +176,7 @@ def main(argv: list[str] | None = None) -> int:
         policy = parse_policy(resource_text("automation.toml"))
         sources = parse_source_lock(resource_text("upstream-lock.toml"))
         operator_path = getattr(args, "operator_config", None)
-        if operator_path is None and (args.command in ("review-publish", "reviews") or (
+        if operator_path is None and (args.command in ("review-publish", "reviews", "merge-ready") or (
                 args.command == "review" and args.auth == "subscription" and not args.shadow)):
             default_path = Path.home() / ".config/sphereceti/operator.toml"
             if default_path.is_file():
@@ -299,16 +308,39 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(report, indent=2) if args.json else "\n".join(render_publish(report, run)))
         return 0 if report["state"] in ("published", "already_published") else 2
 
-    if args.command == "reviews":
-        from .review_queue import queue, render as render_queue
+    if args.command == "merge-ready":
+        from .merge_ready import Sweep, render as render_sweep
+        if args.limit < 1 or args.wait_ci < 0 or args.wait_review < 0:
+            parser.exit(2, "sphereceti merge-ready: --limit must be at least 1 and waits cannot be negative\n")
         try:
-            report = queue(project, policy, preferences)
+            report = Sweep(project, policy, preferences, apply=args.apply, limit=args.limit, wait_ci=args.wait_ci,
+                           wait_review=args.wait_review, retarget=args.retarget_children).run()
+        except (WorkerError, RecordError, OSError, ValueError, KeyError, TypeError,
+                subprocess.SubprocessError) as error:
+            reason = str(error) if isinstance(error, (WorkerError, RecordError)) else \
+                f"queue lookup failed ({type(error).__name__}); nothing was written"
+            parser.exit(2, f"sphereceti merge-ready: {reason}\n")
+        print(json.dumps(report, indent=2) if args.json else "\n".join(render_sweep(report)))
+        return 1 if report["stopped"] else 0
+
+    if args.command == "reviews":
+        from .feedback import current as progress, duration
+        from .review_queue import queue, render as render_queue, render_concise
+        began = time.monotonic()
+        progress().summary("Reading open PRs…")
+        try:
+            report = queue(project, policy, preferences, use_cache=not args.no_cache)
         except (WorkerError, RecordError, OSError, ValueError, KeyError, TypeError,
                 subprocess.SubprocessError) as error:
             reason = str(error) if isinstance(error, (WorkerError, RecordError)) else \
                 f"queue lookup failed ({type(error).__name__}); nothing is listed"
+            progress().summary("Reading open PRs… failed", final=True)
             parser.exit(2, f"sphereceti reviews: {reason}\n")
-        print(json.dumps(report, indent=2) if args.json else render_queue(report))
+        total = progress().total
+        progress().summary(f"Reading {total if total is not None else 'the'} open PRs… done in "
+                           f"{duration(time.monotonic() - began)}", final=True)
+        print(json.dumps(report, indent=2) if args.json else
+              render_queue(report) if args.all or args.verbose else render_concise(report))
         return 0
 
     if args.command == "review" and (args.new or args.revised or args.all or args.limit is not None):
@@ -377,7 +409,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.json:
             print(json.dumps(report, indent=2))
         else:
-            print(f"Local advisory review #{args.pr}: {report['completion']}")
+            print(f"Review #{args.pr}: {report['completion']}")
             print(f"T={report['tooling']} H={report['head']} D={report['dependency_digest']}")
             print(f"Evidence and result: {report['output']}")
             print("This command does not authorize merging.")
