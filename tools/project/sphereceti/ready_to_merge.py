@@ -19,6 +19,9 @@ with an accepted 10/10 record that fails another condition is listed separately,
 """
 from __future__ import annotations
 
+import re
+import threading
+
 from .local_review import RUBRICS
 from .review_records import (RecordError, answered, collect_records, contests, directive_contests, identity,
                              published_records)
@@ -28,19 +31,126 @@ HELD_STEP = "waiting on CI (held: needs maintainer approval)"
 DECISIVE = ("APPROVED", "CHANGES_REQUESTED", "DISMISSED")
 
 
-class Cached:
-    """One comments read per PR for the whole listing; other reads pass through unchanged."""
+SHA = r"[0-9a-f]{40}"
 
-    def __init__(self, client):
-        self.client, self.cache = client, {}
+
+class Cached:
+    """Reads for one listing: comments from the survey's bulk pass (or one REST read per PR), and
+    immutable git facts (a commit's parents and tree, a compare of two exact commits, a merged
+    stack parent) from the operator store's queue cache. Everything else passes through unchanged,
+    so PR state, reviews, runs and checks are always read fresh."""
+
+    def __init__(self, client, total=0, cache=None):
+        self.client, self.comment_cache, self.total, self.cache = client, {}, total, cache
+        self.bulk = {}
+        self.lock = threading.Lock()
+        self.memo = {}
 
     def comments(self, repository, pr):
-        if (repository, pr) not in self.cache:
-            self.cache[(repository, pr)] = self.client.comments(repository, pr)
-        return self.cache[(repository, pr)]
+        if (repository, pr) not in self.comment_cache:
+            listed = self.bulk.get(pr)
+            # A PR whose comments did not fit the bulk page is read through REST (fail closed).
+            value = [dict(c) for c in listed] if listed is not None else self.client.comments(repository, pr)
+            with self.lock:
+                self.comment_cache.setdefault((repository, pr), value)
+                count = len(self.comment_cache)
+            from .feedback import current as progress
+            progress().counter("reading comments", count, max(self.total, count))
+        return self.comment_cache[(repository, pr)]
+
+    def call(self, endpoint, **kwargs):
+        kind = immutable(endpoint) if not kwargs.get("payload") and not kwargs.get("method") else None
+        if kind == "main":  # current main: read once per listing, however many PRs ask at once
+            with self.lock:
+                gate = self.memo.setdefault(("main-lock", endpoint), threading.Lock())
+            with gate:
+                if ("main", endpoint) not in self.memo:
+                    self.memo[("main", endpoint)] = self.client.call(endpoint, **kwargs)
+                return self.memo[("main", endpoint)]
+        if kind is None:
+            return self.client.call(endpoint, **kwargs)
+        key = (kind, endpoint)
+        with self.lock:
+            if key in self.memo:
+                return self.memo[key]
+        stored = self.cache.key(kind, endpoint) if self.cache is not None else None
+        if stored is not None and self.cache.has(kind, stored):
+            value = self.cache.get(kind, stored)
+        elif kind == "commit" and self.history(endpoint):
+            with self.lock:
+                return self.memo[key]
+        else:
+            value = self.client.call(endpoint, **kwargs)
+            value = keep(kind, value)
+            if stored is not None and value is not None and (kind != "merged" or merged(value)):
+                self.cache.put(kind, stored, value)
+        with self.lock:
+            self.memo[key] = value
+        return value
+
+    def history(self, endpoint) -> bool:
+        """Read a commit with up to 99 of its ancestors in one listing (carry-over walks main's
+        first-parent history commit by commit). Each listed commit's SHA, tree and parents are the
+        same facts `git/commits/SHA` reports; they are remembered for this run and in the cache.
+        False when the listing does not contain the commit, so the caller reads it directly."""
+        prefix, sha = endpoint.rsplit("/git/commits/", 1)
+        try:
+            listed = self.client.call(f"{prefix}/commits?sha={sha}&per_page=100")
+        except RecordError:
+            return False
+        if not isinstance(listed, list):
+            return False
+        found = False
+        for item in listed:
+            parents = item.get("parents") if isinstance(item, dict) else None
+            tree = ((item.get("commit") or {}).get("tree") or {}).get("sha") if isinstance(item, dict) else None
+            if (not isinstance(item, dict) or not re.fullmatch(SHA, str(item.get("sha"))) or not isinstance(tree, str)
+                    or not isinstance(parents, list) or not all(isinstance(p, dict) and isinstance(p.get("sha"), str)
+                                                                for p in parents)):
+                continue
+            value = {"sha": item["sha"], "tree": {"sha": tree}, "parents": [{"sha": p["sha"]} for p in parents]}
+            path = f"{prefix}/git/commits/{item['sha']}"
+            with self.lock:
+                self.memo.setdefault(("commit", path), value)
+            if self.cache is not None:
+                self.cache.put("commit", self.cache.key("commit", path), value)
+            found = found or item["sha"] == sha
+        return found
 
     def __getattr__(self, name):
         return getattr(self.client, name)
+
+
+def immutable(endpoint):
+    """The cacheable kind of a read, or None: only facts fixed by exact commit SHAs, or a merge."""
+    path = endpoint.split("/", 3)[-1] if endpoint.startswith("repos/") else ""
+    if re.fullmatch(rf"git/commits/{SHA}", path):
+        return "commit"
+    if re.fullmatch(rf"compare/{SHA}\.\.\.{SHA}", path):
+        return "compare"
+    if path.startswith("pulls?state=closed&head="):
+        return "merged"
+    if re.fullmatch(r"commits/[^/?]+", path) and not re.fullmatch(rf"commits/{SHA}", path):
+        return "main"  # a branch's current commit: this listing only, never stored
+    return None
+
+
+def keep(kind, value):
+    """Only the fields the queue reads, so the cache stays small and nothing else is implied."""
+    if kind == "commit" and isinstance(value, dict):
+        return {"sha": value.get("sha"), "tree": {"sha": (value.get("tree") or {}).get("sha")},
+                "parents": [{"sha": (p or {}).get("sha")} for p in value.get("parents") or []]
+                if isinstance(value.get("parents"), list) else value.get("parents")}
+    if kind == "compare" and isinstance(value, dict):
+        return {"status": value.get("status"), "ahead_by": value.get("ahead_by"),
+                "behind_by": value.get("behind_by"),
+                "merge_base_commit": {"sha": (value.get("merge_base_commit") or {}).get("sha")}}
+    return value
+
+
+def merged(pages):
+    return (isinstance(pages, list) and all(isinstance(p, list) for p in pages)
+            and any(isinstance(p, dict) and p.get("merged_at") for page in pages for p in page))
 
 
 def pages(value, key):
@@ -254,7 +364,7 @@ def assess(client, project, policy, pr, comments, required):
 
 def ready_to_merge(client, project, policy, snapshot):
     """({'items', 'not_ready'}, required checks). Every read failure raises; nothing is guessed."""
-    items, held_back, required = [], [], None
+    items, held_back, required, found = [], [], None, []
     for pr in sorted(snapshot["pull_requests"], key=lambda p: p["number"]):
         if pr["state"] != "OPEN" or pr["draft"]:
             continue
@@ -265,7 +375,11 @@ def ready_to_merge(client, project, policy, snapshot):
             continue
         if required is None and pr.get("base_ref", project.default_branch) == project.default_branch:
             required = required_checks(client, project.repository, project.default_branch)
-        item, other = assess(client, project, policy, pr, comments, required)
+        found.append((pr, comments))
+    from .pool import concurrent, ordered
+    assessed = ordered(lambda pair: assess(client, project, policy, pair[0], pair[1], required), found,
+                       parallel=concurrent(getattr(client, "client", client)))
+    for (pr, _), (item, other) in zip(found, assessed):
         if item:
             item["yours"] = pr["author"].casefold() == snapshot["actor"].casefold()
             items.append(item)
