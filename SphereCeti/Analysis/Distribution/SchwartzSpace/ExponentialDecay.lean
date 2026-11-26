@@ -74,7 +74,9 @@ noncomputable def mkOfExponentialDecay (f : E → F) (smooth : ContDiff ℝ ∞ 
 theorem mkOfExponentialDecay_apply (f : E → F) (smooth : ContDiff ℝ ∞ f)
     (decay : ∀ n : ℕ, ∃ b : ℝ, 0 < b ∧
       (iteratedFDeriv ℝ n f) =O[cocompact E] (fun x => Real.exp (-b * ‖x‖))) (x : E) :
-    mkOfExponentialDecay f smooth decay x = f x := rfl
+    mkOfExponentialDecay f smooth decay x = f x := by
+  unfold mkOfExponentialDecay
+  exact mkOfCocompact_apply _ _ _ x
 
 -- The evaluation rule works inside another function without exposing decay witnesses.
 example {G : Type*} (h : F → G) (f : E → F) (smooth : ContDiff ℝ ∞ f)
