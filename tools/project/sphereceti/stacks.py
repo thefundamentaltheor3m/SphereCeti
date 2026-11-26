@@ -33,8 +33,15 @@ def stacks(snapshot, project, *, client=None) -> dict:
             elif candidates:
                 entry["parent_state"] = "ambiguous"
             else:
-                entry["parent_state"] = merged_parent(client, project, base)
+                entry["parent_state"] = None  # read below, all such branches at once
         info[number] = entry
+    missing = sorted({e["base_ref"] for e in info.values() if e["parent_state"] is None})
+    from .pool import concurrent, ordered
+    states = dict(zip(missing, ordered(lambda branch: merged_parent(client, project, branch), missing,
+                                       parallel=concurrent(getattr(client, "client", client)))))
+    for entry in info.values():
+        if entry["parent_state"] is None:
+            entry["parent_state"] = states[entry["base_ref"]]
     for number, entry in info.items():
         chain, seen, cursor = [], {number}, entry["parent"]
         while cursor is not None and cursor not in seen:
