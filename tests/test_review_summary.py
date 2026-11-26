@@ -121,6 +121,25 @@ class SummaryTest(unittest.TestCase):
         self.assertTrue(result['line'].startswith('10/10 reviewed · changes requested: naming · posted '))
         self.assertEqual(result['next_action'], 'author: address naming (see record); rerun after the head changes')
 
+    def test_a_block_and_requested_changes_are_all_named_on_the_line_and_in_the_next_action(self):
+        # Run 598e04f8 (#75 at 79f2f36, posted, official): scope blocked, and api-design and
+        # documentation requested changes. The line used to list only the requested changes, while
+        # the next action named only the first finding (the block): "address scope".
+        url = f'https://github.com/{REPO}/pull/54#issuecomment-77'
+        result = self.summary(self.report({'scope': 'block', 'api-design': 'request_changes',
+                                           'documentation': 'request_changes'}))
+        self.assertEqual(result['line'], f'10/10 reviewed · blocked: scope · changes requested: api-design, '
+                                         f'documentation · posted {url} · official')
+        self.assertEqual(result['next_action'], 'author: address scope, api-design, documentation (see record); '
+                                                'rerun after the head changes')
+        self.assertEqual(result['findings'], ['scope', 'api-design', 'documentation'])
+        self.assertEqual(result['first_blocking'], 'scope')
+        # Requested changes alone, several of them: every one is named, in rubric order.
+        result = self.summary(self.report({'documentation': 'request_changes', 'api-design': 'request_changes'}))
+        self.assertTrue(result['line'].startswith('10/10 reviewed · changes requested: api-design, documentation · '))
+        self.assertEqual(result['next_action'], 'author: address api-design, documentation (see record); '
+                                                'rerun after the head changes')
+
     def test_stop_reason_from_the_receipt(self):
         absent = {r: 'absent' for r in RUBRICS[3:]}
         result = self.summary(self.report(absent, completion='partial', posted=None, stop='usage_unknown'))
