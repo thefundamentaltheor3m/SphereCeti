@@ -261,23 +261,46 @@ class WorkflowTests(unittest.TestCase):
                 self.assertNotEqual(done.returncode, 0);self.assertEqual(calls, [])
 
     def test_the_activation_flips_are_exactly_the_marked_lines(self):
+        import hashlib
         text = WORKFLOW.read_text()
         self.assertEqual(text, (ROOT / 'tools/ci/merge-controller.yml').read_text())
-        flipped = flip(text)
-        changed = [(a, b) for a, b in zip(text.splitlines(), flipped.splitlines()) if a != b]
-        self.assertEqual(len(changed), 7)  # 1 mode line, 4 permissions, 2 schedule lines
-        self.assertIn('          CONTROLLER: apply', flipped)
-        self.assertNotIn(': read', flipped.split('concurrency:')[0].split('permissions:')[1])
-        self.assertIn("  schedule:\n    - cron: '17 * * * *'\n", flipped)
+        # Undoing exactly the activation flips gives back the inert workflow reviewed in #158, byte
+        # for byte; so the shipped file is that workflow plus these five lines and nothing else.
+        inert = unflip(text)
+        self.assertEqual(hashlib.sha256(inert.encode()).hexdigest(), INERT_SHA256)
+        changed = [(a, b) for a, b in zip(inert.splitlines(), text.splitlines()) if a != b]
+        self.assertEqual(changed, [('  contents: read', '  contents: write'),
+                                   ('  pull-requests: read', '  pull-requests: write'),
+                                   ('  actions: read', '  actions: write'), ('  issues: read', '  issues: write'),
+                                   ('          CONTROLLER: doctor', '          CONTROLLER: apply')])
+        self.assertEqual(flip(inert, schedule=False), text)
+        # The schedule is the last, separate PR, after the race probe's proof.
+        self.assertIn("  # schedule:\n  #   - cron: '17 * * * *'\n", text)
+        later = flip(inert)
+        self.assertEqual(len([1 for a, b in zip(text.splitlines(), later.splitlines()) if a != b]), 2)
 
 
-def flip(text):
-    """The later activation PR, mechanically: the lines marked ACTIVATION, nothing else."""
+# sha256 of .github/workflows/merge-controller.yml as reviewed inert in #158 (main eefc1be).
+INERT_SHA256 = '0917e1e606aa209e190ea8a1bab39299cc0834e7fca163f2042f168444e81bc5'
+
+
+def flip(text, schedule=True):
+    """The activation, mechanically: the lines marked ACTIVATION, nothing else (the schedule last)."""
     text = text.replace('          CONTROLLER: doctor', '          CONTROLLER: apply')
     head, rest = text.split('permissions:\n', 1)
     block, tail = rest.split('concurrency:', 1)
     text = head + 'permissions:\n' + block.replace(': read', ': write') + 'concurrency:' + tail
+    if not schedule:
+        return text
     return text.replace("  # schedule:\n  #   - cron: '17 * * * *'", "  schedule:\n    - cron: '17 * * * *'")
+
+
+def unflip(text):
+    """The inverse of the activation flips applied here (mode and permissions)."""
+    text = text.replace('          CONTROLLER: apply', '          CONTROLLER: doctor')
+    head, rest = text.split('permissions:\n', 1)
+    block, tail = rest.split('concurrency:', 1)
+    return head + 'permissions:\n' + block.replace(': write', ': read') + 'concurrency:' + tail
 
 
 if __name__ == '__main__':
