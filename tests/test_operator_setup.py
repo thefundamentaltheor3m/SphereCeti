@@ -132,7 +132,9 @@ class FirstRunCliTest(unittest.TestCase):
         self.saved = self.fixture.home / '.config/sphereceti/operator.toml'
 
     def command(self, *extra, output='result'):
-        command = self.fixture.command(output=output, extra=('--rubrics', 'correctness', *extra))
+        # The fixture's local build is never approved main: these terminal runs answer the first-run
+        # questions only, so the advisory question is skipped.
+        command = self.fixture.command(output=output, extra=('--rubrics', 'correctness', '--allow-advisory', *extra))
         for flag in ('--operator-config', '--auth', '--json'):
             i = command.index(flag)
             del command[i:i + (1 if flag == '--json' else 2)]

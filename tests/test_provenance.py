@@ -226,6 +226,80 @@ class ReviewNoticeTest(unittest.TestCase):
         self.assertEqual(events[2], 'provider called')
         self.assertEqual(sink['tooling_notice'], events[1])
 
+    def run_prompted(self, answer, **flags):
+        events, calls = [], []
+        args = Namespace(provider=None, codex_model=None, claude_model=None, kiro_model=None, dry_run=False,
+                         post=True, no_post=False, post_default=True, **flags)
+
+        @contextmanager
+        def inner(args, report, policy, client):
+            events.append('claim posted')
+            yield None
+        with patch.object(provenance, 'installed', return_value={'kind': 'vcs', 'commit': NEWER,
+                                                                  'label': 'main@abc1234'}), \
+                patch('sys.stdin.isatty', return_value=True), patch('sys.stdout.isatty', return_value=True), \
+                patch('sphereceti.review_summary.ask', side_effect=lambda q: calls.append(q) or answer):
+            with announcing(OperatorPreferences(provider='codex'), events.append, {}, inner=inner)(
+                    args, self.report(False), None, None):
+                events.append('provider called')
+        return events, calls
+
+    def test_on_a_terminal_an_advisory_review_is_asked_for_first(self):
+        from sphereceti.local_review import ReviewError
+        with self.assertRaisesRegex(ReviewError, 'advisory review declined'):
+            self.run_prompted(False)
+        events, calls = self.run_prompted(True)
+        self.assertEqual(calls, ['Continue with an advisory review? [y/N] '])
+        # The notice and the question come before the claim; the plan line and the model call after.
+        self.assertTrue(events[0].startswith('Your sphereceti is not current main'))
+        self.assertEqual(events[1], 'claim posted')
+        self.assertTrue(events[2].startswith('Review #54'))
+        self.assertEqual(events[-1], 'provider called')
+        self.assertEqual(sum(e.startswith('Your sphereceti') for e in events), 1)
+        events, calls = self.run_prompted(False, allow_advisory=True)  # --allow-advisory: no question
+        self.assertEqual(calls, [])
+        self.assertEqual(events[-1], 'provider called')
+
+    def test_a_declined_advisory_review_claims_and_calls_nothing(self):
+        from sphereceti.local_review import ReviewError
+        events = []
+
+        @contextmanager
+        def inner(args, report, policy, client):
+            events.append('claim posted')
+            yield None
+        args = Namespace(provider=None, codex_model=None, claude_model=None, kiro_model=None, dry_run=False,
+                         post=True, no_post=False, post_default=True)
+        with patch.object(provenance, 'installed', return_value={'kind': 'vcs', 'commit': NEWER,
+                                                                  'label': 'main@abc1234'}), \
+                patch('sys.stdin.isatty', return_value=True), patch('sys.stdout.isatty', return_value=True), \
+                patch('sphereceti.review_summary.ask', return_value=False):
+            with self.assertRaises(ReviewError):
+                with announcing(OperatorPreferences(provider='codex'), events.append, {}, inner=inner)(
+                        args, self.report(False), None, None):
+                    events.append('provider called')
+        self.assertEqual(len(events), 1)  # only the notice: no claim, no model call
+        self.assertTrue(events[0].startswith('Your sphereceti is not current main'))
+
+    def test_a_batch_or_a_non_terminal_run_continues_and_says_it_once(self):
+        events = []
+        args = Namespace(provider=None, codex_model=None, claude_model=None, kiro_model=None, dry_run=False,
+                         post=True, no_post=False, post_default=True, new=True)
+
+        @contextmanager
+        def inner(args, report, policy, client):
+            yield None
+        with patch.object(provenance, 'installed', return_value={'kind': 'vcs', 'commit': NEWER,
+                                                                  'label': 'main@abc1234'}), \
+                patch('sys.stdin.isatty', return_value=True), patch('sys.stdout.isatty', return_value=True), \
+                patch('sphereceti.review_summary.ask', side_effect=AssertionError('a batch never asks')):
+            for _ in range(3):  # three batch items share the arguments
+                with announcing(OperatorPreferences(provider='codex'), events.append, {}, inner=inner)(
+                        args, self.report(False), None, None):
+                    events.append('provider called')
+        self.assertEqual(sum(e.startswith('Your sphereceti') for e in events), 1)
+        self.assertEqual(events.count('provider called'), 3)
+
     def test_current_tooling_or_unknown_evidence_adds_nothing(self):
         for matches in (True, None):
             with self.subTest(matches=matches):
