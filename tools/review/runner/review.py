@@ -833,12 +833,16 @@ def main():
                     help="seconds before one provider attempt and its process group are stopped")
     ap.add_argument("--codex-single-agent", action="store_true",
                     help="withhold Codex sub-agent tools from every Codex attempt")
+    ap.add_argument("--codex-effort", choices=("low", "medium", "high", "xhigh"), default=None,
+                    help="pass this model_reasoning_effort to every Codex attempt instead of the "
+                         "caller's personal Codex configuration")
     ap.add_argument("--usage-stop-file", default="",
                     help="record unknown attempt usage explicitly, start no further attempt or "
                          "rubric after one, and write the stop reason as JSON here")
     a = ap.parse_args()
     reviewers.ATTEMPT_TIMEOUT = a.attempt_timeout
     reviewers.CODEX_SINGLE_AGENT = a.codex_single_agent
+    reviewers.CODEX_REASONING_EFFORT = a.codex_effort
     try:
         a.kiro_model = exact_kiro_model(a.kiro_model)
         reject_retired_opus(a.claude_model)

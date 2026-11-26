@@ -255,7 +255,7 @@
       "destination": "runner/prices.json",
       "mode": "100644",
       "upstream_sha256": "387b989081a150ba9b3eb0cdfb8353c59c38a28f4688256a155bbc05c63645ce",
-      "import_sha256": "875be1f0b17590b325e4ca91b5ac300bc439d2587c4cf42336c48ee12e9df554",
+      "import_sha256": "af71469e54afde89378dbb524461675155035ad207695adb585517f858519a8b",
       "adapted": [
         {
           "pr": 172,
@@ -305,14 +305,14 @@
       "destination": "runner/review.py",
       "mode": "100644",
       "upstream_sha256": "46e109b3eba83610a804ec80aac13d74f4f52e9acf5629ec1a5a02b72af36859",
-      "import_sha256": "4552b8bf0c5409deaf73ef59b8a24ef11dc66a1c855c4939fc90adfc268edfc9"
+      "import_sha256": "fc4065c52abc6c67887501cf8ff94aaa48dc98bffe5806cc620a59aaf9ad39f5"
     },
     {
       "source": "runner/reviewers.py",
       "destination": "runner/reviewers.py",
       "mode": "100644",
       "upstream_sha256": "abc9a219d3923e6deaf2a6cb8d9c46cb51e43ac8363f6d54e115c96a34e2cfc2",
-      "import_sha256": "fb76e2e843dbb48c66fbc5f8049ae67a776171c62f6233b43d445203fd19891d",
+      "import_sha256": "7e867bdc608d7e64f08055ee9774eb6ed8fa9336ff74aadbb639765b01885578",
       "adapted": [
         {
           "pr": 194,
@@ -401,7 +401,7 @@
       "destination": "tests/test_prices.py",
       "mode": "100644",
       "upstream_sha256": "e84bfe34f3f60469ae687511bf1696426c2a8ef530c1058b72fe6410dd4a6a8a",
-      "import_sha256": "c6732a476b1cad2b5cf83fc78a91ddd2abf539160f106a17b21d74fee061c607",
+      "import_sha256": "d29161b0c4a7924f344d0f4e2fe466e75e3225a0c03793187582d50fefae8e03",
       "adapted": [
         {
           "pr": 172,

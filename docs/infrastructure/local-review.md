@@ -781,7 +781,7 @@ Elsewhere they print every tenth item and the last, so a log never gets carriage
 [19:04:26] Evidence for #63 ready in 42s
 [19:04:27] Posting "reviewing now" claim on #63…
 [19:04:28] claim posted: https://github.com/thefundamentaltheor3m/SphereCeti/pull/63#issuecomment-1
-[19:04:28] Rubric 1/10 correctness: running (codex gpt-6.1-sol)…
+[19:04:28] Rubric 1/10 correctness: running (codex gpt-6.2-sol (medium))…
 [19:06:38] Rubric 1/10 correctness: approve (2m10s, est. $0.07)
 ...
 [19:31:02] Posting record…
@@ -934,15 +934,32 @@ on timeout or interruption. Each provider attempt also has its own `--attempt-ti
 
 ## Codex model selection and accounting
 
-`sphereceti review` uses `gpt-6.1-sol` when Codex is selected. Use `--codex-model MODEL` to
-choose a different model. The contributor CLI pins that choice, including the default.
+`sphereceti review` uses Sol 6.2 (`gpt-6.2-sol`) when Codex is selected. Use
+`--codex-model MODEL` to choose a different model, for example `--codex-model gpt-6.1-sol` for
+the previous default.
+
+Every Codex call also gets an explicit reasoning effort, `--codex-effort`, which defaults to
+`medium`. It is passed as `-c model_reasoning_effort=<effort>`, which takes precedence over
+`~/.codex/config.toml`, so a contributor's personal Codex configuration no longer changes a
+review. Before, each review silently inherited that setting, and the model's own default was
+`low`. The choices are `low`, `medium`, `high` and `xhigh`. These are the efforts that
+codex-cli 0.171.0's bundled catalog lists for the Sol models, without `max` and without `ultra`,
+which delegates to sub-agents that reviews withhold; `minimal` is not offered for them. Higher
+efforts take longer, and the attempt timeout still applies. The plan line and progress lines name
+the effort (`codex gpt-6.2-sol (medium)`). `result.json` records it as `codex_effort`, and the
+engine request's argument list carries it too. It is not part of the review record marker or any
+digest. Batch (`--new`, `--revised`, `--all`) and bare `review` use the same flag. `worker run`
+has its own `--codex-effort`, also defaulting to `medium` (it previously passed none), and records
+it in its receipt; its model default stays the engine's. The contributor CLI pins that choice, including the default.
 [`worker run --execute`](worker-execution.md) uses the engine's `gpt-5.6-sol` default with
 automatic Terra fallback unless the worker operator pins a model. Every dispatchable model must have a row in
 `runner/prices.json`; an unpriced model is rejected before any inference. The table carries
 the gpt-6 family from TauCetiReview [#172](https://github.com/TauCetiProject/TauCetiReview/pull/172)
 ([baf2e68](https://github.com/TauCetiProject/TauCetiReview/commit/baf2e680b43369805621e6ff0b6c984cab5e4ccb)),
 so `--codex-model gpt-6.1-sol` (Sol61: 2.00 input, 0.10 cached input, 10.00 output per million
-tokens) is accepted. The corrected rates and cache-write rates of
+tokens) is accepted. SphereCeti adds a local `gpt-6.2-sol` row, effective 2026-11-17, at the same
+standard and long-context (over 272,000 input tokens) rates, as listed on OpenAI's pricing page;
+no upstream TauCetiReview change prices it yet. The corrected rates and cache-write rates of
 [#175](https://github.com/TauCetiProject/TauCetiReview/pull/175)
 ([4684a52](https://github.com/TauCetiProject/TauCetiReview/commit/4684a52a03859a5e22ba2af736720426de373e1f))
 also apply, including `gpt-5.6-sol`'s 2026-08-21 window.

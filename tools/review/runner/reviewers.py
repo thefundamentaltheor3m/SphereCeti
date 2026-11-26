@@ -75,6 +75,9 @@ def sweep_rev_homes(max_age_s=REV_HOME_MAX_AGE_S):
 # docs/infrastructure/worker-execution.md#when-the-worker-stops-spending.
 ATTEMPT_TIMEOUT = None
 CODEX_SINGLE_AGENT = False
+# SphereCeti: the reasoning effort passed to every `codex exec`, so a review never inherits
+# `model_reasoning_effort` from a contributor's ~/.codex/config.toml. None keeps upstream behaviour.
+CODEX_REASONING_EFFORT = None
 ATTEMPT_TIMEOUT_EXIT = 124
 _KILL_GRACE_S = 5
 
@@ -637,6 +640,7 @@ def run_codex(prompt, cwd, model, env):
     # OS argument-size limit before codex starts.
     cmd = (["codex", "exec", "--json", "-s", "read-only", "--skip-git-repo-check"]
            + codex_shell_environment_args(env) + single_agent
+           + (["-c", f"model_reasoning_effort={CODEX_REASONING_EFFORT}"] if CODEX_REASONING_EFFORT else [])
            + (["-m", model] if model else []) + ["-"])
     r = sh(cmd, cwd=cwd, env=env, stdin_text=prompt, deadline=deadline)
     out = {"returncode": r.returncode, "raw_stderr": r.stderr[-3000:]}

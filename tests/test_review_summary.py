@@ -43,7 +43,8 @@ class PlanTest(unittest.TestCase):
 
     def test_codex_model_comes_from_the_arguments_the_review_passes_to_the_engine(self):
         # The plan reads args.codex_model, the same value run_review forwards as --codex-model, and
-        # otherwise the engine's own default. A CLI default (e.g. #80's gpt-6.1-sol) shows through.
+        # otherwise the engine's own default. A CLI default (gpt-6.2-sol) shows through, with the
+        # reasoning effort that every Codex call now passes explicitly.
         import argparse
         from sphereceti.local_review import add_parser
         parser = argparse.ArgumentParser()
@@ -52,11 +53,16 @@ class PlanTest(unittest.TestCase):
         args.post_default = True
         codex = OperatorPreferences(provider='codex', budget_usd=5)
         expected = args.codex_model or engine_defaults()['CODEX_MODEL']
-        self.assertIn(f'· codex {expected}', plan(args, codex, self.report())['line'])
+        self.assertIn(f'· codex {expected} (medium) ·', plan(args, codex, self.report())['line'])
+        self.assertEqual(expected, 'gpt-6.2-sol')
+        self.assertEqual(plan(args, codex, self.report())['codex_effort'], 'medium')
+        args = parser.parse_args(['review', '54', '--codex-effort', 'xhigh'])
+        args.post_default = True
+        self.assertIn('· codex gpt-6.2-sol (xhigh) ·', plan(args, codex, self.report())['line'])
         sub = parser._subparsers._group_actions[0].choices['review']
         sub.set_defaults(codex_model='gpt-6.1-sol')
         args = parser.parse_args(['review', '54'])
-        self.assertIn('· codex gpt-6.1-sol ·', plan(args, codex, self.report())['line'])
+        self.assertIn('· codex gpt-6.1-sol (medium) ·', plan(args, codex, self.report())['line'])
 
     def test_guard_announces_before_the_provider_and_keeps_the_inner_guard(self):
         from contextlib import contextmanager

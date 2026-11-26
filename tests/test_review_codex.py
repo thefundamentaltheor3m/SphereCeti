@@ -22,6 +22,11 @@ def settings(argv):
     return [argv[i + 1] for i, arg in enumerate(argv[:-1]) if arg == "-c"]
 
 
+def efforts(call):
+    """Every model_reasoning_effort the reviewer set on this `codex exec` command line."""
+    return [s.split("=", 1)[1] for s in call["settings"] if s.startswith("model_reasoning_effort=")]
+
+
 def model(argv):
     return argv[argv.index("-m") + 1] if "-m" in argv else None
 
@@ -107,25 +112,60 @@ class CodexReviewTests(unittest.TestCase):
     def spent_today(self):
         return self.fixture.ledger()["days"][str(datetime.date.today())]
 
-    def test_default_sol61_subscription_review_is_admitted_and_estimated(self):
+    def test_default_sol62_subscription_review_is_admitted_and_estimated(self):
         self.fixture.codex_subscription()
         result = self.review("--auth", "subscription")
         self.assertEqual(result["verdicts"]["correctness"], "approve")
         [call] = self.fixture.codex_calls()
-        self.assertEqual(model(call["argv"]), "gpt-6.1-sol")
+        self.assertEqual(model(call["argv"]), "gpt-6.2-sol")
+        # The default effort is passed explicitly, and recorded with the result.
+        self.assertEqual(efforts(call), ["medium"])
+        self.assertEqual(result["codex_effort"], "medium")
         self.assertIsNone(call["openai_key"])
         # Subscription runs carry no provider bill, so the shared daily budget is charged the
         # dated list-price estimate: (20k fresh x 2.00 + 80k cached x 0.10 + 1k out x 10.00) / 1M.
         self.assertAlmostEqual(self.spent_today(), 0.058)
         [(record, run)] = self.archived_runs()
         self.assertEqual(record["request"]["auth"], "subscription")
-        self.assertEqual((run["provider"], run["model"]), ("codex", "gpt-6.1-sol"))
+        self.assertEqual((run["provider"], run["model"]), ("codex", "gpt-6.2-sol"))
         self.assertTrue(run["cost_estimated"])
         self.assertAlmostEqual(run["cost_usd"], 0.058)
         self.assertEqual(run["usage"]["input_tokens"], 100000)  # raw Codex usage is retained
         # TauCetiReview #148: round totals use one comparable input convention across providers.
         [state] = self.fixture.ledger()["prs"].values()
         self.assertEqual(state["rounds"][-1]["tokens"], NORMALIZED)
+
+    def test_explicit_sol61_still_wins_and_bills_the_same_rates(self):
+        self.fixture.codex_subscription()
+        self.review("--auth", "subscription", "--codex-model", "gpt-6.1-sol")
+        [call] = self.fixture.codex_calls()
+        self.assertEqual(model(call["argv"]), "gpt-6.1-sol")
+        self.assertAlmostEqual(self.spent_today(), 0.058)  # Sol 6.2's default run costs the same
+
+    def test_explicit_effort_wins_over_personal_codex_configuration(self):
+        self.fixture.codex_subscription()
+        # A contributor's own setting, which codex would otherwise read from ~/.codex/config.toml.
+        (self.fixture.home / ".codex/config.toml").write_text('model_reasoning_effort = "xhigh"\n')
+        result = self.review("--auth", "subscription", "--codex-effort", "high")
+        [call] = self.fixture.codex_calls()
+        self.assertEqual(efforts(call), ["high"])
+        self.assertEqual(result["codex_effort"], "high")
+
+    def test_default_effort_is_explicit_despite_personal_codex_configuration(self):
+        self.fixture.codex_subscription()
+        (self.fixture.home / ".codex/config.toml").write_text('model_reasoning_effort = "xhigh"\n')
+        self.review("--auth", "subscription")
+        [call] = self.fixture.codex_calls()
+        self.assertEqual(efforts(call), ["medium"])  # never left to the personal xhigh
+
+    def test_invalid_effort_is_rejected_before_any_call(self):
+        for value in ("minimal", "ultra", "max", "HIGH"):
+            with self.subTest(value=value):
+                process = self.fixture.run(extra=("--provider", "codex", "--rubrics", "correctness",
+                                                  "--codex-effort", value))
+                self.assertEqual(process.returncode, 2)
+                self.assertIn("--codex-effort: invalid choice", process.stderr)
+        self.assertEqual(self.fixture.codex_calls(), [])
 
     def test_explicit_sol56_override_bills_its_corrected_window(self):
         self.fixture.codex_subscription()

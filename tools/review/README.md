@@ -43,7 +43,9 @@ the 8cb4374 bytes. #196's inspection-failure narrowing is not ported: it amends 
 from TauCetiReview #193 that this import does not contain. Its REVIEWING.md text and the
 `tauceti-review-check-sandbox` console script are replaced by `sphereceti review-check-sandbox`.
 `tests/test_token_accounting.py` is the 7f1d288 bytes. #172 also moved the default Codex model
-to `gpt-6.1-sol`. SphereCeti's contributor CLI selects Sol61 by default through `--codex-model`.
+to `gpt-6.1-sol`. SphereCeti adds a local `gpt-6.2-sol` row (effective 2026-11-17) at Sol61's rates,
+which no upstream change prices yet. Its contributor CLI selects Sol 6.2 by default through
+`--codex-model`; `--codex-model gpt-6.1-sol` still selects Sol61.
 The imported engine retains its `gpt-5.6-sol` default and Terra fallback for unpinned workers.
 The price table and tests omit the `claude-opus-5-5` and
 `claude-fable-5-1` rows, which come from other upstream changes. TauCetiReview #174's
@@ -80,6 +82,8 @@ The local changes are:
   `SphereCeti local adaptation`. They are off unless the local adapter passes them.
   `--attempt-timeout` gives each provider attempt one shared deadline for all its commands
   and stops their process groups. `--codex-single-agent` withholds Codex sub-agent tools.
+  `--codex-effort` passes `-c model_reasoning_effort=<effort>` to every `codex exec`, so a
+  review never inherits the effort from the caller's `~/.codex/config.toml`.
   `--usage-stop-file` records an attempt as unknown unless it exited 0 with complete usage and
   was not stopped (with a write-ahead in-flight ledger marker). It rejects a failed attempt's
   verdict and starts no further attempt or rubric after an unknown one. See
