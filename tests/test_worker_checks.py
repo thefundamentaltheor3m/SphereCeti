@@ -68,7 +68,7 @@ class WorkerCheckTests(unittest.TestCase):
         api = FakeAPI([{'login': 'alice'}, raw, *responses])
         with patch('sphereceti.config.resource_text', return_value=POLICY):
             result = survey(PROJECT, (1,), api=api)
-        self.assertEqual(result['schema'], 'sphereceti.worker-survey/v3')
+        self.assertEqual(result['schema'], 'sphereceti.worker-survey/v4')
         self.assertIsNone(result['pull_requests'][0]['review_note'])
         self.assertEqual(result['pull_requests'][0]['ci'], 'failed')
         self.assertEqual(result['pull_requests'][0]['review_ci'], 'passed')

@@ -251,6 +251,12 @@ with (root / "gh-calls.jsonl").open("a") as f:
 table = json.loads((root / "gh.json").read_text())
 state_path = root / "gh-comments.json"
 comments = json.loads(state_path.read_text()) if state_path.exists() else {}
+if args[:2] == ["api", "graphql"]:  # the bulk survey (sphereceti.bulk): the same table, one query
+    sys.path.insert(0, @TESTS@)
+    from bulk_fixture import graphql_page
+    fields = dict(a.split("=", 1) for a in args if "=" in a and not a.startswith("query="))
+    print(json.dumps(graphql_page(table["pr list"], comments, table["user"]["login"], fields.get("cursor"))))
+    sys.exit(0)
 if args[:2] == ["pr", "list"]:
     key = "pr list"
 else:
@@ -284,7 +290,7 @@ elif key in table:
 else:
     sys.exit(1)
 print(json.dumps([value] if "--paginate" in args else value))
-'''
+'''.replace('@TESTS@', repr(str(Path(__file__).resolve().parent)))
 
 
 class BareReviewHarness(unittest.TestCase):
@@ -309,7 +315,8 @@ class BareReviewHarness(unittest.TestCase):
                          state='OPEN', isDraft=False, mergeable='MERGEABLE',
                          statusCheckRollup=[{'__typename': 'CheckRun', 'status': 'COMPLETED',
                                              'conclusion': 'SUCCESS'}],
-                         headRepository={'nameWithOwner': REPO})
+                         headRepository={'nameWithOwner': REPO}, baseRefName='main',
+                         headRefName=f'change-{number}')
             value.update(updates)
             return value
         self.queue = [pr(50, 'xavier', updatedAt='2026-03-01T00:00:00Z'),
@@ -373,7 +380,7 @@ class BareReviewCliTest(BareReviewHarness):
         result = json.loads(process.stdout)
         self.assertEqual(set(result), {'schema', 'state', 'repository', 'actor', 'observed_at', 'priority',
                                        'waiting_since', 'selected', 'candidates', 'skipped',
-                                       'rationale', 'posting', 'plan', 'summary', 'review', 'main'})
+                                       'rationale', 'posting', 'approval', 'plan', 'summary', 'review', 'main'})
         self.assertEqual(result['schema'], 'sphereceti.review-selection/v1')
         self.assertEqual((result['state'], result['actor']), ('selected', 'yvonne'))
         self.assertEqual(result['selected']['pr'], 47)  # older than #50
@@ -401,11 +408,16 @@ class BareReviewCliTest(BareReviewHarness):
                                    r'no current review; waiting \d+d; will post if policy permits\.$')
         self.assertRegex(lines[1], r'^Review #47: head [0-9a-f]{7}, base [0-9a-f]{7} · claude claude-[a-z0-9.-]+ · '
                                    r'will not post \(approved policy disables posting\)$')
-        self.assertEqual(lines[2], 'Local advisory review #47: complete')
+        # The fixture's T is not this source tree, so the review says before inference that it is advisory.
+        self.assertRegex(lines[2], r'^Your sphereceti is not current main \(installed local build[^)]*, approved main '
+                                   r'[0-9a-f]{7}\): this review will be advisory, not official\. Update with: uv tool '
+                                   r'install --force --refresh git\+https://github\.com/thefundamentaltheor3m/SphereCeti@main$')
+        self.assertEqual(lines[3], 'Review #47: complete')
         for rubric in RUBRICS:
             self.assertIn(f'  {rubric.ljust(max(map(len, RUBRICS)))}  approve', lines)
         self.assertIn(f'Record: {self.root}/result/record.md (machine-readable: record.json)', lines)
-        self.assertEqual(lines[-4:], ['Not posted: posting is disabled by approved repository policy.',
+        self.assertEqual(lines[-5:], ['Not posted: posting is disabled by approved repository policy.',
+                                      'Approval: not submitted: the review record is not being posted',
                                       'This command does not authorize merging.',
                                       '10/10 approve · not posted: posting is disabled by approved repository policy',
                                       'Next: none: every rubric approves; the record stays local '
@@ -504,7 +516,8 @@ class BareReviewCliTest(BareReviewHarness):
         self.assertEqual(endpoints, [f'repos/{REPO}/pulls/50', f'repos/{REPO}/commits/main'])
         process = self.run_cli('--dry-run', pr=50, output='text')
         self.assertRegex(process.stdout, r'^Review #50: head [0-9a-f]{7}, base [0-9a-f]{7} · claude [^·]+ · '
-                                         r'dry run: no model call, nothing posted\nLocal advisory review #50: dry_run\n')
+                                         r'dry run: no model call, nothing posted\nYour sphereceti is not current main '
+                                         r'[^\n]*advisory, not official[^\n]*\nReview #50: dry_run\n')
         self.assertIn('Not posted: dry run.', process.stdout.splitlines())
 
     def test_pr_specific_flags_are_refused_before_github(self):
