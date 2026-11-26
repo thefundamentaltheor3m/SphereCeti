@@ -449,7 +449,14 @@ class QueueCliTest(unittest.TestCase):
         self.assertEqual((report['schema'], report['actor']), (SCHEMA, ME))
         self.assertEqual([e['pr'] for e in report['sections']['new']], [47])
         text = self.run_cli('reviews')
-        self.assertIn('New to you (1):', text.stdout)
+        self.assertEqual(text.stdout, 'Queue: 0 ready to merge · 0 revised · 1 new\nNew to you:\n  #47 bob  Change 47\n'
+                                      'Next: sphereceti review --new --limit 1\n')
+        self.assertRegex(text.stderr, r'^Reading 1 open PRs… done in \d+s\n$')  # one line, off a terminal
+        full = self.run_cli('reviews', '--all')
+        self.assertIn('New to you (1):', full.stdout)
+        verbose = self.run_cli('reviews', '-v')
+        self.assertEqual(verbose.stdout, full.stdout.replace(full.stdout.split('\n')[0], verbose.stdout.split('\n')[0]))
+        self.assertIn('Surveying open PRs… (1 open)', verbose.stderr)
         del self.table['pr list']
         (self.fixture.bin / 'gh.json').write_text(json.dumps(self.table))
         failed = self.run_cli('reviews')

@@ -26,10 +26,10 @@ on:
   #   - cron: '17 * * * *'
 # ACTIVATION 2: each `read` below becomes `write`.
 permissions:
-  contents: read
-  pull-requests: read
-  actions: read
-  issues: read
+  contents: write
+  pull-requests: write
+  actions: write
+  issues: write
 concurrency:
   group: sphereceti-merge-main
   cancel-in-progress: false
@@ -48,7 +48,7 @@ jobs:
       - name: Run the controller (the read-only doctor until activation)
         env:
           # ACTIVATION 1: doctor -> apply.
-          CONTROLLER: doctor
+          CONTROLLER: apply
           GH_TOKEN: ${{ github.token }}
           SPHERECETI_MERGE_TOKEN: ${{ github.token }}
           PYTHONPATH: tools/project
