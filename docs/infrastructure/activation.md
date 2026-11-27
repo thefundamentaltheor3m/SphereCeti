@@ -130,7 +130,8 @@ with `executor.token_view: "never"` and `executor.token.installation: true`. It 
 Anything else is fixed before going on.
 
 **1. Pick PR B, the candidate.** B must fully qualify:
-- it changes only modules under `SphereCeti/Contour/` or `SphereCeti/E8/` (not `SphereCeti.lean`);
+- it changes only library modules under `SphereCeti/`, any topic (not `SphereCeti.lean` or the
+  protected `SphereCeti/Basic.lean`, `Pinned.lean` and `Suggested.lean`);
 - it has a current, complete 10/10 official review by an authorized reviewer other than its author;
 - it has the formal APPROVE of an opted-in maintainer (all authorized reviewers are opted in);
 - its trusted run (`trusted-build`, `trusted-scope`, `trusted-merge`) attests current main;

@@ -14,6 +14,7 @@ The `sphereceti` command supplies project diagnostics and the adapters credited 
 | `review N` | [Local review, posted by default](local-review.md#posting-by-default) |
 | `review N --no-approve` | [Opted-in maintainers: review without submitting the GitHub approval](local-review.md#approvals-by-opted-in-maintainers) |
 | `review --force-claim` | [Advisory review-in-progress claims](local-review.md#review-in-progress-claims) |
+| `review --allow-advisory` | Do not ask before a review that can only be advisory (installed sphereceti is not approved main) |
 | `review --quiet`, `reviews --quiet` | [No progress lines on stderr](local-review.md#progress-lines) |
 | `reviews --no-cache`, `review --no-cache` | [Read the whole queue fresh](local-review.md#how-the-queue-is-read) |
 | `merge-ready [--apply] [--limit N] [--wait-ci MIN] [--retarget-children]` | [Maintainers: update, approve and merge ready PRs one at a time (a dry run without `--apply`)](local-review.md#merge-ready-sweep-maintainers) |
@@ -79,7 +80,10 @@ reviews, and doctor says so. `--json` adds `installed` with `installed_commit`, 
 A GitHub failure here reports `state = error` and does not change doctor's exit code. When the
 installed tooling is not approved main, `sphereceti review` says so before any model call:
 `Your sphereceti is not current main (installed main@X, approved main Y): this review will be
-advisory, not official. Update with: …`.
+advisory, not official. Update with: …`. On a terminal it then asks `Continue with an advisory
+review? [y/N]` before claiming the PR or calling a model; `--allow-advisory` skips the question.
+Runs off a terminal, `--json` runs and batches continue, and print the notice once per
+invocation.
 
 Without `--offline`, both commands read the canonical repository's open PR queue through `gh`.
 They never post, create branches, spend provider credits, or change repository settings.
