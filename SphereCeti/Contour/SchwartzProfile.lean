@@ -72,7 +72,7 @@ private theorem cuspKernel_integrable {F : ℂ → ℂ} {b M : ℝ} (k : ℕ) (h
 private noncomputable def centralProfile {F : ℂ → ℂ} {b M : ℝ} (k : ℕ) (hb : 0 < b)
     (hM : 0 ≤ M) (hF : DifferentiableOn ℂ F {z : ℂ | 0 < z.im})
     (hbound : ∀ t ∈ Ici (1 : ℝ), ‖F (t * I)‖ ≤ M * Real.exp (-b * t)) : 𝓢(ℝ, ℂ) :=
-  SchwartzMap.ofFiniteLaplace hb one_pos hM (cuspKernel_integrable k hb hM hF hbound)
+  SchwartzMap.ofFiniteLaplace hb one_pos (cuspKernel_integrable k hb hM hF hbound)
     (cuspKernel_bound k hM hbound) (π : ℂ) (by simpa using Real.pi_pos)
 
 private theorem centralProfile_apply {F : ℂ → ℂ} {b M : ℝ} (k : ℕ) (hb : 0 < b)
@@ -82,7 +82,7 @@ private theorem centralProfile_apply {F : ℂ → ℂ} {b M : ℝ} (k : ℕ) (hb
     centralProfile k hb hM hF hbound r =
       ∫ (t : ℝ) in Ioc 0 1, cuspKernel F k (t * I) * cexp (-((π : ℂ) * r) * t) := by
   unfold centralProfile
-  exact SchwartzMap.ofFiniteLaplace_apply_of_nonneg _ _ _ _ _ _ _ hr
+  exact SchwartzMap.ofFiniteLaplace_apply_of_nonneg _ _ _ _ _ _ hr
 
 private theorem shifted_cuspKernel_cont {F : ℂ → ℂ} (k : ℕ)
     (hF : DifferentiableOn ℂ F {z : ℂ | 0 < z.im}) (a : ℝ) :

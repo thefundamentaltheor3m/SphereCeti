@@ -152,31 +152,6 @@ theorem contDiff_intervalIntegral_mul_cexp_neg_mul_real
     (differentiable_intervalIntegral_mul_cexp_neg_mul hf).contDiff
   exact (h.restrict_scalars ℝ).comp (contDiff_const.mul Complex.ofRealCLM.contDiff)
 
-/-- The first derivative of the profile on `(0, 1]` in the sphere-packing normalization. -/
-theorem hasDerivAt_integral_Ioc_mul_cexp_neg_pi_mul
-    (hf : IntegrableOn f (Ioc 0 1)) (r : ℝ) :
-    HasDerivAt (fun r : ℝ ↦ ∫ t in Ioc (0 : ℝ) 1,
-        f t * cexp (-(Real.pi : ℂ) * (r : ℂ) * t))
-      (∫ t in Ioc (0 : ℝ) 1,
-        (-(Real.pi : ℂ) * (t : ℂ)) * f t * cexp (-(Real.pi : ℂ) * (r : ℂ) * t)) r := by
-  have hi := (intervalIntegrable_iff_integrableOn_Ioc_of_le (a := 0) (b := 1)
-    zero_le_one).mpr hf
-  simpa only [intervalIntegral.integral_of_le zero_le_one, neg_mul] using
-    hasDerivAt_intervalIntegral_mul_cexp_neg_mul_real hi (Real.pi : ℂ) r
-
-/-- All real derivatives of the profile on `(0, 1]` in the sphere-packing normalization. -/
-theorem iteratedDeriv_integral_Ioc_mul_cexp_neg_pi_mul
-    (hf : IntegrableOn f (Ioc 0 1)) (n : ℕ) (r : ℝ) :
-    iteratedDeriv n (fun r : ℝ ↦ ∫ t in Ioc (0 : ℝ) 1,
-        f t * cexp (-(Real.pi : ℂ) * (r : ℂ) * t)) r =
-      ∫ t in Ioc (0 : ℝ) 1,
-        (-(Real.pi : ℂ) * (t : ℂ)) ^ n * f t *
-          cexp (-(Real.pi : ℂ) * (r : ℂ) * t) := by
-  have hi := (intervalIntegrable_iff_integrableOn_Ioc_of_le (a := 0) (b := 1)
-    zero_le_one).mpr hf
-  simpa only [intervalIntegral.integral_of_le zero_le_one, neg_mul] using
-    iteratedDeriv_intervalIntegral_mul_cexp_neg_mul_real hi (Real.pi : ℂ) n r
-
 /-- The bounded-interval magic-function profile is smooth on all of `ℝ`, including `r = 0`. -/
 theorem contDiff_integral_Ioc_mul_cexp_neg_pi_mul (hf : IntegrableOn f (Ioc 0 1)) :
     ContDiff ℝ ∞ (fun r : ℝ ↦ ∫ t in Ioc (0 : ℝ) 1,
@@ -202,13 +177,19 @@ example (hf : IntegrableOn f (Ioc 0 1)) :
     iteratedDeriv 2 (fun r : ℝ ↦ ∫ t in Ioc (0 : ℝ) 1,
         f t * cexp (-(Real.pi : ℂ) * (r : ℂ) * t)) 0 =
       ∫ t in Ioc (0 : ℝ) 1, ((Real.pi : ℂ) * (t : ℂ)) ^ 2 * f t := by
-  simpa using iteratedDeriv_integral_Ioc_mul_cexp_neg_pi_mul hf 2 0
+  have hi := (intervalIntegrable_iff_integrableOn_Ioc_of_le (a := 0) (b := 1)
+    zero_le_one).mpr hf
+  simpa [intervalIntegral.integral_of_le zero_le_one] using
+    iteratedDeriv_intervalIntegral_mul_cexp_neg_mul_real hi (Real.pi : ℂ) 2 0
 
 /-- At the origin, the first derivative is the negative `π`-weighted first moment of the kernel. -/
 example (hf : IntegrableOn f (Ioc 0 1)) :
     deriv (fun r : ℝ ↦ ∫ t in Ioc (0 : ℝ) 1,
         f t * cexp (-(Real.pi : ℂ) * (r : ℂ) * t)) 0 =
       ∫ t in Ioc (0 : ℝ) 1, (-(Real.pi : ℂ) * (t : ℂ)) * f t := by
-  simpa using (hasDerivAt_integral_Ioc_mul_cexp_neg_pi_mul hf 0).deriv
+  have hi := (intervalIntegrable_iff_integrableOn_Ioc_of_le (a := 0) (b := 1)
+    zero_le_one).mpr hf
+  simpa [intervalIntegral.integral_of_le zero_le_one] using
+    (hasDerivAt_intervalIntegral_mul_cexp_neg_mul_real hi (Real.pi : ℂ) 0).deriv
 
 end TauCeti
