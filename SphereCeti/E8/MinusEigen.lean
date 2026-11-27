@@ -7,12 +7,12 @@ Authors: SphereCeti contributors
 module
 
 public import SphereCeti.Contour.SixPiece
-public import SphereCeti.E8.MinusKernels
+public import SphereCeti.E8.MinusKernel.Basic
 
 import SphereCeti.Contour.Eigenfunction
 import SphereCeti.Contour.PieceRegularity
 import SphereCeti.Contour.SegmentContinuity
-import SphereCeti.E8.MinusKernelRegularity
+import SphereCeti.E8.MinusKernel.Regularity
 
 /-!
 # The `-1` eigencomponent of the E8 magic function is a Fourier eigenfunction

@@ -7,14 +7,14 @@ Authors: Sidharth Hariharan, Bakhyt Momunov
 module
 
 public import SphereCeti.Analysis.Distribution.SchwartzSpace.CompNormSq
-public import SphereCeti.E8.MinusKernels
+public import SphereCeti.E8.MinusKernel.Basic
 public import SphereCeti.Contour.SixPiece
 
 import SphereCeti.Analysis.Distribution.SchwartzSpace.Laplace
 import SphereCeti.E8.MinusEigen
-import SphereCeti.E8.MinusKernelRegularity
-import SphereCeti.E8.MinusKernelHolomorphic
-import SphereCeti.E8.MinusKernelDecay
+import SphereCeti.E8.MinusKernel.Regularity
+import SphereCeti.E8.MinusKernel.Holomorphic
+import SphereCeti.E8.MinusKernel.Decay
 import TauCeti.Analysis.Complex.UpperHalfPlane.ResToImagAxis
 import Mathlib.Analysis.Distribution.TemperateGrowth
 public import Mathlib.Analysis.Distribution.SchwartzSpace.Fourier
@@ -111,13 +111,13 @@ theorem integrableOn_psiIExt_mul_I_Ioc : IntegrableOn (fun t : ℝ ↦ psiIExt (
   exact (mul_le_mul_of_nonneg_left he psiSBound_nonneg).trans_eq (mul_one _)
 
 private noncomputable def centralSchwartz : 𝓢(ℝ, ℂ) :=
-  SchwartzMap.ofFiniteLaplace Real.pi_pos one_pos psiSBound_nonneg integrableOn_psiIExt_mul_I_Ioc
+  SchwartzMap.ofFiniteLaplace Real.pi_pos one_pos integrableOn_psiIExt_mul_I_Ioc
     psiI_cusp_bound (π : ℂ) (by simpa using Real.pi_pos)
 
 private lemma centralSchwartz_apply {r : ℝ} (hr : 0 ≤ r) :
     centralSchwartz r = ∫ (t : ℝ) in Ioc 0 1, psiIExt (t * I) * cexp (-((π : ℂ) * r) * t) := by
   unfold centralSchwartz
-  exact SchwartzMap.ofFiniteLaplace_apply_of_nonneg _ _ _ _ _ _ _ hr
+  exact SchwartzMap.ofFiniteLaplace_apply_of_nonneg _ _ _ _ _ _ hr
 
 private lemma measurable_psiS_ray :
     AEStronglyMeasurable (fun t : ℝ ↦ psiSExt (t * I)) (volume.restrict (Ioi 1)) := by
