@@ -8,7 +8,7 @@ module
 
 public import SphereCeti.NumberTheory.ModularForms.JacobiTheta.LeadingTerm
 
-import Mathlib.Analysis.Asymptotics.Ring
+import SphereCeti.Analysis.Asymptotics.Pow
 import TauCeti.NumberTheory.ModularForms.JacobiTheta.OneVariable
 
 /-!
@@ -19,7 +19,6 @@ As the imaginary part tends to infinity, `H₂`, `H₃ - 1`, and `H₄ - 1` are 
 of rational theta kernels. They follow from the normalized leading term of `H₂`,
 Mathlib's one-variable theta estimate, and translation by one.
 
-The proofs are independent compositions of the pinned Mathlib/TauCeti asymptotic APIs.
 -/
 
 public section
@@ -40,16 +39,6 @@ theorem isBigO_H₂_atImInfty :
     simp [Complex.norm_exp]
   simpa only [he] using h.norm_right
 
-private theorem fourth_power_error {f : ℍ → ℂ} (hf : Tendsto f atImInfty (𝓝 1))
-    (hO : (fun τ => f τ - 1) =O[atImInfty]
-      (fun τ : ℍ => Real.exp (-Real.pi * τ.im))) :
-    (fun τ => f τ ^ 4 - 1) =O[atImInfty] (fun τ : ℍ => Real.exp (-Real.pi * τ.im)) := by
-  have hp : Tendsto (fun τ => f τ ^ 3 + f τ ^ 2 + f τ + 1) atImInfty (𝓝 4) := by
-    convert (((hf.pow 3).add (hf.pow 2)).add hf).add_const 1 using 1
-    norm_num
-  have h := hO.mul (hp.isBigO_one ℝ)
-  convert h using 1 <;> ext τ <;> ring
-
 /-- The error in the constant term of `H₃` decays exponentially with rate `π`. -/
 theorem isBigO_H₃_sub_one_atImInfty :
     (fun τ : ℍ => H₃ τ - 1) =O[atImInfty]
@@ -58,7 +47,7 @@ theorem isBigO_H₃_sub_one_atImInfty :
       (fun τ : ℍ => Real.exp (-Real.pi * τ.im)) := by
     simpa only [Function.comp_def, Θ₃_def, UpperHalfPlane.coe_im] using
       isBigO_at_im_infty_jacobiTheta_sub_one.comp_tendsto UpperHalfPlane.tendsto_coe_atImInfty
-  simpa only [H₃_def] using fourth_power_error tendsto_Θ₃_atImInfty htheta
+  simpa only [H₃_def, one_pow] using (htheta.pow_sub_pow_of_tendsto tendsto_Θ₃_atImInfty 4)
 
 /-- The error in the constant term of `H₄` has the same exponential rate as `H₃`. -/
 theorem isBigO_H₄_sub_one_atImInfty :
