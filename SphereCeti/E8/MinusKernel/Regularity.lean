@@ -6,11 +6,11 @@ Authors: SphereCeti contributors
 
 module
 
-public import SphereCeti.E8.MinusKernels
+public import SphereCeti.E8.MinusKernel.Basic
 
 import SphereCeti.Contour.KernelContinuity
 import SphereCeti.Contour.KernelIntegrability
-import SphereCeti.E8.MinusKernelDecay
+import SphereCeti.E8.MinusKernel.Decay
 import TauCeti.NumberTheory.ModularForms.Cusps.Basic
 
 /-!

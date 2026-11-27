@@ -6,8 +6,8 @@ Authors: Bakhyt Momunov
 
 module
 
-public import SphereCeti.Analysis.Complex.LaplaceTransform
-public import Mathlib.Analysis.SpecialFunctions.Sqrt
+public import SphereCeti.Analysis.Complex.Laplace.Transform
+public import SphereCeti.Analysis.Real.Sqrt
 public import Mathlib.Analysis.Asymptotics.Defs
 
 import Mathlib.Analysis.Asymptotics.Basic
@@ -32,24 +32,16 @@ open scoped Topology Complex
 
 namespace TauCeti
 
-private lemma laplace_sqrt_balance {a b r t : ℝ} (ha : 0 ≤ a) (hb : 0 ≤ b)
-    (hr : 0 ≤ r) (ht : 0 < t) :
-    2 * Real.sqrt a * Real.sqrt b * Real.sqrt r ≤ a / t + b * r * t := by
-  have hs : (Real.sqrt (b * r) * t) ^ 2 = b * r * t ^ 2 := by
-    rw [mul_pow, Real.sq_sqrt (mul_nonneg hb hr)]
-  have h := sq_nonneg (Real.sqrt a - Real.sqrt (b * r) * t)
-  rw [Real.sqrt_mul hb] at h hs
-  apply (mul_le_mul_iff_right₀ ht).mp
-  nlinarith [Real.sq_sqrt ha, div_mul_cancel₀ a ht.ne']
-
 /-- An explicit square-root exponential bound for a finite Laplace integral with cusp decay.
 The coefficient `c` may have an imaginary part. -/
 theorem norm_integral_Ioc_mul_cexp_neg_mul_le_sqrt {f : ℝ → ℂ} {a T M : ℝ}
-    (ha : 0 < a) (hT : 0 < T) (hM : 0 ≤ M)
+    (ha : 0 < a) (hT : 0 < T)
     (hbound : ∀ t ∈ Ioc 0 T, ‖f t‖ ≤ M * Real.exp (-a / t))
     (c : ℂ) (hc : 0 < c.re) {r : ℝ} (hr : 0 ≤ r) :
     ‖∫ (t : ℝ) in Ioc 0 T, f t * cexp (-(c * (r : ℂ)) * t)‖ ≤
       M * T * Real.exp (-(2 * Real.sqrt a * Real.sqrt c.re) * Real.sqrt r) := by
+  have hM : 0 ≤ M := nonneg_of_mul_nonneg_left
+    ((norm_nonneg (f T)).trans (hbound T ⟨hT, le_rfl⟩)) (Real.exp_pos _)
   have hpoint (t : ℝ) (ht : t ∈ Ioc 0 T) :
       ‖f t * cexp (-(c * (r : ℂ)) * t)‖ ≤
         M * Real.exp (-(2 * Real.sqrt a * Real.sqrt c.re) * Real.sqrt r) := by
@@ -64,7 +56,9 @@ theorem norm_integral_Ioc_mul_cexp_neg_mul_le_sqrt {f : ℝ → ℂ} {a T M : �
         ring
       _ ≤ M * Real.exp (-(2 * Real.sqrt a * Real.sqrt c.re) * Real.sqrt r) := by
         gcongr
-        have h := laplace_sqrt_balance ha.le hc.le hr ht.1
+        have h := Real.two_mul_sqrt_mul_sqrt_le_div_add_mul ha.le
+          (mul_nonneg hc.le hr) ht.1
+        rw [Real.sqrt_mul hc.le] at h
         nlinarith
   calc
     _ ≤ ∫ (t : ℝ) in Ioc 0 T,
@@ -79,7 +73,7 @@ theorem norm_integral_Ioc_mul_cexp_neg_mul_le_sqrt {f : ℝ → ℂ} {a T M : �
 /-- Cusp decay of the kernel gives square-root exponential decay of its finite Laplace
 transform, with the explicit rate `2 √a √(Re c)`. -/
 theorem isBigO_integral_Ioc_mul_cexp_neg_mul_sqrt {f : ℝ → ℂ} {a T M : ℝ}
-    (ha : 0 < a) (hT : 0 < T) (hM : 0 ≤ M)
+    (ha : 0 < a) (hT : 0 < T)
     (hbound : ∀ t ∈ Ioc 0 T, ‖f t‖ ≤ M * Real.exp (-a / t))
     (c : ℂ) (hc : 0 < c.re) :
     (fun r : ℝ ↦ ∫ (t : ℝ) in Ioc 0 T, f t * cexp (-(c * (r : ℂ)) * t))
@@ -87,18 +81,20 @@ theorem isBigO_integral_Ioc_mul_cexp_neg_mul_sqrt {f : ℝ → ℂ} {a T M : ℝ
   refine Asymptotics.IsBigO.of_bound (M * T) ?_
   filter_upwards [eventually_ge_atTop (0 : ℝ)] with r hr
   simpa only [Real.norm_of_nonneg (Real.exp_nonneg _)] using
-    norm_integral_Ioc_mul_cexp_neg_mul_le_sqrt ha hT hM hbound c hc hr
+    norm_integral_Ioc_mul_cexp_neg_mul_le_sqrt ha hT hbound c hc hr
 
 /-- Every real derivative of a finite Laplace profile has the same square-root exponential
 rate as the profile itself. No differentiability of the kernel is needed. -/
 theorem isBigO_iteratedDeriv_integral_Ioc_mul_cexp_neg_mul_sqrt
-    {f : ℝ → ℂ} {a T M : ℝ} (ha : 0 < a) (hT : 0 < T) (hM : 0 ≤ M)
+    {f : ℝ → ℂ} {a T M : ℝ} (ha : 0 < a) (hT : 0 < T)
     (hf : IntegrableOn f (Ioc 0 T))
     (hbound : ∀ t ∈ Ioc 0 T, ‖f t‖ ≤ M * Real.exp (-a / t))
     (c : ℂ) (hc : 0 < c.re) (n : ℕ) :
     iteratedDeriv n (fun r : ℝ ↦ ∫ (t : ℝ) in Ioc 0 T,
         f t * cexp (-(c * (r : ℂ)) * t))
       =O[atTop] (fun r ↦ Real.exp (-(2 * Real.sqrt a * Real.sqrt c.re) * Real.sqrt r)) := by
+  have hM : 0 ≤ M := nonneg_of_mul_nonneg_left
+    ((norm_nonneg (f T)).trans (hbound T ⟨hT, le_rfl⟩)) (Real.exp_pos _)
   have hn (t : ℝ) (ht : t ∈ Ioc 0 T) :
       ‖(-c * (t : ℂ)) ^ n * f t‖ ≤
         ((‖c‖ * T) ^ n * M) * Real.exp (-a / t) := by
@@ -109,7 +105,7 @@ theorem isBigO_iteratedDeriv_integral_Ioc_mul_cexp_neg_mul_sqrt
         gcongr
         exacts [mul_nonneg (norm_nonneg c) ht.1.le, ht.2, hbound t ht]
       _ = _ := by ring
-  have h := isBigO_integral_Ioc_mul_cexp_neg_mul_sqrt ha hT (by positivity) hn c hc
+  have h := isBigO_integral_Ioc_mul_cexp_neg_mul_sqrt ha hT hn c hc
   convert h using 1
   funext r
   have hi := (intervalIntegrable_iff_integrableOn_Ioc_of_le hT.le).mpr hf
