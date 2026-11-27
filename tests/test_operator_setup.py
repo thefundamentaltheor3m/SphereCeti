@@ -132,7 +132,9 @@ class FirstRunCliTest(unittest.TestCase):
         self.saved = self.fixture.home / '.config/sphereceti/operator.toml'
 
     def command(self, *extra, output='result'):
-        command = self.fixture.command(output=output, extra=('--rubrics', 'correctness', *extra))
+        # The fixture's local build is never approved main: these terminal runs answer the first-run
+        # questions only, so the advisory question is skipped.
+        command = self.fixture.command(output=output, extra=('--rubrics', 'correctness', '--allow-advisory', *extra))
         for flag in ('--operator-config', '--auth', '--json'):
             i = command.index(flag)
             del command[i:i + (1 if flag == '--json' else 2)]
@@ -168,7 +170,7 @@ class FirstRunCliTest(unittest.TestCase):
         self.assertIn(f'Saved review preferences to {self.saved}', output)
         self.assertEqual(self.saved.read_text(), 'provider = "codex"\nbudget_usd = 5\n')
         self.assertEqual(self.saved.stat().st_mode & 0o777, 0o600)
-        self.assertIn('Local advisory review #1: partial', output)
+        self.assertIn('Review #1: partial', output)
         self.assertEqual(len([c for c in self.fixture.codex_calls() if c['argv'][:1] == ['exec']]), 1)
         # The next review reads the saved file and asks nothing.
         code, output = self.in_terminal(self.command(output='second'), '')

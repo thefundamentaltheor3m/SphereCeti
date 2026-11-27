@@ -76,6 +76,11 @@ def add_parser(commands):
     p.add_argument("--description-file", type=Path, help="untrusted proposed PR description, for local-source mode")
     p.add_argument("--output", type=Path, help="new directory for evidence.json, result.json, and advisory.md")
     p.add_argument("--keep-workspace", action="store_true", help="retain the verified source snapshots")
+    p.add_argument("--allow-advisory", action="store_true",
+                   help="do not ask before an advisory review when the installed sphereceti is not approved main")
+    p.add_argument("--quiet", action="store_true", help="no progress lines on stderr")
+    p.add_argument("--no-cache", action="store_true",
+                   help="bare review and batches: ignore the operator store's queue cache")
     p.add_argument("--provider", help="comma-separated explicit providers; otherwise use operator preferences")
     p.add_argument("--auth", choices=("subscription", "api"), default="subscription")
     p.add_argument("--budget-usd", type=float, help="daily estimate threshold (defaults to the operator preference)")
@@ -526,9 +531,13 @@ def execute(args, prefs, report, workspace: Path, engine: Path, store: Path, out
                          "shared_budget_ledger": str(ledger_file) if args.shadow else None,
                          "shadow_budget_usd": args.shadow_budget_usd if args.shadow else None})
     interrupted = None
+    from .feedback import RubricWatch, current as progress
+    watch = RubricWatch(progress(), run_store / "ledger.json", pr_key, report["head"], args.rubrics.split(","),
+                        providers)
     try:
         bridge_args = (request, engine_environment(providers, args.auth), lock_fd)
-        code = invoke_bridge(*bridge_args, heartbeat=heartbeat) if heartbeat else invoke_bridge(*bridge_args)
+        with watch:
+            code = invoke_bridge(*bridge_args, heartbeat=heartbeat) if heartbeat else invoke_bridge(*bridge_args)
     except subprocess.TimeoutExpired:
         code = 124
     except (Exception, KeyboardInterrupt) as error:
@@ -581,6 +590,11 @@ def execute(args, prefs, report, workspace: Path, engine: Path, store: Path, out
                                                                     "contest_responses")}
                           for r in RUBRICS},
               "advisory": True, "merge_eligible": False}
+    if stop_reason:
+        progress().line(f"stopped early: {stop_reason.replace('_', ' ')} "
+                        f"({len(finished)} of {len(args.rubrics.split(','))} rubrics finished)")
+    elif code:
+        progress().line(f"engine stopped with exit code {code}")
     scoreboard = output / "upstream-scoreboard.md"
     body = scoreboard.read_text() if scoreboard.exists() and not code else "No complete review was produced.\n"
     # The public-facing local artifact cannot be mistaken for an upstream marked scoreboard.
@@ -659,7 +673,11 @@ def run_review(args, project, prefs, *, guard=None) -> dict:
             workspace = scratch / "workspace"
             workspace.mkdir()
             engine = scratch / "engine"
-            report = prepare(args, project, refs, storage / "git", workspace, engine)
+            from .feedback import current as progress
+            with progress().phase(f"Preparing evidence for #{args.pr} at {refs['head'][:7]} "
+                                  "(fetching pinned sources…)", f"Evidence for #{args.pr} ready",
+                                  f"Evidence for #{args.pr} failed"):
+                report = prepare(args, project, refs, storage / "git", workspace, engine)
             report["workspace_retained"] = args.keep_workspace
             report["output"] = str(output)
             write_json(output / "evidence.json", report)
@@ -781,12 +799,18 @@ def run_review(args, project, prefs, *, guard=None) -> dict:
                             final_refs = revisions(fresh_args, project)
                             if any(final_refs[k] != fresh_refs[k] for k in ("tooling", "head", "base")):
                                 raise ReviewError("PR or approved context advanced during publication checks")
+                        progress().line("Posting record…")
                         try:
                             result["publication"] = publish(client, rendered, record, selected_policy, revalidate)
                         except (RecordError, ReviewError) as error:
                             result["publication"] = {"state": "unconfirmed", "reason": str(error), "merge_eligible": False}
                             write_json(output / "result.json", result)
+                            progress().line(f"record not posted: {error}")
                             raise
+                        progress().line(f"posted https://github.com/{project.repository}/pull/{args.pr}"
+                                        f"#issuecomment-{result['publication']['comment_id']}"
+                                        + (" (an identical record was already there)"
+                                           if result["publication"].get("adopted") else ""))
             if not_posted:
                 result["not_posted"] = not_posted
             if args.keep_workspace:
