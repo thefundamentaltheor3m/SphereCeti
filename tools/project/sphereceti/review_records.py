@@ -332,11 +332,16 @@ def render_body(result, advisory, cap=None, details=True):
     return "\n".join(lines).replace("<!--", "<!\u200b--")
 
 
+def is_advisory(result) -> bool:
+    """The record's own `advisory` field, as make_record sets it."""
+    return not (result["completion"] == "complete" and result["execution_mode"] in ("commit", "manual")
+                and result["tooling_approved"] and result["installed_tooling_matches_T"]
+                and not result["missing_context"] and not result["config_differences"])
+
+
 def make_record(result):
     """A local record is an attestation proposal. Only API-authenticated publication can qualify."""
-    advisory = not (result["completion"] == "complete" and result["execution_mode"] in ("commit", "manual")
-                    and result["tooling_approved"] and result["installed_tooling_matches_T"]
-                    and not result["missing_context"] and not result["config_differences"])
+    advisory = is_advisory(result)
     # Shorten provider fields deterministically, then drop details, until the comment fits.
     for cap, details in [*((cap, True) for cap in FIELD_CAPS), (None, False)]:
         body = render_body(result, advisory, cap, details)

@@ -194,7 +194,8 @@ model call. Otherwise it prints nothing then, and the result names the first fai
    author contest on your earlier record that this record leaves unanswered therefore blocks the
    approval. The PR's head and base are re-read and must be unchanged.
 4. The read-only decision (`sphereceti auto-approve-check`, `auto_approval.py`), never
-   hypothetical, must say `would_approve: true` for the same head and base. It covers scope, the
+   hypothetical, must say `would_approve: true` for the same head and base. It covers scope (only
+   library modules under `SphereCeti/`, never the root or the protected files), the
    trusted build and its tooling attestation, the compiled audit, the independent reviewer and
    the PR state.
 5. If your current review state already approves this head, nothing is written. As in the merge
@@ -749,8 +750,14 @@ official or advisory is said once, on the summary line.
   model touching a file), `blocked on <rubric>`, an engine error, or `budget or round limit
   reached`. A complete review with findings says `blocked: <rubrics>` and `changes requested:
   <rubrics>`.
-- **Posting:** `posted <URL> · official` (an authorized reviewer's record) or `· advisory`,
-  `not posted: <reason>`, or `publication interrupted`.
+- **Posting:** `posted <URL> · official`, or `· advisory (<why>)`, `not posted: <reason>`, or
+  `publication interrupted`.
+  - Official requires both: the posted record itself is not advisory (its `advisory` field), and
+    the publisher is an authorized reviewer. Authorization alone never makes it official.
+  - The reasons come from the record's evidence. Examples: `installed tooling is not approved main;
+    reinstall`, `partial`, `reviewed tooling is not approved main`, `missing approved context`,
+    `not an authorized reviewer`.
+  - `--json` carries `official` and `advisory_reasons`.
 - **Next action:** `author: address <rubrics> (see record); rerun after the head changes`, naming
   every blocked rubric and then every rubric that requested changes, as on the summary line;
   ``run `sphereceti review-check-sandbox --compare-path --compare-tmpdir` `` after a provider

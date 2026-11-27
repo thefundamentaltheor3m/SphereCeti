@@ -36,10 +36,11 @@ unconfigured, and `executor` reports the run and job-token checks
 exit 0; unavailable/invalid data and unconfirmed write outcomes exit 2.
 
 `--apply` is explicit and requires both ready setup and the verified executor. The shipped policy
-is activated (2026-11-25): `merging = true`, the allowlist names `SphereCeti/Contour/` and
-`SphereCeti/E8/`, every authorized reviewer is in `approving_reviewers`, and the controller IDs are
-set. The CLI cannot configure those settings. Only fully qualifying, formally approved proof PRs in
-those topics can merge automatically. Everything else still needs a human merge. The schedule stays
+is activated (2026-11-25): `merging = true`, the allowlist is the whole library `SphereCeti/`,
+every authorized reviewer is in `approving_reviewers`, and the controller IDs are set. The CLI
+cannot configure those settings. Only fully qualifying, formally approved module-only proof PRs can
+merge automatically. The protected `SphereCeti/Basic.lean`, `Pinned.lean`, `Suggested.lean` and
+the root `SphereCeti.lean` are excluded. Everything else still needs a human merge. The schedule stays
 off until the live race probe ([workflow](#the-workflow), [activation](activation.md)).
 
 ## Activation profile
