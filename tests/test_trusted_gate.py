@@ -186,8 +186,8 @@ class ShippedAllowlistGateTest(unittest.TestCase):
         TrustedGateTest.setUp(self)
         self.write('policy/automation.toml', (ROOT / 'policy/automation.toml').read_text())
         self.write('SphereCeti.lean', self.ROOT_TEXT)
-        for module in ('SphereCeti/Basic.lean', 'SphereCeti/E8/Basic.lean', 'SphereCeti/Contour/Basic.lean',
-                       'SphereCeti/Leech/Basic.lean'):
+        for module in ('SphereCeti/Basic.lean', 'SphereCeti/Pinned.lean', 'SphereCeti/Suggested.lean',
+                       'SphereCeti/E8/Basic.lean', 'SphereCeti/Contour/Basic.lean', 'SphereCeti/Leech/Basic.lean'):
             self.write(module, 'module\n')
         self.base = self.commit()
 
@@ -195,19 +195,22 @@ class ShippedAllowlistGateTest(unittest.TestCase):
         git(self.repo, 'reset', '-q', '--hard', self.base)
         git(self.repo, 'clean', '-qfdx')
 
-    def test_shipped_policy_names_only_the_first_topics(self):
+    def test_shipped_policy_names_the_whole_library(self):
         from sphereceti.config import parse_policy
         policy = parse_policy((ROOT / 'policy/automation.toml').read_text())
-        self.assertEqual(policy.mathematical_paths, ('SphereCeti/Contour/', 'SphereCeti/E8/'))
+        self.assertEqual(policy.mathematical_paths, ('SphereCeti/',))
         # Activated: merging and approving on, every authorized reviewer opted in (2026-11-25).
         self.assertTrue(policy.merging);self.assertTrue(policy.approving)
         self.assertEqual(policy.approving_reviewers, policy.authorized_reviewers)
 
-    def test_module_only_contour_and_e8_proofs_get_mathematical_scope(self):
-        cases = {'new Contour module': ['SphereCeti/Contour/TopEdgeDecay.lean'],
-                 'modified Contour module': ['SphereCeti/Contour/Basic.lean'],
+    def test_module_only_proofs_in_any_topic_get_mathematical_scope(self):
+        cases = {'new topic directory': ['SphereCeti/NumberTheory/Foo.lean'],
+                 'new Contour module': ['SphereCeti/Contour/TopEdgeDecay.lean'],
+                 'modified Leech module': ['SphereCeti/Leech/Basic.lean'],
                  'nested E8 module': ['SphereCeti/E8/Lattice/Even.lean'],
-                 'Contour and E8 together': ['SphereCeti/Contour/TopEdgeDecay.lean', 'SphereCeti/E8/Lattice.lean']}
+                 'module directly under SphereCeti/': ['SphereCeti/CohnElkies.lean'],
+                 'several topics together': ['SphereCeti/Analysis/Gaussian.lean', 'SphereCeti/ZLattice/Dual.lean',
+                                             'SphereCeti/MeasureTheory/Periodic.lean']}
         for name, paths in cases.items():
             with self.subTest(name=name):
                 self.reset()
@@ -217,25 +220,27 @@ class ShippedAllowlistGateTest(unittest.TestCase):
                 self.assertEqual(report['scope'], 'mathematical', report)
                 self.assertEqual({c['class'] for c in report['changes']}, {'library'})
 
-    def test_root_edits_other_topics_and_mixed_changes_keep_human_review(self):
+    def test_protected_files_root_outside_paths_and_mixed_changes_keep_human_review(self):
         export = lambda module: self.write('SphereCeti.lean', self.ROOT_TEXT + f'public import {module}\n')
         cases = {
-            # The library root is frozen: even exporting the PR's own Contour module needs a human.
-            'Contour proof with its root import': lambda: (
-                self.write('SphereCeti/Contour/TopEdgeDecay.lean', 'module\n'),
-                export('SphereCeti.Contour.TopEdgeDecay')),
+            # The library root is frozen: even exporting the PR's own module needs a human.
+            'proof with its root import': lambda: (
+                self.write('SphereCeti/NumberTheory/Foo.lean', 'module\n'), export('SphereCeti.NumberTheory.Foo')),
             'root import alone': lambda: export('SphereCeti.E8.Basic'),
             'other root edit': lambda: self.write('SphereCeti.lean', self.ROOT_TEXT + '-- note\n'),
-            'another topic': lambda: self.write('SphereCeti/Leech/Basic.lean', '-- changed\n'),
-            'sibling file, not the topic directory': lambda: self.write('SphereCeti/Contour.lean', 'module\n'),
-            'protected library module': lambda: self.write('SphereCeti/Basic.lean', '-- changed\n'),
+            'protected Basic.lean': lambda: self.write('SphereCeti/Basic.lean', '-- changed\n'),
+            'protected Pinned.lean': lambda: self.write('SphereCeti/Pinned.lean', '-- changed\n'),
+            'protected Suggested.lean': lambda: self.write('SphereCeti/Suggested.lean', '-- changed\n'),
+            'sibling directory outside SphereCeti/': lambda: self.write('SphereCetiExtra/Foo.lean', 'module\n'),
+            'roadmap module': lambda: self.write('SphereCetiRoadmap/Foo.lean', 'module\n'),
+            'non-Lean file under SphereCeti/': lambda: self.write('SphereCeti/NumberTheory/notes.md', 'notes\n'),
         }
         mixed = {'CI': '.github/workflows/ci.yml', 'policy': 'policy/automation.toml', 'spec': 'README.md',
                  'roadmap': 'SphereCetiRoadmap/Suggested.lean', 'machinery': 'tools/project/sphereceti/gate.py',
                  'scripts': 'scripts/check_audits.py', 'dependencies': 'lean-toolchain'}
         for name, path in mixed.items():
-            cases['Contour proof plus ' + name] = (lambda path=path: (
-                self.write('SphereCeti/Contour/TopEdgeDecay.lean', 'module\n'), self.write(path, 'changed\n')))
+            cases['proof plus ' + name] = (lambda path=path: (
+                self.write('SphereCeti/NumberTheory/Foo.lean', 'module\n'), self.write(path, 'changed\n')))
         for name, change in cases.items():
             with self.subTest(name=name):
                 self.reset()
@@ -244,6 +249,8 @@ class ShippedAllowlistGateTest(unittest.TestCase):
                 self.assertEqual(report['scope'], 'human_review', report)
                 if 'root' in name:
                     self.assertIn({'path': 'SphereCeti.lean', 'class': 'protected'}, report['changes'])
+                if name.startswith('protected'):
+                    self.assertEqual([c['class'] for c in report['changes']], ['protected'])
 
     def test_status_job_routes_the_scope_to_trusted_scope(self):
         # pr-build.yml publishes trusted-scope success exactly when the candidate job's scope output

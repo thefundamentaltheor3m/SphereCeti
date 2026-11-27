@@ -14,6 +14,7 @@ import json
 import os
 from pathlib import Path
 import re
+import sys
 
 from .local_review import RUBRICS
 
@@ -81,17 +82,33 @@ def plan(args, prefs, report) -> dict:
 
 
 def announcing(prefs, announce, sink=None, inner=None):
-    """A run_review guard that states the plan before any provider call."""
+    """A run_review guard that states the plan before any provider call.
+
+    When the installed sphereceti is not approved main the review can only be advisory: on a
+    terminal it asks first (before any claim or model call) unless --allow-advisory; elsewhere, and
+    in batches, it continues and says so once per invocation."""
     @contextmanager
     def guard(args, report, policy, client):
+        planned = plan(args, prefs, report)
+        notice = planned.get("tooling_notice")
+        shown = False
+        batch = any(getattr(args, name, False) for name in ("new", "revised", "all"))
+        if (notice and announce and not args.dry_run and not batch and not getattr(args, "allow_advisory", False)
+                and sys.stdin.isatty() and sys.stdout.isatty()):
+            announce(notice)
+            shown = True
+            if not ask("Continue with an advisory review? [y/N] "):
+                from .local_review import ReviewError
+                raise ReviewError("advisory review declined; nothing was claimed, run or posted. Reinstall "
+                                  "sphereceti from main, or pass --allow-advisory")
         with (inner(args, report, policy, client) if inner else _null()):
-            planned = plan(args, prefs, report)
             if sink is not None:
                 sink.update(planned)
             if announce:
                 announce(planned["line"])
-                if planned.get("tooling_notice"):
-                    announce(planned["tooling_notice"])
+                if notice and not shown and not getattr(args, "advisory_noticed", False):
+                    announce(notice)
+                    args.advisory_noticed = True  # a batch reuses its arguments: once per batch
             yield None
     return guard
 
@@ -130,6 +147,37 @@ def provider_down(runs):
     return next((k for k in reversed(kinds) if k in PROVIDER_DOWN), None)
 
 
+def advisory_why(report, publication) -> list[str]:
+    """Why a posted record is advisory, from the record's own fields (review_records.is_advisory) and
+    the publisher's authorization; empty when it is official. Never authorization alone."""
+    reasons = []
+    if report.get("completion") != "complete":
+        reasons.append(str(report.get("completion")))
+    if report.get("execution_mode") not in ("commit", "manual"):
+        reasons.append(f"{report.get('execution_mode')} mode")
+    if not report.get("tooling_approved"):
+        reasons.append("reviewed tooling is not approved main")
+    if not report.get("installed_tooling_matches_T"):
+        reasons.append("installed tooling is not approved main; reinstall")
+    if report.get("missing_context"):
+        reasons.append("missing approved context")
+    if report.get("config_differences"):
+        reasons.append("candidate configuration differs")
+    if not publication.get("authorized"):
+        reasons.append("not an authorized reviewer")
+    return reasons
+
+
+def ask(question: str) -> bool:
+    """A yes/no question on the terminal; anything but y/yes is no."""
+    sys.stderr.write(question)
+    sys.stderr.flush()
+    try:
+        return input().strip().lower() in ("y", "yes")
+    except EOFError:
+        return False
+
+
 def summarize(args, report, *, posting=None) -> dict:
     """The summary line, its fields, and one concrete next action."""
     verdicts = report.get("verdicts") or {}
@@ -164,8 +212,9 @@ def summarize(args, report, *, posting=None) -> dict:
     publication = report.get("publication") or {}
     url = (f"https://github.com/{report['repository']}/pull/{report['pr']}#issuecomment-{publication['comment_id']}"
            if publication.get("state") == "confirmed" else None)
+    advisory = advisory_why(report, publication) if url else []
     if url:
-        posted = f"posted {url} · {'official' if publication.get('authorized') else 'advisory'}"
+        posted = f"posted {url} · " + (f"advisory ({'; '.join(advisory)})" if advisory else "official")
     elif publication:
         posted = "publication interrupted"
     else:
@@ -205,5 +254,6 @@ def summarize(args, report, *, posting=None) -> dict:
     else:
         action = "none: every rubric approves"
     return {"line": " · ".join(parts), "reviewed": len(reviewed), "total": len(requested),
-            "first_blocking": first, "findings": findings, "stop": stop, "posted": url, "official": bool(publication.get("authorized")),
+            "first_blocking": first, "findings": findings, "stop": stop, "posted": url, "official": bool(url) and not advisory,
+            "advisory_reasons": advisory,
             "next_action": action}
