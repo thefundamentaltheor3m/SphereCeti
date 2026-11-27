@@ -127,7 +127,7 @@ def review_arguments(args, number):
     local_review.add_parser(parser.add_subparsers(dest='command'))
     review = parser.parse_args(['review', str(number)])
     for key in ('source_repo', 'dependencies_dir', 'provider', 'auth', 'budget_usd', 'max_call_cost',
-                'codex_model', 'attempt_timeout'):
+                'codex_model', 'codex_effort', 'attempt_timeout'):
         setattr(review, key, getattr(args, key))
     review.post = args.post_review
     return review
@@ -164,7 +164,7 @@ def unauthorized(observed, expected):
 
 def requested_model(args):
     # Local receipts name an explicit pin; each archived run records the model it dispatched.
-    return {'codex_model': args.codex_model} if args.codex_model else {}
+    return ({'codex_model': args.codex_model} if args.codex_model else {}) | {'codex_effort': args.codex_effort}
 
 
 def run_round(args, project, policy, prefs, *, assessed=frozenset()):

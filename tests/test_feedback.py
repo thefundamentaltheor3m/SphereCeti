@@ -113,6 +113,17 @@ class RubricWatchTest(unittest.TestCase):
             'Rubric 6/10 generality: approve (2m10s, est. $0.07)',
             'Rubric 8/10 naming: approve (reused: already current at this head)'])
 
+    def test_codex_progress_names_the_explicit_effort(self):
+        temp = tempfile.TemporaryDirectory(prefix='sphereceti-feedback-')
+        self.addCleanup(temp.cleanup)
+        ledger = Path(temp.name) / 'ledger.json'
+        ledger.write_text(json.dumps({'in_flight': {'rubric': 'correctness', 'model': 'gpt-6.2-sol'}, 'prs': {}}))
+        stream = io.StringIO()
+        RubricWatch(Progress(stream, tty=False), ledger, '63', 'a' * 40, RUBRICS, ['codex'],
+                    codex_effort='medium').poll()
+        self.assertEqual(STAMP.sub('', stream.getvalue().strip()),
+                         'Rubric 1/10 correctness: running (codex gpt-6.2-sol (medium))…')
+
 
 class CliProgressTest(unittest.TestCase):
     def setUp(self):

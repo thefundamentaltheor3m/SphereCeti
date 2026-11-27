@@ -369,7 +369,7 @@ class ClaimCliTest(BareReviewHarness):
         self.assertEqual(run.returncode, 0, run.stderr)
         [comment] = self.claims()
         # Each fake Codex rubric reports tokens priced at $0.058 for the default model.
-        self.assertIn('Models used: codex/gpt-6.1-sol · Estimated usage cost: $0.58', comment['body'])
+        self.assertIn('Models used: codex/gpt-6.2-sol · Estimated usage cost: $0.58', comment['body'])
 
     def test_unknown_usage_never_displays_a_zero_cost(self):
         self.enable_posting()
@@ -377,7 +377,7 @@ class ClaimCliTest(BareReviewHarness):
         (self.fixture.bin / 'codex-no-usage').touch()
         run = self.run_cli('--provider', 'codex', '--auth', 'subscription', pr=47)
         [comment] = self.claims()
-        self.assertIn('codex/gpt-6.1-sol · Estimated usage cost: unavailable', comment['body'])
+        self.assertIn('codex/gpt-6.2-sol · Estimated usage cost: unavailable', comment['body'])
         self.assertNotIn('$0.00', comment['body'])
 
     def test_explicit_review_is_refused_then_forced(self):

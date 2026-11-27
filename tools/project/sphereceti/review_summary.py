@@ -69,7 +69,9 @@ def plan(args, prefs, report) -> dict:
         models = effective_models(args, providers)
     except (KeyError, OSError, UnicodeError):
         models = ["unknown"] * len(providers)
-    pairs = ", ".join(f"{p} {m}" for p, m in zip(providers, models)) or "no provider selected"
+    effort = getattr(args, "codex_effort", None)
+    pairs = ", ".join(f"{p} {m}" + (f" ({effort})" if p == "codex" and effort else "")
+                      for p, m in zip(providers, models)) or "no provider selected"
     line = (f"Review #{report['pr']}: head {report['head'][:7]}, base {report['base'][:7]} · "
             f"{pairs} · {outcome}")
     try:
@@ -78,7 +80,8 @@ def plan(args, prefs, report) -> dict:
     except Exception:  # The notice is informational; it never blocks or changes a review.
         notice = None
     return {"line": line, "pr": report["pr"], "head": report["head"], "base": report["base"],
-            "providers": providers, "models": models, "posting": outcome, "tooling_notice": notice}
+            "providers": providers, "models": models, "codex_effort": effort if "codex" in providers else None,
+            "posting": outcome, "tooling_notice": notice}
 
 
 def announcing(prefs, announce, sink=None, inner=None):

@@ -85,6 +85,10 @@ review? [y/N]` before claiming the PR or calling a model; `--allow-advisory` ski
 Runs off a terminal, `--json` runs and batches continue, and print the notice once per
 invocation.
 
+Codex reviews use Sol 6.2 (`gpt-6.2-sol`) at an explicit `medium` reasoning effort by default
+(`--codex-model`, `--codex-effort {low,medium,high,xhigh}`). Personal Codex configuration no
+longer affects reviews; see [Codex model selection](local-review.md#codex-model-selection-and-accounting).
+
 Without `--offline`, both commands read the canonical repository's open PR queue through `gh`.
 They never post, create branches, spend provider credits, or change repository settings.
 A failed query exits 1 and reports `queue.state = error` with `pull_requests = null`.

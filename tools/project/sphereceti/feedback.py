@@ -124,8 +124,10 @@ class RubricWatch:
     rubric whose case was already current at this head before the run is reported as reused.
     """
 
-    def __init__(self, progress, ledger: Path, pr: str, head: str, rubrics, providers, interval=0.25):
+    def __init__(self, progress, ledger: Path, pr: str, head: str, rubrics, providers, interval=0.25,
+                 codex_effort=None):
         self.progress, self.ledger, self.pr, self.head = progress, ledger, pr, head
+        self.codex_effort = codex_effort
         self.rubrics, self.providers, self.interval = list(rubrics), list(providers), interval
         self.started, self.finished = set(), set()
         self.before = self.cases()
@@ -164,6 +166,9 @@ class RubricWatch:
             self.started.add(rubric)
             who = " ".join(x for x in (self.providers[0] if len(self.providers) == 1 else None,
                                        flight.get("model")) if x)
+            model = flight.get("model") or ""
+            if self.codex_effort and (self.providers == ["codex"] or model.startswith("gpt-")):
+                who += f" ({self.codex_effort})"
             self.progress.line(f"{self.label(rubric)}: running ({who or 'provider'})…")
 
     @staticmethod

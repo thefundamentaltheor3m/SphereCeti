@@ -29,6 +29,20 @@ def test_sol_61_is_priced_at_its_own_rates():
     review.require_priced(review.dispatch_models(codex_model="gpt-6.1-sol"))
 
 
+# SphereCeti: a local gpt-6.2-sol row (effective 2026-11-17, no upstream change prices it yet) at
+# exactly Sol61's standard and long-context rates; the contributor CLI's default Codex model.
+def test_sol_62_is_priced_at_sol_61_rates():
+    assert review.PRICES["gpt-6.2-sol"] == review.PRICES["gpt-6.1-sol"] == (2.0, 10.0)
+    assert pricing.CACHE_READ["gpt-6.2-sol"] == pricing.CACHE_READ["gpt-6.1-sol"] == 0.1
+    sol62, sol61 = review._PRICE_WINDOWS["gpt-6.2-sol"], review._PRICE_WINDOWS["gpt-6.1-sol"]
+    assert len(sol62) == 1 and sol62[0]["effective"] == "2026-11-17"
+    assert {k: v for k, v in sol62[0].items() if k != "effective"} == \
+        {k: v for k, v in sol61[-1].items() if k != "effective"}
+    assert sol62[0]["long_context"] == {"threshold": 272000, "input": 4.0, "output": 15.0,
+                                        "cache_read": 0.2, "cache_write": 5.0}
+    review.require_priced(review.dispatch_models(codex_model="gpt-6.2-sol"))
+
+
 def test_price_windows_are_well_formed():
     bad = []
     for model, windows in review._PRICE_WINDOWS.items():
@@ -149,6 +163,7 @@ def test_the_rates_in_force_are_the_providers_list_prices():
         "gpt-5.6-luna":             (0.2,   1.2,  0.02),
         "gpt-6-sol":                (2.0,   10.0, 0.2),
         "gpt-6.1-sol":              (2.0,   10.0, 0.1),
+        "gpt-6.2-sol":              (2.0,   10.0, 0.1),
         "gpt-6-luna":               (0.1,   0.5,  0.01),
         "deepseek/deepseek-v4-pro": (0.435, 0.87, 0.004),
         "minimax/minimax-m3":       (0.3,   1.2,  0.3),

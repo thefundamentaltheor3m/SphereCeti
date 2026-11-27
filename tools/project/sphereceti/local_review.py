@@ -95,9 +95,18 @@ def add_parser(commands):
     p.add_argument("--shadow-budget-usd", type=float, help="explicit per-invocation shadow allowance, within the shared daily cap")
     p.add_argument("--shadow", metavar="LABEL", help="fresh advisory arm; preserves the normal case files")
     p.add_argument("--claude-model")
-    p.add_argument("--codex-model", default="gpt-6.1-sol", help="exact Codex review model (default: %(default)s)")
+    p.add_argument("--codex-model", default="gpt-6.2-sol", help="exact Codex review model (default: %(default)s)")
+    p.add_argument("--codex-effort", choices=CODEX_EFFORTS, default="medium",
+                   help="Codex reasoning effort, passed explicitly so personal Codex configuration "
+                        "never changes a review (default: %(default)s)")
     p.add_argument("--kiro-model")
     return p
+
+
+# Reasoning efforts that codex-cli 0.171.0's bundled catalog lists for the Sol models
+# (`supported_reasoning_levels`), excluding `max`, and `ultra`, which delegates to sub-agents that
+# reviews withhold. `minimal` is not offered for these models.
+CODEX_EFFORTS = ("low", "medium", "high", "xhigh")
 
 
 def resolve_posting(args) -> None:
@@ -510,8 +519,8 @@ def execute(args, prefs, report, workspace: Path, engine: Path, store: Path, out
                # Local engine adaptation: bounded attempts, no Codex sub-agents, unknown-usage stop.
                "--attempt-timeout", str(args.attempt_timeout), "--codex-single-agent",
                "--usage-stop-file", str(output / "usage-stop.json")]
-    for name in ("claude_model", "codex_model", "kiro_model", "reply_rubric", "reply_file", "replies_json",
-                 "carried_contests"):
+    for name in ("claude_model", "codex_model", "codex_effort", "kiro_model", "reply_rubric", "reply_file",
+                 "replies_json", "carried_contests"):
         value = getattr(args, name, None)
         if value:
             command += ["--" + name.replace("_", "-"), str(value)]
@@ -533,7 +542,7 @@ def execute(args, prefs, report, workspace: Path, engine: Path, store: Path, out
     interrupted = None
     from .feedback import RubricWatch, current as progress
     watch = RubricWatch(progress(), run_store / "ledger.json", pr_key, report["head"], args.rubrics.split(","),
-                        providers)
+                        providers, codex_effort=getattr(args, "codex_effort", None) if "codex" in providers else None)
     try:
         bridge_args = (request, engine_environment(providers, args.auth), lock_fd)
         with watch:
@@ -582,6 +591,7 @@ def execute(args, prefs, report, workspace: Path, engine: Path, store: Path, out
                                      "context": "fresh_shadow" if args.shadow else "prior_case_possible"},
               "execution_id": uuid.uuid4().hex, "finished_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
               "engine_exit_code": code, "execution_mode": "shadow" if args.shadow else args.mode,
+              "codex_effort": getattr(args, "codex_effort", None) if "codex" in providers else None,
               "requested_rubrics": args.rubrics.split(","), "finished_rubrics": finished,
               "stop_reason": stop_reason,
               "usage_unknown_rubrics": usage_stop["unknown_rubrics"] if usage_stop else [],

@@ -203,6 +203,21 @@ class WorkerRoundTest(unittest.TestCase):
         models={c['argv'][c['argv'].index('-m')+1] for c in self.fixture.codex_calls()}
         self.assertEqual(models,{'gpt-5.6-sol'})
         self.assertEqual({r['model'] for r in self.archive_records()[0]['runs']},{'gpt-5.6-sol'})
+        # The contributor CLI's gpt-6.2-sol default does not leak into the worker (it copies its own
+        # codex_model, None), but the worker's explicit effort does reach every call and the receipt.
+        self.assertEqual(receipt['codex_effort'],'medium')
+        for call in self.fixture.codex_calls():
+            self.assertEqual([s for s in call['settings'] if s.startswith('model_reasoning_effort=')],
+                             ['model_reasoning_effort=medium'])
+
+    def test_worker_effort_override_reaches_codex_and_the_receipt(self):
+        receipt=self.codex_round('--codex-model','gpt-6.2-sol','--codex-effort','high')
+        self.assertEqual(receipt['state'],'complete')
+        self.assertEqual((receipt['codex_model'],receipt['codex_effort']),('gpt-6.2-sol','high'))
+        self.assertEqual(json.loads((Path(receipt['output'])/'worker-result.json').read_text())['codex_effort'],'high')
+        for call in self.fixture.codex_calls():
+            self.assertEqual(call['argv'][call['argv'].index('-m')+1],'gpt-6.2-sol')
+            self.assertIn('model_reasoning_effort=high',call['settings'])
 
     def test_unpriced_codex_model_is_rejected_before_inference(self):
         receipt=self.codex_round('--codex-model','gpt-99-sol')
