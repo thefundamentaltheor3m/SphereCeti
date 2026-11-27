@@ -9,7 +9,8 @@ module
 public import SphereCeti.NumberTheory.ModularForms.JacobiTheta.Basic
 public import Mathlib.Analysis.Complex.UpperHalfPlane.FunctionsBoundedAtInfty
 
-import TauCeti.NumberTheory.ModularForms.JacobiTheta.OneVariable
+import SphereCeti.Data.Int.Order
+import SphereCeti.NumberTheory.ModularForms.JacobiTheta.TwoVariable
 import Mathlib.Analysis.Normed.Group.Tannery
 
 /-!
@@ -32,56 +33,39 @@ open scoped UpperHalfPlane
 
 namespace TauCeti.ModularForm
 
-private theorem norm_theta_half_term (n : ℤ) (τ : ℂ) :
-    ‖jacobiTheta₂_term n (τ / 2) τ‖ =
-      Real.exp (-Real.pi * ((n : ℝ) ^ 2 + n) * τ.im) := by
-  rw [norm_jacobiTheta₂_term]
-  congr 1
-  norm_num [div_im]
-  ring
-
-private theorem int_sq_add_nonneg (n : ℤ) : 0 ≤ (n : ℝ) ^ 2 + n := by
-  have h : 0 ≤ n * (n + 1) := by
-    rcases le_or_gt 0 n with hn | hn
-    · exact mul_nonneg hn (by omega)
-    · exact mul_nonneg_of_nonpos_of_nonpos hn.le (by omega)
-  exact_mod_cast (show 0 ≤ n ^ 2 + n by nlinarith)
-
-private theorem theta_half_term (n : ℤ) (τ : ℂ) :
-    jacobiTheta₂_term n (τ / 2) τ = cexp (Real.pi * I * ((n : ℂ) ^ 2 + n) * τ) := by
-  rw [jacobiTheta₂_term]
-  congr 1
-  ring
-
-/-- The two surviving terms at the infinite cusp are indexed by `-1` and `0`. -/
+/-- `jacobiTheta₂ (τ / 2) τ` tends to `2` as `im τ` tends to infinity. -/
 theorem tendsto_theta_half :
     Tendsto (fun τ : ℍ => jacobiTheta₂ (τ / 2) τ) atImInfty (𝓝 2) := by
+  -- Only the summands indexed by `-1` and `0` survive at the infinite cusp.
   have hs : Summable (fun n : ℤ => ‖jacobiTheta₂_term n (I / 2) I‖) :=
     ((summable_jacobiTheta₂_term_iff (I / 2) I).2 (by simp)).norm
   have hlim (n : ℤ) : Tendsto (fun τ : ℍ => jacobiTheta₂_term n (τ / 2) τ)
       atImInfty (𝓝 (if n = -1 ∨ n = 0 then (1 : ℂ) else 0)) := by
     by_cases hn : n = -1 ∨ n = 0
-    · rcases hn with rfl | rfl <;> simp [theta_half_term]
+    · rcases hn with rfl | rfl <;> simp [jacobiTheta₂_term_half]
     · simp only [hn, ↓reduceIte]
       apply tendsto_zero_iff_norm_tendsto_zero.mpr
-      simp_rw [norm_theta_half_term]
+      simp_rw [norm_jacobiTheta₂_term_half]
       have hpos : 0 < (n : ℝ) ^ 2 + n := by
         have hi : 0 < n * (n + 1) := by
           rcases lt_or_ge 0 n with h | h
           · exact mul_pos h (by omega)
           · exact mul_pos_of_neg_of_neg (by omega) (by omega)
-        exact_mod_cast (show 0 < n ^ 2 + n by nlinarith)
+        have hquad : 0 < n ^ 2 + n := by nlinarith
+        exact_mod_cast hquad
       exact Real.tendsto_exp_atBot.comp
         (tendsto_comap.const_mul_atTop_of_neg (mul_neg_of_neg_of_pos (neg_lt_zero.mpr Real.pi_pos) hpos))
   have hbound : ∀ᶠ τ : ℍ in atImInfty, ∀ n : ℤ,
       ‖jacobiTheta₂_term n (τ / 2) τ‖ ≤ ‖jacobiTheta₂_term n (I / 2) I‖ := by
-    filter_upwards [show ∀ᶠ τ : ℍ in atImInfty, 1 ≤ τ.im from
-      preimage_mem_comap (Ici_mem_atTop 1)] with τ hτ n
-    rw [norm_theta_half_term, norm_theta_half_term]
+    have hlarge : ∀ᶠ τ : ℍ in atImInfty, 1 ≤ τ.im :=
+      preimage_mem_comap (Ici_mem_atTop 1)
+    filter_upwards [hlarge] with τ hτ n
+    rw [norm_jacobiTheta₂_term_half, norm_jacobiTheta₂_term_half]
     simp only [Complex.I_im]
     apply Real.exp_le_exp.mpr
+    have hquad : 0 ≤ (n : ℝ) ^ 2 + n := by exact_mod_cast Int.sq_add_self_nonneg n
     simpa using mul_le_mul_of_nonpos_left hτ
-      (neg_nonpos.mpr (mul_nonneg Real.pi_pos.le (int_sq_add_nonneg n)))
+      (neg_nonpos.mpr (mul_nonneg Real.pi_pos.le hquad))
   have h := tendsto_tsum_of_dominated_convergence hs hlim hbound
   have he : (∑' n : ℤ, if n = -1 ∨ n = 0 then (1 : ℂ) else 0) = 2 := by
     rw [tsum_eq_sum (s := {-1, 0}) (fun n hn => by simpa using hn)]
@@ -97,7 +81,8 @@ theorem tendsto_H₂_div_exp_atImInfty :
       jacobiTheta₂ (τ / 2) τ ^ 4 := by
     rw [H₂_def, Θ₂_def, mul_pow, ← Complex.exp_nat_mul]
     norm_num only [Nat.cast_ofNat]
-    rw [show (4 : ℂ) * (Real.pi * I * τ / 4) = Real.pi * I * τ by ring]
+    have hexponent : (4 : ℂ) * (Real.pi * I * τ / 4) = Real.pi * I * τ := by ring
+    rw [hexponent]
     exact mul_div_cancel_left₀ _ (Complex.exp_ne_zero _)
   simp_rw [he]
   convert tendsto_theta_half.pow 4 using 1
