@@ -42,6 +42,17 @@ def approved_main(read, prefix, revision, current, cache):
     return cache[key]
 
 
+def main_sha(api, project):
+    """Current main, read once per survey reader, for the queue cache's scope key."""
+    memo = api.__dict__.setdefault('_main_sha', {}) if hasattr(api, '__dict__') else {}
+    if 'sha' not in memo:
+        main = api.read(['api', '--hostname', 'github.com', '--method', 'GET',
+                         f'repos/{project.repository}/commits/{quote(project.default_branch, safe="")}'])
+        require(isinstance(main, dict), 'missing approved worker tooling revision')
+        memo['sha'] = commit(main.get('sha'), 'approved worker tooling revision')
+    return memo['sha']
+
+
 def human_review_scope(api, project, pr, scope_check, settings):
     """Bounded GETs; unconfigured producers cannot receive the exception.
 
