@@ -764,6 +764,11 @@ Now—and only now—the packing separation transfers to all nonzero generated-l
 the minimum squared norm is at least `2` in the E8 normalization and at least `4` in the Leech
 normalization.  The latter is the rootlessness input needed by M2.
 
+As in N2, the packing-free forms may land before N1 and F4: a finite family of points pairwise
+incongruent modulo `Λ`, as many as the index of `Λ` in `Γ`, meets every coset of `Λ` in `Γ`; and
+a set contained in the translates `x - x₀` of an `r`-separated set `X ∋ x₀` has all its nonzero
+vectors of norm at least `r`.  Only their application to packings waits for N1 and N2.
+
 The Fourier structure-factor conditions from F4 remain available as an independent equality
 description, but Cohn–Elkies' exact periodic uniqueness argument does not need restrictions on the
 Fourier-side root set.
@@ -828,7 +833,7 @@ After A1:
   it does not wait for the magic function.
 - N1–N3 wait for F4 plus the dimension-specific exact zero results, and do not wait for M1/M2;
   N4 additionally waits for M1, N5 for M2, and N6 follows from N4/N5.  The packing-free lemmas of
-  N2 wait for none of these.
+  N2 and N3 wait for none of these.
 
 ## 19. PR description template
 
