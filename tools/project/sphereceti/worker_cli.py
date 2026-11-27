@@ -2,11 +2,14 @@
 """Read-only GitHub observations and the single-roadmap worker planning front door."""
 from __future__ import annotations
 
+import copy
 from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
+import threading
 import time
 
 from .local_review import ATTEMPT_TIMEOUT
@@ -38,29 +41,101 @@ def read_json(path: Path):
     return load_json(raw)
 
 
+SECONDARY_LIMIT = ("secondary rate limit", "abuse detection", "HTTP 429")
+# Reads shared by every PR of one survey: current main, and compares of two exact commits.
+SHARED = re.compile(r"^repos/[^/]+/[^/]+/(commits/[^/?]+|compare/[0-9a-f]{40}\.\.\.[0-9a-f]{40})$")
+BACKOFF = (5, 15, 30)   # seconds between retries of a read refused by a secondary rate limit
+
+
+def rate_limit_reason(stderr: str):
+    """'secondary' (retry after a pause), 'primary' (exhausted until reset; never retried) or None."""
+    if any(marker.lower() in stderr.lower() for marker in SECONDARY_LIMIT):
+        return "secondary"
+    if "rate limit exceeded" in stderr.lower():
+        return "primary"
+    return None
+
+
+def primary_reset() -> str:
+    """When the exhausted core limit resets; `gh api rate_limit` itself does not count."""
+    try:
+        result = subprocess.run(["gh", "api", "--hostname", "github.com", "rate_limit"], text=True,
+                                capture_output=True, timeout=20, check=False)
+        reset = json.loads(result.stdout)["resources"]["core"]["reset"]
+        return datetime.fromtimestamp(reset, timezone.utc).strftime("%H:%MZ")
+    except (OSError, subprocess.SubprocessError, ValueError, KeyError, TypeError):
+        return "unknown"
+
+
 class GitHub:
     """Only fixed-host read commands; one survey gets a bounded total budget: 60 seconds, plus
-    3 seconds per open PR once the queue is known (each PR may need its scope provenance read)."""
+    3 seconds per open PR once the queue is known (each PR may need its scope provenance read).
+
+    Every command is a read, so one refused by GitHub's secondary rate limit is retried after a
+    pause (within the budget); an exhausted primary limit fails at once with its reset time.
+    `bulk` lets the open-queue survey use one GraphQL pass (bulk.py), which also leaves each PR's
+    comments in `queue_comments` for the queue and bare selection.
+    """
+    bulk = True
+    concurrent = True  # every call is an independent subprocess read (pool.py)
 
     def __init__(self):
         self.deadline = time.monotonic() + 60
+        self.queue_comments = {}
+        self.scope_cache = None
+        self.memo, self.flights, self.memo_lock = {}, {}, threading.Lock()
+
+    def read(self, args: list[str], limit: int = 2_000_000):
+        """One survey reads current main once, and each exact-commit compare once, however many
+        PRs (and threads) ask: the first caller reads, concurrent callers wait for its answer."""
+        endpoint = args[-1] if args[:1] == ["api"] else ""
+        if not SHARED.search(endpoint):
+            return self.fetch(args, limit)
+        with self.memo_lock:
+            if endpoint in self.memo:
+                return copy.deepcopy(self.memo[endpoint])
+            flight = self.flights.get(endpoint)
+            leader = flight is None
+            if leader:
+                flight = self.flights[endpoint] = threading.Event()
+        if not leader:
+            flight.wait()
+            with self.memo_lock:
+                if endpoint in self.memo:
+                    return copy.deepcopy(self.memo[endpoint])
+            return self.fetch(args, limit)  # the leader's read failed: fail (or succeed) on our own
+        try:
+            value = self.fetch(args, limit)
+            with self.memo_lock:
+                self.memo[endpoint] = value
+            return copy.deepcopy(value)
+        finally:
+            flight.set()
 
     def allow_for(self, count: int):
         self.deadline = max(self.deadline, time.monotonic() + 60 + 3 * min(count, MAX_PRS))
 
-    def read(self, args: list[str]):
-        remaining = self.deadline - time.monotonic()
-        require(remaining > 0, "GitHub survey deadline exceeded; queue is unknown")
+    def fetch(self, args: list[str], limit: int = 2_000_000):
         env = os.environ.copy()
         env["GH_HOST"] = "github.com"
         env["GH_PROMPT_DISABLED"] = "1"
-        try:
-            result = subprocess.run(["gh", *args], text=True, capture_output=True,
-                                    timeout=min(remaining, 45), env=env, check=False)
-        except (OSError, subprocess.TimeoutExpired) as error:
-            raise WorkerError("GitHub survey unavailable; queue is unknown") from error
-        require(result.returncode == 0, "GitHub survey failed; queue is unknown (no fallback)")
-        require(len(result.stdout) <= 2_000_000, "GitHub survey response exceeds 2 MB")
+        for pause in (*BACKOFF, None):
+            remaining = self.deadline - time.monotonic()
+            require(remaining > 0, "GitHub survey deadline exceeded; queue is unknown")
+            try:
+                result = subprocess.run(["gh", *args], text=True, capture_output=True,
+                                        timeout=min(remaining, 45), env=env, check=False)
+            except (OSError, subprocess.TimeoutExpired) as error:
+                raise WorkerError("GitHub survey unavailable; queue is unknown") from error
+            if result.returncode == 0:
+                break
+            reason = rate_limit_reason(result.stderr)
+            if reason == "primary":
+                raise WorkerError(f"GitHub API rate limit exhausted (resets {primary_reset()}); queue is unknown")
+            if reason != "secondary" or pause is None or self.deadline - time.monotonic() <= pause:
+                raise WorkerError("GitHub survey failed; queue is unknown (no fallback)")
+            time.sleep(pause)
+        require(len(result.stdout) <= limit, f"GitHub survey response exceeds {limit // 1_000_000} MB")
         return load_json(result.stdout)
 
 
@@ -131,8 +206,16 @@ def review_readiness(pr, project, api, *, aggregate=None):
     from .config import resource_text
     from .merge_checks import parse_checks
     from .worker_checks import human_review_scope
-    settings = parse_checks(resource_text('merge-checks.toml'))
-    verdict = human_review_scope(api, project, pr, scope[0], settings)
+    text = resource_text('merge-checks.toml')
+    settings = parse_checks(text)
+    cache = getattr(api, 'scope_cache', None)
+    key = cache.scope_key(project, pr, checks, text) if cache is not None else None
+    if key is not None and cache.has('scope', key):
+        verdict = cache.get('scope', key)
+    else:
+        verdict = human_review_scope(api, project, pr, scope[0], settings)
+        if key is not None:
+            cache.put('scope', key, verdict)
     if not verdict:
         return aggregate, None
     return ('passed' if verdict['accepted'] else aggregate), verdict['note']
@@ -152,23 +235,46 @@ def normalize(pr, project, api) -> dict:
 
 
 def survey(project, requested=None, *, api=None) -> dict:
+    """The open queue (or the requested PRs), normalized for the planner.
+
+    With a bulk-capable reader the open queue and every PR's comments come from one paginated
+    GraphQL query (bulk.py) in exactly `gh pr list --json` shape; otherwise `gh pr list`. Each PR's
+    scope provenance is then read concurrently (pool.py), results kept in queue order.
+    """
     api = api or GitHub()
-    user = api.read(["api", "--hostname", "github.com", "--method", "GET", "user"])
-    require(isinstance(user, dict), "missing authenticated actor")
-    actor = text(user.get("login"), "authenticated actor")
     repo_args = ["--repo", "github.com/" + project.repository, "--json", PR_FIELDS]
-    if requested is None:
-        raw = api.read(["pr", "list", *repo_args, "--state", "open", "--limit", str(MAX_PRS + 1)])
-        require(isinstance(raw, list) and len(raw) <= MAX_PRS,
-                "open queue exceeds 100 PRs or is incomplete; use explicit --pr targeting")
-        if hasattr(api, "allow_for"):
-            api.allow_for(len(raw))
+    from .feedback import current as progress
+    if requested is None and getattr(api, "bulk", False):
+        from .bulk import fetch
+        began = time.monotonic()
+        actor, raw, api.queue_comments = fetch(api, project.repository)
+        actor = text(actor, "authenticated actor")
+        progress().line(f"Read {len(raw)} open PRs with their comments in one pass "
+                        f"({time.monotonic() - began:.1f}s)")
     else:
-        raw = [api.read(["pr", "view", str(number), *repo_args]) for number in requested]
+        user = api.read(["api", "--hostname", "github.com", "--method", "GET", "user"])
+        require(isinstance(user, dict), "missing authenticated actor")
+        actor = text(user.get("login"), "authenticated actor")
+        if requested is None:
+            raw = api.read(["pr", "list", *repo_args, "--state", "open", "--limit", str(MAX_PRS + 1)])
+            require(isinstance(raw, list) and len(raw) <= MAX_PRS,
+                    "open queue exceeds 100 PRs or is incomplete; use explicit --pr targeting")
+        else:
+            raw = [api.read(["pr", "view", str(number), *repo_args]) for number in requested]
+    if requested is None and hasattr(api, "allow_for"):
+        api.allow_for(len(raw))
+    if requested is None:
+        progress().total = len(raw)
+        progress().summary(f"Reading {len(raw)} open PRs…")
+    from .pool import concurrent, ordered
+    with progress().phase(f"Surveying open PRs… ({len(raw)} open)", "Surveying open PRs… done",
+                          "Surveying open PRs… failed"):
+        prs = ordered(lambda pr: normalize(pr, project, api), raw, parallel=concurrent(api),
+                      on_done=lambda index: progress().counter("scope", index, len(raw)))
     result = {"schema": "sphereceti.worker-survey/v4", "repository": project.repository,
               "actor": actor, "observed_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
               "scope": list(requested) if requested is not None else None,
-              "pull_requests": [normalize(pr, project, api) for pr in raw]}
+              "pull_requests": prs}
     validate_snapshot(result, project, datetime.now(timezone.utc))
     return result
 
