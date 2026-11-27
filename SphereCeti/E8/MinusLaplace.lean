@@ -7,10 +7,10 @@ Authors: Bakhyt Momunov
 module
 
 public import SphereCeti.E8.MinusSchwartz
-public import SphereCeti.E8.MinusKernelGrowth
+public import SphereCeti.E8.MinusKernel.Growth
 import SphereCeti.Contour.ExponentialDecay
-import SphereCeti.E8.MinusKernelHolomorphic
-import SphereCeti.E8.MinusKernelRegularity
+import SphereCeti.E8.MinusKernel.Holomorphic
+import SphereCeti.E8.MinusKernel.Regularity
 
 /-!
 # The Laplace representation of the E8 minus component

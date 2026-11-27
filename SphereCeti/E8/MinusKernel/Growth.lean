@@ -6,9 +6,9 @@ Authors: Bakhyt Momunov
 
 module
 
-public import SphereCeti.E8.MinusKernels
+public import SphereCeti.E8.MinusKernel.Basic
 public import SphereCeti.NumberTheory.ModularForms.JacobiTheta.Estimates
-import SphereCeti.E8.MinusKernelDecay
+import SphereCeti.E8.MinusKernel.Decay
 import Mathlib.Analysis.Asymptotics.Ring
 
 /-!
