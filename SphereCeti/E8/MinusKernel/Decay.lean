@@ -6,7 +6,7 @@ Authors: Bakhyt Momunov
 
 module
 
-public import SphereCeti.E8.MinusKernelHolomorphic
+public import SphereCeti.E8.MinusKernel.Holomorphic
 public import SphereCeti.NumberTheory.ModularForms.JacobiTheta.Estimates
 
 import Mathlib.Analysis.Asymptotics.Ring
