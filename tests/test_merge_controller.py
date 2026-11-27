@@ -185,7 +185,9 @@ class ActivationTests(unittest.TestCase):
     def test_unconfigured_policy_fixture_and_unknown_escape_hatches(self):
         data=parse_controller(DISABLED_CONTROLLER)
         self.assertEqual((data['workflow_id'],data['checks_app_id']),(0,0))
-        self.assertEqual(parse_controller((ROOT/'policy/merge-controller.toml').read_text()),data)
+        # Shipped activated: the workflow ID observed in probe runs, and the integration `build` is bound to.
+        self.assertEqual(parse_controller((ROOT/'policy/merge-controller.toml').read_text()),
+                         {**data,'workflow_id':428151597,'checks_app_id':15368})
         legacy=parse_controller('schema_version = 1\nworkflow_id = 0\nbot_user_id = 0\nchecks_app_id = 0\nmerge_method = "squash"\n')
         self.assertTrue(legacy['legacy'])
         policy=SimpleNamespace(merging=False,mathematical_paths=(),authorized_reviewers=('user:2009342',),approving_reviewers=())
@@ -199,8 +201,9 @@ class ActivationTests(unittest.TestCase):
 
     def test_approving_reviewers_is_optional_user_ids_within_authorized_reviewers(self):
         shipped=parse_policy((ROOT/'policy/automation.toml').read_text())
-        self.assertEqual((shipped.merging,shipped.approving_reviewers),(False,()))
-        self.assertIn('approving_reviewers = []\n',(ROOT/'policy/automation.toml').read_text())
+        # Activated: merging on, and every authorized reviewer opted in to approving (2026-11-25).
+        self.assertEqual((shipped.merging,shipped.approving_reviewers),(True,shipped.authorized_reviewers))
+        self.assertRegex((ROOT/'policy/automation.toml').read_text(),r'(?m)^approving_reviewers = \["user:2009342", .*\]$')
         base=''.join(f'{k} = {v}\n' for k,v in (('schema_version',1),('review_generation','true'),('posting','true'),
             ('authoring','false'),('reporting','false'),('merging','false'),('mathematical_paths','[]'),
             ('authorized_reviewers','["user:7", "app:9"]')))
@@ -731,14 +734,14 @@ class WorkflowTests(unittest.TestCase):
         installed=(ROOT/WORKFLOW).read_bytes()
         self.assertEqual(installed,(ROOT/'tools/ci/merge-controller.yml').read_bytes())
         text=installed.decode()
-        # Inert: every permission read, the doctor selected, and the schedule commented out.
-        self.assertIn('permissions:\n  contents: read\n  pull-requests: read\n  actions: read\n  issues: read\nconcurrency:',text)
-        self.assertNotIn(': write',text)
+        # Activated for manual runs: write permissions and the controller selected; the schedule stays
+        # commented out until the live race probe has proven GitHub's refusal (activation.md).
+        self.assertIn('permissions:\n  contents: write\n  pull-requests: write\n  actions: write\n  issues: write\nconcurrency:',text)
         self.assertNotRegex(text,r'(?m)^\s+schedule:')  # Scheduled runs stay commented out.
         self.assertIn('  workflow_dispatch:\n',text)
         self.assertIn("if: github.ref == 'refs/heads/main'",text)
         self.assertIn('ref: ${{ github.sha }}\n          persist-credentials: false',text)
-        self.assertEqual(re.findall(r'(?m)^ *CONTROLLER: (\S+)$',text),['doctor'])
+        self.assertEqual(re.findall(r'(?m)^ *CONTROLLER: (\S+)$',text),['apply'])
         self.assertIn('merge-doctor --executor',text)
         self.assertNotIn('secrets.',text);self.assertNotIn('pull_request',text)
         self.assertIn('SPHERECETI_MERGE_TOKEN: ${{ github.token }}',text)

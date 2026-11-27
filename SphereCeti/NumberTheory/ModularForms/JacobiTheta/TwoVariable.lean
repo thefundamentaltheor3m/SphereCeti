@@ -1,7 +1,7 @@
 /-
 Copyright (c) 2026 SphereCeti contributors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: SphereCeti contributors
+Authors: SphereCeti contributors, Sphere-Packing-Lean contributors, Bakhyt Momunov
 -/
 
 module
@@ -9,7 +9,7 @@ module
 public import Mathlib.NumberTheory.ModularForms.JacobiTheta.TwoVariable
 
 /-!
-# Integer translates in `τ` of the two-variable Jacobi theta function
+# Translates and diagonal terms of the two-variable Jacobi theta function
 
 Mathlib's two-variable Jacobi theta function
 `jacobiTheta₂ z τ = ∑_{n ∈ ℤ} exp (2 π i n z + π i n² τ)` has period `2` in `τ`
@@ -21,6 +21,10 @@ for all `z τ : ℂ` and `m : ℤ`.
 
 * `TauCeti.jacobiTheta₂_add_intCast_right`: `jacobiTheta₂ z (τ + m) = jacobiTheta₂ (z + m / 2) τ`.
 * `TauCeti.jacobiTheta₂_add_one_right`: `jacobiTheta₂ z (τ + 1) = jacobiTheta₂ (z + 1 / 2) τ`.
+
+The diagonal-term identities were adapted from
+`thefundamentaltheor3m/Sphere-Packing-Lean@bad3de916074748eb88b7d1ee6dbf9494361ad17`,
+`SpherePacking/ModularForms/JacobiTheta/Basic.lean` (Apache-2.0).
 -/
 
 public section
@@ -48,5 +52,21 @@ theorem jacobiTheta₂_add_intCast_right (z τ : ℂ) (m : ℤ) :
 theorem jacobiTheta₂_add_one_right (z τ : ℂ) :
     jacobiTheta₂ z (τ + 1) = jacobiTheta₂ (z + 1 / 2) τ := by
   simpa using jacobiTheta₂_add_intCast_right z τ 1
+
+/-- The norm of a diagonal theta summand, used for Gaussian domination. -/
+theorem norm_jacobiTheta₂_term_half (n : ℤ) (τ : ℂ) :
+    ‖jacobiTheta₂_term n (τ / 2) τ‖ =
+      Real.exp (-Real.pi * ((n : ℝ) ^ 2 + n) * τ.im) := by
+  rw [norm_jacobiTheta₂_term]
+  congr 1
+  norm_num [div_im]
+  ring
+
+/-- A diagonal theta summand has exponent `π i (n² + n) τ`. -/
+theorem jacobiTheta₂_term_half (n : ℤ) (τ : ℂ) :
+    jacobiTheta₂_term n (τ / 2) τ = cexp (Real.pi * I * ((n : ℂ) ^ 2 + n) * τ) := by
+  rw [jacobiTheta₂_term]
+  congr 1
+  ring
 
 end TauCeti
