@@ -22,7 +22,7 @@ public section
 namespace SphereCeti.E8
 
 /-- The E8 lattice has exactly `240` roots. -/
-theorem rootCard : Theta.rootCard lattice = 240 :=
-  representationNumber_lattice_two
+theorem rootCard : Theta.rootCard lattice = 240 := by
+  rw [Theta.rootCard_eq_representationNumber, representationNumber_lattice_two]
 
 end SphereCeti.E8
