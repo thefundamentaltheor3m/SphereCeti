@@ -6,12 +6,12 @@ Authors: Bakhyt Momunov
 
 module
 
-public import SphereCeti.E8.MinusKernelHolomorphic
+public import SphereCeti.E8.MinusKernel.Holomorphic
 public import SphereCeti.NumberTheory.ModularForms.JacobiTheta.ImaginaryAxis
 public import SphereCeti.NumberTheory.ModularForms.JacobiTheta.JacobiIdentity
 public import Mathlib.Analysis.Complex.Order
 
-import Mathlib.Analysis.Complex.Basic
+import SphereCeti.Analysis.RCLike.Order
 
 /-!
 # Strict imaginary-axis signs of the E8 minus modular functions
@@ -29,10 +29,6 @@ open Complex TauCeti.ModularForm
 open scoped UpperHalfPlane ComplexOrder
 
 namespace SphereCeti.E8
-
-private theorem positive_div {a b : ℂ} (ha : 0 < a) (hb : 0 < b) : 0 < a / b := by
-  rw [div_eq_mul_inv]
-  exact mul_pos ha (RCLike.inv_pos_of_pos hb)
 
 private theorem psiI_factor (τ : ℍ) :
     psiI τ = 128 * H₄ τ * (5 * H₂ τ ^ 2 + 5 * H₂ τ * H₄ τ + 2 * H₄ τ ^ 2) /
@@ -66,7 +62,7 @@ theorem psiI_pos_of_re_eq_zero (τ : ℍ) (hτ : τ.re = 0) : 0 < psiI τ := by
   have hb := H₄_pos_of_re_eq_zero τ hτ
   have hc := H₃_pos_of_re_eq_zero τ hτ
   rw [psiI_factor]
-  apply positive_div
+  apply RCLike.div_pos_of_pos
   · positivity
   · exact mul_pos (pow_pos ha 2) (pow_pos hc 2)
 
@@ -77,7 +73,7 @@ theorem psiS_neg_of_re_eq_zero (τ : ℍ) (hτ : τ.re = 0) : psiS τ < 0 := by
   have hc := H₃_pos_of_re_eq_zero τ hτ
   rw [psiS_factor]
   apply neg_lt_zero.mpr
-  apply positive_div
+  apply RCLike.div_pos_of_pos
   · positivity
   · exact mul_pos (pow_pos hc 2) (pow_pos hb 2)
 
@@ -89,8 +85,8 @@ theorem psiT_pos_of_re_eq_zero (τ : ℍ) (hτ : τ.re = 0) : 0 < psiT τ := by
   rw [psiT_eq]
   simp only [Pi.smul_apply, Pi.add_apply, Pi.div_apply, Pi.pow_apply, smul_eq_mul]
   apply mul_pos (by norm_num [Complex.lt_def] : (0 : ℂ) < 128)
-  exact add_pos (positive_div (add_pos hc hb) (pow_pos ha 2))
-    (positive_div (add_pos ha hc) (pow_pos hb 2))
+  exact add_pos (RCLike.div_pos_of_pos (add_pos hc hb) (pow_pos ha 2))
+    (RCLike.div_pos_of_pos (add_pos ha hc) (pow_pos hb 2))
 
 -- The corrected factor `−2 ψ_S` gives a strictly positive ray kernel on the imaginary axis.
 example (τ : ℍ) (hτ : τ.re = 0) : 0 < minusKernelRay τ := by
