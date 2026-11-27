@@ -7,8 +7,8 @@ Authors: Bakhyt Momunov
 module
 
 public import SphereCeti.Analysis.Complex.ExponentialIntegral
-public import SphereCeti.Analysis.Complex.LaplaceDecay
-public import SphereCeti.Analysis.Complex.LaplaceTail
+public import SphereCeti.Analysis.Complex.Laplace.Decay
+public import SphereCeti.Analysis.Complex.Laplace.Tail
 public import SphereCeti.Analysis.Distribution.SchwartzSpace.HalfLine
 
 import TauCeti.MeasureTheory.Integral.Exp.Decay
@@ -31,7 +31,7 @@ namespace SchwartzMap
 /-- A finite Laplace profile with cusp decay, extended to a Schwartz function without changing
 any nonnegative value. -/
 noncomputable def ofFiniteLaplace {f : ℝ → ℂ} {a T M : ℝ}
-    (ha : 0 < a) (hT : 0 < T) (hM : 0 ≤ M) (hf : IntegrableOn f (Ioc 0 T))
+    (ha : 0 < a) (hT : 0 < T) (hf : IntegrableOn f (Ioc 0 T))
     (hbound : ∀ t ∈ Ioc 0 T, ‖f t‖ ≤ M * Real.exp (-a / t)) (c : ℂ) (hc : 0 < c.re) :
     𝓢(ℝ, ℂ) :=
   mkOfHalfLineSqrtDecay 1 one_pos
@@ -41,14 +41,14 @@ noncomputable def ofFiniteLaplace {f : ℝ → ℂ} {a T M : ℝ}
       simpa only [intervalIntegral.integral_of_le hT.le] using
         (TauCeti.contDiff_intervalIntegral_mul_cexp_neg_mul_real hi c).contDiffOn)
     (fun n ↦ ⟨2 * Real.sqrt a * Real.sqrt c.re, by positivity,
-      TauCeti.isBigO_iteratedDeriv_integral_Ioc_mul_cexp_neg_mul_sqrt ha hT hM hf hbound c hc n⟩)
+      TauCeti.isBigO_iteratedDeriv_integral_Ioc_mul_cexp_neg_mul_sqrt ha hT hf hbound c hc n⟩)
 
 /-- The finite Laplace Schwartz profile agrees with its defining integral for `r ≥ 0`. -/
 theorem ofFiniteLaplace_apply_of_nonneg {f : ℝ → ℂ} {a T M : ℝ}
-    (ha : 0 < a) (hT : 0 < T) (hM : 0 ≤ M) (hf : IntegrableOn f (Ioc 0 T))
+    (ha : 0 < a) (hT : 0 < T) (hf : IntegrableOn f (Ioc 0 T))
     (hbound : ∀ t ∈ Ioc 0 T, ‖f t‖ ≤ M * Real.exp (-a / t)) (c : ℂ) (hc : 0 < c.re)
     {r : ℝ} (hr : 0 ≤ r) :
-    ofFiniteLaplace ha hT hM hf hbound c hc r =
+    ofFiniteLaplace ha hT hf hbound c hc r =
       ∫ (t : ℝ) in Ioc 0 T, f t * cexp (-(c * (r : ℂ)) * t) := by
   unfold ofFiniteLaplace
   exact mkOfHalfLineSqrtDecay_apply_of_nonneg _ _ _ _ _ hr
