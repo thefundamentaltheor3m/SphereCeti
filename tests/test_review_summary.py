@@ -81,7 +81,7 @@ class SummaryTest(unittest.TestCase):
         self.addCleanup(temp.cleanup)
         self.output = Path(temp.name) / 'runs' / 'run-1234'
 
-    def report(self, verdicts=None, *, completion='complete', posted='official', stop=None, runs=()):
+    def report(self, verdicts=None, *, completion='complete', posted='official', stop=None, runs=(), **evidence):
         verdicts = {r: 'approve' for r in RUBRICS} | (verdicts or {})
         publication = ({'state': 'confirmed', 'comment_id': 77, 'authorized': posted == 'official'}
                        if posted in ('official', 'advisory') else
@@ -92,7 +92,9 @@ class SummaryTest(unittest.TestCase):
             (root / f'{i}.json').write_text(json.dumps({'head_sha': HEAD, **run}))
         return {'repository': REPO, 'pr': 54, 'head': HEAD, 'output': str(self.output), 'completion': completion,
                 'requested_rubrics': list(RUBRICS), 'verdicts': verdicts, 'stop_reason': stop,
-                'engine_exit_code': 0, **({'publication': publication} if publication else {})}
+                'engine_exit_code': 0, **({'publication': publication} if publication else {}),
+                'execution_mode': 'commit', 'tooling_approved': True, 'installed_tooling_matches_T': True,
+                'missing_context': [], 'config_differences': [], **evidence}
 
     def summary(self, report, **updates):
         return summarize(arguments(provider='codex', **updates), report,
@@ -105,14 +107,32 @@ class SummaryTest(unittest.TestCase):
         self.assertEqual(result['next_action'], 'none: every rubric approves')
         self.assertEqual((result['reviewed'], result['total'], result['first_blocking'], result['stop']),
                          (10, 10, None, None))
-        self.assertTrue(self.summary(self.report(posted='advisory'))['line'].endswith('· advisory'))
+        self.assertTrue(self.summary(self.report(posted='advisory'))['line'].endswith(
+            '· advisory (not an authorized reviewer)'))
+
+    def test_an_advisory_record_by_an_authorized_reviewer_is_never_called_official(self):
+        # #113, comment 7176701797: installed at e676d23 while approved main was 4939635. The
+        # publisher is authorized, but the record itself says advisory: true.
+        url = f'https://github.com/{REPO}/pull/54#issuecomment-77'
+        report = self.report(installed_tooling_matches_T=False)
+        from sphereceti.review_records import is_advisory
+        self.assertTrue(is_advisory(report))
+        result = self.summary(report)
+        self.assertEqual(result['line'], f'10/10 approve · posted {url} · advisory (installed tooling is not '
+                                         'approved main; reinstall)')
+        self.assertEqual((result['official'], result['advisory_reasons']),
+                         (False, ['installed tooling is not approved main; reinstall']))
+        official = self.summary(self.report())
+        self.assertEqual((official['official'], official['advisory_reasons']), (True, []))
+        self.assertTrue(official['line'].endswith('· official'))
 
     def test_stopped_early_on_a_blocking_rubric(self):
         absent = {r: 'absent' for r in RUBRICS[4:]}
         result = self.summary(self.report({'attribution': 'block', **absent}, completion='partial',
                                           posted='advisory'))
         self.assertEqual(result['line'], f'4/10 reviewed · stopped: blocked on attribution · posted '
-                         f'https://github.com/{REPO}/pull/54#issuecomment-77 · advisory')
+                         f'https://github.com/{REPO}/pull/54#issuecomment-77 · advisory (partial; not an '
+                         'authorized reviewer)')
         self.assertEqual(result['first_blocking'], 'attribution')
         self.assertEqual(result['next_action'], 'author: address attribution (see record); rerun after the head changes')
 
