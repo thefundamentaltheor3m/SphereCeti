@@ -1,5 +1,6 @@
 """Immutable Git-tree gate: adversarial scope/config changes cannot authorize themselves."""
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -8,6 +9,15 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools/project'))
 from sphereceti.gate import GateError, evaluate, git, prepare
+
+
+def with_paths(value):
+    """The shipped policy with an explicit allowlist, for fixtures that test other allowlists.
+
+    These fixtures test scope, not merging, so merging is off (an empty allowlist forbids it)."""
+    text = (ROOT / 'policy/automation.toml').read_text()
+    text = re.sub(r'(?m)^merging = .*$', 'merging = false', text)
+    return re.sub(r'(?m)^mathematical_paths = .*$', f'mathematical_paths = {value}', text)
 
 
 class TrustedGateTest(unittest.TestCase):
@@ -23,8 +33,7 @@ class TrustedGateTest(unittest.TestCase):
         self.write('README.md', 'Protected roadmap\n')
         self.write('SphereCeti/Example.lean', '-- fixture\n')
         # An explicit approved allowlist tests future classification, not current activation.
-        self.write('policy/automation.toml', (ROOT / 'policy/automation.toml').read_text().replace(
-            'mathematical_paths = []', 'mathematical_paths = ["SphereCeti"]'))
+        self.write('policy/automation.toml', with_paths('["SphereCeti"]'))
         self.base = self.commit()
 
     def write(self, name, content):
@@ -67,8 +76,8 @@ class TrustedGateTest(unittest.TestCase):
         self.write('unknown.txt', 'not in a known class')
         self.assertEqual(self.verdict()['scope'], 'human_review')
 
-    def test_empty_actual_allowlist_requires_human_for_lean(self):
-        self.write('policy/automation.toml', (ROOT / 'policy/automation.toml').read_text())
+    def test_empty_allowlist_requires_human_for_lean(self):
+        self.write('policy/automation.toml', with_paths('[]'))
         self.base = self.commit()
         self.write('SphereCeti/Example.lean', '-- changed\n')
         self.assertEqual(self.verdict()['scope'], 'human_review')
@@ -166,3 +175,85 @@ class TrustedGateTest(unittest.TestCase):
         left, right = node('left', a, b), node('right', b, a)
         with self.assertRaisesRegex(GateError, 'unambiguous merge base'):
             evaluate(self.repo, self.base, left, right)
+
+
+class ShippedAllowlistGateTest(unittest.TestCase):
+    """The shipped policy through the scope gate that pr-build's candidate job runs."""
+    ROOT_TEXT = (ROOT / 'SphereCeti.lean').read_text()
+    write, commit, verdict = TrustedGateTest.write, TrustedGateTest.commit, TrustedGateTest.verdict
+
+    def setUp(self):
+        TrustedGateTest.setUp(self)
+        self.write('policy/automation.toml', (ROOT / 'policy/automation.toml').read_text())
+        self.write('SphereCeti.lean', self.ROOT_TEXT)
+        for module in ('SphereCeti/Basic.lean', 'SphereCeti/Pinned.lean', 'SphereCeti/Suggested.lean',
+                       'SphereCeti/E8/Basic.lean', 'SphereCeti/Contour/Basic.lean', 'SphereCeti/Leech/Basic.lean'):
+            self.write(module, 'module\n')
+        self.base = self.commit()
+
+    def reset(self):
+        git(self.repo, 'reset', '-q', '--hard', self.base)
+        git(self.repo, 'clean', '-qfdx')
+
+    def test_shipped_policy_names_the_whole_library(self):
+        from sphereceti.config import parse_policy
+        policy = parse_policy((ROOT / 'policy/automation.toml').read_text())
+        self.assertEqual(policy.mathematical_paths, ('SphereCeti/',))
+        # Activated: merging and approving on, every authorized reviewer opted in (2026-11-25).
+        self.assertTrue(policy.merging);self.assertTrue(policy.approving)
+        self.assertEqual(policy.approving_reviewers, policy.authorized_reviewers)
+
+    def test_module_only_proofs_in_any_topic_get_mathematical_scope(self):
+        cases = {'new topic directory': ['SphereCeti/NumberTheory/Foo.lean'],
+                 'new Contour module': ['SphereCeti/Contour/TopEdgeDecay.lean'],
+                 'modified Leech module': ['SphereCeti/Leech/Basic.lean'],
+                 'nested E8 module': ['SphereCeti/E8/Lattice/Even.lean'],
+                 'module directly under SphereCeti/': ['SphereCeti/CohnElkies.lean'],
+                 'several topics together': ['SphereCeti/Analysis/Gaussian.lean', 'SphereCeti/ZLattice/Dual.lean',
+                                             'SphereCeti/MeasureTheory/Periodic.lean']}
+        for name, paths in cases.items():
+            with self.subTest(name=name):
+                self.reset()
+                for path in paths:
+                    self.write(path, 'module\n-- proof\n')
+                report = self.verdict()
+                self.assertEqual(report['scope'], 'mathematical', report)
+                self.assertEqual({c['class'] for c in report['changes']}, {'library'})
+
+    def test_protected_files_root_outside_paths_and_mixed_changes_keep_human_review(self):
+        export = lambda module: self.write('SphereCeti.lean', self.ROOT_TEXT + f'public import {module}\n')
+        cases = {
+            # The library root is frozen: even exporting the PR's own module needs a human.
+            'proof with its root import': lambda: (
+                self.write('SphereCeti/NumberTheory/Foo.lean', 'module\n'), export('SphereCeti.NumberTheory.Foo')),
+            'root import alone': lambda: export('SphereCeti.E8.Basic'),
+            'other root edit': lambda: self.write('SphereCeti.lean', self.ROOT_TEXT + '-- note\n'),
+            'protected Basic.lean': lambda: self.write('SphereCeti/Basic.lean', '-- changed\n'),
+            'protected Pinned.lean': lambda: self.write('SphereCeti/Pinned.lean', '-- changed\n'),
+            'protected Suggested.lean': lambda: self.write('SphereCeti/Suggested.lean', '-- changed\n'),
+            'sibling directory outside SphereCeti/': lambda: self.write('SphereCetiExtra/Foo.lean', 'module\n'),
+            'roadmap module': lambda: self.write('SphereCetiRoadmap/Foo.lean', 'module\n'),
+            'non-Lean file under SphereCeti/': lambda: self.write('SphereCeti/NumberTheory/notes.md', 'notes\n'),
+        }
+        mixed = {'CI': '.github/workflows/ci.yml', 'policy': 'policy/automation.toml', 'spec': 'README.md',
+                 'roadmap': 'SphereCetiRoadmap/Suggested.lean', 'machinery': 'tools/project/sphereceti/gate.py',
+                 'scripts': 'scripts/check_audits.py', 'dependencies': 'lean-toolchain'}
+        for name, path in mixed.items():
+            cases['proof plus ' + name] = (lambda path=path: (
+                self.write('SphereCeti/NumberTheory/Foo.lean', 'module\n'), self.write(path, 'changed\n')))
+        for name, change in cases.items():
+            with self.subTest(name=name):
+                self.reset()
+                change()
+                report = self.verdict()
+                self.assertEqual(report['scope'], 'human_review', report)
+                if 'root' in name:
+                    self.assertIn({'path': 'SphereCeti.lean', 'class': 'protected'}, report['changes'])
+                if name.startswith('protected'):
+                    self.assertEqual([c['class'] for c in report['changes']], ['protected'])
+
+    def test_status_job_routes_the_scope_to_trusted_scope(self):
+        # pr-build.yml publishes trusted-scope success exactly when the candidate job's scope output
+        # is `mathematical`; this is the routing a positive gate verdict produces.
+        workflow = (ROOT / '.github/workflows/pr-build.yml').read_text()
+        self.assertIn('[ "$SCOPE" != mathematical ] || scope_state=success', workflow)

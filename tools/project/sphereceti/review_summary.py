@@ -1,6 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 """What will a review do, and what happened? One line before inference, one summary after.
 
+Before inference it also says when the installed sphereceti is not approved main (the prepared
+evidence's `installed_tooling_matches_T`), because such a review is advisory, not official.
+
 Everything here reads the prepared evidence, the run's result and its local engine receipt
 (`engine-archive/records/runs`). It never calls GitHub or a provider.
 """
@@ -11,6 +14,7 @@ import json
 import os
 from pathlib import Path
 import re
+import sys
 
 from .local_review import RUBRICS
 
@@ -68,20 +72,43 @@ def plan(args, prefs, report) -> dict:
     pairs = ", ".join(f"{p} {m}" for p, m in zip(providers, models)) or "no provider selected"
     line = (f"Review #{report['pr']}: head {report['head'][:7]}, base {report['base'][:7]} · "
             f"{pairs} · {outcome}")
+    try:
+        from .provenance import review_notice
+        notice = review_notice(report, report.get("repository") or "thefundamentaltheor3m/SphereCeti")
+    except Exception:  # The notice is informational; it never blocks or changes a review.
+        notice = None
     return {"line": line, "pr": report["pr"], "head": report["head"], "base": report["base"],
-            "providers": providers, "models": models, "posting": outcome}
+            "providers": providers, "models": models, "posting": outcome, "tooling_notice": notice}
 
 
 def announcing(prefs, announce, sink=None, inner=None):
-    """A run_review guard that states the plan before any provider call."""
+    """A run_review guard that states the plan before any provider call.
+
+    When the installed sphereceti is not approved main the review can only be advisory: on a
+    terminal it asks first (before any claim or model call) unless --allow-advisory; elsewhere, and
+    in batches, it continues and says so once per invocation."""
     @contextmanager
     def guard(args, report, policy, client):
+        planned = plan(args, prefs, report)
+        notice = planned.get("tooling_notice")
+        shown = False
+        batch = any(getattr(args, name, False) for name in ("new", "revised", "all"))
+        if (notice and announce and not args.dry_run and not batch and not getattr(args, "allow_advisory", False)
+                and sys.stdin.isatty() and sys.stdout.isatty()):
+            announce(notice)
+            shown = True
+            if not ask("Continue with an advisory review? [y/N] "):
+                from .local_review import ReviewError
+                raise ReviewError("advisory review declined; nothing was claimed, run or posted. Reinstall "
+                                  "sphereceti from main, or pass --allow-advisory")
         with (inner(args, report, policy, client) if inner else _null()):
-            planned = plan(args, prefs, report)
             if sink is not None:
                 sink.update(planned)
             if announce:
                 announce(planned["line"])
+                if notice and not shown and not getattr(args, "advisory_noticed", False):
+                    announce(notice)
+                    args.advisory_noticed = True  # a batch reuses its arguments: once per batch
             yield None
     return guard
 
@@ -120,14 +147,48 @@ def provider_down(runs):
     return next((k for k in reversed(kinds) if k in PROVIDER_DOWN), None)
 
 
+def advisory_why(report, publication) -> list[str]:
+    """Why a posted record is advisory, from the record's own fields (review_records.is_advisory) and
+    the publisher's authorization; empty when it is official. Never authorization alone."""
+    reasons = []
+    if report.get("completion") != "complete":
+        reasons.append(str(report.get("completion")))
+    if report.get("execution_mode") not in ("commit", "manual"):
+        reasons.append(f"{report.get('execution_mode')} mode")
+    if not report.get("tooling_approved"):
+        reasons.append("reviewed tooling is not approved main")
+    if not report.get("installed_tooling_matches_T"):
+        reasons.append("installed tooling is not approved main; reinstall")
+    if report.get("missing_context"):
+        reasons.append("missing approved context")
+    if report.get("config_differences"):
+        reasons.append("candidate configuration differs")
+    if not publication.get("authorized"):
+        reasons.append("not an authorized reviewer")
+    return reasons
+
+
+def ask(question: str) -> bool:
+    """A yes/no question on the terminal; anything but y/yes is no."""
+    sys.stderr.write(question)
+    sys.stderr.flush()
+    try:
+        return input().strip().lower() in ("y", "yes")
+    except EOFError:
+        return False
+
+
 def summarize(args, report, *, posting=None) -> dict:
     """The summary line, its fields, and one concrete next action."""
     verdicts = report.get("verdicts") or {}
     requested = report.get("requested_rubrics") or list(RUBRICS)
     reviewed = [r for r in requested if verdicts.get(r) in ("approve", "request_changes", "block")]
-    blocking = next((r for r in RUBRICS if verdicts.get(r) == "block"), None)
+    blocks = [r for r in RUBRICS if verdicts.get(r) == "block"]
+    blocking = blocks[0] if blocks else None
     changes = [r for r in RUBRICS if verdicts.get(r) == "request_changes"]
-    first = blocking or (changes[0] if changes else None)
+    # Every rubric the author must address, blocks first, as the summary line lists them.
+    findings = blocks + changes
+    first = findings[0] if findings else None
     runs = receipt_runs(report)
     down = provider_down(runs)
     startup = report.get("completion") != "dry_run" and not reviewed and startup_failure(runs)
@@ -151,8 +212,9 @@ def summarize(args, report, *, posting=None) -> dict:
     publication = report.get("publication") or {}
     url = (f"https://github.com/{report['repository']}/pull/{report['pr']}#issuecomment-{publication['comment_id']}"
            if publication.get("state") == "confirmed" else None)
+    advisory = advisory_why(report, publication) if url else []
     if url:
-        posted = f"posted {url} · {'official' if publication.get('authorized') else 'advisory'}"
+        posted = f"posted {url} · " + (f"advisory ({'; '.join(advisory)})" if advisory else "official")
     elif publication:
         posted = "publication interrupted"
     else:
@@ -164,8 +226,9 @@ def summarize(args, report, *, posting=None) -> dict:
         head = f"{len(reviewed)}/{len(requested)} approve"
     else:
         head = f"{len(reviewed)}/{len(requested)} reviewed"
-    parts = [head] + ([f"stopped: {stop}"] if stop else []) + ([f"changes requested: {', '.join(changes)}"]
-                                                               if changes and not stop else []) + [posted]
+    parts = ([head] + ([f"stopped: {stop}"] if stop else []) +
+             ([f"blocked: {', '.join(blocks)}"] if blocks and not stop else []) +
+             ([f"changes requested: {', '.join(changes)}"] if changes and not stop else []) + [posted])
     provider = (getattr(args, "provider", None) or "").split(",")[0] or "the provider"
     output = Path(report.get("output") or "RUN")
     # A run under the operator store's runs/ is named by its id; an --output run by its directory.
@@ -181,7 +244,7 @@ def summarize(args, report, *, posting=None) -> dict:
     elif report.get("stop_reason") == "usage_unknown":
         action = "check the provider's usage for the unreported attempt, then rerun"
     elif first:
-        action = f"author: address {first} (see record); rerun after the head changes"
+        action = f"author: address {', '.join(findings)} (see record); rerun after the head changes"
     elif not complete:
         action = "rerun to finish the remaining rubrics (raise budget_usd with `--budget-usd` if needed)"
     elif not url and getattr(args, "no_post", False):
@@ -191,5 +254,6 @@ def summarize(args, report, *, posting=None) -> dict:
     else:
         action = "none: every rubric approves"
     return {"line": " · ".join(parts), "reviewed": len(reviewed), "total": len(requested),
-            "first_blocking": first, "stop": stop, "posted": url, "official": bool(publication.get("authorized")),
+            "first_blocking": first, "findings": findings, "stop": stop, "posted": url, "official": bool(url) and not advisory,
+            "advisory_reasons": advisory,
             "next_action": action}

@@ -281,15 +281,19 @@ Use translated coordinate boxes with a guard band of one center separation.  Def
 patch, its period lattice, and the repeated center set, then state explicit equations
 for the centers and separation of `ofFinitePatternInBoxAt`.
 
-The volume estimate for coordinate boxes does not involve packings and may land first:
+The volume estimate for coordinate boxes and the counting step of the averaging lemma do not
+involve packings and may land first:
 
-- a fixed-width coordinate-box boundary layer has volume ratio tending to zero.
+- a fixed-width coordinate-box boundary layer has volume ratio tending to zero;
+- for a finite set `S` and a measurable set `Q`, the number of points of `S` in `a +ᵥ Q` has
+  integral `#S * vol(Q)` over `a`, so some translate with `a` in a set of finite positive volume
+  containing `S - Q` meets `S` in at least the average number of points.
 
 Then prove in order:
 
 - a Fubini/Følner averaging lemma: from an arbitrarily large ball whose finite density approaches
   the ball-limsup density, extract an arbitrarily large translated coordinate box whose normalized
-  center count loses only a prescribed error;
+  center count loses only a prescribed error, using the counting step;
 - the repeated patch satisfies the packing inequality, including across adjacent boxes;
 - its exact density in terms of the patch cardinality and box covolume;
 - for every positive `ε`, every packing has a periodic packing `Q` with
@@ -760,6 +764,11 @@ Now—and only now—the packing separation transfers to all nonzero generated-l
 the minimum squared norm is at least `2` in the E8 normalization and at least `4` in the Leech
 normalization.  The latter is the rootlessness input needed by M2.
 
+As in N2, the packing-free forms may land before N1 and F4: a finite family of points pairwise
+incongruent modulo `Λ`, as many as the index of `Λ` in `Γ`, meets every coset of `Λ` in `Γ`; and
+a set contained in the translates `x - x₀` of an `r`-separated set `X ∋ x₀` has all its nonzero
+vectors of norm at least `r`.  Only their application to packings waits for N1 and N2.
+
 The Fourier structure-factor conditions from F4 remain available as an independent equality
 description, but Cohn–Elkies' exact periodic uniqueness argument does not need restrictions on the
 Fourier-side root set.
@@ -824,7 +833,7 @@ After A1:
   it does not wait for the magic function.
 - N1–N3 wait for F4 plus the dimension-specific exact zero results, and do not wait for M1/M2;
   N4 additionally waits for M1, N5 for M2, and N6 follows from N4/N5.  The packing-free lemmas of
-  N2 wait for none of these.
+  N2 and N3 wait for none of these.
 
 ## 19. PR description template
 

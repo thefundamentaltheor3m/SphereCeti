@@ -7,6 +7,8 @@ Authors: SphereCeti contributors
 module
 
 public import TauCeti.Algebra.Module.ZLattice.RationalModel
+public import TauCeti.Algebra.Module.ZLattice.ModelShell
+public import SphereCeti.LinearAlgebra.IntegralLattice.Rootless
 
 /-!
 # Integral presentations of Euclidean lattices
@@ -35,6 +37,11 @@ therefore apply to the lattice in Gram coordinates: it is positive definite, and
   presentation in Gram coordinates.
 * `SphereCeti.EuclideanLattice.IntegralPresentation.ratModelIsometry`: the isometry from the
   lattice in Gram coordinates to TauCeti's rational model of `Λ` induced by the basis.
+* `SphereCeti.EuclideanLattice.IntegralPresentation.carrierEquiv`,
+  `SphereCeti.EuclideanLattice.IntegralPresentation.dualCarrierEquiv`,
+  `SphereCeti.EuclideanLattice.IntegralPresentation.shellEquiv`: the identifications of `Λ`, of its
+  real dual lattice, and of its shells with the carrier, the dual carrier, and the norm shells of
+  the lattice in Gram coordinates.
 
 ## Main statements
 
@@ -53,6 +60,18 @@ therefore apply to the lattice in Gram coordinates: it is positive definite, and
 * `SphereCeti.EuclideanLattice.IntegralPresentation.isUnimodular_iff_covolume_eq_one`,
   `SphereCeti.EuclideanLattice.IntegralPresentation.dual_eq_self_of_isUnimodular`: a presentation
   is unimodular exactly when `Λ` has covolume one, and then `Λ` is its own real dual.
+* `SphereCeti.EuclideanLattice.IntegralPresentation.ratModelMap_ratModelIsometry`: read in `ℝ^d`,
+  the isometry sends `q ∈ ℚ^d` to `∑ i, qᵢ bᵢ`.
+* `SphereCeti.EuclideanLattice.IntegralPresentation.mem_dual_iff_exists_dualCarrier_coordinates`:
+  the real dual lattice consists of the combinations of the basis with coordinates in the dual
+  carrier.
+* `SphereCeti.EuclideanLattice.IntegralPresentation.mem_shell_iff_carrierEquiv_mem`,
+  `SphereCeti.EuclideanLattice.IntegralPresentation.carrierEquiv_mem_vectorsOfNorm_iff`: a vector
+  of `Λ` lies in the shell of squared length `n` exactly when its coordinate vector has norm `n` in
+  Gram coordinates; the second form is a simp lemma.
+* `SphereCeti.EuclideanLattice.IntegralPresentation.isRootless_iff_shell_two_eq_empty`: the lattice
+  in Gram coordinates is rootless (`TauCeti.IntegralLattice.IsRootless`) exactly when `Λ` has no
+  vector of squared length two.
 
 ## References
 
@@ -152,6 +171,32 @@ theorem isIntegral_real (P : IntegralPresentation Λ) : ZLattice.IsIntegral Λ :
   refine Finset.sum_congr rfl fun i _ ↦ Finset.sum_congr rfl fun j _ ↦ ?_
   ring
 
+/-- The identification of `Λ` with the carrier of its lattice in Gram coordinates that sends each
+vector to its coordinate vector in the presentation basis (`coe_carrierEquiv_apply`). -/
+noncomputable def carrierEquiv (P : IntegralPresentation Λ) :
+    Λ ≃ₗ[ℤ] P.toIntegralLattice.carrier :=
+  P.basis.equiv
+    (TauCeti.IntegralLattice.ofGramMatrix.basis (Pi.basisFun ℚ (Fin d)) P.gram P.gram_isSymm)
+    (Equiv.refl _)
+
+/-- The vector `P.carrierEquiv x` lists the coordinates of `x` in the presentation basis. -/
+@[simp]
+theorem coe_carrierEquiv_apply (P : IntegralPresentation Λ) (x : Λ) (i : Fin d) :
+    (P.carrierEquiv x : Fin d → ℚ) i = P.basis.repr x i := by
+  -- The presentation basis goes to TauCeti's basis of the lattice in Gram coordinates.
+  have hb (j : Fin d) : (P.carrierEquiv (P.basis j) : Fin d → ℚ) = Pi.single j 1 :=
+    (congrArg Subtype.val (P.basis.equiv_apply j _ (Equiv.refl _))).trans <|
+      (TauCeti.IntegralLattice.ofGramMatrix.coe_basis _ _ _ j).trans (Pi.basisFun_apply ℚ _ j)
+  conv_lhs => rw [← P.basis.sum_repr x]
+  simp only [map_sum, map_zsmul, Submodule.coe_sum, Submodule.coe_smul_of_tower, hb,
+    Finset.sum_apply, Pi.smul_apply]
+  simp [Pi.single_apply]
+
+/-- Check that `simp` computes the coordinates of a basis vector. -/
+example (P : IntegralPresentation Λ) (i : Fin d) :
+    (P.carrierEquiv (P.basis i) : Fin d → ℚ) i = 1 := by
+  simp
+
 variable [DiscreteTopology Λ] [IsZLattice ℝ Λ]
 
 /-- The presentation basis, carried into the rational model, has Gram matrix `P.gram`. -/
@@ -240,6 +285,130 @@ theorem isUnimodular_iff_covolume_eq_one (P : IntegralPresentation Λ) :
 theorem dual_eq_self_of_isUnimodular (P : IntegralPresentation Λ) (h : P.IsUnimodular) :
     ZLattice.dual Λ = Λ :=
   (P.isUnimodular_real h).dual_eq
+
+/-- Read in `ℝ^d` through TauCeti's map `ZLattice.ratModelMap`, the isometry `ratModelIsometry`
+sends a vector `q` of `ℚ^d` to `∑ i, qᵢ bᵢ`. -/
+theorem ratModelMap_ratModelIsometry (P : IntegralPresentation Λ) (q : Fin d → ℚ) :
+    ZLattice.ratModelMap Λ (P.ratModelIsometry q) =
+      ∑ i, (q i : ℝ) • (P.basis i : EuclideanSpace ℝ (Fin d)) := by
+  conv_lhs => rw [← (Pi.basisFun ℚ (Fin d)).sum_repr q]
+  simp [TensorProduct.smul_tmul']
+
+/-- The coordinate vector of a vector of `Λ`, carried into the rational model and read in `ℝ^d`,
+is the vector itself. -/
+theorem ratModelMap_ratModelIsometry_carrierEquiv (P : IntegralPresentation Λ) (x : Λ) :
+    ZLattice.ratModelMap Λ (P.ratModelIsometry (P.carrierEquiv x)) = x := by
+  rw [ratModelMap_ratModelIsometry]
+  conv_rhs => rw [← P.basis.sum_repr x]
+  simp only [coe_carrierEquiv_apply, Rat.cast_intCast, Int.cast_smul_eq_zsmul, Submodule.coe_sum,
+    Submodule.coe_smul_of_tower]
+
+/-- The norm of the coordinate vector of a vector of `Λ` is its squared length. -/
+theorem norm_carrierEquiv (P : IntegralPresentation Λ) (x : Λ) :
+    (P.toIntegralLattice.norm (P.carrierEquiv x) : ℝ) = ‖(x : EuclideanSpace ℝ (Fin d))‖ ^ 2 := by
+  rw [← P.ratModelIsometry.norm_apply, ← ZLattice.norm_sq_ratModelMap P.isIntegral_real,
+    ratModelMap_ratModelIsometry_carrierEquiv]
+
+/-- The identification of the real dual lattice of `Λ` with the dual carrier of the lattice in
+Gram coordinates, through TauCeti's rational model. -/
+noncomputable def dualCarrierEquiv (P : IntegralPresentation Λ) :
+    ZLattice.dual Λ ≃ₗ[ℤ] P.toIntegralLattice.dualCarrier :=
+  (ZLattice.ratModelDualEquiv P.isIntegral_real).trans P.ratModelIsometry.symm.dualCarrierEquiv
+
+/-- A vector `y` of the real dual lattice is the combination of the presentation basis with
+coefficients the coordinates of `P.dualCarrierEquiv y`. -/
+theorem sum_dualCarrierEquiv_smul_basis (P : IntegralPresentation Λ) (y : ZLattice.dual Λ) :
+    ∑ i, ((P.dualCarrierEquiv y : Fin d → ℚ) i : ℝ) • (P.basis i : EuclideanSpace ℝ (Fin d)) =
+      y := by
+  rw [← ratModelMap_ratModelIsometry]
+  simp only [dualCarrierEquiv, LinearEquiv.trans_apply,
+    TauCeti.IntegralLattice.Isometry.coe_dualCarrierEquiv_apply,
+    TauCeti.IntegralLattice.Isometry.apply_symm_apply, ZLattice.ratModelMap_ratModelDualEquiv]
+
+/-- A vector lies in the real dual lattice of `Λ` exactly when its coordinates in the presentation
+basis form a vector of the dual carrier of the lattice in Gram coordinates. -/
+theorem mem_dual_iff_exists_dualCarrier_coordinates (P : IntegralPresentation Λ)
+    (x : EuclideanSpace ℝ (Fin d)) :
+    x ∈ ZLattice.dual Λ ↔
+      ∃ q : P.toIntegralLattice.dualCarrier,
+        x = ∑ i, ((q : Fin d → ℚ) i : ℝ) • (P.basis i : EuclideanSpace ℝ (Fin d)) := by
+  refine ⟨fun hx ↦ ⟨P.dualCarrierEquiv ⟨x, hx⟩, (P.sum_dualCarrierEquiv_smul_basis ⟨x, hx⟩).symm⟩,
+    ?_⟩
+  rintro ⟨q, rfl⟩
+  rw [← ratModelMap_ratModelIsometry, ← ZLattice.mem_ratModel_dualCarrier_iff P.isIntegral_real,
+    P.ratModelIsometry.apply_mem_dualCarrier_iff]
+  exact q.2
+
+/-- A vector of `Λ` lies in the shell of squared length `n` exactly when its coordinate vector
+lies in the vectors of norm `n` of the lattice in Gram coordinates. -/
+theorem mem_shell_iff_carrierEquiv_mem (P : IntegralPresentation Λ) (n : ℕ) (x : Λ) :
+    (x : EuclideanSpace ℝ (Fin d)) ∈ ZLattice.shell Λ n ↔
+      P.carrierEquiv x ∈ P.toIntegralLattice.vectorsOfNorm n := by
+  -- TauCeti's shell comparison `ZLattice.shell_eq_image_vectorsOfNorm_ratModel`, transported
+  -- along `ratModelIsometry`.
+  rw [← Rat.cast_natCast (α := ℝ) n,
+    ZLattice.shell_eq_image_vectorsOfNorm_ratModel P.isIntegral_real,
+    ← P.ratModelIsometry.carrierEquiv_mem_vectorsOfNorm_iff]
+  -- The rational model vector of `x` is the image of its coordinate vector.
+  have hx : ZLattice.ratModelMap Λ (P.ratModelIsometry.carrierEquiv (P.carrierEquiv x) :
+      ℚ ⊗[ℤ] Λ) = x := by
+    simpa using P.ratModelMap_ratModelIsometry_carrierEquiv x
+  refine ⟨fun ⟨y, hy, hyx⟩ ↦ ?_, fun h ↦ ⟨_, h, hx⟩⟩
+  rwa [Subtype.ext (ZLattice.ratModelMap_injective (hyx.trans hx.symm))] at hy
+
+/-- The coordinate vector of `x ∈ Λ` has norm `n` in Gram coordinates exactly when `x` lies in the
+shell of squared length `n`.  It is a pre-simp lemma (`↓`): otherwise `mem_vectorsOfNorm` unfolds
+the left side first. -/
+@[simp ↓]
+theorem carrierEquiv_mem_vectorsOfNorm_iff (P : IntegralPresentation Λ) (n : ℕ) (x : Λ) :
+    P.carrierEquiv x ∈ P.toIntegralLattice.vectorsOfNorm n ↔
+      (x : EuclideanSpace ℝ (Fin d)) ∈ ZLattice.shell Λ n :=
+  (P.mem_shell_iff_carrierEquiv_mem n x).symm
+
+/-- The coordinate identification restricted to shells: the vectors of `Λ` of squared length `n`
+correspond to the vectors of norm `n` of the lattice in Gram coordinates. -/
+noncomputable def shellEquiv (P : IntegralPresentation Λ) (n : ℕ) :
+    ↑(ZLattice.shell Λ n) ≃ ↑(P.toIntegralLattice.vectorsOfNorm n) where
+  toFun v := ⟨P.carrierEquiv ⟨v, (ZLattice.mem_shell.mp v.2).1⟩,
+    (P.mem_shell_iff_carrierEquiv_mem n _).mp v.2⟩
+  invFun w := ⟨P.carrierEquiv.symm w,
+    (P.mem_shell_iff_carrierEquiv_mem n _).mpr (by rw [P.carrierEquiv.apply_symm_apply]; exact w.2)⟩
+  left_inv v := by simp
+  right_inv w := by simp
+
+/-- The shell identification is the coordinate identification `carrierEquiv`. -/
+@[simp]
+theorem coe_shellEquiv_apply (P : IntegralPresentation Λ) (n : ℕ) (v : ZLattice.shell Λ n) :
+    (P.shellEquiv n v : P.toIntegralLattice) =
+      P.carrierEquiv ⟨v, (ZLattice.mem_shell.mp v.2).1⟩ :=
+  (rfl)
+
+/-- Check that `simp` computes the coordinates of the image of a shell vector. -/
+example (P : IntegralPresentation Λ) (n : ℕ) (v : ZLattice.shell Λ n) (i : Fin d) :
+    ((P.shellEquiv n v : P.toIntegralLattice) : Fin d → ℚ) i =
+      P.basis.repr ⟨v, (ZLattice.mem_shell.mp v.2).1⟩ i := by
+  simp
+
+/-- The inverse shell identification is the inverse coordinate identification. -/
+@[simp]
+theorem coe_shellEquiv_symm_apply (P : IntegralPresentation Λ) (n : ℕ)
+    (w : P.toIntegralLattice.vectorsOfNorm n) :
+    (((P.shellEquiv n).symm w : ZLattice.shell Λ n) : EuclideanSpace ℝ (Fin d)) =
+      ((P.carrierEquiv.symm w : Λ) : EuclideanSpace ℝ (Fin d)) :=
+  (rfl)
+
+/-- Check that `simp` returns a vector of the lattice in Gram coordinates through the shell
+identification. -/
+example (P : IntegralPresentation Λ) (n : ℕ) (w : P.toIntegralLattice.vectorsOfNorm n) :
+    P.carrierEquiv ⟨((P.shellEquiv n).symm w : EuclideanSpace ℝ (Fin d)),
+      (ZLattice.mem_shell.mp ((P.shellEquiv n).symm w).2).1⟩ = w := by
+  simp
+
+/-- A presentation is rootless exactly when `Λ` has no vector of squared length two. -/
+theorem isRootless_iff_shell_two_eq_empty (P : IntegralPresentation Λ) :
+    P.toIntegralLattice.IsRootless ↔ ZLattice.shell Λ 2 = ∅ := by
+  rw [TauCeti.IntegralLattice.isRootless_iff, ← Set.isEmpty_coe_sort, ← Set.isEmpty_coe_sort]
+  exact_mod_cast (P.shellEquiv 2).isEmpty_congr.symm
 
 end IntegralPresentation
 
