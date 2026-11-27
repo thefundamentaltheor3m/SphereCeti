@@ -13,11 +13,12 @@ import Mathlib.Analysis.RCLike.Basic
 /-!
 # The parity of a zero of a nonnegative profile
 
-A complex-valued function of a real variable which is locally real and nonnegative
-can only have an even exact zero order. The continuous nonvanishing cofactor has
-nonnegative right limit; an odd order would also force its left limit to be nonpositive.
+A complex-valued profile which is locally real and nonnegative can only have an even
+exact zero order. This tests whether prescribed zero multiplicities of auxiliary
+profiles are compatible with local nonnegativity, as needed for sphere-packing
+magic functions and their sign conditions.
 
-The proof is independent of analytic or differentiability hypotheses.
+No analytic or differentiability hypotheses are required.
 -/
 
 public section
