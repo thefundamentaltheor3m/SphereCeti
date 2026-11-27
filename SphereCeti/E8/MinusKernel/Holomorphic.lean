@@ -6,7 +6,7 @@ Authors: SphereCeti contributors, Bakhyt Momunov
 
 module
 
-public import SphereCeti.E8.MinusKernels
+public import SphereCeti.E8.MinusKernel.Basic
 public import SphereCeti.NumberTheory.ModularForms.JacobiTheta.Discriminant
 
 import Mathlib.Geometry.Manifold.MFDeriv.SpecificFunctions

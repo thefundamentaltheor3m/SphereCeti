@@ -36,29 +36,38 @@ namespace TauCeti.ModularForm
 
 private noncomputable def thetaProduct : ℍ → ℂ := H₂ * H₃ * H₄
 
+private theorem thetaProduct_apply (τ : ℍ) : thetaProduct τ = H₂ τ * H₃ τ * H₄ τ := rfl
+
 private theorem thetaProduct_S : thetaProduct ∣[(6 : ℤ)] S = -thetaProduct := by
-  simp only [thetaProduct, show (6 : ℤ) = (2 + 2) + 2 by norm_num,
-    _root_.ModularForm.mul_slash_SL2, H₂_slash_S, H₃_slash_S, H₄_slash_S]
+  have houter := _root_.ModularForm.mul_slash_SL2 4 2 S (H₂ * H₃) H₄
+  have hinner := _root_.ModularForm.mul_slash_SL2 2 2 S H₂ H₃
+  norm_num only [Int.reduceAdd] at houter hinner
+  rw [thetaProduct, houter, hinner, H₂_slash_S, H₃_slash_S, H₄_slash_S]
   ext τ
   simp only [Pi.mul_apply, Pi.neg_apply]
   ring
 
 private theorem thetaProduct_T : thetaProduct ∣[(6 : ℤ)] T = -thetaProduct := by
-  simp only [thetaProduct, show (6 : ℤ) = (2 + 2) + 2 by norm_num,
-    _root_.ModularForm.mul_slash_SL2, H₂_slash_T, H₃_slash_T, H₄_slash_T]
+  have houter := _root_.ModularForm.mul_slash_SL2 4 2 T (H₂ * H₃) H₄
+  have hinner := _root_.ModularForm.mul_slash_SL2 2 2 T H₂ H₃
+  norm_num only [Int.reduceAdd] at houter hinner
+  rw [thetaProduct, houter, hinner, H₂_slash_T, H₃_slash_T, H₄_slash_T]
   ext τ
   simp only [Pi.mul_apply, Pi.neg_apply]
   ring
 
 private noncomputable def thetaProductSq : ℍ → ℂ := thetaProduct * thetaProduct
 
+private theorem thetaProductSq_apply (τ : ℍ) :
+    thetaProductSq τ = thetaProduct τ * thetaProduct τ := rfl
+
 private theorem thetaProductSq_S : thetaProductSq ∣[(12 : ℤ)] S = thetaProductSq := by
-  rw [thetaProductSq, show (12 : ℤ) = 6 + 6 by norm_num,
-    _root_.ModularForm.mul_slash_SL2, thetaProduct_S, neg_mul_neg]
+  simpa only [thetaProductSq, Int.reduceAdd, thetaProduct_S, neg_mul_neg] using
+    _root_.ModularForm.mul_slash_SL2 6 6 S thetaProduct thetaProduct
 
 private theorem thetaProductSq_T : thetaProductSq ∣[(12 : ℤ)] T = thetaProductSq := by
-  rw [thetaProductSq, show (12 : ℤ) = 6 + 6 by norm_num,
-    _root_.ModularForm.mul_slash_SL2, thetaProduct_T, neg_mul_neg]
+  simpa only [thetaProductSq, Int.reduceAdd, thetaProduct_T, neg_mul_neg] using
+    _root_.ModularForm.mul_slash_SL2 6 6 T thetaProduct thetaProduct
 
 private theorem thetaProductSq_invariant (γ : SL(2, ℤ)) :
     thetaProductSq ∣[(12 : ℤ)] γ = thetaProductSq :=
@@ -67,8 +76,10 @@ private theorem thetaProductSq_invariant (γ : SL(2, ℤ)) :
 private theorem thetaProductSq_tendsto : Tendsto thetaProductSq atImInfty (𝓝 0) := by
   have h2 : Tendsto H₂ atImInfty (𝓝 0) := isZeroAtImInfty_H₂
   have h := (h2.mul tendsto_H₃_atImInfty).mul tendsto_H₄_atImInfty
-  change Tendsto (fun τ => (H₂ τ * H₃ τ * H₄ τ) * (H₂ τ * H₃ τ * H₄ τ)) _ _
-  simpa only [zero_mul] using h.mul h
+  have hp : Tendsto thetaProduct atImInfty (𝓝 0) := by
+    simpa only [zero_mul] using h.congr (fun τ => (thetaProduct_apply τ).symm)
+  simpa only [zero_mul] using (hp.mul hp).congr
+    (fun τ => (thetaProductSq_apply τ).symm)
 
 private noncomputable def thetaProductCusp : CuspForm 𝒮ℒ 12 where
   toFun := thetaProductSq
@@ -85,14 +96,16 @@ private noncomputable def thetaProductCusp : CuspForm 𝒮ℒ 12 where
     rw [thetaProductSq_invariant]
     exact thetaProductSq_tendsto
 
+private theorem thetaProductCusp_apply (τ : ℍ) :
+    thetaProductCusp τ = thetaProductSq τ := rfl
+
 private theorem thetaProduct_proportional : ∃ c : ℂ, ∀ τ : ℍ,
     c * _root_.ModularForm.discriminant τ = (H₂ τ * H₃ τ * H₄ τ) ^ 2 := by
   obtain ⟨c, hc⟩ := CuspForm.exists_smul_discriminant_of_weight_eq_twelve thetaProductCusp
   refine ⟨c, fun τ => ?_⟩
   have h := DFunLike.congr_fun hc τ
-  change c * _root_.ModularForm.discriminant τ =
-    (H₂ τ * H₃ τ * H₄ τ) * (H₂ τ * H₃ τ * H₄ τ) at h
-  simpa only [sq] using h
+  simpa only [smul_apply, smul_eq_mul, CuspForm.coe_discriminant, thetaProductCusp_apply,
+    thetaProductSq_apply, thetaProduct_apply, sq] using h
 
 private theorem thetaProduct_leading :
     Tendsto (fun τ : ℍ => (H₂ τ * H₃ τ * H₄ τ) ^ 2 /

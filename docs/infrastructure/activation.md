@@ -1,8 +1,24 @@
 # Activating the merge controller
 
-Everything the controller needs is installed with every switch **off**. Activation is a short,
-ordered sequence: one administrator setting, then two tiny reviewed PRs. This page lists the exact
-lines, the order, and what each step should print. Background: [merge controller](merge-controller.md).
+Activation is a short, ordered sequence: one administrator setting, then two tiny reviewed PRs.
+This page lists the exact lines, the order, and what each step should print. Background:
+[merge controller](merge-controller.md).
+
+## Status (2026-11-25)
+
+- [x] Carry-over to "Update branch" heads is merged (#156).
+- [x] Strict up-to-date checks are on for ruleset 21449770 (`strict_required_status_checks_policy:
+  true`, `build` required), verified read-only.
+- [x] The activation flips are merged (this PR): `CONTROLLER: apply`, write permissions,
+  `workflow_id = 428151597`, `checks_app_id = 15368`, `merging = true`, `approving = true`, and all
+  seven authorized reviewers in `approving_reviewers` (each opted in on 2026-11-25). The schedule
+  stays commented out: only a maintainer's manual `workflow_dispatch` can merge.
+- [ ] **Next: the live race probe** ([procedure](#3-live-race-probe)), dispatched with
+  `probe=race`.
+- [ ] **Then:** the schedule PR ([schedule](#4-schedule-one-tiny-pr)).
+
+Until the probe has proven GitHub's refusal, do not dispatch the controller without `pr`. A
+dispatch without `pr` is a live sweep that merges every fully qualifying PR.
 
 ## Order of operations
 
@@ -15,8 +31,8 @@ lines, the order, and what each step should print. Background: [merge controller
 4. **The live race probe passes** ([probe](#3-live-race-probe)).
 5. **The schedule PR lands** ([schedule](#4-schedule-one-tiny-pr)). Unattended merging is on.
 
-Merging also needs the policy prerequisites that land separately: a nonempty `mathematical_paths`
-(for example #149) and an opted-in maintainer in `approving_reviewers` (#154/#155).
+Merging also needs the policy prerequisites, which have landed: a nonempty `mathematical_paths`
+(#149) and opted-in maintainers in `approving_reviewers` (#155, and this activation).
 
 ## 1. Ruleset change (administrator)
 
@@ -96,24 +112,87 @@ shows `ready: true`, `executor.token_view: "never"`, `protection.tested_tree_enf
 
 ## 3. Live race probe
 
-Run [the live procedure](merge-controller.md#tested-tree-through-the-merge): dispatch the controller
-on main with `pr=<B>` and `probe=race`. B must fully qualify. While the run holds, a maintainer
-squash-merges a disposable PR A.
+The probe shows, with the real executor and its job token, that GitHub refuses to land a stale
+combination. The controller finishes its final check, main then moves, and its head-pinned PUT
+must be refused. The full rationale is in [merge controller](merge-controller.md#tested-tree-through-the-merge).
 
-The run log prints, in order:
+**0. Readiness check (merges nothing).** Dispatch the controller for a human-route PR, which can
+never be an automatic merge (for example a docs PR):
+
+```bash
+gh workflow run merge-controller.yml --ref main -f pr=<human-route PR>
+gh run list --workflow merge-controller.yml --limit 1     # then: gh run view <id> --log
+```
+
+The JSON `setup` must show `ready: true`, `merging_requested: true` and `executor_verified: true`,
+with `executor.token_view: "never"` and `executor.token.installation: true`. It must also show
+`protection.tested_tree_enforced: true` and no `halt`. The PR's result is `blocked` (human route).
+Anything else is fixed before going on.
+
+**1. Pick PR B, the candidate.** B must fully qualify:
+- it changes only modules under `SphereCeti/Contour/` or `SphereCeti/E8/` (not `SphereCeti.lean`);
+- it has a current, complete 10/10 official review by an authorized reviewer other than its author;
+- it has the formal APPROVE of an opted-in maintainer (all authorized reviewers are opted in);
+- its trusted run (`trusted-build`, `trusted-scope`, `trusted-merge`) attests current main;
+- its head contains current main.
+
+Find one, read-only:
+
+```bash
+sphereceti reviews                                  # open PRs with their review state
+sphereceti auto-approve-check <N> --json            # must say "would_approve": true
+sphereceti merge-control --pr <N> --json            # preview: results[0].state == "would_merge"
+```
+
+If B lacks the review or the approval, an opted-in maintainer who is not B's author runs
+`sphereceti review <N>`. An all-green review posts the record and submits the APPROVE; do not pass
+`--no-approve`, which opts out for that run. If B is behind main, use "Update branch": the review
+and approval carry over (decision 2), and the new head gets a fresh trusted run. Re-run the two
+checks until `would_merge`.
+
+**2. Prepare PR A, the main mover.** Use any human-route PR, for example a one-line docs fix, that a
+maintainer can squash-merge at once: approved, `build` passing, and up to date with main. A must not
+touch any file B changes.
+
+**3. Dispatch the probe for B:**
+
+```bash
+gh workflow run merge-controller.yml --ref main -f pr=<B> -f probe=race
+gh run watch "$(gh run list --workflow merge-controller.yml --limit 1 --json databaseId --jq '.[0].databaseId')"
+```
+
+**4. While it holds, merge A.** When the log prints
+`probe race: waiting up to 20 minutes for main to move`, a maintainer squash-merges A
+(`gh pr merge <A> --squash`, or the button). The probe sees main move and sends B's head-pinned PUT.
+
+**5. Read the proof.** The log ends:
 
 ```text
-probe race: final check passed: merge #B head <H>; main <M0>; tested tree <tree>
+probe race: final check passed: merge #<B> head <H>; main <M0>; tested tree <tree>
 probe race: waiting up to 20 minutes for main to move
 probe race: main moved to <M1>; sending the head-pinned squash PUT
 probe race: PROOF: GitHub refused the stale combination {"status": "405", "message": "..."}
 ```
 
-The JSON shows `probe.proof: true` and `outcome: "rejected_stale"`. B stays open, and `main_after`
-is `M1`. If main does not move within 20 minutes, the result is `probe_timeout` and no PUT is sent.
-Any other outcome is not a proof: keep the schedule off, investigate, and repeat. A
-`rejected_unexpected` also opens a halt issue, which a maintainer acknowledges with
-`/sphereceti acknowledge-halt` after investigating.
+The JSON shows `probe.proof: true` and `probe.outcome: "rejected_stale"`, the refusal's status and
+message, and `results[0].main_after` equal to `M1`. Confirm read-only:
+
+```bash
+gh api repos/thefundamentaltheor3m/SphereCeti/pulls/<B> --jq '.state, .merged'   # open, false
+gh api repos/thefundamentaltheor3m/SphereCeti/commits/main --jq .sha              # A's merge, M1
+```
+
+**Not a proof:**
+- `probe_timeout`: main did not move within 20 minutes, and no PUT was sent. Repeat.
+- B merged: enforcement is absent. Revert B, keep the schedule off, and investigate.
+- `rejected_unexpected` (for example a 403, or a missing approval): the race was not tested. This
+  also opens a halt issue; after fixing the cause, a maintainer comments
+  `/sphereceti acknowledge-halt` on it, and the probe is repeated.
+- A refusal at step 0 or before the hold (`refused`, `blocked`, `needs_update`): B did not qualify.
+
+**6. Afterwards** B is behind main. "Update branch" carries its review and approval over, and once
+its fresh trusted run passes, a manual `pr=<B>` dispatch (no probe) merges it. Then land the
+schedule PR.
 
 ## 4. Schedule (one tiny PR)
 
