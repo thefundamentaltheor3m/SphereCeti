@@ -165,19 +165,16 @@ theorem addHaar_smul_inter_ball_div {c : ℝ} (hc : c ≠ 0) (s : Set E) (a : E)
   have hball : c • ball a R = ball (c • a) (|c| * R) := by
     simpa [Real.norm_eq_abs] using _root_.smul_ball hc a R
   rw [← hball, ← smul_set_inter₀ hc]
-  simpa using μ.addHaar_singleton_add_smul_div_singleton_add_smul hc 0 0 (s ∩ ball a R) (ball a R)
+  simpa only [Set.singleton_zero, zero_add] using
+    μ.addHaar_singleton_add_smul_div_singleton_add_smul hc 0 0 (s ∩ ball a R) (ball a R)
 
 /-- Nonzero real scaling preserves the upper asymptotic ball density of a set with respect to an
 additive Haar measure, in every finite dimension (including dimension `0`). -/
 theorem limsup_addHaar_smul_inter_ball_div {c : ℝ} (hc : c ≠ 0) (s : Set E) (a : E) :
     limsup (fun R : ℝ ↦ μ ((c • s) ∩ ball a R) / μ (ball a R)) atTop =
       limsup (fun R : ℝ ↦ μ (s ∩ ball a R) / μ (ball a R)) atTop := by
-  have hmap : Filter.map (fun R : ℝ ↦ |c| * R) atTop = atTop := by
-    have hfun : (fun R : ℝ ↦ |c| * R) = fun R : ℝ ↦ R / |c|⁻¹ := by
-      funext R
-      rw [div_inv_eq_mul, mul_comm]
-    rw [hfun]
-    exact Filter.map_div_atTop_eq |c|⁻¹ (inv_pos.mpr (abs_pos.mpr hc))
+  have hmap : Filter.map (fun R : ℝ ↦ |c| * R) atTop = atTop :=
+    (OrderIso.mulLeft₀ |c| (abs_pos.mpr hc)).map_atTop
   rw [μ.limsup_addHaar_inter_ball_div_eq (c • s) a (c • a),
     ← limsup_comp_of_map_eq hmap
       (fun R : ℝ ↦ μ ((c • s) ∩ ball (c • a) R) / μ (ball (c • a) R))]
