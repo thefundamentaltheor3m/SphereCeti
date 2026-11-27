@@ -9,6 +9,8 @@ module
 public import Mathlib.NumberTheory.ModularForms.Discriminant
 public import Mathlib.NumberTheory.ModularForms.EisensteinSeries.E2.MDifferentiable
 public import Mathlib.NumberTheory.ModularForms.LevelOne.Basic
+public import SphereCeti.Analysis.Complex.UpperHalfPlane.Integral
+public import SphereCeti.NumberTheory.ModularForms.RamanujanFormula
 public import TauCeti.Analysis.Complex.UpperHalfPlane.Topology
 
 /-!
@@ -36,6 +38,8 @@ These kernels satisfy the signed transformation laws under `z ↦ -1/z` in dimen
   `SphereCeti.E8.plusKernelLeft_def` and its siblings: the defining formulas.
 * `SphereCeti.E8.phi0Ext_add_one`: `φ₀` is `1`-periodic.
 * `SphereCeti.E8.differentiableOn_phi0Ext`: `φ₀` is holomorphic on the upper half-plane.
+* `SphereCeti.E8.isBigO_phi0`: `φ₀` decays like `exp(-2π Im τ)` at `i∞`.
+* `SphereCeti.E8.integrableOn_phi0Ext_mul_I`: `t ↦ φ₀(it)` is integrable on `(1, ∞)`.
 * `SphereCeti.E8.plusKernel_law_leftRight`, `SphereCeti.E8.plusKernel_law_centralRay`: the signed
   transformation laws of the kernels.
 
@@ -54,9 +58,9 @@ These kernels satisfy the signed transformation laws under `z ↦ -1/z` in dimen
 
 public section
 
-open Complex ModularForm EisensteinSeries
+open Complex ModularForm EisensteinSeries Filter Asymptotics
 open UpperHalfPlane hiding I
-open scoped MatrixGroups
+open scoped Manifold MatrixGroups Real
 
 namespace SphereCeti.E8
 
@@ -109,6 +113,29 @@ theorem differentiableOn_phi0Ext : DifferentiableOn ℂ phi0Ext {z : ℂ | 0 < z
   simp only [Function.comp_apply, ofComplex_apply_of_im_pos hz, Pi.div_apply, Pi.pow_apply,
     Pi.sub_apply, Pi.mul_apply]
   rw [phi0Ext_of_im_pos hz, phi0]
+
+/-- `φ₀` decays like `exp(-2π Im τ)` at `i∞`. -/
+theorem isBigO_phi0 : phi0 =O[atImInfty] fun τ ↦ Real.exp (-2 * π * τ.im) := by
+  -- `(E₂ E₄ - E₆)² = O(exp(-4π Im τ))` and `Δ⁻¹ = O(exp(2π Im τ))`.
+  have hnum := isBigO_E2_mul_E4_sub_E6.pow 2
+  have hden : (fun τ : ℍ ↦ (CuspForm.discriminant τ)⁻¹) =O[atImInfty]
+      fun τ ↦ (Real.exp (-2 * π * τ.im))⁻¹ :=
+    exp_isBigO_discriminant.inv_rev (Eventually.of_forall fun τ h ↦
+      absurd h (Real.exp_pos _).ne')
+  refine ((hnum.mul hden).congr_left fun τ ↦ ?_).congr_right fun τ ↦ ?_
+  · rw [phi0, div_eq_mul_inv]
+  · rw [pow_two, mul_assoc, mul_inv_cancel₀ (Real.exp_pos _).ne', mul_one]
+
+/-- `φ₀` is continuous on the upper half-plane. -/
+theorem continuousOn_phi0Ext : ContinuousOn phi0Ext {z : ℂ | 0 < z.im} :=
+  differentiableOn_phi0Ext.continuousOn
+
+/-- `φ₀` on the imaginary axis, `t ↦ φ₀(it)`, is integrable on `(1, ∞)`. -/
+theorem integrableOn_phi0Ext_mul_I :
+    MeasureTheory.IntegrableOn (fun t : ℝ ↦ phi0Ext (t * I)) (Set.Ioi 1) :=
+  UpperHalfPlane.integrableOn_mul_I_Ioi_of_isBigO one_pos Real.two_pi_pos continuousOn_phi0Ext
+    ((isBigO_phi0.congr_left fun τ ↦ (phi0Ext_of_im_pos τ.im_pos).symm).congr_right
+      fun τ ↦ by ring_nf)
 
 /-- The left-leg kernel `φ₀(-1/(z+1)) (z+1)²` of the `+1` eigencomponent. -/
 noncomputable def plusKernelLeft (z : ℂ) : ℂ := phi0Ext (-1 / (z + 1)) * (z + 1) ^ 2
