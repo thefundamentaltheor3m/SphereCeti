@@ -250,13 +250,14 @@ The notice shows the selected provider and model, including defaults. On complet
 the models recorded for the attempts and the estimated USD cost of this run, including retries.
 Subscription estimates use list prices. Missing usage is displayed as unavailable.
 
-The claim lasts `TTL = 1800` seconds, the review's whole-run deadline (`RUN_TIMEOUT`).
+The claim lasts as long as the review's whole run may: `--run-timeout SECONDS`, else
+`SPHERECETI_RUN_TIMEOUT`, else 1800 seconds.
 
 **Live claims.** A claim counts only if it parses strictly, its GitHub comment author is its
 `actor` (`user:ID` from the API; a forged or relabelled claim is ignored), its state is
 `in_progress`, it names the PR's current head, and it has not expired. Its expiry must also lie
-within 30 minutes (plus 60 seconds of clock slack) of the comment's GitHub `updated_at`, so no
-claim outlives one run. Claims on an older head, expired claims and claims edited to
+within the longest allowed run, 7200 seconds (plus 60 seconds of clock slack), of the comment's
+GitHub `updated_at`, so no claim outlives one run. Claims on an older head, expired claims and claims edited to
 `finished`, `abandoned`, `yielded` or `paused` are ignored.
 
 **Race rule: post, then confirm.** Before posting, a live claim by another contributor stops
@@ -278,8 +279,8 @@ in the race, and still posts its own.
 or yielded for another contributor's claim is skipped with that reason and the batch continues.
 
 **Your own live claim** on the same head (a re-run after a crash, say) is never a blocker:
-the run refreshes your earliest live claim in place, with a new claim ID and a fresh 30-minute
-expiry, instead of posting another comment. It keeps that comment's position in the race.
+the run refreshes your earliest live claim in place, with a new claim ID and a fresh expiry (the
+run timeout), instead of posting another comment. It keeps that comment's position in the race.
 
 **On finish** the run edits the same comment, never adds another: `finished: <link to the
 posted review record>` for a complete, posted review; `Review paused · k of N rubrics completed
@@ -594,8 +595,13 @@ One survey reads current main once, and each exact-commit compare once.
 
 Results stay fail-closed:
 - A PR with more than 100 comments has the rest read through REST, for that PR only.
-- These all exit 2, as before: a queue that changes between pages, a GraphQL error, or any failed
-  read.
+- A queue that changes while it is read (a PR merging, opening or closing between pages) is read
+  again after 5, 15 and 30 seconds, with one progress line: `queue changed during the survey (a PR
+  merged or moved); re-reading…`. This applies to `reviews`, bare `review`, batches and
+  `merge-ready`. Only if it is still changing after the third retry does the command stop, with
+  `the open queue changed during the survey; rerun`.
+- These exit 2 at once, as before: a GraphQL error, an authentication failure, an exhausted rate
+  limit, or any other failed read.
 - A read refused by GitHub's **secondary** rate limit is retried after 5, 15 and 30 seconds. Only
   reads are retried, never a write.
 - An exhausted **primary** limit fails at once and says when it resets.
@@ -673,9 +679,14 @@ Then:
    - The call is `PUT pulls/N/update-branch` with `expected_head_sha` set to the listed head.
    - It waits up to 3 minutes for the new head, and then requires that the record carries over to it
      (#156's rule: update merges only, the same change, no review inputs changed on main).
-   - It then waits for the required checks and review CI on the new head. The wait is bounded by
-     `--wait-ci MIN` (default 20) and reads once a minute. A failure, a held run, or a timeout skips
-     the PR with the reason.
+   - It then waits until every check on the new head has finished, not only the required ones.
+     The trusted run posts `trusted-scope` (the expected human-review failure) before
+     `trusted-build` and `trusted-merge`, so all three must have been posted. The wait is bounded
+     by `--wait-ci MIN` (default 20) and reads once a minute.
+   - Once everything has finished, it judges the head as Ready to merge does. The authenticated
+     scope exception passes; held runs are held; any other failure skips the PR, naming the
+     failing check (or saying the scope exception could not be authenticated). A timeout also
+     skips the PR, with the reason.
 2. **Approval:** if you have no approval of this head, it submits one APPROVE.
    - The approval is pinned to the head (`commit_id`), and its body links the record.
    - It never approves your own PR: that PR is skipped unless another maintainer has approved this
@@ -935,8 +946,12 @@ normal case files intact. Executed arms additionally require `--shadow-budget-us
 [evaluation](evaluation.md) for comparisons, labels and the allowance within the shared daily cap. Its spend is checkpointed into the shared daily ledger after each
 attempt, including unsuccessful runs. No archive is pushed. Daily and per-call reservations
 use upstream cost estimates; they are not a provider-enforced billing limit. Provider failures
-are errors, never approvals. Execution has a 30-minute limit and terminates its process group
-on timeout or interruption. Each provider attempt also has its own `--attempt-timeout` (default
+are errors, never approvals. Execution has a whole-run limit, and it terminates its process
+group on timeout or interruption.
+- The limit is `--run-timeout SECONDS` on `review` and batches, else the environment variable
+  `SPHERECETI_RUN_TIMEOUT`, else 1800. The flag wins.
+- It must be whole seconds from 60 to 7200. A bad value stops the run before any work.
+- The run's `result.json` records it as `run_timeout_s`. Each provider attempt also has its own `--attempt-timeout` (default
 600 seconds); see [when the worker stops spending](worker-execution.md#when-the-worker-stops-spending).
 
 ## Codex model selection and accounting

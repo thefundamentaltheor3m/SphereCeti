@@ -61,13 +61,22 @@ class Hub:
             return states.pop(0)
         return states[0]
 
+    @staticmethod
+    def rollup(state):
+        """A scripted state: 'success'/'pending'/... for `build` alone, or a full rollup with the
+        build check's state."""
+        if isinstance(state, dict):
+            return state['rollup'], state['build']
+        status, conclusion = CHECK[state]
+        return [{'__typename': 'CheckRun', 'status': status, 'conclusion': conclusion, 'name': 'build',
+                 'workflowName': 'CI'}], state
+
     def gh_shape(self, pr, advance=False):
-        status, conclusion = CHECK[self.ci_state(pr, pr['head'], advance)]
+        rollup, _ = self.rollup(self.ci_state(pr, pr['head'], advance))
         return gh_pr(pr['number'], title=pr['title'], author={'login': LOGINS[pr['author']]}, headRefOid=pr['head'],
                      baseRefOid=self.main, baseRefName=pr['base_ref'], headRefName=pr['head_ref'],
                      isDraft=pr['draft'], updatedAt=f'2026-11-2{pr["number"] % 5}T00:00:00Z',
-                     statusCheckRollup=[{'__typename': 'CheckRun', 'status': status, 'conclusion': conclusion,
-                                         'name': 'build', 'workflowName': 'CI'}])
+                     statusCheckRollup=rollup)
 
     # The survey reader (worker_cli.GitHub's shape).
     def reader(self):
@@ -116,7 +125,7 @@ class Hub:
         if path.startswith('commits/') and '/check-runs' in path:
             head = path.split('/')[1]
             pr = next(p for p in self.prs.values() if p['head'] == head)
-            status, conclusion = CHECK[self.ci_state(pr, head)]
+            status, conclusion = CHECK[self.rollup(self.ci_state(pr, head))[1]]
             return [{'total_count': 1, 'check_runs': [{'id': 1, 'name': 'build', 'head_sha': head,
                                                        'status': status.lower(), 'app': {'id': 15368},
                                                        'conclusion': (conclusion or '').lower() or None}]}]
@@ -231,6 +240,51 @@ class MergeReadyTest(unittest.TestCase):
         self.assertEqual(merge[2], {'merge_method': 'squash', 'sha': sha('f2')})
         self.assertEqual(report['counts'], {'updated': 1, 'approved': 2, 'merged': 2, 'planned': 0, 'skipped': 0})
         self.assertGreaterEqual(self.t, 120)  # it waited politely for CI on the new head
+
+    def test_the_expected_scope_failure_posted_early_waits_for_every_check_then_merges(self):
+        # Live, #113/#75/#112/#111/#165/#171: trusted-scope (the expected human-review failure) was
+        # posted before trusted-build and trusted-merge finished, so the head read as "CI failed"
+        # about four minutes after the update, and every updated PR was skipped.
+        def status(context, state):
+            return {'__typename': 'StatusContext', 'context': context, 'state': state,
+                    'targetUrl': 'https://github.com/x/actions/runs/7/attempts/1'}
+
+        def run(name, status_, conclusion):
+            return {'__typename': 'CheckRun', 'name': name, 'status': status_, 'conclusion': conclusion,
+                    'workflowName': 'CI' if name == 'build' else 'Trusted candidate'}
+        scope = status('trusted-scope', 'FAILURE')
+        early = [{'rollup': [scope, run('build', 'IN_PROGRESS', None), run('candidate', 'IN_PROGRESS', None)],
+                  'build': 'pending'},
+                 {'rollup': [scope, run('build', 'COMPLETED', 'SUCCESS'), run('candidate', 'COMPLETED', 'SUCCESS'),
+                             status('trusted-build', 'PENDING')], 'build': 'success'}]
+        done = {'rollup': [scope, run('build', 'COMPLETED', 'SUCCESS'), run('candidate', 'COMPLETED', 'SUCCESS'),
+                           status('trusted-build', 'SUCCESS'), status('trusted-merge', 'SUCCESS')], 'build': 'success'}
+        from unittest.mock import patch
+        verdicts = []
+
+        def scope_check(api, project, pr, check, settings):
+            verdicts.append(pr['headRefOid'])  # only ever asked once every other check has passed
+            return {'accepted': True, 'note': None}
+        self.hub.add(2, behind=1, update={'head': sha('f2'), 'ci': [*early, done]})
+        with patch('sphereceti.worker_checks.human_review_scope', side_effect=scope_check):
+            report = self.sweep(apply=True)
+        self.assertEqual(self.outcomes(report)[2], ('merged', None))
+        self.assertEqual(verdicts, [sha('f2')])
+        # Once everything has finished, a real failure is named, and an unauthenticated scope
+        # exception is said as such.
+        for final, rejected, reason in (
+                ({**done, 'rollup': [*done['rollup'][:2], run('candidate', 'COMPLETED', 'FAILURE'),
+                                     *done['rollup'][3:]]}, False, 'candidate failed'),
+                (done, True, 'trusted-scope failed and its human-review exception could not be authenticated')):
+            with self.subTest(reason=reason):
+                self.hub = Hub()
+                self.hub.add(2, behind=1, update={'head': sha('f2'), 'ci': [*early, final]})
+                with patch('sphereceti.worker_checks.human_review_scope',
+                           return_value=False if rejected else {'accepted': True, 'note': None}):
+                    report = self.sweep(apply=True)
+                outcome, why = self.outcomes(report)[2]
+                self.assertEqual(outcome, 'skipped')
+                self.assertIn(reason, why)
 
     def test_an_update_whose_record_does_not_carry_over_is_skipped(self):
         self.hub.add(2, behind=1, update={'head': sha('f2')})

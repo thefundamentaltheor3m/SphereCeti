@@ -118,6 +118,18 @@ def survey_fields(pr):
             "baseRefName": pr["baseRefName"], "headRefName": pr["headRefName"]}
 
 
+CHANGED = "the open queue changed during the survey; rerun"
+
+
+class QueueChanged(WorkerError):
+    """The queue moved while it was being read (a PR merged, opened or closed): read it again."""
+
+
+def changed(condition):
+    if not condition:
+        raise QueueChanged(CHANGED)
+
+
 def listing(api, repository, text):
     """(actor, PR nodes, total) from every page of one query; a queue that moves between pages raises."""
     owner, name = repository.split("/")
@@ -136,11 +148,11 @@ def listing(api, repository, text):
         require(isinstance(prs.get("nodes"), list) and type(prs.get("totalCount")) is int,
                 "incomplete open-PR listing; queue is unknown")
         require(prs["totalCount"] <= MAX_PRS, "open queue exceeds 100 PRs or is incomplete; use explicit --pr targeting")
-        require(total in (None, prs["totalCount"]), "the open queue changed during the survey; rerun")
+        changed(total in (None, prs["totalCount"]))
         total = prs["totalCount"]
         for pr in prs["nodes"]:
             require(isinstance(pr, dict) and type(pr.get("number")) is int, "incomplete PR observation")
-            require(pr["number"] not in seen, "the open queue changed during the survey; rerun")
+            changed(pr["number"] not in seen)
             seen.add(pr["number"])
             nodes.append(pr)
         info = prs.get("pageInfo") or {}
@@ -148,7 +160,7 @@ def listing(api, repository, text):
             break
         cursor = info.get("endCursor")
         require(isinstance(cursor, str) and cursor, "incomplete open-PR listing; queue is unknown")
-    require(len(nodes) == total, "the open queue changed during the survey; rerun")
+    changed(len(nodes) == total)
     require(isinstance(actor, str) and actor, "missing authenticated actor")
     return actor, nodes, total
 
@@ -158,8 +170,7 @@ def fetch(api, repository):
     from .pool import concurrent, ordered
     (actor, prs, _), (_, listed, _) = ordered(lambda text: listing(api, repository, text), QUERIES,
                                               parallel=concurrent(api))
-    require([p["number"] for p in prs] == [p["number"] for p in listed],
-            "the open queue changed during the survey; rerun")
+    changed([p["number"] for p in prs] == [p["number"] for p in listed])
     raw = [survey_fields(pr) for pr in prs]
     comments = {}
     for pr in listed:
