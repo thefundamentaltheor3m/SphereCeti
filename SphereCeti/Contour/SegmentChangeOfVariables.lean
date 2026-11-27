@@ -14,24 +14,30 @@ public import SphereCeti.Contour.ClosedOneForm
 /-!
 # Change of variables along a segment
 
+Contour integrals are Mathlib's `curveIntegral` of the scalar one-form `scalarOneForm F` along
+`Path.segment a b`.  The parametrisation `z(t) = a + t (b - a)`, `0 ≤ t ≤ 1`, turns the contour
+integral of `F : ℂ → ℂ` along the segment `[a, b]` into the interval integral
+`∫₀¹ F(z(t)) (b - a) dt`.
+
 Let `f` be continuous on the segment `[a, b] ⊆ ℂ` and complex differentiable at its interior
 points with derivative `f'`, and suppose `F z = f' z * G (f z)` there.  Then the contour integral
 of `F` along the segment equals the contour integral of `G` along its image under `f`:
 `∫_{[a, b]} F(z) dz = ∫_{f ∘ [a, b]} G(w) dw`.  This is the substitution `w = f z` in contour
 integrals, used for instance with the inversion `z ↦ -1/z` to move segments of a contour.
 
-Contour integrals are Mathlib's `curveIntegral` of the scalar one-form `scalarOneForm F` along
-`Path.segment a b`, and the image path is `Path.map'`.  No integrability hypothesis is needed: the
-two sides are interval integrals over `[0, 1]` whose integrands agree at every interior parameter,
-so the integrals agree whether or not they converge.
+The image path is `Path.map'`.  No integrability hypothesis is needed: the two sides are interval
+integrals over `[0, 1]` whose integrands agree at every interior parameter, so the integrals agree
+whether or not they converge.
 
 ## Main results
 
+* `SphereCeti.Contour.curveIntegral_segment_scalarOneForm`: the contour integral along `[a, b]` as
+  an interval integral over the parametrisation `z(t) = a + t (b - a)`.
 * `SphereCeti.Contour.curveIntegral_segment_change_of_variables`: the substitution formula above.
 
 ## Provenance
 
-The statement follows the `gauss2` branch of Sphere-Packing-Lean at commit
+The change-of-variables statement follows the `gauss2` branch of Sphere-Packing-Lean at commit
 `01f23eccf963c50250c9e48dd103e8cc88c36f85`, file
 `SpherePacking/Contour/MobiusInv/WedgeSetContour.lean`.  The proofs in this file were written
 independently of that source; no proof text is copied from it.
@@ -43,6 +49,15 @@ open Set AffineMap
 open scoped Topology
 
 namespace SphereCeti.Contour
+
+/-- The contour integral of `F` along the segment `[a, b]` is the interval integral
+`∫₀¹ F(a + t (b - a)) (b - a) dt`. -/
+theorem curveIntegral_segment_scalarOneForm (F : ℂ → ℂ) (a b : ℂ) :
+    (∫ᶜ z in Path.segment a b, scalarOneForm F z) =
+      ∫ t in (0 : ℝ)..1, F (a + t * (b - a)) * (b - a) := by
+  rw [curveIntegral_segment]
+  refine intervalIntegral.integral_congr fun t _ ↦ ?_
+  rw [scalarOneForm_apply, lineMap_apply_module', Complex.real_smul, add_comm]
 
 /-- Change of variables along a segment: if `f` is continuous on the segment from `a` to `b`, has
 derivative `f' z` at each interior point `z`, and `F z = f' z * G (f z)` there, then the contour
