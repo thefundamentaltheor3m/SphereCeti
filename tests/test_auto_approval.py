@@ -463,30 +463,43 @@ class AutoApprovalTests(unittest.TestCase):
         h.statuses[0].update(state='failure', description=HUMAN_SCOPE)
         self.assertIn('trusted_checks: trusted-scope is not successful', h.decide(assume=None)['reasons'])
 
-    def test_shipped_policy_admits_module_only_contour_and_e8_prs(self):
+    def test_shipped_policy_admits_module_only_prs_in_any_topic(self):
         shipped = parse_policy((ROOT / 'policy/automation.toml').read_text()).mathematical_paths
-        self.assertEqual(shipped, ('SphereCeti/Contour/', 'SphereCeti/E8/'))
+        self.assertEqual(shipped, ('SphereCeti/',))
 
-        def contour(repo):
-            (repo / 'SphereCeti/Contour').mkdir(exist_ok=True)
-            (repo / 'SphereCeti/Contour/TopEdgeDecay.lean').write_text('module\n\n-- proof\n')
+        def new_topic(repo):
+            (repo / 'SphereCeti/NumberTheory').mkdir(exist_ok=True)
+            (repo / 'SphereCeti/NumberTheory/Foo.lean').write_text('module\n\n-- proof\n')
 
-        for name, change in (('Contour', contour), ('E8', proof)):
+        for name, change in (('NumberTheory, a new topic', new_topic), ('E8', proof)):
             with self.subTest(topic=name):
                 report = self.harness(change, policy_paths=shipped).decide(assume=None)
                 self.assertTrue(report['would_approve'], report['reasons'])
                 self.assertFalse(report['hypothetical'])
                 self.assertEqual(status(report)['paths'], 'pass')
-        # Exporting the Contour module from the frozen root routes the PR to a human.
-        def with_root(repo):
-            contour(repo)
-            root = repo / 'SphereCeti.lean'
-            root.write_text(root.read_text() + 'public import SphereCeti.Contour.TopEdgeDecay\n')
-        report = self.harness(with_root, policy_paths=shipped).decide(assume=None)
-        self.assertFalse(report['would_approve'])
-        ineligible = report['requirements'][0]['evidence']['ineligible']
-        self.assertEqual([(p['path'], p['reason']) for p in ineligible],
-                         [('SphereCeti.lean', 'library root requires human approval')])
+
+        def write(path, text='module\n'):
+            def change(repo):
+                new_topic(repo)
+                (repo / path).parent.mkdir(parents=True, exist_ok=True)
+                (repo / path).write_text(text)
+            return change
+        root = (ROOT / 'SphereCeti.lean').read_text()
+        cases = {'SphereCeti.lean': (write('SphereCeti.lean', root + 'public import SphereCeti.NumberTheory.Foo\n'),
+                                     'library root requires human approval'),
+                 'SphereCeti/Basic.lean': (write('SphereCeti/Basic.lean', 'module\n-- changed\n'),
+                                           'protected library module requires human approval'),
+                 'SphereCeti/Pinned.lean': (write('SphereCeti/Pinned.lean'),
+                                            'protected library module requires human approval'),
+                 'SphereCeti/Suggested.lean': (write('SphereCeti/Suggested.lean'),
+                                               'protected library module requires human approval'),
+                 'SphereCetiExtra/Foo.lean': (write('SphereCetiExtra/Foo.lean'), 'outside the proof-topic allowlist')}
+        for path, (change, reason) in cases.items():
+            with self.subTest(path=path):
+                report = self.harness(change, policy_paths=shipped).decide(assume=None)
+                self.assertFalse(report['would_approve'])
+                ineligible = report['requirements'][0]['evidence']['ineligible']
+                self.assertEqual([(p['path'], p['reason']) for p in ineligible], [(path, reason)])
 
     def test_hypothetical_allowlist_globs_are_narrow(self):
         topic = glob('SphereCeti/E8/**')

@@ -7,18 +7,19 @@ Authors: SphereCeti contributors
 module
 
 public import Mathlib.MeasureTheory.Measure.Haar.InnerProductSpace
+public import TauCeti.Analysis.Normed.Lp.PiLp
 
 /-!
 # Coordinate boxes in Euclidean space and their boundary layers
 
 The centered coordinate box of radius `R` in `EuclideanSpace ℝ ι`, for a finite index type `ι` of
 cardinality `n`, is the set of points all of whose coordinates have absolute value at most `R`;
-for `R ≥ 0` its volume is `(2R)^n`.  For `R < 0` it is empty when `ι` is nonempty; when `ι` is
-empty every box is the whole one-point space, of volume `1`.  The boundary layer of thickness `t`
-is the box of radius `R + t` with the box of radius `R - t` removed; for `R ≥ t ≥ 0` its volume is
-`(2(R + t))^n - (2(R - t))^n`.  For fixed `t ≥ 0`, the boundary layer is negligible compared with
-the box as `R → ∞`: for `R > t` the ratio of volumes is `(1 + t / R)^n - (1 - t / R)^n`, which
-tends to `0`.
+for `R ≥ 0` its volume is `(2R)^n`, and its points have norm at most `√n R`.  For `R < 0` it is
+empty when `ι` is nonempty; when `ι` is empty every box is the whole one-point space, of volume
+`1`.  The boundary layer of thickness `t` is the box of radius `R + t` with the box of radius
+`R - t` removed; for `R ≥ t ≥ 0` its volume is `(2(R + t))^n - (2(R - t))^n`.  For fixed `t ≥ 0`,
+the boundary layer is negligible compared with the box as `R → ∞`: for `R > t` the ratio of
+volumes is `(1 + t / R)^n - (1 - t / R)^n`, which tends to `0`.
 
 Boxes are the patches from which a sphere packing is approximated by periodic packings: the
 centers in a box are repeated periodically, and only the centers near the boundary of the box
@@ -33,6 +34,8 @@ are lost.
 
 * `EuclideanSpace.mem_centeredBox`, `EuclideanSpace.mem_boxBoundaryLayer`: membership in a box and
   in its boundary layer.
+* `EuclideanSpace.norm_le_of_mem_centeredBox`: points of the box of radius `R ≥ 0` have norm at
+  most `√n R`.
 * `EuclideanSpace.volume_centeredBox`: the box of radius `R` has volume `ENNReal.ofReal (2R) ^ n`,
   that is `(2R)^n` for `R ≥ 0`, and `0` for `R < 0` when `ι` is nonempty.
 * `EuclideanSpace.boundaryLayer_volume_div_volume_tendsto_zero`: the volume of the boundary layer
@@ -101,6 +104,15 @@ variable [Fintype ι]
 theorem measurableSet_centeredBox (R : ℝ) : MeasurableSet (centeredBox ι R) := by
   rw [centeredBox_eq_preimage]
   exact (MeasurableSet.univ_pi fun _ ↦ measurableSet_Icc).preimage (by fun_prop)
+
+/-- A point of the centered box of radius `R ≥ 0` has norm at most `√(card ι) * R`. -/
+theorem norm_le_of_mem_centeredBox {R : ℝ} (hR : 0 ≤ R) {x : EuclideanSpace ℝ ι}
+    (hx : x ∈ centeredBox ι R) : ‖x‖ ≤ √(Fintype.card ι) * R := by
+  -- The coordinate vector of `x` lies in the sup-norm ball of radius `R`.
+  have h : x.ofLp ∈ Metric.closedBall (WithLp.ofLp (0 : EuclideanSpace ℝ ι)) R := by
+    rw [WithLp.ofLp_zero, mem_closedBall_zero_iff, pi_norm_le_iff_of_nonneg hR]
+    exact fun i ↦ (Real.norm_eq_abs _).trans_le (mem_centeredBox.mp hx i)
+  exact mem_closedBall_zero_iff.mp (PiLp.preimage_ofLp_closedBall_subset_closedBall 0 R h)
 
 /-- The centered box of radius `R` in `EuclideanSpace ℝ ι` has volume
 `ENNReal.ofReal (2R) ^ Fintype.card ι`: this is `(2R)^n` for `R ≥ 0`, and `0` for `R < 0` when `ι`
