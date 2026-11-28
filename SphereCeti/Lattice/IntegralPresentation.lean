@@ -72,6 +72,10 @@ therefore apply to the lattice in Gram coordinates: it is positive definite, and
 * `SphereCeti.EuclideanLattice.IntegralPresentation.isRootless_iff_shell_two_eq_empty`: the lattice
   in Gram coordinates is rootless (`TauCeti.IntegralLattice.IsRootless`) exactly when `Λ` has no
   vector of squared length two.
+* `SphereCeti.EuclideanLattice.IntegralPresentation.representationNumber_eq_ncard_vectorsOfNorm`,
+  `SphereCeti.EuclideanLattice.IntegralPresentation.isRootless_iff_representationNumber_eq_zero`:
+  the representation numbers of `Λ` count the vectors of each norm in Gram coordinates, and the
+  presentation is rootless exactly when the representation number of `2` vanishes.
 
 ## References
 
@@ -409,6 +413,19 @@ theorem isRootless_iff_shell_two_eq_empty (P : IntegralPresentation Λ) :
     P.toIntegralLattice.IsRootless ↔ ZLattice.shell Λ 2 = ∅ := by
   rw [TauCeti.IntegralLattice.isRootless_iff, ← Set.isEmpty_coe_sort, ← Set.isEmpty_coe_sort]
   exact_mod_cast (P.shellEquiv 2).isEmpty_congr.symm
+
+/-- The representation number of `n` by `Λ`, the number of vectors of squared length `n`, is the
+number of vectors of norm `n` of the lattice in Gram coordinates. -/
+theorem representationNumber_eq_ncard_vectorsOfNorm (P : IntegralPresentation Λ) (n : ℕ) :
+    ZLattice.representationNumber Λ n = (P.toIntegralLattice.vectorsOfNorm n).ncard := by
+  rw [ZLattice.representationNumber_def, ← Nat.card_coe_set_eq, ← Nat.card_coe_set_eq]
+  exact Nat.card_congr (P.shellEquiv n)
+
+/-- A presentation is rootless exactly when `Λ` has no root, that is when its representation number
+of `2` vanishes. -/
+theorem isRootless_iff_representationNumber_eq_zero (P : IntegralPresentation Λ) :
+    P.toIntegralLattice.IsRootless ↔ ZLattice.representationNumber Λ 2 = 0 := by
+  rw [ZLattice.representationNumber_eq_zero_iff, isRootless_iff_shell_two_eq_empty]
 
 end IntegralPresentation
 
