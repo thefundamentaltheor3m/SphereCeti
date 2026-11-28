@@ -45,6 +45,8 @@ therefore apply to the lattice in Gram coordinates: it is positive definite, and
 
 ## Main statements
 
+* `SphereCeti.EuclideanLattice.IntegralPresentation.nonempty_of_isIntegral`: every integral full
+  lattice in `ℝ^d` has an integral presentation.
 * `SphereCeti.EuclideanLattice.IntegralPresentation.isIntegral_real`: a presented lattice is
   integral.
 * `SphereCeti.EuclideanLattice.IntegralPresentation.ratModelIsometry_single`: the isometry sends
@@ -198,6 +200,15 @@ example (P : IntegralPresentation Λ) (i : Fin d) :
   simp
 
 variable [DiscreteTopology Λ] [IsZLattice ℝ Λ]
+
+/-- Every integral full lattice in `ℝ^d` has an integral presentation: a `ℤ`-basis indexed by
+`Fin d`, together with the integer matrix of the inner products of its vectors. -/
+theorem nonempty_of_isIntegral (h : ZLattice.IsIntegral Λ) : Nonempty (IntegralPresentation Λ) := by
+  have := ZLattice.module_free ℝ Λ
+  have := ZLattice.module_finite ℝ Λ
+  let b : Basis (Fin d) ℤ Λ :=
+    Module.finBasisOfFinrankEq ℤ Λ ((ZLattice.rank ℝ Λ).trans finrank_euclideanSpace_fin)
+  exact ⟨ofBasis b (fun i j ↦ h.integralForm (b i) (b j)) fun i j ↦ h.integralForm_cast _ _⟩
 
 /-- The presentation basis, carried into the rational model, has Gram matrix `P.gram`. -/
 private theorem gramMatrix_ratModel (P : IntegralPresentation Λ) :
